@@ -60,7 +60,7 @@ enum Preview {
             <circle cx="22" cy="22" r="6" fill="#ff5f57"/><circle cx="43" cy="22" r="6" fill="#febc2e"/><circle cx="64" cy="22" r="6" fill="#28c840"/>
             <text x="\(pixelsWide / 2)" y="27" text-anchor="middle" fill="#c9d1d9" font-family="sans-serif" font-size="13">agent-monitor · process view</text>
             <text x="\(pixelsWide - 24)" y="27" text-anchor="end" fill="#8b949e" font-family="sans-serif" font-size="11">SYNTHETIC DATA</text>
-            <g font-family="Menlo, DejaVu Sans Mono, monospace" font-size="15" xml:space="preserve">
+            <g font-family="Menlo, DejaVu Sans Mono, monospace" font-size="15">
 
             """
         for (index, line) in lines.enumerated() {
@@ -74,8 +74,14 @@ enum Preview {
             case .heavy: (color, weight) = ("#e3b341", "normal")
             case .normal, .muted: (color, weight) = ("#c9d1d9", "normal")
             }
+            // SVG 2 lengthAdjust can scale glyphs; terminal cells need positions, not fitted text.
+            // https://www.w3.org/TR/SVG2/text.html#TextElementLengthAdjustAttribute
+            let glyphs = text.enumerated().compactMap { column, character -> String? in
+                guard character != " " else { return nil }
+                return "<tspan x=\"\(24 + column * 9)\">\(escape(String(character)))</tspan>"
+            }.joined()
             output += """
-                <text x="24" y="\(69 + index * 23)" fill="\(color)" font-weight="\(weight)" textLength="\(text.count * 9)" lengthAdjust="spacingAndGlyphs">\(escape(text))</text>
+                <text y="\(69 + index * 23)" fill="\(color)" font-weight="\(weight)" aria-label="\(escape(text))">\(glyphs)</text>
 
                 """
         }

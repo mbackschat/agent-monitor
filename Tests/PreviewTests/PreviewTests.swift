@@ -4,6 +4,17 @@ import Testing
 
 @testable import monitor_preview
 
+@Test(arguments: ["I   W", "PID      CPU%"])
+func previewPositionsTerminalCellsWithoutStretchingGlyphs(text: String) {
+    let svg = Preview.svg(lines: [ReportLine(text)], width: 40, height: 8)
+    #expect(!svg.contains("textLength="))
+    #expect(!svg.contains("lengthAdjust="))
+    for (column, character) in text.enumerated() where character != " " {
+        #expect(svg.contains("<tspan x=\"\(24 + column * 9)\">\(character)</tspan>"))
+    }
+    #expect(svg.contains("aria-label=\"\(text)\""))
+}
+
 @Test func previewEscapesRendererTextWithoutInterpretingMarkup() {
     let svg = Preview.svg(lines: [ReportLine("<worker> & \"args\"")], width: 40, height: 8)
     #expect(svg.contains("&lt;worker&gt; &amp; &quot;args&quot;"))

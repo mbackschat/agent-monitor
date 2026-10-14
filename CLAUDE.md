@@ -38,6 +38,8 @@ On a fresh clone, the tracked skill symlinks do not resolve until `install` popu
 
 Keep the generated [README preview](docs/assets/tui-preview.svg) current when changing layout, displayed text, grouping, details, or synthetic fixtures. Run `bash scripts/preview.sh update`, visually review the SVG, and commit it with the change; then run `bash scripts/preview.sh check`. Edit [the generator and fixture](Tools/Preview/), never the SVG by hand. Use synthetic identities and paths only; never sample real processes for documentation images. The generator is development-only and must not be included in release archives. CI runs preview drift checks and Swift tests on every pull request and main push. The SVG verifies text/layout, not terminal interaction or exact theme colors; preserve PTY tests and visually review TUI style changes. See [preview maintenance](docs/development.md#readme-preview).
 
+Preserve fixed character positions in the preview SVG; do not stretch rows with `textLength`/`lengthAdjust` or rely on whitespace preservation for terminal columns. Validate browser appearance when available and state explicitly when only a converter render was inspected.
+
 Use four-space indentation, the bundled `swift format`, Swift 6 concurrency checking, and enum-based switches. Keep presentation separate from collection. Comments explain constraints and cite their basis. Write Markdown with one paragraph per physical line and regular links to other documents.
 
 ## Testing Guidelines
