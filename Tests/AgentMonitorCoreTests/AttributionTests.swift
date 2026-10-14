@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import AgentMonitorCore
@@ -209,4 +210,31 @@ func sample(
     let row = try #require(monitor.findings().first)
     #expect(row.attribution.context == .terminal)
     #expect(row.attribution.terminal == "ttys016")
+}
+
+@Test func attributingMarkerExposesClaudeInboxOnlyOutsideSnapshots() throws {
+    let socket = "/tmp/cc-socks/10.sock"
+    let runtime = sample(10, executable: "/Users/test/.local/share/claude/versions/2.1.300", memory: 1)
+    let shell = sample(20, parent: 10, memory: 1)
+    let worker = sample(30, parent: 20)
+    var monitor = Monitor()
+    monitor.ingest([runtime, shell, worker])
+    monitor.enrich(
+        ProcessArguments.parse(
+            argumentBuffer(environment: [
+                "CLAUDE_CODE_SESSION_ID=\(sessionA)", "CLAUDE_CODE_MESSAGING_SOCKET=\(socket)",
+            ])), for: shell.identity)
+    #expect(monitor.attributingMarker(for: worker.identity)?.inboxSocket == socket)
+    #expect(monitor.attributingMarker(for: runtime.identity) == nil)
+    let json = try JSONEncoder().encode(monitor.findings())
+    #expect(!String(decoding: json, as: UTF8.self).contains("cc-socks"))
+}
+
+@Test func unresolvedAttributionHasNoAttributingMarker() {
+    let runtime = sample(10, executable: "/usr/local/bin/claude", memory: 1)
+    let worker = sample(20, parent: 10)
+    var monitor = Monitor()
+    monitor.ingest([runtime, worker])
+    monitor.enrich(ProcessMetadata(marker: SessionMarker(threadID: sessionA)), for: worker.identity)
+    #expect(monitor.attributingMarker(for: worker.identity) == nil)
 }

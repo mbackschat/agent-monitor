@@ -4,6 +4,26 @@ import Foundation
 
 public enum NativeActions {
     public static func inspect(_ expected: HeavyProcess) throws -> HeavyProcess {
+        let monitor = try observe(expected)
+        guard let current = monitor.finding(for: expected.process) else {
+            throw ActionFailure("Process is no longer available. Select it again.")
+        }
+        try validate(expected)
+        return current
+    }
+
+    /// Claude exports each session's inbox beside its session marker, so read it from the marker
+    /// that attributes the process now, never from a cached row or the runtime's own environment.
+    public static func claudeInbox(for expected: HeavyProcess) throws -> String {
+        let monitor = try observe(expected)
+        guard let marker = monitor.attributingMarker(for: expected.process), marker.provider == .claude,
+            marker.threadID == expected.attribution.threadID, let inbox = marker.inboxSocket
+        else { throw ActionFailure("Claude session inbox is unavailable. Nothing was sent.") }
+        try validate(expected)
+        return inbox
+    }
+
+    private static func observe(_ expected: HeavyProcess) throws -> Monitor {
         try validate(expected)
         let reader = try NativeProcessReader()
         let samples = try reader.snapshot().samples
@@ -21,11 +41,7 @@ public enum NativeActions {
         var monitor = Monitor()
         monitor.ingest(chain)
         for sample in chain { monitor.enrich(reader.metadata(for: sample), for: sample.identity) }
-        guard let current = monitor.finding(for: expected.process) else {
-            throw ActionFailure("Process is no longer available. Select it again.")
-        }
-        try validate(expected)
-        return current
+        return monitor
     }
 
     public static func terminate(_ expected: HeavyProcess) throws {

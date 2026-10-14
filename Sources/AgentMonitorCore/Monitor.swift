@@ -87,7 +87,18 @@ public struct Monitor: Sendable {
             process: identity, executable: node.sample.executable, name: node.sample.name,
             cpuPercent: node.cpuPercent, footprintBytes: node.sample.footprintBytes,
             cwd: node.metadata.cwd, command: node.metadata.command, metadataStatus: node.metadata.status,
-            attribution: attribute(identity))
+            attribution: resolve(identity).attribution)
+    }
+
+    /// The session marker behind a live process's resolved attribution. Action routing reads
+    /// provider details such as Claude's inbox here so they stay out of JSONL snapshots.
+    public func attributingMarker(for identity: ProcessIdentity) -> SessionMarker? {
+        guard live.contains(identity) else { return nil }
+        let resolved = resolve(identity)
+        switch resolved.attribution.evidence {
+        case .marker, .inheritedMarker: return resolved.marker
+        case .writerLock, .runtimeOnly, .ambiguous, .unknown: return nil
+        }
     }
 
     private func heavyIdentities(thresholds: Thresholds) -> [ProcessIdentity] {
@@ -109,7 +120,7 @@ public struct Monitor: Sendable {
         return path
     }
 
-    private func attribute(_ identity: ProcessIdentity) -> Attribution {
+    private func resolve(_ identity: ProcessIdentity) -> (attribution: Attribution, marker: SessionMarker?) {
         var path: [ProcessIdentity] = []
         var marker: SessionMarker?
         var markerOwner: ProcessIdentity?
@@ -153,7 +164,7 @@ public struct Monitor: Sendable {
                 thread = nil
             }
         }
-        return Attribution(
+        let attribution = Attribution(
             provider: providerConflict ? nil : marker?.provider ?? runtime?.sample.runtimeProvider,
             evidence: evidence,
             context: runtime.map {
@@ -165,6 +176,7 @@ public struct Monitor: Sendable {
             terminal: runtime?.metadata.terminal ?? runtime?.sample.terminal,
             runtimeDirectory: runtime?.metadata.cwd, candidateThreadIDs: candidates, ancestry: path
         )
+        return (attribution, marker)
     }
 }
 

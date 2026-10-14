@@ -60,11 +60,17 @@ public struct SessionMarker: Equatable, Codable, Sendable {
     public let provider: AgentProvider
     public let threadID: String
     public let rootSessionID: String?
+    /// Claude's per-session inbox socket, exported beside the session marker; routing detail only.
+    public let inboxSocket: String?
 
-    public init(threadID: String, rootSessionID: String? = nil, provider: AgentProvider = .codex) {
+    public init(
+        threadID: String, rootSessionID: String? = nil, provider: AgentProvider = .codex,
+        inboxSocket: String? = nil
+    ) {
         self.provider = provider
         self.threadID = threadID
         self.rootSessionID = rootSessionID
+        self.inboxSocket = inboxSocket
     }
 }
 

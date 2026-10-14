@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import AgentMonitorActions
+@testable import AgentMonitorCore
 
 private let selected = "11111111-1111-4111-8111-111111111111"
 private let root = "22222222-2222-4222-8222-222222222222"
@@ -10,13 +11,13 @@ private let root = "22222222-2222-4222-8222-222222222222"
 func codexHandshakeReadsSummaryAndQueuesLiteralArguments(mode: String) throws {
     let fixture = try FakeCodex(mode: mode)
     defer { fixture.remove() }
-    let recipients = try fixture.client.recipients(for: selected)
+    let recipients = try fixture.client.recipients(for: target(selected))
     #expect(recipients.root.id == root)
     #expect(recipients.selected.id == selected)
     #expect(recipients.choices.count == 2)
-    #expect(try fixture.client.recipients(for: root).choices.count == 1)
+    #expect(try fixture.client.recipients(for: target(root)).choices.count == 1)
     let message = "PID 42\n'$(echo no)' `pwd`"
-    try fixture.client.queue(message, to: root)
+    try fixture.client.send(message, to: root, for: target(selected))
     let calls = try fixture.calls()
     #expect(calls.contains { $0.contains("\"includeTurns\": false") })
     let arguments = try #require(calls.last)
@@ -30,7 +31,7 @@ func codexHandshakeReadsSummaryAndQueuesLiteralArguments(mode: String) throws {
 func codexRejectsUnverifiedSessions(mode: String) throws {
     let fixture = try FakeCodex(mode: mode)
     defer { fixture.remove() }
-    #expect(throws: (any Error).self) { try fixture.client.recipients(for: selected) }
+    #expect(throws: (any Error).self) { try fixture.client.recipients(for: target(selected)) }
     #expect(try fixture.calls().allSatisfy { !$0.contains("\"queue\"") })
 }
 
@@ -38,7 +39,7 @@ func codexRejectsUnverifiedSessions(mode: String) throws {
 func unavailableRootDoesNotSilentlySelectChild(mode: String) throws {
     let fixture = try FakeCodex(mode: mode)
     defer { fixture.remove() }
-    let recipients = try fixture.client.recipients(for: selected)
+    let recipients = try fixture.client.recipients(for: target(selected))
     #expect(recipients.root.id == root)
     #expect(recipients.root.unavailableReason != nil)
     #expect(recipients.selected.unavailableReason == nil)
@@ -48,14 +49,28 @@ func unavailableRootDoesNotSilentlySelectChild(mode: String) throws {
     let fixture = try FakeCodex(mode: "hang", timeout: 0.3)
     defer { fixture.remove() }
     let start = ContinuousClock.now
-    #expect(throws: (any Error).self) { try fixture.client.recipients(for: selected) }
+    #expect(throws: (any Error).self) { try fixture.client.recipients(for: target(selected)) }
     #expect(start.duration(to: .now) < .seconds(3))
     do {
-        try fixture.client.queue("message", to: root)
+        try fixture.client.send("message", to: root, for: target(selected))
         Issue.record("Expected uncertain queue result")
     } catch {
         #expect(error.localizedDescription.contains("may have been accepted"))
     }
+}
+
+private func target(_ session: String) -> MessageTarget {
+    let runtime = ProcessIdentity(pid: 700, startMicroseconds: 1)
+    return MessageTarget(
+        process: HeavyProcess(
+            process: ProcessIdentity(pid: 701, startMicroseconds: 1), executable: "/fixture/worker",
+            name: "worker", cpuPercent: nil, footprintBytes: nil, cwd: nil, command: nil,
+            metadataStatus: .markerRead,
+            attribution: Attribution(
+                provider: .codex, evidence: .marker, context: .terminal, threadID: session,
+                rootSessionID: nil, runtime: runtime, terminal: nil, runtimeDirectory: nil,
+                candidateThreadIDs: [], ancestry: [])),
+        session: session, runtime: runtime)
 }
 
 private struct FakeCodex {

@@ -146,10 +146,7 @@ private final class TerminalOutcome {
                     }
                 case .send(let draft, let text, let recipient):
                     try await actions.send(draft, text: text, recipient: recipient)
-                    state.mutate {
-                        $0.actionFinished(
-                            "Message queued for \(recipient). Delivery and action are not confirmed.")
-                    }
+                    state.mutate { $0.actionFinished(MessageWording.accepted(draft, recipient: recipient)) }
                 }
             } catch is CancellationError {
                 return

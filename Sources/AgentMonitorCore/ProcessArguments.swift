@@ -22,11 +22,16 @@ public enum ProcessArguments {
         }
 
         var markers: [String: String] = [:]
+        var sockets: Set<String> = []
         while cursor < bytes.count {
             guard let entry = nextString() else { return malformed }
             if entry.isEmpty { break }
             guard let equal = entry.firstIndex(of: "=") else { continue }
             let key = String(entry[..<equal])
+            if key == "CLAUDE_CODE_MESSAGING_SOCKET" {
+                sockets.insert(String(entry[entry.index(after: equal)...]))
+                continue
+            }
             guard ["CODEX_THREAD_ID", "CODEX_SESSION_ID", "CLAUDE_CODE_SESSION_ID"].contains(key) else {
                 continue
             }
@@ -43,7 +48,7 @@ public enum ProcessArguments {
         }
         let marker =
             markers["CLAUDE_CODE_SESSION_ID"].map {
-                SessionMarker(threadID: $0, provider: .claude)
+                SessionMarker(threadID: $0, provider: .claude, inboxSocket: inbox(sockets))
             }
             ?? markers["CODEX_THREAD_ID"].map {
                 SessionMarker(threadID: $0, rootSessionID: markers["CODEX_SESSION_ID"])
@@ -52,5 +57,15 @@ public enum ProcessArguments {
             marker: marker, status: marker == nil ? .notObserved : .markerRead,
             command: includeCommand ? arguments : nil
         )
+    }
+
+    /// An unusable inbox only disables messaging, so it never makes attribution malformed.
+    /// sun_path holds 104 bytes including the terminator (sys/un.h); Claude Code documents the
+    /// variable at https://code.claude.com/docs/en/env-vars.
+    private static func inbox(_ values: Set<String>) -> String? {
+        guard values.count == 1, let path = values.first, path.hasPrefix("/"), path.utf8.count < 104,
+            path.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) })
+        else { return nil }
+        return path
     }
 }

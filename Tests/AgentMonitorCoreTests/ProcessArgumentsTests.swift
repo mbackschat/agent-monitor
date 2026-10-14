@@ -56,3 +56,31 @@ func truncatedOrImpossibleBufferIsRejected(bytes: [UInt8]) {
     #expect(result.marker == nil)
     #expect(result.status == .malformed)
 }
+
+@Test func claudeInboxSocketIsKeptOnlyBesideItsOwnSessionMarker() {
+    let socket = "/tmp/cc-socks/42.sock"
+    let claude = ProcessArguments.parse(
+        argumentBuffer(environment: [
+            "CLAUDE_CODE_SESSION_ID=\(sessionA)", "CLAUDE_CODE_MESSAGING_SOCKET=\(socket)",
+            "CLAUDE_CODE_MESSAGING_TOKEN=never-retained",
+        ]))
+    #expect(claude.marker == SessionMarker(threadID: sessionA, provider: .claude, inboxSocket: socket))
+    let orphan = ProcessArguments.parse(
+        argumentBuffer(environment: ["CLAUDE_CODE_MESSAGING_SOCKET=\(socket)"]))
+    #expect(orphan.marker == nil)
+    #expect(orphan.status == .notObserved)
+}
+
+// An unusable inbox only disables messaging; it is not attribution evidence.
+@Test(arguments: [
+    ["relative.sock"], ["/" + String(repeating: "a", count: 104)], ["/tmp/a\u{1b}.sock"], [""],
+    ["/tmp/a.sock", "/tmp/b.sock"],
+])
+func unusableInboxPathKeepsTheSessionMarker(paths: [String]) {
+    let result = ProcessArguments.parse(
+        argumentBuffer(
+            environment: ["CLAUDE_CODE_SESSION_ID=\(sessionA)"]
+                + paths.map { "CLAUDE_CODE_MESSAGING_SOCKET=\($0)" }))
+    #expect(result.marker == SessionMarker(threadID: sessionA, provider: .claude))
+    #expect(result.status == .markerRead)
+}

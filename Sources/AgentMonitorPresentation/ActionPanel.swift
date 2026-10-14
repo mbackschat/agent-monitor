@@ -14,6 +14,26 @@ public enum ActionEffect: Equatable, Sendable {
     case send(MessageDraft, String, String)
 }
 
+/// Acceptance means different things per transport: Codex accepts a queue request, while a Claude
+/// inbox applies the session's peer controls after the handoff (docs/research/claude-session-messaging.md).
+public enum MessageWording {
+    static func note(_ provider: AgentProvider?) -> String {
+        switch provider {
+        case .codex, nil: "Queued acceptance does not mean delivery or action."
+        case .claude:
+            "Inbox acceptance does not mean delivery: the session may hold or refuse messages from other processes."
+        }
+    }
+
+    public static func accepted(_ draft: MessageDraft, recipient: String) -> String {
+        switch draft.process.attribution.provider {
+        case .codex, nil: "Message queued for \(recipient). Delivery and action are not confirmed."
+        case .claude:
+            "Message handed to the inbox of Claude session \(recipient). Delivery and action are not confirmed."
+        }
+    }
+}
+
 public struct ActionPanel: Equatable, Sendable {
     public enum Phase: Sendable { case confirmTermination, loading, compose, review, working, result }
     public let process: HeavyProcess
@@ -96,7 +116,7 @@ public struct ActionPanel: Equatable, Sendable {
             if draft?.recipients.choices.count == 2 {
                 content += ["Tab chooses root or selected agent while editing."]
             }
-            content += ["Queued acceptance does not mean delivery or action.", ""]
+            content += [MessageWording.note(process.attribution.provider), ""]
             content += (draft?.message(text) ?? text).components(separatedBy: "\n")
             if phase == .compose { content[content.count - 1] += "▏" }
             controls =

@@ -43,10 +43,22 @@ public struct MessageDraft: Equatable, Sendable {
     }
 }
 
-/// A provider verifies live recipients separately from accepting a queued message.
+/// A message request checked against fresh attribution: an exact session under a live runtime.
+public struct MessageTarget: Equatable, Sendable {
+    public let process: HeavyProcess
+    public let session: String
+    public let runtime: ProcessIdentity
+    public init(process: HeavyProcess, session: String, runtime: ProcessIdentity) {
+        self.process = process
+        self.session = session
+        self.runtime = runtime
+    }
+}
+
+/// A provider verifies live recipients separately from accepting a message for delivery.
 public protocol AgentMessaging: Sendable {
-    func recipients(for thread: String) throws -> MessageRecipients
-    func queue(_ message: String, to recipient: String) throws
+    func recipients(for target: MessageTarget) throws -> MessageRecipients
+    func send(_ message: String, to recipient: String, for target: MessageTarget) throws
 }
 
 public protocol ProcessActions: Sendable {
@@ -58,20 +70,24 @@ public protocol ProcessActions: Sendable {
 public struct SessionActions: ProcessActions {
     private let inspect: @Sendable (HeavyProcess) throws -> HeavyProcess
     private let signal: @Sendable (HeavyProcess) throws -> Void
-    private let messaging: any AgentMessaging
+    private let codex: any AgentMessaging
+    private let claude: any AgentMessaging
 
     public init(
         inspect: @escaping @Sendable (HeavyProcess) throws -> HeavyProcess,
         terminate: @escaping @Sendable (HeavyProcess) throws -> Void,
-        messaging: any AgentMessaging
+        codex: any AgentMessaging, claude: any AgentMessaging
     ) {
         self.inspect = inspect
         self.signal = terminate
-        self.messaging = messaging
+        self.codex = codex
+        self.claude = claude
     }
 
     public static func local() -> Self {
-        Self(inspect: NativeActions.inspect, terminate: NativeActions.terminate, messaging: CodexMessaging())
+        Self(
+            inspect: NativeActions.inspect, terminate: NativeActions.terminate, codex: CodexMessaging(),
+            claude: ClaudeMessaging())
     }
 
     @concurrent public func terminate(_ process: HeavyProcess) async throws {
@@ -84,10 +100,10 @@ public struct SessionActions: ProcessActions {
 
     @concurrent public func prepareMessage(for process: HeavyProcess) async throws -> MessageDraft {
         try Task.checkCancellation()
-        let thread = try validateMessaging(process)
+        let target = try validateMessaging(process)
         let current = try inspect(process)
         try validateAttribution(process, current)
-        let recipients = try messaging.recipients(for: thread)
+        let recipients = try messaging(for: process).recipients(for: target)
         try validateRootHint(process, recipients)
         return MessageDraft(process: process, recipients: recipients)
     }
@@ -101,15 +117,24 @@ public struct SessionActions: ProcessActions {
         guard let chosen = draft.recipients.choices.first(where: { $0.id == recipient }),
             chosen.unavailableReason == nil
         else { throw ActionFailure("Choose an available, verified recipient.") }
-        let thread = try validateMessaging(draft.process)
-        let recipients = try messaging.recipients(for: thread)
+        let target = try validateMessaging(draft.process)
+        let messaging = try messaging(for: draft.process)
+        let recipients = try messaging.recipients(for: target)
         guard recipients == draft.recipients else {
             throw ActionFailure("Recipient availability changed. Close and reopen the composer.")
         }
         try validateRootHint(draft.process, recipients)
         try validateAttribution(draft.process, inspect(draft.process))
         try Task.checkCancellation()
-        try messaging.queue(draft.message(text), to: recipient)
+        try messaging.send(draft.message(text), to: recipient, for: target)
+    }
+
+    private func messaging(for process: HeavyProcess) throws -> any AgentMessaging {
+        switch process.attribution.provider {
+        case .codex: return codex
+        case .claude: return claude
+        case nil: throw ActionFailure("Messaging needs an exact session and a live, verified runtime.")
+        }
     }
 
     private func validateProcess(_ expected: HeavyProcess, _ current: HeavyProcess) throws {
@@ -134,15 +159,14 @@ public struct SessionActions: ProcessActions {
         }
     }
 
-    private func validateMessaging(_ process: HeavyProcess) throws -> String {
-        guard process.attribution.provider == .codex else {
-            throw ActionFailure("Inline messaging supports Codex only; Claude requires its own session UI.")
-        }
-        guard let thread = process.attribution.threadID, UUID(uuidString: thread) != nil,
-            process.attribution.runtime != nil, process.attribution.context != .unverified
+    private func validateMessaging(_ process: HeavyProcess) throws -> MessageTarget {
+        guard process.attribution.provider != nil, let thread = process.attribution.threadID,
+            UUID(uuidString: thread) != nil, let runtime = process.attribution.runtime,
+            process.attribution.context != .unverified
         else { throw ActionFailure("Messaging needs an exact session and a live, verified runtime.") }
         switch process.attribution.evidence {
-        case .marker, .inheritedMarker, .writerLock: return thread
+        case .marker, .inheritedMarker, .writerLock:
+            return MessageTarget(process: process, session: thread, runtime: runtime)
         case .runtimeOnly, .ambiguous, .unknown:
             throw ActionFailure("Ambiguous or unresolved attribution cannot receive messages.")
         }

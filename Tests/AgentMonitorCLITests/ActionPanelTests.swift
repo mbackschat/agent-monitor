@@ -56,13 +56,13 @@ func actionPanelsFitAndAllowFullMessageReview(width: Int) throws {
     #expect(LiveReportLayout.lines(state: state, width: width, height: 12) != before)
 }
 
-private func panelRow(_ pid: Int32) throws -> HeavyProcess {
+private func panelRow(_ pid: Int32, provider: AgentProvider = .codex) throws -> HeavyProcess {
     try JSONDecoder().decode(
         HeavyProcess.self,
         from: Data(
             """
             {"process":{"pid":\(pid),"startMicroseconds":1},"executable":"/fixture/worker","name":"worker",
-            "metadataStatus":"notObserved","attribution":{"provider":"codex","evidence":"marker",
+            "metadataStatus":"notObserved","attribution":{"provider":"\(provider.rawValue)","evidence":"marker",
             "context":"terminal","threadID":"child","candidateThreadIDs":[],"ancestry":[]}}
             """.utf8))
 }
@@ -87,4 +87,24 @@ private func panelSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
     let messageLines = lines.map(\.text).filter { $0.contains("調") || $0.contains("査") }
     #expect(messageLines.joined() == String(repeating: "調査", count: 35))
     #expect(messageLines.allSatisfy { $0.count * 2 <= 40 })
+}
+
+// Codex queues a request; Claude's inbox may still hold or refuse a peer message.
+@Test(arguments: [
+    (AgentProvider.codex, "Queued acceptance does not mean delivery", "Message queued for root."),
+    (.claude, "may hold or refuse", "Message handed to the inbox of Claude session root."),
+])
+func acceptanceWordingFollowsTheProviderTransport(provider: AgentProvider, note: String, result: String)
+    throws
+{
+    var state = LiveReportState()
+    let row = try panelRow(42, provider: provider)
+    state.receive(panelSnapshot([row]))
+    _ = state.beginAction(.message)
+    let recipient = AgentRecipient(id: "root", label: "Root agent")
+    let draft = MessageDraft(
+        process: row, recipients: MessageRecipients(root: recipient, selected: recipient))
+    state.messagePrepared(draft)
+    #expect(LiveReportLayout.lines(state: state, width: 200, height: 24).map(\.text).joined().contains(note))
+    #expect(MessageWording.accepted(draft, recipient: "root").hasPrefix(result))
 }

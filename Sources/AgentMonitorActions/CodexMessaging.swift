@@ -1,3 +1,4 @@
+import AgentMonitorCore
 import Foundation
 
 public struct CodexMessaging: AgentMessaging {
@@ -17,11 +18,12 @@ public struct CodexMessaging: AgentMessaging {
         self.timeout = timeout
     }
 
-    public func recipients(for thread: String) throws -> MessageRecipients {
+    public func recipients(for target: MessageTarget) throws -> MessageRecipients {
+        let thread = target.session
         guard UUID(uuidString: thread) != nil else { throw ActionFailure("Invalid session identifier.") }
         let process = try BoundedCommand(
             executable: executable,
-            arguments: prefix + ["app-server", "proxy"], timeout: timeout)
+            arguments: prefix + ["app-server", "proxy"], timeout: timeout, tool: "Codex")
         defer { process.close() }
         let socket = try ProxyWebSocket(process)
         _ = try socket.request(
@@ -54,7 +56,7 @@ public struct CodexMessaging: AgentMessaging {
         return MessageRecipients(root: root, selected: AgentRecipient(id: thread, label: "Selected agent"))
     }
 
-    public func queue(_ message: String, to recipient: String) throws {
+    public func send(_ message: String, to recipient: String, for target: MessageTarget) throws {
         guard UUID(uuidString: recipient) != nil else { throw ActionFailure("Invalid session identifier.") }
         // Both proxy and unix:// address the default local control socket; never let
         // configured remote routing send a message to a server we did not inspect.
@@ -64,7 +66,7 @@ public struct CodexMessaging: AgentMessaging {
             arguments: prefix + [
                 "queue", "--remote", "unix://", "--thread", recipient, "--message", message,
             ],
-            timeout: timeout)
+            timeout: timeout, tool: "Codex")
         defer { process.close() }
         do {
             try process.finish()
