@@ -1,0 +1,50 @@
+// swift-tools-version: 6.4
+import PackageDescription
+
+let package = Package(
+    name: "AgentMonitor",
+    platforms: [.macOS("27.0")],
+    products: [
+        .library(name: "AgentMonitorCore", targets: ["AgentMonitorCore"]),
+        .executable(name: "agent-monitor", targets: ["AgentMonitor"]),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-argument-parser.git", exact: "1.8.2"),
+        .package(url: "https://github.com/SwiftTUI/swift-tui.git", exact: "0.14.0"),
+    ],
+    targets: [
+        .target(name: "AgentMonitorCore"),
+        .target(
+            name: "AgentMonitorPresentation", dependencies: ["AgentMonitorCore"],
+            resources: [.process("Resources")]),
+        .target(
+            name: "AgentMonitorTUI",
+            dependencies: [
+                "AgentMonitorCore", "AgentMonitorPresentation",
+                .product(name: "SwiftTUIRuntime", package: "swift-tui"),
+                .product(name: "SwiftTUICLI", package: "swift-tui"),
+            ]),
+        .executableTarget(
+            name: "AgentMonitor",
+            dependencies: [
+                "AgentMonitorCore", "AgentMonitorPresentation", "AgentMonitorTUI",
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ]),
+        .testTarget(name: "AgentMonitorCoreTests", dependencies: ["AgentMonitorCore"]),
+        .executableTarget(
+            name: "monitor-tui-fixture", dependencies: ["AgentMonitorCore", "AgentMonitorTUI"],
+            path: "Tests/Fixtures/TUIFixture"),
+        .testTarget(
+            name: "AgentMonitorTUITests",
+            dependencies: [
+                "monitor-tui-fixture",
+                .product(name: "SwiftTUITestSupport", package: "swift-tui"),
+            ]),
+        .testTarget(
+            name: "AgentMonitorCLITests",
+            dependencies: [
+                "AgentMonitor", .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ]),
+    ],
+    swiftLanguageModes: [.v6]
+)

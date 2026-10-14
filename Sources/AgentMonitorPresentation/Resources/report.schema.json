@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:agent-monitor:report:1",
+  "title": "Agent Monitor report v1",
+  "description": "One JSONL report. Optional unavailable values are omitted, not zero. Associations describe launch origin, not current shared-daemon causality.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "attributionMeaning": {
+      "const": "launchOrigin"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "intervalSeconds": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 60,
+      "description": "Configured wait between scans, not the per-process elapsed CPU denominator."
+    },
+    "cpuThresholdPercent": {
+      "type": "number",
+      "minimum": 0
+    },
+    "memoryThresholdBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sampledProcessCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unreadableProcessCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/heavyProcess"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "attributionMeaning",
+    "timestamp",
+    "intervalSeconds",
+    "cpuThresholdPercent",
+    "memoryThresholdBytes",
+    "sampledProcessCount",
+    "unreadableProcessCount",
+    "findings"
+  ],
+  "$defs": {
+    "processIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pid": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "startMicroseconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Unix process start time in microseconds; PID plus start time identifies a lifetime."
+        }
+      },
+      "required": [
+        "pid",
+        "startMicroseconds"
+      ]
+    },
+    "attribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "enum": [
+            "codex",
+            "claude"
+          ]
+        },
+        "evidence": {
+          "enum": [
+            "marker",
+            "inheritedMarker",
+            "writerLock",
+            "runtimeOnly",
+            "ambiguous",
+            "unknown"
+          ]
+        },
+        "context": {
+          "enum": [
+            "terminal",
+            "nonterminal",
+            "unverified"
+          ]
+        },
+        "threadID": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "rootSessionID": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "runtime": {
+          "$ref": "#/$defs/processIdentity"
+        },
+        "terminal": {
+          "type": "string"
+        },
+        "runtimeDirectory": {
+          "type": "string"
+        },
+        "candidateThreadIDs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "ancestry": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/processIdentity"
+          }
+        }
+      },
+      "required": [
+        "evidence",
+        "context",
+        "candidateThreadIDs",
+        "ancestry"
+      ]
+    },
+    "heavyProcess": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "process": {
+          "$ref": "#/$defs/processIdentity"
+        },
+        "executable": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "cpuPercent": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average over actual elapsed time between process observations; 100 means one core. Omitted when unavailable."
+        },
+        "footprintBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Physical footprint snapshot in bytes, not RSS. Omitted when unavailable."
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "command": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "metadataStatus": {
+          "enum": [
+            "markerRead",
+            "notObserved",
+            "unavailable",
+            "malformed"
+          ]
+        },
+        "attribution": {
+          "$ref": "#/$defs/attribution"
+        }
+      },
+      "required": [
+        "process",
+        "executable",
+        "name",
+        "metadataStatus",
+        "attribution"
+      ]
+    }
+  }
+}

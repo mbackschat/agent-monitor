@@ -1,0 +1,12 @@
+.build/
+/dist/
+.swiftpm/
+.DS_Store
+.skill-sources/
+/Evaluations/
+.uv-cache/
+.claude/settings.local.json
+*.xcuserstate
+xcuserdata/
+__pycache__/
+.pytest_cache/

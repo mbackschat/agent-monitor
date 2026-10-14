@@ -1,0 +1,110 @@
+{
+  "verifiedAt": "2026-10-14T13:17:07.901270+00:00",
+  "providerMetadata": {
+    "pid": 88196,
+    "sessionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "cwd": "/projects/sample-java-project",
+    "startedAt": 1791970395512,
+    "procStart": "Wed Oct 14 09:33:14 2026"
+  },
+  "independentRuntimeIdentity": {
+    "pid": 88196,
+    "startMicroseconds": 1791970394325683
+  },
+  "stdinDevice": "/dev/ttys015",
+  "observations": [
+    {
+      "timestamp": "2026-10-14T12:52:11Z",
+      "finding": {
+        "attribution": {
+          "ancestry": [
+            {
+              "pid": 48937,
+              "startMicroseconds": 1791982327478460
+            },
+            {
+              "pid": 48936,
+              "startMicroseconds": 1791982327446732
+            },
+            {
+              "pid": 47717,
+              "startMicroseconds": 1791982315277046
+            },
+            {
+              "pid": 47716,
+              "startMicroseconds": 1791982315256367
+            },
+            {
+              "pid": 88196,
+              "startMicroseconds": 1791970394325683
+            }
+          ],
+          "candidateThreadIDs": [],
+          "context": "terminal",
+          "evidence": "marker",
+          "provider": "claude",
+          "runtime": {
+            "pid": 88196,
+            "startMicroseconds": 1791970394325683
+          },
+          "runtimeDirectory": "/projects/sample-java-project",
+          "terminal": "ttys015",
+          "threadID": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        },
+        "cpuPercent": 423.51321514366333,
+        "cwd": "/projects/sample-java-project",
+        "executable": "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "footprintBytes": 383075504,
+        "metadataStatus": "markerRead",
+        "name": "java",
+        "process": {
+          "pid": 48937,
+          "startMicroseconds": 1791982327478460
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-14T13:15:45Z",
+      "finding": {
+        "attribution": {
+          "ancestry": [
+            {
+              "pid": 49880,
+              "startMicroseconds": 1791983743211053
+            },
+            {
+              "pid": 49851,
+              "startMicroseconds": 1791983743175826
+            },
+            {
+              "pid": 88196,
+              "startMicroseconds": 1791970394325683
+            }
+          ],
+          "candidateThreadIDs": [],
+          "context": "terminal",
+          "evidence": "marker",
+          "provider": "claude",
+          "runtime": {
+            "pid": 88196,
+            "startMicroseconds": 1791970394325683
+          },
+          "runtimeDirectory": "/projects/sample-java-project",
+          "terminal": "ttys015",
+          "threadID": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        },
+        "cpuPercent": 34.5145031669919,
+        "cwd": "/projects/sample-java-project",
+        "executable": "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "footprintBytes": 85869312,
+        "metadataStatus": "markerRead",
+        "name": "java",
+        "process": {
+          "pid": 49880,
+          "startMicroseconds": 1791983743211053
+        }
+      }
+    }
+  ],
+  "publicationNote": "Session IDs and project paths are consistently anonymized; measurements and process relationships are retained."
+}

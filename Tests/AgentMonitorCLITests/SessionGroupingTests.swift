@@ -1,0 +1,146 @@
+import AgentMonitorPresentation
+import Foundation
+import Testing
+
+@testable import AgentMonitor
+@testable import AgentMonitorCore
+
+@Test func groupingUsesCorroboratedRootsAndNeverSharedDirectories() throws {
+    let root = groupedRow(1, thread: "root", root: "root")
+    let child = groupedRow(2, thread: "child", root: "root")
+    let other = groupedRow(3, thread: "other")
+    let unknown = groupedRow(4, thread: nil)
+    let anotherUnknown = groupedRow(5, thread: nil)
+    let groups = SessionGrouping.groups([root, child, other, unknown, anotherUnknown, child])
+    #expect(groups.count == 4)
+    let rootGroup = try #require(groups.first { $0.sessionID == "root" })
+    #expect(rootGroup.isRoot)
+    #expect(rootGroup.processes.map(\.process.pid) == [1, 2])
+    #expect(rootGroup.cpuTotal == 100)
+    #expect(rootGroup.memoryGBTotal == 2.4)
+    #expect(SessionGrouping.groups([child]).first?.sessionID == "child")
+    #expect(SessionGrouping.groups([child]).first?.isRoot == false)
+}
+
+@Test func groupingKeepsProvidersAndUncertainEvidenceSeparateAndLabelsPartialTotals() throws {
+    let rows = [
+        groupedRow(1, thread: "same"), groupedRow(2, thread: "same", provider: .claude),
+        groupedRow(3, thread: "same", evidence: .ambiguous),
+        groupedRow(4, thread: "same", cpu: nil, memory: nil),
+    ]
+    let groups = SessionGrouping.groups(rows)
+    #expect(groups.count == 3)
+    let codex = try #require(groups.first { $0.provider == .codex && $0.sessionID == "same" })
+    #expect(codex.cpuTotal == 50)
+    #expect(codex.cpuPartial && codex.memoryPartial)
+    #expect(codex.processes.count == 2)
+    var state = LiveReportState(grouping: .session)
+    state.receive(groupedSnapshot(rows))
+    #expect(
+        LiveReportLayout.lines(state: state, width: 60, height: 24).contains {
+            $0.text.contains("50.00~") && $0.text.contains("1.20~")
+        })
+}
+
+@Test func sessionExpansionSelectionAndSortSurviveRefresh() throws {
+    var state = LiveReportState(grouping: .session)
+    let a = groupedRow(10, thread: "a")
+    let b = groupedRow(20, thread: "b", cpu: 80)
+    state.receive(groupedSnapshot([a, b]))
+    #expect(state.visibleRows.count == 2)
+    let group = try #require(state.selectedGroup)
+    state.toggleDisclosure()
+    #expect(state.visibleRows.count == 3)
+    state.moveSelection(by: 1)
+    #expect(state.selected == b.process)
+    state.toggleDisclosure()
+    #expect(state.expanded == b.process)
+    state.sort(by: .pid)
+    state.receive(groupedSnapshot([b, a]))
+    #expect(state.selected == b.process)
+    #expect(state.openGroups.contains(group))
+    state.moveSelection(by: -1)
+    #expect(state.selectedGroup == group)
+    state.toggleDisclosure()
+    #expect(state.visibleRows.count == 2)
+    #expect(state.expanded == nil)
+    state.toggleGrouping()
+    #expect(state.grouping == .none)
+    #expect(state.selected == b.process)
+    state.toggleGrouping()
+    state.receive(groupedSnapshot([a]))
+    #expect(state.selectedGroup != group)
+    #expect(!state.openGroups.contains(group))
+}
+
+@Test func groupedOptionsAndTextKeepMachineContractExplicit() throws {
+    #expect(try Options.parse(["--tui", "--group", "session"]).group == .session)
+    #expect(try Options.parse(["--group", "session"]).group == .session)
+    #expect(throws: (any Error).self) { try Options.parse(["--json", "--group", "session"]) }
+    #expect(throws: (any Error).self) { try Options.parse(["--json-schema", "--group", "session"]) }
+    #expect(throws: (any Error).self) { try Options.parse(["--group", "project"]) }
+    let text = TextReport.render(
+        groupedSnapshot([groupedRow(1, thread: "a"), groupedRow(2, thread: "a")]), grouping: .session)
+    #expect(text.contains("heavy-process totals"))
+    #expect(text.contains("100.00%"))
+    #expect(text.contains("PID 1") && text.contains("PID 2"))
+}
+
+@Test func groupSortingUsesHeavyTotalsAndDoesNotChangeTheSelectedGroup() throws {
+    var state = LiveReportState(grouping: .session)
+    state.receive(
+        groupedSnapshot([
+            groupedRow(10, thread: "a", cpu: 40), groupedRow(11, thread: "a", cpu: 40),
+            groupedRow(20, thread: "b", cpu: 60), groupedRow(30, thread: "c", cpu: nil, memory: nil),
+        ]))
+    #expect(state.groups.map(\.sessionID) == ["a", "b", "c"])
+    let selected = state.selectedGroup
+    state.reverseSort()
+    #expect(state.groups.map(\.sessionID) == ["b", "a", "c"])
+    #expect(state.selectedGroup == selected)
+    state.sort(by: .memory)
+    #expect(state.groups.map(\.sessionID) == ["a", "b", "c"])
+    #expect(state.selectedGroup == selected)
+    let lines = LiveReportLayout.lines(state: state, width: 120, height: 24)
+    #expect(lines.contains { $0.text.contains("heavy-process totals only") })
+    #expect(lines.contains { $0.text.contains("80.00") && $0.text.contains("2 heavy") })
+}
+
+@Test func reusedPIDDoesNotInheritAnUnresolvedGroupsExpansion() throws {
+    var state = LiveReportState(grouping: .session)
+    state.receive(groupedSnapshot([groupedRow(1, thread: nil)]))
+    let oldGroup = try #require(state.selectedGroup)
+    state.toggleDisclosure()
+    let old = groupedRow(1, thread: nil)
+    let replacement = HeavyProcess(
+        process: ProcessIdentity(pid: 1, startMicroseconds: 2),
+        executable: old.executable, name: old.name, cpuPercent: old.cpuPercent,
+        footprintBytes: old.footprintBytes, cwd: old.cwd, command: nil,
+        metadataStatus: old.metadataStatus, attribution: old.attribution)
+    state.receive(groupedSnapshot([replacement]))
+    #expect(state.selectedGroup != oldGroup)
+    #expect(state.openGroups.isEmpty)
+    #expect(state.visibleRows.count == 1)
+}
+
+private func groupedRow(
+    _ pid: Int32, thread: String?, root: String? = nil, provider: AgentProvider = .codex,
+    evidence: AttributionEvidence = .marker, cpu: Double? = 50, memory: UInt64? = 1_200_000_000
+) -> HeavyProcess {
+    let identity = ProcessIdentity(pid: pid, startMicroseconds: 1)
+    return HeavyProcess(
+        process: identity, executable: "/bin/worker", name: "worker", cpuPercent: cpu,
+        footprintBytes: memory, cwd: "/same/project", command: nil, metadataStatus: .markerRead,
+        attribution: Attribution(
+            provider: provider, evidence: evidence, context: .terminal,
+            threadID: thread, rootSessionID: root, runtime: ProcessIdentity(pid: 999, startMicroseconds: 1),
+            terminal: "ttys001", runtimeDirectory: "/same/project", candidateThreadIDs: [],
+            ancestry: [identity]))
+}
+
+private func groupedSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
+    MonitoringSnapshot(
+        timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1,
+        cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
+        sampledProcessCount: rows.count, unreadableProcessCount: 0, findings: rows)
+}
