@@ -12,6 +12,7 @@ Research checked on 2026-10-14 for a macOS tool that identifies CPU and memory c
 
 - [Process termination and session messaging](session-actions.md): proposed TUI actions, installed-provider capabilities, and limits of reaching existing sessions; feasibility only.
 - [Messaging an existing Claude Code session](claude-session-messaging.md): installed-CLI and documentation evidence for verifying and reaching a running Claude session from a separate process.
+- [Focusing the terminal that hosts a session](terminal-focus.md): per-terminal mechanisms, macOS Automation/activation limits, and a recommended minimal design for bringing a session's window, tab, and pane to the front; feasibility only.
 
 - [Terminal UI options](terminal-ui.md): Swift library evaluation and integration evidence for the opt-in live report, disclosure behavior, and the boundary needed for future native presentation.
 
