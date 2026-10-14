@@ -32,6 +32,10 @@ let package = Package(
             ]),
         .testTarget(name: "AgentMonitorCoreTests", dependencies: ["AgentMonitorCore"]),
         .executableTarget(
+            name: "monitor-preview", dependencies: ["AgentMonitorCore", "AgentMonitorPresentation"],
+            path: "Tools/Preview"),
+        .testTarget(name: "PreviewTests", dependencies: ["monitor-preview"]),
+        .executableTarget(
             name: "monitor-tui-fixture", dependencies: ["AgentMonitorCore", "AgentMonitorTUI"],
             path: "Tests/Fixtures/TUIFixture"),
         .testTarget(

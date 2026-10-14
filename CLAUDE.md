@@ -19,7 +19,9 @@ Session grouping belongs to presentation and totals only displayed heavy process
 - `swift build`: build the library and executable.
 - `swift run agent-monitor`: report heavy consumers.
 - `swift test`: run unit and native integration tests.
-- `swift format lint --strict --recursive Sources Tests Package.swift`: check formatting.
+- `swift format lint --strict --recursive Sources Tests Tools Package.swift`: check formatting.
+- `bash scripts/doctor.sh`: check the contributor toolchain and optional skill setup without installing anything.
+- `bash scripts/preview.sh check`: verify the README preview matches the production layout and synthetic fixture.
 - `python3 scripts/verify-poc.py "$(swift build --show-bin-path)/agent-monitor"`: verify controlled terminal attribution after building.
 
 Use Xcode 27, Swift 6.4, and macOS 27. Apple Argument Parser belongs only to CLI targets; keep the monitoring core independent of it and UI libraries.
@@ -29,6 +31,10 @@ Use Xcode 27, Swift 6.4, and macOS 27. Apple Argument Parser belongs only to CLI
 Project skills must work with both Codex CLI and Claude Code. Keep one canonical copy with its references and license; expose it through both hosts' skill discovery directories, using symlinks where appropriate. Keep host-specific hooks, plugins, and tool configuration separate, and verify both discovery paths before adopting a skill.
 
 Use `bash scripts/skills.sh install` for project-local skills, `update` for explicit upgrades, and `check` to verify both discovery paths. Preserve the generated `skills.lock`; see [skill setup](docs/development.md#skills-shared-by-codex-cli-and-claude-code).
+
+On a fresh clone, the tracked skill symlinks do not resolve until `install` populates ignored `.skill-sources/` at the locked revisions. Skills are optional development aids, not build/runtime dependencies. Do not commit those source checkouts, change the lock during routine setup, or install skills globally. The read-only doctor reports missing skills as optional and broken installed skills as an error.
+
+Keep the generated [README preview](docs/assets/tui-preview.svg) current when changing layout, displayed text, grouping, details, or synthetic fixtures. Run `bash scripts/preview.sh update`, visually review the SVG, and commit it with the change; then run `bash scripts/preview.sh check`. Edit [the generator and fixture](Tools/Preview/), never the SVG by hand. Use synthetic identities and paths only; never sample real processes for documentation images. The generator is development-only and must not be included in release archives. CI runs preview drift checks and Swift tests on every pull request and main push. The SVG verifies text/layout, not terminal interaction or exact theme colors; preserve PTY tests and visually review TUI style changes. See [preview maintenance](docs/development.md#readme-preview).
 
 Use four-space indentation, the bundled `swift format`, Swift 6 concurrency checking, and enum-based switches. Keep presentation separate from collection. Comments explain constraints and cite their basis. Write Markdown with one paragraph per physical line and regular links to other documents.
 
