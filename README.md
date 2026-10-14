@@ -33,11 +33,17 @@ Prefer a direct download or a source build? See the [installation guide](docs/in
 
 ## Quick start
 
-Launch the live view grouped by session from any directory:
+The **TUI (terminal user interface)** is a live, full-window dashboard that runs inside your terminal. It refreshes in place and is controlled with the keyboard. Launch it grouped by session from any directory:
 
 ```sh
 agent-monitor --tui --group session
 ```
+
+Switch between individual processes and session groups to see which agent launch they belong to. Open a process to inspect its full session ID, executable path, project directory, and attribution evidence in the lower pane. The layout adapts when you resize the terminal, and the footer keeps the available keys visible.
+
+![Agent Monitor terminal UI showing five synthetic processes, CPU and memory usage, Codex and Claude sessions, and details for the selected process](docs/assets/tui-preview.png)
+
+*Illustrative process view with details open. The text comes from the real layout renderer using entirely synthetic data; terminal colors and window decoration are illustrative. Press `g` to switch between this view and session groups.*
 
 Use **↑ / ↓** to select, **Enter** to expand a session or inspect a process, **g** to toggle grouping, and **q** to quit. The controls and current filters are shown in the terminal.
 
@@ -68,6 +74,16 @@ Agent Monitor supports Codex CLI and Claude Code terminal sessions. Claude Code'
 Session associations identify **where a process was launched**. A shared daemon may later serve other sessions, so its current activity cannot always be assigned to the session that started it. Group totals cover the heavy processes shown, not every process in a session.
 
 The monitor inspects only your user's processes and does not read conversation transcripts. Command arguments are hidden unless you request them with `--commands`.
+
+## Adding more agents
+
+Codex CLI and Claude Code are built in today. The planned adapter approach will let new agents supply their own session knowledge while sharing the same resource monitoring and terminal UI.
+
+- **Identify sessions (required):** recognize an agent's runtimes and return evidence linking processes to sessions. Conflicting evidence stays ambiguous.
+- **Inspect sessions (optional):** provide additional session information or agent-specific metrics, such as token usage, when available.
+- **Communicate (optional):** expose supported messaging capabilities for a verified session recipient.
+
+CPU and memory measurement stay in the shared monitoring core. The intended first step is a small interface for built-in adapters, with an external plugin protocol considered later. **This is a design direction; v0.1.0 does not expose a third-party adapter API or messaging controls.** See the [adapter design](docs/architecture.md#proposed-agent-adapter-boundary) for the proposed boundaries.
 
 ## Documentation and contributing
 

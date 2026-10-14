@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1128" height="505" viewBox="0 0 1128 505" role="img" aria-labelledby="title description">
+<title id="title">Agent Monitor terminal UI with synthetic process data</title>
+<desc id="description">Illustrative process view rendered from the real 120-column layout. Five heavy processes map to Codex and Claude sessions; one remains ambiguous. The selected process has launch-origin details open. All process IDs, session IDs, paths, and usage values are synthetic.</desc>
+<!-- Text and styles come from LiveReportLayout with synthetic MonitoringSnapshot data; terminal window decoration is illustrative. -->
+<rect width="1128" height="505" rx="12" fill="#0d1117"/>
+<path d="M12 0H1116Q1128 0 1128 12V44H0V12Q0 0 12 0Z" fill="#21262d"/>
+<circle cx="22" cy="22" r="6" fill="#ff5f57"/><circle cx="43" cy="22" r="6" fill="#febc2e"/><circle cx="64" cy="22" r="6" fill="#28c840"/>
+<text x="564" y="27" text-anchor="middle" fill="#c9d1d9" font-family="sans-serif" font-size="13">agent-monitor · process view</text>
+<text x="1104" y="27" text-anchor="end" fill="#8b949e" font-family="sans-serif" font-size="11">SYNTHETIC DATA</text>
+<g font-family="Menlo, DejaVu Sans Mono, monospace" font-size="15" xml:space="preserve">
+<text x="24" y="69" fill="#f0f6fc" font-weight="bold" textLength="864" lengthAdjust="spacingAndGlyphs">Agent Monitor | CPU descending | Updates: 15 | 5 heavy / 624 sampled | CPU &gt; 25.00% OR GB &gt; 1.00</text>
+<text x="24" y="92" fill="#f0f6fc" font-weight="bold" textLength="873" lengthAdjust="spacingAndGlyphs">  PID      CPU%     GB   PROCESS        AGENT / SESSION                             TTY / PROJECT</text>
+<text x="24" y="115" fill="#79e4ff" font-weight="bold" textLength="936" lengthAdjust="spacingAndGlyphs">&gt; 42001  184.60*  1.42*  swift-frontend codex/11111111-1111-4111-8111-111111111111  ttys001 / sample-app</text>
+<text x="24" y="138" fill="#e3b341" font-weight="normal" textLength="936" lengthAdjust="spacingAndGlyphs">  42002   76.30*  0.62   node           claude/22222222-2222-4222-8222-222222222222 ttys002 / sample-web</text>
+<text x="24" y="161" fill="#e3b341" font-weight="normal" textLength="936" lengthAdjust="spacingAndGlyphs">  42003   38.20*  0.31   python         codex/11111111-1111-4111-8111-111111111111  ttys001 / sample-app</text>
+<text x="24" y="184" fill="#e3b341" font-weight="normal" textLength="936" lengthAdjust="spacingAndGlyphs">  42004    8.50   2.16*  java           claude/22222222-2222-4222-8222-222222222222 ttys002 / sample-web</text>
+<text x="24" y="207" fill="#e3b341" font-weight="normal" textLength="954" lengthAdjust="spacingAndGlyphs">  42005    2.10   1.18*  node           codex/ambiguous                             ttys003 / sample-tools</text>
+<text x="24" y="276" fill="#8b949e" font-weight="normal" textLength="1080" lengthAdjust="spacingAndGlyphs">─ Details 50% | launch origin | 1-6/6 ──────────────────────────────────────────────────────────────────────────────────</text>
+<text x="24" y="299" fill="#c9d1d9" font-weight="normal" textLength="369" lengthAdjust="spacingAndGlyphs">PID 42001 | /usr/local/bin/swift-frontend</text>
+<text x="24" y="322" fill="#c9d1d9" font-weight="normal" textLength="657" lengthAdjust="spacingAndGlyphs">Session: 11111111-1111-4111-8111-111111111111 [inheritedMarker, terminal]</text>
+<text x="24" y="345" fill="#c9d1d9" font-weight="normal" textLength="261" lengthAdjust="spacingAndGlyphs">Runtime: 41000 | TTY: ttys001</text>
+<text x="24" y="368" fill="#c9d1d9" font-weight="normal" textLength="324" lengthAdjust="spacingAndGlyphs">Work directory: /projects/sample-app</text>
+<text x="24" y="391" fill="#c9d1d9" font-weight="normal" textLength="351" lengthAdjust="spacingAndGlyphs">Session directory: /projects/sample-app</text>
+<text x="24" y="414" fill="#c9d1d9" font-weight="normal" textLength="261" lengthAdjust="spacingAndGlyphs">Observed chain: 42001 ← 41000</text>
+<text x="24" y="460" fill="#c9d1d9" font-weight="normal" textLength="936" lengthAdjust="spacingAndGlyphs">↑/↓ select   Enter open   g group   c/m/p sort   r reverse   [/] scroll  |  1/2 CPU -/+10%   3/4 GB -/+1</text>
+<text x="24" y="483" fill="#c9d1d9" font-weight="normal" textLength="468" lengthAdjust="spacingAndGlyphs">-/+ size   0 min   9 max   = restore   q/Ctrl-C quit</text>
+</g>
+</svg>
