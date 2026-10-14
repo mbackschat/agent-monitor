@@ -67,6 +67,27 @@ agent-monitor --help
 
 See the [usage guide](docs/usage.md) for all keyboard controls, filters, session grouping, and output options.
 
+## Options and defaults
+
+With no options, `agent-monitor` prints one text report after a one-second baseline interval. A process appears when **CPU OR memory exceeds its threshold**; only your user's agent-associated processes are included by default.
+
+| Option | Description | Default |
+| --- | --- | --- |
+| `--cpu <percent>` | CPU threshold; 100% means one occupied core. Accepts nonnegative values. | `25` (%) |
+| `--memory-gb <gb>` | Physical memory footprint threshold in decimal GB. Accepts nonnegative values. | `1` (GB) |
+| `--interval <seconds>` | Wait between samples, from 0.1 to 60 seconds. | `1` (second) |
+| `--samples <count>` | Number of reports; `0` runs until you quit. | `1`; `0` with `--tui` |
+| `--tui`, `-tui` | Open the live terminal UI; requires interactive input and output. | Off; text reports |
+| `--group <mode>` | `none` shows individual processes; `session` groups by launch session and totals displayed heavy processes. | `none` |
+| `--json` | Emit JSONL: one complete JSON object per report. | Off |
+| `--json-schema` | Print the report's JSON Schema and exit without sampling. | Off |
+| `--all-processes` | Include unrelated and unattributed processes; same-user scope and heavy thresholds still apply. | Off |
+| `--commands` | Include command arguments in reports and details; arguments can contain secrets. | Off |
+| `--version` | Print the installed version and exit. | — |
+| `-h`, `--help` | Show command help and exit. | — |
+
+Choose only one of `--tui`, `--json`, or `--json-schema`. Session grouping is available for text and TUI output; `--group session` cannot be combined with `--json` or `--json-schema`.
+
 ## Current support
 
 Agent Monitor supports Codex CLI and Claude Code terminal sessions. Claude Code's native installation has been checked with a real workload; npm-based Claude installations and real terminal Codex workloads have not yet been validated. Desktop conversation attribution and third-party agent plugins are not currently supported.
