@@ -8,6 +8,8 @@ Agent Monitor is a macOS Swift PoC for mapping heavy processes to specific codin
 
 Keep the [README](README.md) focused on users: purpose, features, quick start, and current support. Detailed controls belong in the [usage guide](docs/usage.md), build/check instructions in the [development guide](docs/development.md), and implementation contracts in the [architecture document](docs/architecture.md).
 
+When changing CLI options, defaults, or incompatible combinations, update the README option table and affected usage examples in the same commit. Verify them against `Options.swift` and the executable's generated `--help`, including the different default sample count in TUI mode.
+
 Read [PLAN.md](PLAN.md) when resuming. Keep its PoC tasks, completion evidence, and next action current; do not expand into product development.
 
 Follow [architecture boundaries](docs/architecture.md): monitoring logic and snapshots are UI-independent; text, TUI, and future native views own presentation only. Document architectural changes alongside the code.
