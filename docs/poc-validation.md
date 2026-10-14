@@ -155,3 +155,9 @@ The process column contains names only, so allocating it a fixed share of surplu
 Red regressions reproduced excess padding for both short (`codex`, `java`) and medium-length names at 60, 85, 120, 160, and 200 columns. Green regressions verify content-sized widths and header/row alignment, plus a complete Claude UUID and project name beside `java` at 120 columns. Existing long-name, viewport-bound, and resize guards still pass. All 69 Swift test functions and strict formatting pass; the optimized executable and fixture are rebuilt.
 
 The multi-width PTY journey also passed against the release fixture, covering resize, sorting, selection, details, filter changes, scrolling, and terminal restoration.
+
+## Public release verification (2026-10-14)
+
+[Release v0.1.0](https://github.com/mbackschat/agent-monitor/releases/tag/v0.1.0) is published from the sanitized initial commit under MIT. The public source scan covered all 70 files, including the image asset and symlink targets, and the binary archive scan covered 322 entries. Known private session IDs, local project names/paths, and credential patterns were absent. Archive headers contain no build-account user/group values. Original unpublished history is retained only in a local backup, outside the pushed refs.
+
+The archive and checksum downloaded anonymously from GitHub matched the locally audited bytes. After extraction outside the checkout, `--version` returned `0.1.0`, `--json-schema` parsed successfully, and `codesign --verify` passed. This validates the existing ad-hoc signature; it does not imply Developer ID signing, notarization, or a Gatekeeper-approved download. The 70-test suite and release PTY journey passed before packaging; the anonymized display fixture also passed after sanitization.
