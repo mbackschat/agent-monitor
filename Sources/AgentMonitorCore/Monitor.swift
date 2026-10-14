@@ -70,13 +70,7 @@ public struct Monitor: Sendable {
         thresholds: Thresholds = Thresholds(), scope: ProcessScope = .allProcesses
     ) -> [HeavyProcess] {
         heavyIdentities(thresholds: thresholds).compactMap { identity in
-            guard let node = nodes[identity] else { return nil }
-            return HeavyProcess(
-                process: identity, executable: node.sample.executable, name: node.sample.name,
-                cpuPercent: node.cpuPercent, footprintBytes: node.sample.footprintBytes,
-                cwd: node.metadata.cwd, command: node.metadata.command, metadataStatus: node.metadata.status,
-                attribution: attribute(identity)
-            )
+            finding(for: identity)
         }.filter { scope.includes($0.attribution) }.sorted {
             if $0.cpuPercent != $1.cpuPercent { return ($0.cpuPercent ?? -1) > ($1.cpuPercent ?? -1) }
             if $0.footprintBytes != $1.footprintBytes {
@@ -84,6 +78,16 @@ public struct Monitor: Sendable {
             }
             return $0.process.pid < $1.process.pid
         }
+    }
+
+    /// Inspect a live process independently of display thresholds.
+    public func finding(for identity: ProcessIdentity) -> HeavyProcess? {
+        guard live.contains(identity), let node = nodes[identity] else { return nil }
+        return HeavyProcess(
+            process: identity, executable: node.sample.executable, name: node.sample.name,
+            cpuPercent: node.cpuPercent, footprintBytes: node.sample.footprintBytes,
+            cwd: node.metadata.cwd, command: node.metadata.command, metadataStatus: node.metadata.status,
+            attribution: attribute(identity))
     }
 
     private func heavyIdentities(thresholds: Thresholds) -> [ProcessIdentity] {

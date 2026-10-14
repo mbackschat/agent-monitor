@@ -1,3 +1,4 @@
+import AgentMonitorActions
 import AgentMonitorCore
 import AgentMonitorTUI
 import Foundation
@@ -5,7 +6,7 @@ import Foundation
 @main
 enum TUIFixture {
     static func main() async throws {
-        try await TerminalReport.run { currentThresholds, receive in
+        try await TerminalReport.run(actions: FixtureActions()) { currentThresholds, receive in
             var tick = 0
             while !Task.isCancelled {
                 tick += 1
@@ -38,4 +39,17 @@ enum TUIFixture {
                  "runtime":{"pid":1234,"startMicroseconds":1},"ancestry":[]}}
                 """.utf8))
     }
+}
+
+private struct FixtureActions: ProcessActions {
+    func terminate(_ process: HeavyProcess) async throws {}
+    func prepareMessage(for process: HeavyProcess) async throws -> MessageDraft {
+        MessageDraft(
+            process: process,
+            recipients: MessageRecipients(
+                root: AgentRecipient(id: "22222222-2222-4222-8222-222222222222", label: "Root agent"),
+                selected: AgentRecipient(id: "11111111-1111-4111-8111-111111111111", label: "Selected agent"))
+        )
+    }
+    func send(_ draft: MessageDraft, text: String, recipient: String) async throws {}
 }

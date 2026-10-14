@@ -14,13 +14,16 @@ let package = Package(
     ],
     targets: [
         .target(name: "AgentMonitorCore"),
+        .target(name: "AgentMonitorActions", dependencies: ["AgentMonitorCore"]),
+        .testTarget(
+            name: "AgentMonitorActionsTests", dependencies: ["AgentMonitorActions", "AgentMonitorCore"]),
         .target(
-            name: "AgentMonitorPresentation", dependencies: ["AgentMonitorCore"],
+            name: "AgentMonitorPresentation", dependencies: ["AgentMonitorCore", "AgentMonitorActions"],
             resources: [.process("Resources")]),
         .target(
             name: "AgentMonitorTUI",
             dependencies: [
-                "AgentMonitorCore", "AgentMonitorPresentation",
+                "AgentMonitorCore", "AgentMonitorPresentation", "AgentMonitorActions",
                 .product(name: "SwiftTUIRuntime", package: "swift-tui"),
                 .product(name: "SwiftTUICLI", package: "swift-tui"),
             ]),
@@ -36,7 +39,8 @@ let package = Package(
             path: "Tools/Preview"),
         .testTarget(name: "PreviewTests", dependencies: ["monitor-preview"]),
         .executableTarget(
-            name: "monitor-tui-fixture", dependencies: ["AgentMonitorCore", "AgentMonitorTUI"],
+            name: "monitor-tui-fixture",
+            dependencies: ["AgentMonitorCore", "AgentMonitorTUI", "AgentMonitorActions"],
             path: "Tests/Fixtures/TUIFixture"),
         .testTarget(
             name: "AgentMonitorTUITests",

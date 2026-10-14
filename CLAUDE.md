@@ -2,7 +2,7 @@
 
 ## Project Status & Structure
 
-Agent Monitor is a macOS Swift PoC for mapping heavy processes to specific coding-agent sessions. `Sources/AgentMonitorCore/` contains native sampling, attribution, and models; `Sources/AgentMonitor/` contains the command-line harness; `AgentMonitorPresentation/` owns neutral rendering/interaction state and `AgentMonitorTUI/` owns SwiftTUI views. `Tests/` contains Swift Testing tests and disposable process fixtures. [TUI research](docs/research/terminal-ui.md) records the isolated probe; its temporary build directory has been removed. Keep UI dependencies out of the monitoring core. See [README.md](README.md), [development guidance](docs/development.md), and [product scope](docs/research/PRODUCT.md).
+Agent Monitor is a macOS Swift PoC for mapping heavy processes to specific coding-agent sessions. `Sources/AgentMonitorCore/` contains native sampling, attribution, and models; `Sources/AgentMonitor/` contains the command-line harness; `AgentMonitorPresentation/` owns neutral rendering/interaction state and `AgentMonitorTUI/` owns SwiftTUI views. `AgentMonitorActions/` owns verified process termination and provider messaging. `Tests/` contains Swift Testing tests and disposable process fixtures. [TUI research](docs/research/terminal-ui.md) records the isolated probe; its temporary build directory has been removed. Keep UI dependencies out of the monitoring core. See [README.md](README.md), [development guidance](docs/development.md), and [product scope](docs/research/PRODUCT.md).
 
 `CLAUDE.md` is canonical; preserve the `AGENTS.md` symlink.
 
@@ -10,7 +10,7 @@ Keep the [README](README.md) focused on users: purpose, features, quick start, a
 
 When changing CLI options, defaults, or incompatible combinations, update the README option table and affected usage examples in the same commit. Verify them against `Options.swift` and the executable's generated `--help`, including the different default sample count in TUI mode.
 
-Read [PLAN.md](PLAN.md) when resuming. Keep its PoC tasks, completion evidence, and next action current; do not expand into product development.
+Read [PLAN.md](PLAN.md) when resuming. Keep task scope, completion evidence, and next action current. Process termination and Codex messaging were explicitly authorized after v0.1.0; unrelated product expansion remains out of scope.
 
 Follow [architecture boundaries](docs/architecture.md): monitoring logic and snapshots are UI-independent; text, TUI, and future native views own presentation only. Document architectural changes alongside the code.
 
@@ -47,6 +47,8 @@ Use four-space indentation, the bundled `swift format`, Swift 6 concurrency chec
 ## Testing Guidelines
 
 Use red/green TDD and descriptive Swift Testing tests. Positive fixtures must resolve exact sessions; unknown everywhere cannot pass. Cover same-directory sessions, PID reuse, detached children, ambiguity, and resource-unit semantics. Never infer ownership from cwd alone or treat a protocol process handle as an OS PID.
+
+Action execution belongs in `AgentMonitorActions`, never the sampler or UI. Preserve frozen PID/start/executable identity, fresh same-user checks, confirmed single-process SIGTERM, exact live recipient verification, root default without fallback, and automatic workload PID context. Treat queue acceptance separately from delivery; never automatically retry an uncertain send. Use fake provider transports and disposable owned processes in tests; do not signal real workloads or send test messages to live agents. Codex `app-server proxy` forwards WebSocket bytes, not the JSONL used by a standalone stdio app server; keep handshake/framing regressions and verify actual read-only transport when changing it. Keep bracketed paste separate from command input and prevent confirmation when the action panel is hidden by a small viewport. Cancel and reap owned provider subprocesses on shutdown. See [action architecture](docs/architecture.md#process-and-session-actions).
 
 ## Commit & Pull Request Guidelines
 

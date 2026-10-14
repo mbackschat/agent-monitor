@@ -1,3 +1,4 @@
+import AgentMonitorActions
 import AgentMonitorCore
 import AgentMonitorPresentation
 import SwiftTUICLI
@@ -19,6 +20,7 @@ public enum TerminalReport {
 
     public static func run(
         grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(),
+        actions: any ProcessActions = SessionActions.local(),
         source: @escaping SnapshotSource
     ) async throws {
         let identity = Identity(components: ["agent-monitor"])
@@ -33,14 +35,31 @@ public enum TerminalReport {
         let runtime = RunLoop(
             rootIdentity: identity,
             presentationSurface: host,
-            terminalInputReader: InputReader(),
+            terminalInputReader: ActionInputReader { text in
+                state.mutate { _ = $0.actionInput(.text(text)) }
+            },
             signalReader: SignalReader(),
             stateContainer: state,
             focusTracker: FocusTracker(invalidationIdentities: [identity]),
             keyHandler: { key, _, state in
+                if state.state.actionPanel != nil {
+                    guard host.surfaceSize.width >= 40, host.surfaceSize.height >= 8 else { return .handled }
+                    if let input = actionInput(key) {
+                        var effect: ActionEffect?
+                        state.mutate { effect = $0.actionInput(input) }
+                        outcome.perform(effect, actions: actions, state: state)
+                    }
+                    return .handled
+                }
                 guard key.modifiers.isEmpty else { return .ignored }
                 switch key.key {
                 case .character("q"): return .exit(.userExit(key))
+                case .character("k"), .character("s"):
+                    var effect: ActionEffect?
+                    state.mutate {
+                        effect = $0.beginAction(key.key == .character("k") ? .terminate : .message)
+                    }
+                    outcome.perform(effect, actions: actions, state: state)
                 case .arrowUp: state.mutate { $0.moveSelection(by: -1) }
                 case .arrowDown: state.mutate { $0.moveSelection(by: 1) }
                 case .return: state.mutate { $0.toggleDisclosure() }
@@ -73,14 +92,72 @@ public enum TerminalReport {
                 TerminalReportView(state: value, container: state, source: source, outcome: outcome)
             }
         )
-        _ = try await runtime.run()
+        do {
+            _ = try await runtime.run()
+        } catch {
+            outcome.actionTask?.cancel()
+            await outcome.actionTask?.value
+            throw error
+        }
+        outcome.actionTask?.cancel()
+        await outcome.actionTask?.value
         if let error = outcome.error { throw error }
     }
+    private static func actionInput(_ key: KeyPress) -> ActionInput? {
+        if key.modifiers == .ctrl, key.key == .character("y") { return .confirm }
+        guard key.modifiers.isEmpty || key.modifiers == .shift else { return nil }
+        switch key.key {
+        case .escape: return .escape
+        case .return: return .review
+        case .tab: return .recipient
+        case .backspace: return .backspace
+        case .arrowUp: return .scroll(-1)
+        case .arrowDown: return .scroll(1)
+        case .pageUp: return .scroll(-10)
+        case .pageDown: return .scroll(10)
+        case .space: return .text(" ")
+        case .character(let character): return .text(String(character))
+        default: return nil
+        }
+    }
+
 }
 
 @MainActor
 private final class TerminalOutcome {
     var error: (any Error)?
+    var actionTask: Task<Void, Never>?
+
+    func perform(_ effect: ActionEffect?, actions: any ProcessActions, state: StateContainer<LiveReportState>)
+    {
+        guard let effect else { return }
+        actionTask = Task {
+            do {
+                switch effect {
+                case .prepare(let process):
+                    let draft = try await actions.prepareMessage(for: process)
+                    try Task.checkCancellation()
+                    state.mutate { $0.messagePrepared(draft) }
+                case .terminate(let process):
+                    try await actions.terminate(process)
+                    state.mutate {
+                        $0.actionFinished(
+                            "SIGTERM accepted for PID \(process.process.pid). Exit is not yet confirmed.")
+                    }
+                case .send(let draft, let text, let recipient):
+                    try await actions.send(draft, text: text, recipient: recipient)
+                    state.mutate {
+                        $0.actionFinished(
+                            "Message queued for \(recipient). Delivery and action are not confirmed.")
+                    }
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                state.mutate { $0.actionFinished(error.localizedDescription) }
+            }
+        }
+    }
 }
 
 private struct TerminalReportView: View {

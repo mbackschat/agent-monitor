@@ -84,7 +84,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
         $0.contains("PID descending") && $0.contains("PID 42 |") && $0.contains("unresolved")
-            && dividerRow($0) == 8
+            && dividerRow($0) == 7
     }
     try writeAllBytes(Array(String(repeating: "]", count: 20).utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
@@ -120,7 +120,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("PID 42 |") && dividerRow($0) == 8
+        $0.contains("PID 42 |") && dividerRow($0) == 7
     }
     try writeAllBytes(Array("g".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
@@ -196,4 +196,87 @@ private func launch(_ binary: String, terminal: Int32) throws -> pid_t {
 
 private func dividerRow(_ text: String) -> Int? {
     text.split(separator: "\n", omittingEmptySubsequences: false).firstIndex { $0.contains("─ Details") }
+}
+
+@Test func terminalActionsRequireConfirmationAndPasteCannotSubmit() async throws {
+    let binary =
+        ProcessInfo.processInfo.environment["AGENT_MONITOR_TUI_FIXTURE"]
+        ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().appendingPathComponent(".build/debug/monitor-tui-fixture").path
+    let terminal = try RealTerminalPTYPair.open(size: .init(width: 100, height: 24), stallBudget: nil)
+    defer { terminal.close() }
+    let pid = try launch(binary, terminal: terminal.slave)
+    defer {
+        kill(pid, SIGKILL)
+        waitpid(pid, nil, 0)
+    }
+    var screen = ANSIVisibleScreen(size: .init(width: 100, height: 24))
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(8)
+    ) {
+        $0.contains("fixture-42")
+    }
+    try writeAllBytes(Array("k".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("Terminate selected process?") && $0.contains("PID 42")
+    }
+    var small = winsize(ws_row: 7, ws_col: 30, ws_xpixel: 0, ws_ypixel: 0)
+    try #require(ioctl(terminal.slave, TIOCSWINSZ, &small) == 0)
+    screen = ANSIVisibleScreen(size: .init(width: 30, height: 7))
+    try #require(kill(pid, SIGWINCH) == 0)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("Resize to 40x8")
+    }
+    try writeAllBytes([25], to: terminal.master)
+    try await Task.sleep(for: .milliseconds(100))
+    var restored = winsize(ws_row: 24, ws_col: 100, ws_xpixel: 0, ws_ypixel: 0)
+    try #require(ioctl(terminal.slave, TIOCSWINSZ, &restored) == 0)
+    screen = ANSIVisibleScreen(size: .init(width: 100, height: 24))
+    try #require(kill(pid, SIGWINCH) == 0)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("Terminate selected process?") && !$0.contains("SIGTERM accepted")
+    }
+    try writeAllBytes([25], to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("SIGTERM accepted for PID 42")
+    }
+    try writeAllBytes([27], to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("CPU descending")
+    }
+    try writeAllBytes(Array("s".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("Message agent") && $0.contains("Recipient: Root agent")
+    }
+    try writeAllBytes(Array("\u{1b}[200~q\nPlease investigate\u{19}\u{1b}[201~".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("Message agent") && $0.contains("Please investigate") && !$0.contains("Message queued")
+    }
+    try writeAllBytes([9, 13], to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("Review exact message") && $0.contains("Recipient: Selected agent")
+            && $0.contains("selected process PID 42 (fixture-42)")
+    }
+    try writeAllBytes([25], to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("Message queued for 11111111") && $0.contains("not confirmed")
+    }
 }

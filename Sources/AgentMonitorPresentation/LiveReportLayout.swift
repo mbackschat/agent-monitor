@@ -19,10 +19,11 @@ public enum LiveReportLayout {
             return Array(
                 [
                     ReportLine("Agent Monitor"), ReportLine("Resize to 40x8 or larger"),
-                    ReportLine("q/Ctrl-C quit"),
+                    ReportLine(state.actionPanel == nil ? "q/Ctrl-C quit" : "Ctrl-C quit"),
                 ].prefix(height)
             ).map { ReportLine(String($0.text.prefix(width)), style: $0.style) }
         }
+        if let panel = state.actionPanel { return panel.lines(width: width, height: height) }
         var lines = headerLines(state: state, width: width)
         let footer = helpLines(width: width, height: height, headerHeight: lines.count)
         let available = height - lines.count - footer.count
@@ -89,6 +90,7 @@ public enum LiveReportLayout {
     private static func helpLines(width: Int, height: Int, headerHeight: Int) -> [String] {
         let groups = [
             ["↑/↓ select", "Enter open", "g group", "c/m/p sort", "r reverse", "[/] scroll"],
+            ["k terminate", "s message"],
             ["1/2 CPU -/+10%", "3/4 GB -/+1"],
             ["-/+ size", "0 min", "9 max", "= restore", "q/Ctrl-C quit"],
         ]

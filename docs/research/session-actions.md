@@ -1,6 +1,6 @@
 # TUI process and session actions
 
-Checked 2026-10-14 against installed Codex CLI 0.162.1, Claude Code 2.1.299, and the official documentation below. These are feasibility findings and proposed behavior, not implemented features. No messages were sent and no user processes were signaled.
+Checked 2026-10-14 against installed Codex CLI 0.162.1, Claude Code 2.1.299, and the official documentation below. The feasibility study originally proposed the behavior below; confirmed SIGTERM and Codex queued messaging are now implemented in the source checkout. See [current usage and limits](../usage.md#process-actions-unreleased) and [architecture](../architecture.md#process-and-session-actions). Live delivery remains untested; validation uses fake provider transports and disposable processes, never user workloads.
 
 ## Terminate the selected process
 
@@ -22,7 +22,7 @@ Sources: [Codex queue CLI reference](https://learn.chatgpt.com/docs/cli/referenc
 
 ## Recommendation and limits
 
-Recommend a future Codex-first message action, labeled **Queue message**, because the installed CLI already supplies a direct interface. Use argument arrays rather than shell interpolation. Show the exact target and message before submission; distinguish accepted, failed, and delivery-unverified results. A queued message is unsuitable as an emergency stop. For immediate steering, a separate app-server interaction would need active-turn validation.
+Implement a Codex-first message action, labeled **Queue message**, because the installed CLI already supplies a direct interface. Use argument arrays rather than shell interpolation. Show the exact target and message before submission; distinguish accepted, failed, and delivery-unverified results. A queued message is unsuitable as an emergency stop. For immediate steering, a separate app-server interaction would need active-turn validation.
 
 ### Recipient and process context
 

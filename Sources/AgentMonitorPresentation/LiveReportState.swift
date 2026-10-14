@@ -11,6 +11,9 @@ public enum ThresholdAdjustment: Sendable { case cpuDown, cpuUp, memoryDown, mem
 public enum DetailsPaneMode: Sendable { case minimized, split, maximized }
 
 public struct LiveReportState: Equatable, Sendable {
+    public var actionPanel: ActionPanel?
+    mutating func setActionNotice(_ text: String) { notice = text }
+
     public private(set) var snapshot: MonitoringSnapshot?
     public private(set) var sortKey: ReportSort = .cpu
     public private(set) var ascending = false
