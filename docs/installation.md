@@ -1,6 +1,26 @@
 # Installation
 
-Agent Monitor runs on macOS 27 and has been tested on Apple Silicon. Install a release download or build from source, then run `agent-monitor` from any directory.
+Agent Monitor runs on macOS 27 or later and has been tested on Apple Silicon. Install with Homebrew, use a release download, or build from source, then run `agent-monitor` from any directory.
+
+## Homebrew (recommended)
+
+With [Homebrew](https://brew.sh) installed:
+
+```sh
+brew install mbackschat/tap/agent-monitor
+agent-monitor --tui --group session
+```
+
+The [tap](https://github.com/mbackschat/homebrew-tap) installs the verified release archive and its schema resource bundle. Xcode and manual PATH changes are not required when Homebrew is already on your PATH. The formula requires Apple Silicon and macOS 27 or later.
+
+To update:
+
+```sh
+brew update
+brew upgrade agent-monitor
+```
+
+To remove it, run `brew uninstall agent-monitor`. If you previously installed a copy manually, use `which -a agent-monitor` to check whether an older copy takes precedence on your PATH.
 
 ## Install the release
 
@@ -34,7 +54,7 @@ cp -R .build/release/AgentMonitor_AgentMonitorPresentation.bundle "$HOME/.local/
 
 Dependencies are fetched automatically during the build. Neither installation method requires `sudo`.
 
-## Set up your PATH
+## PATH for manual installations
 
 If `$HOME/.local/bin` is not already on your `PATH`, add this line to `~/.zshrc` (or your shell's equivalent configuration) and open a new terminal. You can also run it in the current terminal to use the command immediately:
 

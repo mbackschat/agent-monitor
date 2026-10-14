@@ -22,3 +22,7 @@ Artifacts are written under ignored `dist/`: a versioned `.tar.gz` and its SHA-2
 Commit the validated source and release documentation, tag that commit with `v` followed by the CLI version, and push the branch and tag. Check the Git author email against the target remote before pushing. Create the GitHub release from that existing tag and upload both generated assets. Use [release notes](releases/0.1.0.md) as the initial format, updating capabilities and verification for each version.
 
 After publication, download the assets from GitHub into a fresh directory, check the checksum, and repeat version/schema checks against the extracted executable. Confirm the repository visibility, tag commit, and README download link.
+
+## Update Homebrew
+
+The [Homebrew tap](https://github.com/mbackschat/homebrew-tap) owns the canonical formula. After publishing a new archive, update its versioned URL and SHA-256; keep existing release assets immutable. Run `brew audit --strict mbackschat/tap/agent-monitor`, verify installation or upgrade, and run `brew test mbackschat/tap/agent-monitor` before pushing the formula. The installed schema check guards the required resource bundle beside the executable. Keep the formula's architecture/macOS requirements aligned with the published binary.

@@ -21,9 +21,15 @@ When several coding agents are running, a busy `node`, `java`, or `python` proce
 
 ## Install
 
-Requires **macOS 27**; tested on Apple Silicon. No root access or agent hooks are required.
+Requires **Apple Silicon and macOS 27 or later**. With [Homebrew](https://brew.sh) installed:
 
-[Download v0.1.0 for Apple Silicon](https://github.com/mbackschat/agent-monitor/releases/tag/v0.1.0), then follow the [installation guide](docs/installation.md). The download includes the CLI and its resource bundle; Xcode is only needed if you choose to build from source.
+```sh
+brew install mbackschat/tap/agent-monitor
+```
+
+No Xcode, root access, or agent hooks are required. Update with `brew update` followed by `brew upgrade agent-monitor`.
+
+Prefer a direct download or a source build? See the [installation guide](docs/installation.md).
 
 ## Quick start
 
