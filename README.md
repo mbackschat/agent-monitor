@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/agent-monitor.png" alt="Agent Monitor: terminal prompt and resource activity bars" width="128" height="128">
+  <img src="docs/assets/agent-monitor.webp" alt="Agent Monitor: terminal prompt and resource activity bars" width="128" height="128">
 </p>
 
 <h1 align="center">Agent Monitor</h1>

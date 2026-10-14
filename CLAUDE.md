@@ -40,6 +40,8 @@ Keep the generated [README preview](docs/assets/tui-preview.svg) current when ch
 
 Preserve fixed character positions in the preview SVG; do not stretch rows with `textLength`/`lengthAdjust` or rely on whitespace preservation for terminal columns. Validate browser appearance when available and state explicitly when only a converter render was inspected.
 
+Size documentation images for their displayed dimensions, allowing 2× resolution for raster icons. Use optimized web assets rather than full-resolution generated masters; check file size and visual quality before committing. The README logo is a 256 × 256 WebP displayed at 128 × 128. Keep explicit display dimensions and descriptive alternative text.
+
 Use four-space indentation, the bundled `swift format`, Swift 6 concurrency checking, and enum-based switches. Keep presentation separate from collection. Comments explain constraints and cite their basis. Write Markdown with one paragraph per physical line and regular links to other documents.
 
 ## Testing Guidelines
