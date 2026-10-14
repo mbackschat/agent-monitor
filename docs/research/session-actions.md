@@ -24,7 +24,20 @@ Sources: [Codex queue CLI reference](https://learn.chatgpt.com/docs/cli/referenc
 
 Recommend a future Codex-first message action, labeled **Queue message**, because the installed CLI already supplies a direct interface. Use argument arrays rather than shell interpolation. Show the exact target and message before submission; distinguish accepted, failed, and delivery-unverified results. A queued message is unsuitable as an emergency stop. For immediate steering, a separate app-server interaction would need active-turn validation.
 
-The user's preferred destination is the **root agent**, including when the selected workload belongs to a subagent. Resolve the live root using provider metadata: Codex documents `thread.sessionId` as the session-tree root, with a root thread's own ID as its session ID. The monitor already retains an optional `rootSessionID` from `CODEX_SESSION_ID`; treat this inherited value as a candidate to verify, not sufficient delivery authority. Display the selected process/child thread and the resolved root recipient separately, then queue to that root's UUID. If root resolution fails or conflicts, leave the action unavailable with a reason; do not silently fall back to a child. See [Codex thread identity semantics](https://learn.chatgpt.com/docs/app-server#start-or-resume-a-thread).
+### Recipient and process context
+
+Default the recipient to the **root agent**, including when the selected workload belongs to a subagent, because it coordinates the session's work. Offer an explicit **Selected agent** choice when the process's attributed agent session is distinct and independently verified as reachable. This choice refers to an agent session, not the selected OS process. Show the selected process, attributed session, and chosen recipient separately. If both choices resolve to the same session, show one recipient. Do not guess the recipient from message wording or silently switch to a child when root verification fails; the user must explicitly choose another verified recipient.
+
+Resolve the live root using provider metadata: Codex documents `thread.sessionId` as the session-tree root, with a root thread's own ID as its session ID. The monitor already retains an optional `rootSessionID` from `CODEX_SESSION_ID`; treat this inherited value as a candidate to verify, not sufficient delivery authority. If the chosen recipient cannot be verified or the evidence conflicts, leave submission unavailable with a reason. See [Codex thread identity semantics](https://learn.chatgpt.com/docs/app-server#start-or-resume-a-thread).
+
+Automatically prepend the **selected workload's PID and process name** to the user's message, regardless of the recipient. Do not substitute the root agent runtime's PID. Show the complete generated message before submission and preserve the user's wording. For example:
+
+```text
+[Agent Monitor: selected process PID 42001 (swift-frontend)]
+Please investigate why this process is using so much CPU.
+```
+
+Capture the selected process identity when opening the composer so refreshes and sorting cannot retarget the draft. Recheck its PID/start identity and attribution before submission; if the process exited, the PID was reused, or attribution changed, require a fresh selection. The PID describes the observed workload, not an instruction or authorization to terminate it. Queuing can delay delivery, so it does not guarantee that the same process will still be running when the agent reads the message. Initially, messaging starts from a process row; expand a session group and select a process rather than inventing one PID for the group.
 
 Disable messaging when attribution is ambiguous, the runtime is unverified, or only detached launch-origin evidence remains. Resolving a historical session ID does not prove it is the currently responsible session or reachable by the local server. Verify the target with the provider before offering delivery, especially when one Codex runtime hosts many threads. Standalone/no-daemon sessions and server selection need a bounded integration test before claiming support.
 
