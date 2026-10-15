@@ -12,8 +12,8 @@ When several coding agents are running, a busy `node`, `java`, or `python` proce
 
 ## Features
 
-- **Live terminal view** — watch CPU and memory usage, sort processes, and open details without leaving your terminal. Change the update interval or freeze the view while you look.
-- **Native menu bar app** — open a compact macOS panel for resource usage and session actions, with Pause/Resume for inspection; three bold load bars keep updating every 15 seconds while the panel is closed. Available from a source build.
+- **Live terminal view** — watch CPU and memory usage, sort processes, and open details without leaving your terminal. Stable order keeps existing rows in place and appends newcomers. Change the update interval or freeze the view while you look.
+- **Native menu bar app** — open a compact macOS panel for resource usage and session actions, with Pause/Resume for inspection; three bold load bars get a quick startup sample, then update every 15 seconds while the panel is closed. Available from a source build.
 - **Pinned inspection** — keep a process or session at the top while its values update, in both native and terminal views. Missing targets stay marked until unpinned.
 - **Session grouping** — bring related heavy processes together and see their combined resource usage.
 - **Adjustable filters** — change CPU and memory thresholds while the monitor runs.
@@ -51,7 +51,7 @@ Switch between individual processes and session groups to see which agent launch
 
 *Illustrative process view with the selected process pinned (`@`) and details open. The text comes from the real layout renderer using entirely synthetic data; terminal colors and window decoration are illustrative. Press `g` to switch between this view and session groups.*
 
-Use **↑ / ↓** to select, **Enter** to expand a session or inspect a process, **g** to toggle grouping, **< / >** to update less or more often, **Space** to pin/unpin the selected row, **p** to pause/resume the view, and **q** to quit. The controls and current filters are shown in the terminal.
+Use **↑ / ↓** to select, **Enter** to expand a session or inspect a process, **g** to toggle grouping, **o** for Stable order, **< / >** to update less or more often, **Space** to pin/unpin the selected row, **p** to pause/resume the view, and **q** to quit. The controls and current filters are shown in the terminal.
 
 By default, the monitor shows agent-associated processes exceeding **25% CPU or 1 GB memory footprint**. If the list is empty, press **1** to lower the CPU threshold or **3** to lower the memory threshold. CPU at 100% means one fully occupied core.
 
@@ -81,7 +81,7 @@ See the [usage guide](docs/usage.md) for all keyboard controls, filters, session
 
 ## Menu bar app
 
-The maintained, source-built native menu bar app runs with `bash scripts/menubar.sh run`. Click its load icon for session groups, resource usage and process details; expand a process to focus its terminal, review a termination request or compose a message. It uses the same monitoring and verified action services as the TUI, with a native popover and no standalone window. The app follows the system light/dark appearance. The live icon shows aggregate agent CPU load with a small monochrome count badge above the shorter bars, keeping the menu-bar item’s width fixed. New rows briefly receive a subtle background highlight. Row context menus offer pinning, terminal focus, messaging and termination, with unavailable actions dimmed. Right-click the icon for load details, View options and Quit. Choose a static icon in View options to stop closed-panel sampling. See [menu bar usage](docs/usage.md#menu-bar-app) and [build and validation limits](docs/development.md#menu-bar-app).
+The maintained, source-built native menu bar app runs with `bash scripts/menubar.sh run`. Click its load icon for session groups, resource usage and process details; expand a process to focus its terminal, review a termination request or compose a message. It uses the same monitoring and verified action services as the TUI, with a native popover and no standalone window. The app follows the system light/dark appearance. The live icon shows aggregate agent CPU load with a small monochrome count badge above the shorter bars, keeping the menu-bar item’s width fixed. New rows and their parent session headers briefly receive a gray background highlight, including collapsed parents. Stable order is the default in both GUI and TUI; CPU, footprint and PID sorting remain available. Row context menus offer pinning, terminal focus, messaging and termination, with unavailable actions dimmed. Right-click the icon for load details, View options and Quit. Choose a static icon in View options to stop closed-panel sampling. See [menu bar usage](docs/usage.md#menu-bar-app) and [build and validation limits](docs/development.md#menu-bar-app).
 
 <p><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/menubar-preview-dark.webp"><img src="docs/assets/menubar-preview.webp" width="420" height="560" alt="Native Agent Monitor menu bar panel paused for inspection, with an expanded pinned Claude session, Codex and Claude process rows, CPU and memory usage, Resume, View options, and panel size controls."></picture></p>
 
@@ -97,7 +97,7 @@ With no options, `agent-monitor` prints one text report after a one-second basel
 | `--memory-gb <gb>` | Physical memory footprint threshold in decimal GB. Accepts nonnegative values. | `1` (GB) |
 | `--interval <seconds>` | Wait between samples, from 0.1 to 60 seconds. | `1` (second) |
 | `--samples <count>` | Number of reports; `0` runs until you quit. | `1`; `0` with `--tui` |
-| `--tui`, `-tui` | Open the live terminal UI; requires interactive input and output. | Off; text reports |
+| `--tui`, `-tui` | Open the live terminal UI in Stable order; requires interactive input and output. | Off; text reports |
 | `--group <mode>` | `none` shows individual processes; `session` groups by launch session and totals displayed heavy processes. | `none` |
 | `--json` | Emit JSONL: one complete JSON object per report. | Off |
 | `--json-schema` | Print the report's JSON Schema and exit without sampling. | Off |

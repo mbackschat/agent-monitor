@@ -19,8 +19,6 @@ Real terminal Codex workload attribution and live Codex child-recipient routing/
 
 The shipped scope includes text/TUI/JSONL reports, session grouping in text and TUI, built-in Codex/Claude attribution, confirmed single-process termination, verified session messaging and terminal focus through both TUI and CLI actions. Preserve the [architecture boundaries](docs/architecture.md) when extending it.
 
-Pending idea: add **Stable order** to GUI and TUI through shared presentation state. Preserve surviving process/session identity order and append arrivals; keep pins above the list and CPU/footprint/PID sorting as explicit alternatives. Not yet implemented.
-
 Pending ideas: a compact provider column with sorting and a command-line-only provider filter; author credit in `--help`. Provider recognition must come from attribution adapters. These ideas are not part of the completed adapter extraction.
 
 Production app packaging, desktop/remote/container attribution, broader platform/provider support, notifications, background monitoring services, additional terminal adapters/tmux resolution, optional session metrics and external plugins need separate scope decisions. The native menu bar app is maintained as a source-built feature with shared sampling, grouping and verified actions; its [architecture](docs/architecture.md#native-menu-bar-app) defines 15-second closed-panel sampling for the live icon and no closed-panel sampling for the optional static icon. The [retained proposal](docs/proposals/menubar-app.md) retains deferred product decisions. The [working-model proposal](docs/proposals/agent-working-model.md) does not authorize delegation. Dated source findings belong in the [research index](docs/research/README.md).

@@ -1,6 +1,7 @@
 import AgentMonitorCore
 
 public enum ReportSort: String, CaseIterable, Sendable {
+    case stable = "Stable order"
     case cpu = "CPU"
     case memory = "Footprint"
     case pid = "PID"
@@ -18,7 +19,7 @@ public struct LiveReportState: Equatable, Sendable {
 
     public private(set) var pins: [ReportPin] = []
     public private(set) var snapshot: MonitoringSnapshot?
-    public private(set) var sortKey: ReportSort = .cpu
+    public private(set) var sortKey: ReportSort = .stable
     public private(set) var ascending = false
     public private(set) var selection: LiveReportRowID?
     public private(set) var grouping: ReportGrouping
@@ -44,6 +45,8 @@ public struct LiveReportState: Equatable, Sendable {
     /// A frozen view keeps its snapshot while sampling continues; the latest one waits here.
     public private(set) var frozen = false
     private var heldSnapshot: MonitoringSnapshot?
+    private var stableProcessRanks: [ProcessIdentity: Int] = [:]
+    private var stableGroupRanks: [SessionGroupID: Int] = [:]
 
     /// Each sample walks every process, so the TUI does not step below 0.5 s; an explicit faster
     /// `--interval` is kept until the user slows down.
@@ -98,6 +101,11 @@ public struct LiveReportState: Equatable, Sendable {
     public var groups: [SessionGroup] {
         SessionGrouping.groups(rows).sorted { left, right in
             switch sortKey {
+            case .stable:
+                let leftRank = stableGroupRanks[left.id] ?? Int.max
+                let rightRank = stableGroupRanks[right.id] ?? Int.max
+                if leftRank != rightRank { return leftRank < rightRank }
+                if left.cpuTotal != right.cpuTotal { return compare(left.cpuTotal, right.cpuTotal) }
             case .cpu:
                 if left.cpuTotal != right.cpuTotal { return compare(left.cpuTotal, right.cpuTotal) }
             case .memory:
@@ -155,12 +163,19 @@ public struct LiveReportState: Equatable, Sendable {
         fresh.pins = pins
         fresh.sortKey = sortKey
         fresh.ascending = ascending
+        fresh.stableProcessRanks = stableProcessRanks
+        fresh.stableGroupRanks = stableGroupRanks
         self = fresh
     }
 
     public var rows: [HeavyProcess] {
         (snapshot?.findings ?? []).sorted { left, right in
             switch sortKey {
+            case .stable:
+                let leftRank = stableProcessRanks[left.process] ?? Int.max
+                let rightRank = stableProcessRanks[right.process] ?? Int.max
+                if leftRank != rightRank { return leftRank < rightRank }
+                if left.cpuPercent != right.cpuPercent { return compare(left.cpuPercent, right.cpuPercent) }
             case .cpu:
                 if left.cpuPercent != right.cpuPercent {
                     return compare(left.cpuPercent, right.cpuPercent)
@@ -186,6 +201,7 @@ public struct LiveReportState: Equatable, Sendable {
             return
         }
         self.snapshot = snapshot
+        if sortKey == .stable { rememberOrder() }
         updates += 1
         if let selected, !snapshot.findings.contains(where: { $0.process == selected }) {
             notice = "PID \(selected.pid) left the heavy findings; details cleared."
@@ -212,11 +228,29 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func sort(by key: ReportSort) {
+        if key == .stable, sortKey != .stable { rememberOrder() }
         sortKey = key
         ascending = key == .pid
     }
 
-    public mutating func reverseSort() { ascending.toggle() }
+    public mutating func reverseSort() {
+        guard sortKey != .stable else { return }
+        ascending.toggle()
+    }
+
+    private mutating func rememberOrder() {
+        let processes = rows.map(\.process)
+        let sessions = groups.map(\.id)
+        stableProcessRanks = Dictionary(
+            processes.enumerated().map { ($0.element, $0.offset) }, uniquingKeysWith: min)
+        stableGroupRanks = Dictionary(
+            sessions.enumerated().map { ($0.element, $0.offset) }, uniquingKeysWith: min)
+    }
+
+    public var sortDescription: String {
+        sortKey == .stable
+            ? sortKey.rawValue : "\(sortKey.rawValue) \(ascending ? "ascending" : "descending")"
+    }
 
     public mutating func moveSelection(by delta: Int) {
         let ordered = visibleRows

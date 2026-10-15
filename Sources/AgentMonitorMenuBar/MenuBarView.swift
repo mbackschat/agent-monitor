@@ -123,7 +123,7 @@ struct MenuBarView: View {
                 MenuBarViewOptions(model: model)
             }
             Text(
-                "\(model.report.sortKey.rawValue) \(model.report.ascending ? "↑" : "↓") · CPU > \(resource(model.report.thresholds.cpuPercent, unit: "%")) or footprint > \(resource(Double(model.report.thresholds.memoryBytes) / 1e9, unit: " GB")) · \(resource(model.report.interval, unit: " s"))"
+                "\(model.report.sortDescription) · CPU > \(resource(model.report.thresholds.cpuPercent, unit: "%")) or footprint > \(resource(Double(model.report.thresholds.memoryBytes) / 1e9, unit: " GB")) · \(resource(model.report.interval, unit: " s"))"
             )
             .font(.caption).foregroundStyle(.secondary)
             if let snapshot = model.report.snapshot,

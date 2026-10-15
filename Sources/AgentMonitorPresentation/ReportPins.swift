@@ -35,7 +35,7 @@ extension LiveReportState {
 
     public func children(of group: SessionGroup) -> [HeavyProcess] {
         let children = group.processes.filter { !isPinned(.process($0.process)) }
-        guard isPinned(.group(group.id)) else { return children }
+        guard isPinned(.group(group.id)), sortKey != .stable else { return children }
         return children.sorted {
             if $0.process.pid != $1.process.pid { return $0.process.pid < $1.process.pid }
             return $0.process.startMicroseconds < $1.process.startMicroseconds

@@ -105,9 +105,9 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
         #expect(image.size == NSSize(width: 18, height: 18))
         let bitmap = try iconBitmap(image)
         for x in 0..<18 {
-            #expect((bitmap.colorAt(x: x, y: 8)?.alphaComponent ?? 0) < 0.1)
+            #expect((bitmap.colorAt(x: x, y: 10)?.alphaComponent ?? 0) < 0.1)
         }
-        for y in 10..<18 {
+        for y in 12..<18 {
             for x in 0..<18 {
                 #expect(bitmap.colorAt(x: x, y: y) == normal.colorAt(x: x, y: y))
             }
@@ -199,4 +199,31 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     await model.stop()
     #expect(await iterator.next() == "end")
     #expect(model.report.snapshot == nil)
+}
+
+@Test @MainActor func startupUsesOneFastSampleThenReturnsToNormalCadence() async throws {
+    let (requests, input) = AsyncStream<Void>.makeStream()
+    let (events, output) = AsyncStream<Double>.makeStream()
+    let model = MenuBarModel { _, interval, receive in
+        output.yield(interval.seconds)
+        for await _ in requests {
+            try await receive(loadSample(100))
+            output.yield(interval.seconds)
+        }
+    }
+    var iterator = events.makeAsyncIterator()
+    model.start()
+    #expect(await iterator.next() == 0.25)
+    model.open()
+    model.close()
+    input.yield(())
+    #expect(await iterator.next() == 15)
+    model.open()
+    model.setInterval(5)
+    input.yield(())
+    #expect(await iterator.next() == 5)
+    model.close()
+    input.yield(())
+    #expect(await iterator.next() == 15)
+    await model.stop()
 }

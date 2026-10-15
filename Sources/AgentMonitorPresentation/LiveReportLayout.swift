@@ -55,7 +55,7 @@ public enum LiveReportLayout {
             ? "PAUSED" + (state.snapshot.map { " at " + clockTime($0.timestamp) } ?? "")
                 + " | p resume | " : ""
         let activity =
-            "\(state.sortKey.rawValue) \(state.ascending ? "ascending" : "descending") | every \(seconds) s"
+            "\(state.sortDescription) | every \(seconds) s"
         let title =
             state.frozen ? frozen + activity : "Agent Monitor | \(activity) | Updates: \(state.updates)"
         let status: String
@@ -101,7 +101,7 @@ public enum LiveReportLayout {
     private static func helpLines(width: Int, height: Int, headerHeight: Int, frozen: Bool) -> [String] {
         let groups = [
             [
-                "↑/↓ select", "Enter open", "g group", "c/m/n sort", "r reverse",
+                "↑/↓ select", "Enter open", "g group", "c/m/n/o sort", "r reverse",
                 "Space pin",
             ],
             [frozen ? "p resume" : "p pause", "k terminate", "s message", "f focus"],

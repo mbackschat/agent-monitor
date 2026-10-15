@@ -25,7 +25,8 @@ final class MenuBarModel {
     private(set) var liveIcon = true
     private(set) var indicator = MenuBarIndicator()
     @ObservationIgnored var onIndicatorChange: (() -> Void)?
-    @ObservationIgnored private let liveInterval = LiveInterval(1)
+    @ObservationIgnored private let liveInterval = LiveInterval(0.25)
+    @ObservationIgnored private var needsStartupSample = true
     @ObservationIgnored private var collection: Task<Void, Never>?
     @ObservationIgnored private var action: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
@@ -62,8 +63,13 @@ final class MenuBarModel {
         onIndicatorChange?()
     }
 
+    private var samplingInterval: Double {
+        let regular = isOpen ? report.interval : 15
+        return needsStartupSample ? min(0.25, regular) : regular
+    }
+
     private func startCollection() {
-        liveInterval.set(isOpen ? report.interval : 15)
+        liveInterval.set(samplingInterval)
         guard !isCollecting else { return }
         isCollecting = true
         error = nil
@@ -114,7 +120,7 @@ final class MenuBarModel {
         }
         isOpen = false
         generation = UUID()
-        if liveIcon { liveInterval.set(15) } else { cancelCollection() }
+        if liveIcon { liveInterval.set(samplingInterval) } else { cancelCollection() }
         action?.cancel()
         report.resetCollection()
         updateArrivals()
@@ -144,6 +150,10 @@ final class MenuBarModel {
     private func receive(_ snapshot: MonitoringSnapshot, generation token: UUID) {
         guard collectionGeneration == token else { return }
         latestSnapshot = snapshot
+        if needsStartupSample {
+            needsStartupSample = false
+            liveInterval.set(samplingInterval)
+        }
         if liveIcon {
             indicator.receive(snapshot)
             onIndicatorChange?()
@@ -211,12 +221,12 @@ final class MenuBarModel {
 
     func adjustInterval(_ adjustment: IntervalAdjustment) {
         report.adjustInterval(adjustment)
-        liveInterval.set(isOpen ? report.interval : 15)
+        liveInterval.set(samplingInterval)
     }
 
     func setInterval(_ seconds: Double) {
         report.setInterval(seconds)
-        liveInterval.set(isOpen ? report.interval : 15)
+        liveInterval.set(samplingInterval)
     }
 
     @discardableResult func togglePin(_ row: LiveReportRowID) -> Bool {

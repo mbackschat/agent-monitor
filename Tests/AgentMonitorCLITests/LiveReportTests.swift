@@ -209,7 +209,8 @@ func keyboardHelpSeparatesControlsWithoutClipping(width: Int) {
     let lines = LiveReportLayout.lines(state: LiveReportState(), width: width, height: 24)
     let text = lines.map(\.text).joined(separator: "\n")
     for control in [
-        "↑/↓ select", "Enter open", "g group", "c/m/n sort", "r reverse", "[/] scroll", "-/+ size", "0 min",
+        "↑/↓ select", "Enter open", "g group", "c/m/n/o sort", "r reverse", "[/] scroll",
+        "-/+ size", "0 min",
         "9 max", "= restore", "q/Ctrl-C quit",
     ] {
         #expect(text.contains(control))
@@ -452,6 +453,7 @@ func pausedStatusAndResumeKeyRemainVisible(width: Int) {
 
 @Test func pausedInspectionKeepsSelectionDetailsAndOrderWhileCPUChanges() {
     var state = LiveReportState()
+    state.sort(by: .cpu)
     state.receive(liveSnapshot([liveRow(42, cpu: 90), liveRow(84, cpu: 50)]))
     state.toggleDisclosure()
     let selected = state.selected
@@ -510,4 +512,38 @@ func pausedStatusAndResumeKeyRemainVisible(width: Int) {
     #expect(state.pinnedRows == [.process(original)])
     state.togglePin(.process(original.process))
     #expect(state.pins.isEmpty)
+}
+
+@Test func stableOrderRetainsSurvivorsAppendsArrivalsAndTreatsPIDReuseAsNew() {
+    var state = LiveReportState()
+    #expect(state.sortKey == .stable)
+    state.receive(liveSnapshot([liveRow(20, cpu: 80), liveRow(10, cpu: 30)]))
+    state.receive(liveSnapshot([liveRow(5, cpu: 900), liveRow(10, cpu: 100), liveRow(20, cpu: 1)]))
+    #expect(state.rows.map(\.process.pid) == [20, 10, 5])
+    state.togglePin(.process(state.rows[1].process))
+    #expect(
+        state.unpinnedRows.map(\.id) == [.process(state.rows[0].process), .process(state.rows[2].process)])
+    state.receive(liveSnapshot([liveRow(20, start: 2, cpu: 900), liveRow(5), liveRow(10)]))
+    #expect(state.rows.map(\.process.pid) == [10, 5, 20])
+    state.reverseSort()
+    #expect(state.rows.map(\.process.pid) == [10, 5, 20])
+    state.resetCollection()
+    state.receive(liveSnapshot([liveRow(9, cpu: 999), liveRow(5, cpu: 1)]))
+    #expect(state.rows.map(\.process.pid) == [5, 9])
+}
+
+@Test func selectingStableOrderKeepsCurrentOrderAndPauseDefersArrivals() {
+    var state = LiveReportState()
+    state.receive(liveSnapshot([liveRow(20), liveRow(10)]))
+    state.sort(by: .pid)
+    state.reverseSort()
+    state.sort(by: .stable)
+    #expect(state.rows.map(\.process.pid) == [20, 10])
+    state.toggleFreeze()
+    state.receive(liveSnapshot([liveRow(5, cpu: 1000), liveRow(10), liveRow(20)]))
+    #expect(state.rows.map(\.process.pid) == [20, 10])
+    state.toggleFreeze()
+    #expect(state.rows.map(\.process.pid) == [20, 10, 5])
+    state.sort(by: .cpu)
+    #expect(state.rows.map(\.process.pid) == [5, 10, 20])
 }

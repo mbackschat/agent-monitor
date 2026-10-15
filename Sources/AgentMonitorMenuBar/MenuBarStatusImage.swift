@@ -6,7 +6,7 @@ enum MenuBarStatusImage {
             NSAttributedString(
                 string: $0 > 99 ? "99+" : String($0),
                 attributes: [
-                    .font: NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .bold),
+                    .font: NSFont.monospacedDigitSystemFont(ofSize: 8.75, weight: .bold),
                     .foregroundColor: NSColor.black,
                 ])
         }
@@ -15,19 +15,19 @@ enum MenuBarStatusImage {
             defer { NSGraphicsContext.restoreGraphicsState() }
             NSColor.black.set()
             for index in 0..<3 {
-                let rect = NSRect(x: 1 + index * 6, y: 1, width: 4, height: 3 + index * 2)
+                let rect = NSRect(x: CGFloat(1 + index * 6), y: 0.5, width: 4, height: CGFloat(2 + index * 2))
                 let bar = NSBezierPath(roundedRect: rect, xRadius: 0.8, yRadius: 0.8)
                 if index < (level ?? 0) {
                     bar.fill()
                 } else {
-                    bar.lineWidth = 1
+                    bar.lineWidth = 0.5
                     bar.stroke()
                 }
             }
             if let text {
                 let size = text.size()
-                let width = min(18, max(8, ceil(size.width) + 2))
-                let rect = NSRect(x: 0, y: 10, width: width, height: 8)
+                let width = min(18, max(10, ceil(size.width) + 2.5))
+                let rect = NSRect(x: 0, y: 8, width: width, height: 10)
                 NSBezierPath(roundedRect: rect, xRadius: 3, yRadius: 3).fill()
                 NSGraphicsContext.current?.compositingOperation = .destinationOut
                 text.draw(at: NSPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2))

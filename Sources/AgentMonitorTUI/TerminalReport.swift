@@ -80,6 +80,7 @@ public enum TerminalReport {
                 case .arrowUp: state.mutate { $0.moveSelection(by: -1) }
                 case .arrowDown: state.mutate { $0.moveSelection(by: 1) }
                 case .return: state.mutate { $0.toggleDisclosure() }
+                case .character("o"): state.mutate { $0.sort(by: .stable) }
                 case .character("c"): state.mutate { $0.sort(by: .cpu) }
                 case .character("m"): state.mutate { $0.sort(by: .memory) }
                 case .character("n"): state.mutate { $0.sort(by: .pid) }

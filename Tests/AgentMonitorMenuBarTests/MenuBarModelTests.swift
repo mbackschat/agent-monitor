@@ -133,8 +133,9 @@ private let emptySnapshot = MonitoringSnapshot(
     let (requests, trigger) = AsyncStream<Void>.makeStream()
     let (observations, observed) = AsyncStream<(Double, Double)>.makeStream()
     let calls = Mutex(0)
-    let model = MenuBarModel { thresholds, interval, _ in
+    let model = MenuBarModel { thresholds, interval, receive in
         calls.withLock { $0 += 1 }
+        try await receive(emptySnapshot)
         for await _ in requests {
             observed.yield((await thresholds().cpuPercent, interval.seconds))
         }

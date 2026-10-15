@@ -275,5 +275,5 @@ import Testing
         }
     }
     #expect(dark ? brightness[1] > brightness[0] : brightness[1] < brightness[0])
-    #expect(abs(brightness[1] - brightness[0]) > 0.02)
+    #expect(abs(brightness[1] - brightness[0]) > 0.08)
 }

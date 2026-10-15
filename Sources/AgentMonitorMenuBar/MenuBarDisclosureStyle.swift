@@ -79,7 +79,7 @@ struct MenuBarArrivalBackground: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: 6)
-            .fill(.primary.opacity(highlighted ? 0.08 : 0))
+            .fill(.primary.opacity(highlighted ? 0.16 : 0))
             .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: highlighted)
             .accessibilityHidden(true)
     }

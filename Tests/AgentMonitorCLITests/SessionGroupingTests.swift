@@ -88,6 +88,7 @@ import Testing
 
 @Test func groupSortingUsesHeavyTotalsAndDoesNotChangeTheSelectedGroup() throws {
     var state = LiveReportState(grouping: .session)
+    state.sort(by: .cpu)
     state.receive(
         groupedSnapshot([
             groupedRow(10, thread: "a", cpu: 40), groupedRow(11, thread: "a", cpu: 40),
@@ -143,4 +144,25 @@ private func groupedSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
         timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1,
         cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
         sampledProcessCount: rows.count, unreadableProcessCount: 0, findings: rows)
+}
+
+@Test func stableSessionsAndPinnedChildrenKeepOrderAcrossResourceChanges() throws {
+    var state = LiveReportState(grouping: .session)
+    state.receive(
+        groupedSnapshot([
+            groupedRow(10, thread: "a", cpu: 90), groupedRow(20, thread: "a", cpu: 50),
+            groupedRow(30, thread: "b", cpu: 10),
+        ]))
+    let group = try #require(state.groups.first)
+    state.togglePin(.group(group.id))
+    state.receive(
+        groupedSnapshot([
+            groupedRow(5, thread: "a", cpu: 1000), groupedRow(10, thread: "a", cpu: 1),
+            groupedRow(20, thread: "a", cpu: 200), groupedRow(30, thread: "b", cpu: 9000),
+            groupedRow(40, thread: "c", cpu: 10000),
+        ]))
+    #expect(state.groups.map(\.sessionID) == ["a", "b", "c"])
+    #expect(state.children(of: try #require(state.groups.first)).map(\.process.pid) == [10, 20, 5])
+    state.toggleGrouping()
+    #expect(state.rows.map(\.process.pid) == [10, 20, 30, 40, 5])
 }

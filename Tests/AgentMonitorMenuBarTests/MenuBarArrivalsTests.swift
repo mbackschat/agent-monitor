@@ -14,11 +14,12 @@ import Testing
     #expect(arrivals.deadlines.isEmpty)
     arrivals.update(second, now: now + .seconds(1))
     let added = LiveReportRowID.process(second.findings[1].process)
-    #expect(Set(arrivals.deadlines.keys) == [added])
+    let parent = LiveReportRowID.group(try #require(SessionGrouping.groups(second.findings).first).id)
+    #expect(Set(arrivals.deadlines.keys) == [added, parent])
     arrivals.update(third, now: now + .seconds(2))
     #expect(arrivals.deadlines[added] == now + .seconds(4))
     arrivals.expire(at: now + .seconds(4))
-    #expect(Set(arrivals.deadlines.keys) == [.process(third.findings[0].process)])
+    #expect(Set(arrivals.deadlines.keys) == [.process(third.findings[0].process), parent])
     arrivals.expire(at: now + .seconds(5))
     #expect(arrivals.deadlines.isEmpty)
 }
@@ -78,4 +79,16 @@ import Testing
     #expect(!model.canBegin(.message, row: row))
     #expect(model.canBegin(.terminate, row: row))
     await model.stop()
+}
+
+@Test(arguments: [[Int32(42001)], [42001, 42002]])
+func newProcessHighlightsItsExistingSessionEvenWhenCollapsed(pids: [Int32]) throws {
+    let now = ContinuousClock.now
+    let first = try menuBarFixture(pids: pids)
+    let next = try menuBarFixture(pids: pids + [42003])
+    var arrivals = MenuBarArrivals()
+    arrivals.update(first, now: now)
+    arrivals.update(next, now: now + .seconds(1))
+    let group = try #require(SessionGrouping.groups(next.findings).first)
+    #expect(arrivals.deadlines[.group(group.id)] == now + .seconds(4))
 }

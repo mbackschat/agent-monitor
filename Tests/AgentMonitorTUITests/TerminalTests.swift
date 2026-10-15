@@ -51,6 +51,14 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
                 && $0.contains("1/2 CPU -/+10%") && $0.contains("3/4 GB -/+1")
         }
     }
+    try writeAllBytes(Array("c".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("CPU descending") }
+    try writeAllBytes(Array("o".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("Stable order") && $0.contains("PID 42 |") }
     try writeAllBytes(Array("n".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
@@ -252,7 +260,7 @@ private func dividerRow(_ text: String) -> Int? {
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("CPU descending")
+        $0.contains("Stable order")
     }
     try writeAllBytes(Array("s".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
@@ -283,7 +291,7 @@ private func dividerRow(_ text: String) -> Int? {
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("CPU descending") && !$0.contains("Action result")
+        $0.contains("Stable order") && !$0.contains("Action result")
     }
     try writeAllBytes(Array("f".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
@@ -296,7 +304,7 @@ private func dividerRow(_ text: String) -> Int? {
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("CPU descending") && !$0.contains("Action result")
+        $0.contains("Stable order") && !$0.contains("Action result")
     }
     try writeAllBytes(Array(" ".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(

@@ -83,6 +83,7 @@ enum MenuBarOption: Equatable {
             add(sort.rawValue, .sort(sort), checked: model.report.sortKey == sort, to: menu)
         }
         add("Ascending", .ascending, checked: model.report.ascending, to: menu)
+        menu.items.last?.isEnabled = model.report.sortKey != .stable
         menu.addItem(.separator())
         menu.addItem(.sectionHeader(title: "Sampling"))
         add("Live menu bar icon", .liveIcon, checked: model.liveIcon, to: menu)
