@@ -32,6 +32,7 @@ extension Preview {
         var state = LiveReportState()
         for _ in 0..<15 { state.receive(snapshot) }
         state.toggleDisclosure()
+        state.toggleSelectedPin()
         return state
     }
 

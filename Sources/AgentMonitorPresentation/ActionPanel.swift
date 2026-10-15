@@ -247,6 +247,13 @@ public struct ActionPanel: Equatable, Sendable {
 extension LiveReportState {
     public mutating func beginAction(_ kind: ProcessActionKind) -> ActionEffect? {
         guard actionPanel == nil else { return nil }
+        if visibleRows.contains(where: {
+            if case .unavailable(let pin) = $0 { return pin.id == selection }
+            return false
+        }) {
+            setActionNotice("Pinned target is not in current results. Unpin it or wait for a fresh sample.")
+            return nil
+        }
         if case .focus = kind, let group = selectedGroup.flatMap({ id in groups.first { $0.id == id } }) {
             return beginFocus(on: group)
         }

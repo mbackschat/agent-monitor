@@ -12,7 +12,7 @@ private let emptySnapshot = MonitoringSnapshot(
 
 @Test @MainActor func closedPanelDoesNotStartCollection() async {
     let calls = Mutex(0)
-    let model = MenuBarModel { _ in calls.withLock { $0 += 1 } }
+    let model = MenuBarModel { _, _, _ in calls.withLock { $0 += 1 } }
     await model.stop()
     #expect(calls.withLock { $0 } == 0)
     #expect(model.report.snapshot == nil)
@@ -20,7 +20,7 @@ private let emptySnapshot = MonitoringSnapshot(
 
 @Test @MainActor func closingCancelsCollectionAndRejectsLateSnapshots() async {
     let (events, continuation) = AsyncStream<Void>.makeStream()
-    let model = MenuBarModel { receive in
+    let model = MenuBarModel { _, _, receive in
         try await receive(emptySnapshot)
         continuation.yield(())
         do { try await Task.sleep(for: .seconds(3600)) } catch {}
@@ -39,7 +39,7 @@ private let emptySnapshot = MonitoringSnapshot(
 @Test @MainActor func rapidReopeningWaitsForPreviousCollectorToFinish() async {
     let (events, continuation) = AsyncStream<String>.makeStream()
     let calls = Mutex(0)
-    let model = MenuBarModel { _ in
+    let model = MenuBarModel { _, _, _ in
         let call = calls.withLock { value in
             value += 1
             return value
@@ -65,7 +65,7 @@ private let emptySnapshot = MonitoringSnapshot(
     struct Failure: LocalizedError {
         var errorDescription: String? { "Fixture collection failed" }
     }
-    let model = MenuBarModel { _ in throw Failure() }
+    let model = MenuBarModel { _, _, _ in throw Failure() }
     model.open()
     await model.waitForCollection()
     #expect(model.error == "Fixture collection failed")
@@ -82,7 +82,7 @@ private let emptySnapshot = MonitoringSnapshot(
     let latest = try menuBarFixture(pids: [42004])
     let (samples, input) = AsyncStream<MonitoringSnapshot>.makeStream()
     let (received, output) = AsyncStream<Void>.makeStream()
-    let model = MenuBarModel { receive in
+    let model = MenuBarModel { _, _, receive in
         for await sample in samples {
             try await receive(sample)
             output.yield(())
@@ -122,5 +122,30 @@ private let emptySnapshot = MonitoringSnapshot(
     #expect(!model.report.frozen)
     #expect(model.report.snapshot == nil)
     #expect(model.panelSize == .tall)
+    await model.stop()
+}
+
+@Test @MainActor func nativeSamplingOptionsReachTheRunningSourceWithoutRestarting() async {
+    let (requests, trigger) = AsyncStream<Void>.makeStream()
+    let (observations, observed) = AsyncStream<(Double, Double)>.makeStream()
+    let calls = Mutex(0)
+    let model = MenuBarModel { thresholds, interval, _ in
+        calls.withLock { $0 += 1 }
+        for await _ in requests {
+            observed.yield((await thresholds().cpuPercent, interval.seconds))
+        }
+    }
+    model.open()
+    model.report.adjustThreshold(.cpuUp)
+    model.adjustInterval(.slower)
+    trigger.yield(())
+    var iterator = observations.makeAsyncIterator()
+    let values = await iterator.next()
+    #expect(values?.0 == 35)
+    #expect(values?.1 == 2)
+    model.adjustInterval(.faster)
+    trigger.yield(())
+    #expect(await iterator.next()?.1 == 1)
+    #expect(calls.withLock { $0 } == 1)
     await model.stop()
 }

@@ -14,6 +14,7 @@ When several coding agents are running, a busy `node`, `java`, or `python` proce
 
 - **Live terminal view** — watch CPU and memory usage, sort processes, and open details without leaving your terminal. Change the update interval or freeze the view while you look.
 - **Native menu bar app** — open a compact macOS panel for resource usage and session actions, with Pause/Resume for inspection; monitoring stops when the panel closes. Available from a source build.
+- **Pinned inspection** — keep a process or session at the top while its values update, in both native and terminal views. Missing targets stay marked until unpinned.
 - **Session grouping** — bring related heavy processes together and see their combined resource usage.
 - **Adjustable filters** — change CPU and memory thresholds while the monitor runs.
 - **Message the agent** — send a reviewed message to the process's verified Codex agent or Claude Code session; the process's PID and name are included automatically.
@@ -48,9 +49,9 @@ Switch between individual processes and session groups to see which agent launch
 
 ![Agent Monitor terminal UI showing five synthetic processes, CPU and memory usage, Codex and Claude sessions, and details for the selected process](docs/assets/tui-preview.svg)
 
-*Illustrative process view with details open. The text comes from the real layout renderer using entirely synthetic data; terminal colors and window decoration are illustrative. Press `g` to switch between this view and session groups.*
+*Illustrative process view with the selected process pinned (`@`) and details open. The text comes from the real layout renderer using entirely synthetic data; terminal colors and window decoration are illustrative. Press `g` to switch between this view and session groups.*
 
-Use **↑ / ↓** to select, **Enter** to expand a session or inspect a process, **g** to toggle grouping, **< / >** to update less or more often, **Space** to freeze the view, and **q** to quit. The controls and current filters are shown in the terminal.
+Use **↑ / ↓** to select, **Enter** to expand a session or inspect a process, **g** to toggle grouping, **< / >** to update less or more often, **Space** to pin/unpin the selected row, **p** to pause/resume the view, and **q** to quit. The controls and current filters are shown in the terminal.
 
 By default, the monitor shows agent-associated processes exceeding **25% CPU or 1 GB memory footprint**. If the list is empty, press **1** to lower the CPU threshold or **3** to lower the memory threshold. CPU at 100% means one fully occupied core.
 
@@ -82,9 +83,9 @@ See the [usage guide](docs/usage.md) for all keyboard controls, filters, session
 
 The maintained, source-built native menu bar app runs with `bash scripts/menubar.sh run`. Click its terminal icon for session groups, resource usage and process details; expand a process to focus its terminal, review a termination request or compose a message. It uses the same monitoring and verified action services as the TUI, with a native popover and no standalone window. Sampling stops when the panel closes. See [menu bar usage](docs/usage.md#menu-bar-app) and [build and validation limits](docs/development.md#menu-bar-app).
 
-<p><img src="docs/assets/menubar-preview.webp" width="420" height="560" alt="Native Agent Monitor menu bar panel paused for inspection, with an expanded Claude session, Codex and Claude process rows, CPU and memory usage, Resume, and panel size controls."></p>
+<p><img src="docs/assets/menubar-preview.webp" width="420" height="560" alt="Native Agent Monitor menu bar panel paused for inspection, with an expanded pinned Claude session, Codex and Claude process rows, CPU and memory usage, Resume, View options, and panel size controls."></p>
 
-*Native panel captured from the production view with synthetic data. Pause holds the displayed sample and row order; the size menu changes the fixed panel height. The capture excludes menu bar anchoring and desktop chrome.*
+*Native panel captured from the production view with synthetic data. The expanded session is pinned. Pinning keeps values live; Pause holds the displayed sample. View options contains sampling and display controls, and the size menu changes the fixed panel height. The capture excludes menu bar anchoring and desktop chrome.*
 
 ## Options and defaults
 

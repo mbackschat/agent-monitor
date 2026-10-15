@@ -209,7 +209,7 @@ func keyboardHelpSeparatesControlsWithoutClipping(width: Int) {
     let lines = LiveReportLayout.lines(state: LiveReportState(), width: width, height: 24)
     let text = lines.map(\.text).joined(separator: "\n")
     for control in [
-        "↑/↓ select", "Enter open", "g group", "c/m/p sort", "r reverse", "[/] scroll", "-/+ size", "0 min",
+        "↑/↓ select", "Enter open", "g group", "c/m/n sort", "r reverse", "[/] scroll", "-/+ size", "0 min",
         "9 max", "= restore", "q/Ctrl-C quit",
     ] {
         #expect(text.contains(control))
@@ -442,11 +442,11 @@ func pausedStatusAndResumeKeyRemainVisible(width: Int) {
     var state = LiveReportState()
     state.receive(liveSnapshot([liveRow(42)]))
     let live = LiveReportLayout.lines(state: state, width: width, height: 8)
-    #expect(live.contains { $0.text.contains("Space pause") })
+    #expect(live.contains { $0.text.contains("p pause") })
     state.toggleFreeze()
     let paused = LiveReportLayout.lines(state: state, width: width, height: 8)
     #expect(paused[0].text.hasPrefix("PAUSED at "))
-    #expect(paused[0].text.contains("Space resume"))
+    #expect(paused[0].text.contains("p resume"))
     #expect(paused.contains { $0.text.contains("CPU > 25.00% OR GB > 1.00") })
 }
 
@@ -465,4 +465,49 @@ func pausedStatusAndResumeKeyRemainVisible(width: Int) {
     #expect(state.rows.map(\.process.pid) == [84, 42])
     #expect(state.selected == selected)
     #expect(state.expanded == expanded)
+}
+
+@Test func pinsKeepInsertionOrderAndLiveValuesAcrossSortAndRefresh() throws {
+    var state = LiveReportState()
+    let first = liveRow(42, cpu: 90)
+    let second = liveRow(84, cpu: 50)
+    state.receive(liveSnapshot([first, second]))
+    state.togglePin(.process(second.process))
+    state.togglePin(.process(first.process))
+    state.receive(liveSnapshot([liveRow(42, cpu: 100), liveRow(84, cpu: 30), liveRow(99, cpu: 200)]))
+    state.reverseSort()
+    #expect(state.visibleRows.prefix(2).map(\.id) == [.process(second.process), .process(first.process)])
+    guard case .process(let updated) = state.pinnedRows.first else {
+        Issue.record("Missing live pin")
+        return
+    }
+    #expect(updated.cpuPercent == 30)
+    #expect(state.rows.count == 3)
+    state.togglePin(.process(second.process))
+    #expect(state.pins.map(\.id) == [.process(first.process)])
+    #expect(Set(state.visibleRows.map(\.id)).count == 3)
+}
+
+@Test func missingPinsRemainExplicitPlaceholdersAndNeverRetargetReusedPIDs() {
+    var state = LiveReportState()
+    let original = liveRow(42)
+    state.receive(liveSnapshot([original]))
+    state.togglePin(.process(original.process))
+    state.toggleDisclosure()
+    state.receive(liveSnapshot([liveRow(42, start: 2)]))
+    #expect(state.selection == .process(original.process))
+    guard case .unavailable(let pin) = state.visibleRows.first else {
+        Issue.record("Missing placeholder")
+        return
+    }
+    #expect(pin.id == .process(original.process))
+    #expect(state.beginAction(.terminate) == nil)
+    #expect(state.actionPanel == nil)
+    let rendered = LiveReportLayout.lines(state: state, width: 120, height: 24).map(\.text).joined(
+        separator: "\n")
+    #expect(rendered.contains("Not in current results"))
+    state.receive(liveSnapshot([original]))
+    #expect(state.pinnedRows == [.process(original)])
+    state.togglePin(.process(original.process))
+    #expect(state.pins.isEmpty)
 }

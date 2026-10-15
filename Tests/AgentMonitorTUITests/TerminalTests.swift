@@ -51,7 +51,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
                 && $0.contains("1/2 CPU -/+10%") && $0.contains("3/4 GB -/+1")
         }
     }
-    try writeAllBytes(Array("p".utf8), to: terminal.master)
+    try writeAllBytes(Array("n".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
@@ -301,10 +301,18 @@ private func dividerRow(_ text: String) -> Int? {
     try writeAllBytes(Array(" ".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("@") && !$0.contains("PAUSED") }
+    try writeAllBytes(Array(" ".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { !$0.contains("@") && !$0.contains("PAUSED") }
+    try writeAllBytes(Array("p".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
         $0.contains("PAUSED")
     }
-    try writeAllBytes(Array("> ".utf8), to: terminal.master)
+    try writeAllBytes(Array(">p".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {

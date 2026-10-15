@@ -6,6 +6,7 @@ import SwiftUI
 
 struct MenuBarView: View {
     @Bindable var model: MenuBarModel
+    @FocusState private var focusedRow: LiveReportRowID?
     var maximumHeight: CGFloat = .infinity
     var onSizeChange: (CGSize) -> Void = { _ in }
 
@@ -33,15 +34,25 @@ struct MenuBarView: View {
             }
             .padding()
             Divider()
-            ScrollView {
-                if let panel = model.report.actionPanel {
-                    actionPanel(panel)
-                } else {
-                    report
+            ScrollViewReader { proxy in
+                ScrollView {
+                    if let panel = model.report.actionPanel {
+                        actionPanel(panel)
+                    } else {
+                        report
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scrollBounceBehavior(.basedOnSize)
+                .onChange(of: focusedRow) { _, row in
+                    if let row { proxy.scrollTo(row, anchor: .center) }
+                }
+                .onChange(of: model.report.pins.map(\.id)) { previous, current in
+                    if current.count > previous.count, let row = current.last {
+                        proxy.scrollTo(row, anchor: .top)
+                    }
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .scrollBounceBehavior(.basedOnSize)
             Divider()
             HStack {
                 Text("Updates only while open").font(.caption).foregroundStyle(.secondary)
@@ -57,6 +68,8 @@ struct MenuBarView: View {
             .padding(12)
         }
         .frame(width: MenuBarLayout.width, height: min(model.panelSize.height, maximumHeight))
+        .onKeyPress(.downArrow) { moveFocus(by: 1) }
+        .onKeyPress(.upArrow) { moveFocus(by: -1) }
         .onGeometryChange(for: CGSize.self) {
             $0.size
         } action: {
@@ -65,7 +78,13 @@ struct MenuBarView: View {
     }
 
     private var report: some View {
-        let groups = model.report.groups
+        let projection = model.report.projection
+        let pinned = projection.pinnedRows
+        let unpinned = projection.unpinnedRows
+        let sessions = Dictionary(
+            uniqueKeysWithValues: projection.groups.flatMap { group in
+                group.processes.map { ($0.process, group) }
+            })
         return VStack(alignment: .leading, spacing: 12) {
             if let saved = model.savedMessage {
                 VStack(alignment: .leading, spacing: 6) {
@@ -91,20 +110,19 @@ struct MenuBarView: View {
             HStack {
                 Text("Heavy processes").font(.subheadline.bold())
                 Spacer()
-                Picker(
-                    "Sort",
-                    selection: Binding(
-                        get: { model.report.sortKey }, set: { model.report.sort(by: $0) }
-                    )
-                ) {
-                    ForEach(ReportSort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }
-                .labelsHidden().frame(width: 120)
+                MenuBarViewOptions(model: model)
             }
             Text(
-                "CPU > \(resource(model.report.thresholds.cpuPercent, unit: "%")) or footprint > \(resource(Double(model.report.thresholds.memoryBytes) / 1e9, unit: " GB")) · \(resource(model.report.interval, unit: " s"))"
+                "\(model.report.sortKey.rawValue) \(model.report.ascending ? "↑" : "↓") · CPU > \(resource(model.report.thresholds.cpuPercent, unit: "%")) or footprint > \(resource(Double(model.report.thresholds.memoryBytes) / 1e9, unit: " GB")) · \(resource(model.report.interval, unit: " s"))"
             )
             .font(.caption).foregroundStyle(.secondary)
+            if let snapshot = model.report.snapshot,
+                snapshot.cpuThresholdPercent != model.report.thresholds.cpuPercent
+                    || snapshot.memoryThresholdBytes != model.report.thresholds.memoryBytes
+            {
+                Text("Filter changes pending next displayed sample").font(.caption).foregroundStyle(
+                    .secondary)
+            }
             if let error = model.error {
                 ContentUnavailableView(
                     "Unable to sample", systemImage: "exclamationmark.triangle", description: Text(error))
@@ -113,21 +131,24 @@ struct MenuBarView: View {
                     ProgressView().controlSize(.small)
                     Text("Measuring activity…").foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity).padding(.vertical, 20)
-            } else if groups.isEmpty {
+            } else if pinned.isEmpty && unpinned.isEmpty {
                 ContentUnavailableView(
                     "No heavy agent processes", systemImage: "checkmark.circle",
                     description: Text("Nothing exceeds the current thresholds."))
             } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(groups, id: \.id) { group in
-                        if group.processes.count == 1, let process = group.processes.first {
-                            processRow(process, session: group)
-                        } else {
-                            session(group)
-                        }
+                if !pinned.isEmpty {
+                    Label("Pinned", systemImage: "pin.fill").font(.caption.bold()).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(pinned, id: \.id) { nativeRow($0, sessions: sessions) }
                     }
+                    if !unpinned.isEmpty { Divider() }
                 }
-                .disclosureGroupStyle(MenuBarDisclosureStyle())
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(unpinned, id: \.id) { nativeRow($0, sessions: sessions) }
+                }
+            }
+            if let notice = model.report.notice {
+                Text(notice).font(.caption).foregroundStyle(.secondary)
             }
             if let result = model.lastActionResult {
                 Text(result.text).font(.caption).textSelection(.enabled)
@@ -140,6 +161,49 @@ struct MenuBarView: View {
             }
         }
         .padding(14)
+    }
+
+    @ViewBuilder private func nativeRow(_ row: LiveReportRow, sessions: [ProcessIdentity: SessionGroup])
+        -> some View
+    {
+        switch row {
+        case .process(let process):
+            processRow(process, session: sessions[process.process])
+        case .group(let group):
+            if !model.report.isPinned(row.id), group.processes.count == 1, let process = group.processes.first
+            {
+                processRow(process, session: group)
+            } else {
+                session(group)
+            }
+        case .unavailable(let pin):
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(pin.label).lineLimit(2)
+                    Text("Not in current results").foregroundStyle(.secondary)
+                }.font(.caption)
+                Spacer()
+                Button("Unpin", systemImage: "pin.slash") { model.report.togglePin(pin.id) }
+                    .focused($focusedRow, equals: pin.id)
+            }.padding(6)
+                .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+        }
+    }
+
+    private func disclosureStyle(for id: LiveReportRowID) -> MenuBarDisclosureStyle {
+        MenuBarDisclosureStyle(id: id, pinned: model.report.isPinned(id), focus: $focusedRow) {
+            model.report.togglePin(id)
+        }
+    }
+
+    private func pinCommand(_ id: LiveReportRowID) -> some View {
+        Button(model.report.isPinned(id) ? "Unpin" : "Pin", systemImage: "pin") { model.report.togglePin(id) }
+    }
+
+    private func moveFocus(by delta: Int) -> KeyPress.Result {
+        guard let focusedRow, model.report.actionPanel == nil else { return .ignored }
+        self.focusedRow = model.moveFocus(from: focusedRow, by: delta)
+        return .handled
     }
 
     private func session(_ group: SessionGroup) -> some View {
@@ -155,7 +219,9 @@ struct MenuBarView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(group.sessionID ?? group.label)
                     .font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
-                ForEach(group.processes, id: \.process) { process in
+                Button("Terminal", systemImage: "terminal") { model.begin(.focus, row: .group(group.id)) }
+                    .controlSize(.small)
+                ForEach(model.report.children(of: group), id: \.process) { process in
                     processRow(process)
                 }
             }.padding(.top, 8)
@@ -177,10 +243,21 @@ struct MenuBarView: View {
                 }.font(.caption).foregroundStyle(.secondary)
             }
         }
+        .id(LiveReportRowID.group(group.id))
+        .disclosureGroupStyle(disclosureStyle(for: .group(group.id)))
+        .contextMenu {
+            pinCommand(.group(group.id))
+            Button("Focus terminal") { model.begin(.focus, row: .group(group.id)) }
+        }
     }
 
     private func processRow(_ process: HeavyProcess, session: SessionGroup? = nil) -> some View {
-        DisclosureGroup {
+        DisclosureGroup(
+            isExpanded: Binding(
+                get: { model.report.expanded == process.process && model.report.detailsMode != .minimized },
+                set: { _ in model.toggleDetails(for: process.process) }
+            )
+        ) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(process.executable)
                 Text(
@@ -190,6 +267,12 @@ struct MenuBarView: View {
                 Text("Directory: \(process.cwd ?? "unavailable")")
                 Text("Terminal: \(process.attribution.terminal ?? "unavailable")")
                 Text("Runtime: \(process.attribution.runtime.map { String($0.pid) } ?? "unresolved")")
+                Text("Session directory: \(process.attribution.runtimeDirectory ?? "unavailable")")
+                Text(
+                    "Observed chain: \(process.attribution.ancestry.map { String($0.pid) }.joined(separator: " ← "))"
+                )
+                if let root = process.attribution.rootSessionID { Text("Root session: " + root) }
+                if let command = process.command { Text("Command: " + command.joined(separator: " ")) }
                 if !process.attribution.candidateThreadIDs.isEmpty {
                     Text("Candidates: " + process.attribution.candidateThreadIDs.joined(separator: ", "))
                 }
@@ -217,6 +300,9 @@ struct MenuBarView: View {
                 cpuText: resource(process.cpuPercent, unit: "%"),
                 footprintText: resource(process.footprintBytes.map { Double($0) / 1e9 }, unit: " GB"))
         }
+        .id(LiveReportRowID.process(process.process))
+        .disclosureGroupStyle(disclosureStyle(for: .process(process.process)))
+        .contextMenu { pinCommand(.process(process.process)) }
     }
 
     private func actionPanel(_ panel: ActionPanel) -> some View {
@@ -285,32 +371,5 @@ struct MenuBarView: View {
     private func resource(_ value: Double?, unit: String, partial: Bool = false) -> String {
         guard let value else { return "—" }
         return "\(partial ? "~" : "")\(value.formatted(.number.precision(.fractionLength(1))))\(unit)"
-    }
-}
-
-struct MenuBarDisclosureStyle: DisclosureGroupStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                configuration.isExpanded.toggle()
-            } label: {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Image(systemName: configuration.isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 10)
-                        .accessibilityHidden(true)
-                    configuration.label
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 4)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityValue(configuration.isExpanded ? "Expanded" : "Collapsed")
-            if configuration.isExpanded {
-                configuration.content.padding(.leading, 16)
-            }
-        }
     }
 }

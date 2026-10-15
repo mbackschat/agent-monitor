@@ -16,6 +16,7 @@ public struct LiveReportState: Equatable, Sendable {
     public var actionPanel: ActionPanel?
     mutating func setActionNotice(_ text: String) { notice = text }
 
+    public private(set) var pins: [ReportPin] = []
     public private(set) var snapshot: MonitoringSnapshot?
     public private(set) var sortKey: ReportSort = .cpu
     public private(set) var ascending = false
@@ -101,13 +102,50 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public var visibleRows: [LiveReportRow] {
-        switch grouping {
-        case .none: return rows.map { .process($0) }
-        case .session:
-            return groups.flatMap { group in
-                [.group(group)] + (openGroups.contains(group.id) ? group.processes.map { .process($0) } : [])
+        let projection = projection
+        return (projection.pinnedRows + projection.unpinnedRows).flatMap { row in
+            switch row {
+            case .group(let group):
+                return [row]
+                    + (openGroups.contains(group.id) ? children(of: group).map(LiveReportRow.process) : [])
+            case .process, .unavailable: return [row]
             }
         }
+    }
+
+    public mutating func togglePin(_ id: LiveReportRowID) {
+        guard actionPanel == nil else { return }
+        if let index = pins.firstIndex(where: { $0.id == id }) {
+            pins.remove(at: index)
+        } else {
+            let label: String
+            switch id {
+            case .process(let identity):
+                guard let row = rows.first(where: { $0.process == identity }) else { return }
+                label = "\(row.name) · PID \(identity.pid)"
+            case .group(let identity):
+                guard let group = groups.first(where: { $0.id == identity }) else { return }
+                label =
+                    "\(group.project) · \(group.provider?.rawValue ?? "unknown")/\(group.sessionID ?? "unresolved")"
+            }
+            pins.append(ReportPin(id: id, label: label))
+        }
+        if !visibleRows.contains(where: { $0.id == selection }) {
+            selection = visibleRows.first?.id
+            expanded = nil
+        }
+    }
+
+    public mutating func toggleSelectedPin() {
+        if let selection { togglePin(selection) }
+    }
+
+    public mutating func resetCollection() {
+        var fresh = LiveReportState(grouping: grouping, thresholds: thresholds, interval: interval)
+        fresh.pins = pins
+        fresh.sortKey = sortKey
+        fresh.ascending = ascending
+        self = fresh
     }
 
     public var rows: [HeavyProcess] {
@@ -141,11 +179,16 @@ public struct LiveReportState: Equatable, Sendable {
         updates += 1
         if let selected, !snapshot.findings.contains(where: { $0.process == selected }) {
             notice = "PID \(selected.pid) left the heavy findings; details cleared."
-            selection = nil
+            if !isPinned(.process(selected)) { selection = nil }
             expanded = nil
             detailOffset = 0
         }
-        openGroups.formIntersection(Set(groups.map(\.id)))
+        openGroups.formIntersection(
+            Set(groups.map(\.id)).union(
+                pins.compactMap {
+                    if case .group(let id) = $0.id { return id }
+                    return nil
+                }))
         if let selected, grouping == .session,
             let group = groups.first(where: { $0.processes.contains { $0.process == selected } })
         {
@@ -197,6 +240,7 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func toggleGrouping() {
+        let pinnedSelection = selection.flatMap { isPinned($0) ? $0 : nil }
         switch grouping {
         case .none:
             let process = selected
@@ -210,6 +254,7 @@ public struct LiveReportState: Equatable, Sendable {
             grouping = .none
             selection = process.map { .process($0) } ?? visibleRows.first?.id
         }
+        if let pinnedSelection { selection = pinnedSelection }
         expanded = nil
         detailOffset = 0
         notice = nil

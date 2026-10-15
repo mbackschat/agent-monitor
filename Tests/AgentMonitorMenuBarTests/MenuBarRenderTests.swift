@@ -29,12 +29,13 @@ import Testing
         timestamp: Date(timeIntervalSince1970: 52_496), intervalSeconds: 1,
         cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
         sampledProcessCount: 42, unreadableProcessCount: 0, findings: findings)
-    let model = MenuBarModel { receive in try await receive(snapshot) }
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     model.toggleFreeze()
     let group = try #require(model.report.groups.first { $0.processes.count > 1 })
     model.report.select(.group(group.id))
+    model.report.togglePin(.group(group.id))
     model.report.toggleDisclosure()
     _ = NSApplication.shared
     let host = NSHostingView(
@@ -76,7 +77,7 @@ import Testing
 
 @Test @MainActor func sparseNativePanelKeepsStandardHeight() async throws {
     let snapshot = try menuBarFixture()
-    let model = MenuBarModel { receive in try await receive(snapshot) }
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     _ = NSApplication.shared
@@ -89,7 +90,7 @@ import Testing
 
 @Test @MainActor func nativePanelKeepsHeightAcrossDisclosureAndOverflow() async throws {
     let snapshot = try menuBarFixture(pids: Array(42001...42030))
-    let model = MenuBarModel { receive in try await receive(snapshot) }
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     _ = NSApplication.shared
@@ -110,7 +111,7 @@ import Testing
 
 @Test @MainActor func popoverKeepsHeightWhenOpeningActionReview() async throws {
     let snapshot = try menuBarFixture()
-    let model = MenuBarModel { receive in try await receive(snapshot) }
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     _ = NSApplication.shared
@@ -141,7 +142,7 @@ import Testing
 @Test(arguments: MenuBarPanelSize.allCases)
 @MainActor func userChoosesPanelHeightWithAScreenLimit(size: MenuBarPanelSize) async throws {
     let snapshot = try menuBarFixture()
-    let model = MenuBarModel { receive in try await receive(snapshot) }
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     _ = NSApplication.shared

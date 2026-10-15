@@ -82,7 +82,7 @@ public enum TerminalReport {
                 case .return: state.mutate { $0.toggleDisclosure() }
                 case .character("c"): state.mutate { $0.sort(by: .cpu) }
                 case .character("m"): state.mutate { $0.sort(by: .memory) }
-                case .character("p"): state.mutate { $0.sort(by: .pid) }
+                case .character("n"): state.mutate { $0.sort(by: .pid) }
                 case .character("r"): state.mutate { $0.reverseSort() }
                 case .character("1"): state.mutate { $0.adjustThreshold(.cpuDown) }
                 case .character("2"): state.mutate { $0.adjustThreshold(.cpuUp) }
@@ -91,7 +91,8 @@ public enum TerminalReport {
                 case .character("g"): state.mutate { $0.toggleGrouping() }
                 case .character("<"): adjustInterval(.slower)
                 case .character(">"): adjustInterval(.faster)
-                case .space: state.mutate { $0.toggleFreeze() }
+                case .character("p"): state.mutate { $0.toggleFreeze() }
+                case .space: state.mutate { $0.toggleSelectedPin() }
                 case .character("-"): state.mutate { $0.adjustDetails(by: -5) }
                 case .character("+"): state.mutate { $0.adjustDetails(by: 5) }
                 case .character("0"): state.mutate { $0.minimizeDetails() }

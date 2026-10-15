@@ -17,11 +17,12 @@ enum MenuBarApp {
 final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var item: NSStatusItem?
     private let popover = NSPopover()
-    private let model = MenuBarModel { receive in
+    private let model = MenuBarModel { thresholds, interval, receive in
         let session = MonitoringSession(
-            configuration: try MonitoringConfiguration(samples: 0),
+            configuration: try MonitoringConfiguration(
+                thresholds: await thresholds(), intervalSeconds: interval.seconds, samples: 0),
             reader: try NativeProcessReader(), excluding: [ProcessInfo.processInfo.processIdentifier])
-        try await session.run(receive)
+        try await session.run(thresholds: thresholds, interval: interval, receive)
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {

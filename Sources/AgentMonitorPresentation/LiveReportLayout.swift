@@ -53,7 +53,7 @@ public enum LiveReportLayout {
         let frozen =
             state.frozen
             ? "PAUSED" + (state.snapshot.map { " at " + clockTime($0.timestamp) } ?? "")
-                + " | Space resume | " : ""
+                + " | p resume | " : ""
         let activity =
             "\(state.sortKey.rawValue) \(state.ascending ? "ascending" : "descending") | every \(seconds) s"
         let title =
@@ -101,12 +101,12 @@ public enum LiveReportLayout {
     private static func helpLines(width: Int, height: Int, headerHeight: Int, frozen: Bool) -> [String] {
         let groups = [
             [
-                "↑/↓ select", "Enter open", "g group", "c/m/p sort", "r reverse",
-                frozen ? "Space resume" : "Space pause",
+                "↑/↓ select", "Enter open", "g group", "c/m/n sort", "r reverse",
+                "Space pin",
             ],
-            ["k terminate", "s message", "f focus"],
-            ["1/2 CPU -/+10%", "3/4 GB -/+1", "</> interval", "[/] scroll"],
-            ["-/+ size", "0 min", "9 max", "= restore", "q/Ctrl-C quit"],
+            [frozen ? "p resume" : "p pause", "k terminate", "s message", "f focus"],
+            ["1/2 CPU -/+10%", "3/4 GB -/+1", "</> interval"],
+            ["[/] scroll", "-/+ size", "0 min", "9 max", "= restore", "q/Ctrl-C quit"],
         ]
         var lines: [String] = []
         var line = ""
@@ -133,8 +133,8 @@ public enum LiveReportLayout {
         return lines.count <= height - headerHeight - 3
             ? lines
             : [
-                "Resize for all keys",
-                frozen ? "Space resume | q/Ctrl-C quit" : "Space pause | q/Ctrl-C quit",
+                "Space pin | Resize for all keys",
+                frozen ? "p resume | q/Ctrl-C quit" : "p pause | q/Ctrl-C quit",
             ]
     }
 
@@ -174,6 +174,11 @@ public enum LiveReportLayout {
                 lines.append(groupLine(group, selected: selected, state: state, table: table))
             case .process(let row):
                 lines.append(processLine(row, state: state, table: table, columns: columns))
+            case .unavailable(let pin):
+                lines.append(
+                    ReportLine(
+                        "\(selected ? "@" : "+") Not in current results · \(pin.label)",
+                        style: selected ? .selected : .muted))
             }
         }
         if rows.isEmpty {
@@ -185,11 +190,21 @@ public enum LiveReportLayout {
         return padded(lines, to: height)
     }
 
+    private static func rowMarker(selected: Bool, pinned: Bool) -> String {
+        switch (selected, pinned) {
+        case (true, true): "@"
+        case (false, true): "+"
+        case (true, false): ">"
+        case (false, false): " "
+        }
+    }
+
     private static func groupLine(
         _ group: SessionGroup, selected: Bool, state: LiveReportState, table: ReportTable
     ) -> ReportLine {
         let prefix = table.rowPrefix(
-            marker: selected ? ">" : " ", pid: String(group.processes.count), cpu: group.cpuTotal,
+            marker: rowMarker(selected: selected, pinned: state.isPinned(.group(group.id))),
+            pid: String(group.processes.count), cpu: group.cpuTotal,
             memoryGB: group.memoryGBTotal, partialCPU: group.cpuPartial, partialMemory: group.memoryPartial)
         let disclosure = state.openGroups.contains(group.id) ? "[-]" : "[+]"
         return ReportLine(prefix + "\(disclosure) \(group.label)", style: selected ? .selected : .heading)
@@ -201,7 +216,9 @@ public enum LiveReportLayout {
         let cpuThreshold = state.snapshot?.cpuThresholdPercent ?? state.thresholds.cpuPercent
         let memoryThreshold = state.snapshot?.memoryThresholdBytes ?? state.thresholds.memoryBytes
         let prefix = table.rowPrefix(
-            marker: row.process == state.selected ? ">" : " ", pid: String(row.process.pid),
+            marker: rowMarker(
+                selected: row.process == state.selected, pinned: state.isPinned(.process(row.process))),
+            pid: String(row.process.pid),
             cpu: row.cpuPercent, memoryGB: row.footprintBytes.map { Double($0) / 1e9 },
             heavyCPU: row.cpuPercent.map { $0 > cpuThreshold } ?? false,
             heavyMemory: row.footprintBytes.map { $0 > memoryThreshold } ?? false)
@@ -216,7 +233,10 @@ public enum LiveReportLayout {
             state.grouping == .session
             ? "  \(row.name) \(agent) [\(row.attribution.evidence.rawValue), \(row.attribution.context.rawValue)]"
             : flatDescription(row, agent: agent, columns: columns)
-        return ReportLine(prefix + description, style: row.process == state.selected ? .selected : .heavy)
+        return ReportLine(
+            prefix + description,
+            style: row.process == state.selected
+                ? .selected : (state.isPinned(.process(row.process)) ? .heading : .heavy))
     }
 
     private static func flatDescription(_ row: HeavyProcess, agent: String, columns: ReportTable.Columns)

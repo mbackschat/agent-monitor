@@ -120,11 +120,18 @@ public enum LiveReportRowID: Hashable, Sendable {
 public enum LiveReportRow: Equatable, Sendable {
     case process(HeavyProcess)
     case group(SessionGroup)
+    case unavailable(ReportPin)
 
     public var id: LiveReportRowID {
         switch self {
         case .process(let row): .process(row.process)
         case .group(let group): .group(group.id)
+        case .unavailable(let pin): pin.id
         }
     }
+}
+
+public struct ReportPin: Equatable, Sendable {
+    public let id: LiveReportRowID
+    public let label: String
 }

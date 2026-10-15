@@ -5,7 +5,10 @@ import Foundation
 import Observation
 
 typealias MenuBarSource =
-    @Sendable (@escaping @Sendable (MonitoringSnapshot) async throws -> Void) async throws -> Void
+    @Sendable (
+        @escaping @Sendable () async -> Thresholds, LiveInterval,
+        @escaping @Sendable (MonitoringSnapshot) async throws -> Void
+    ) async throws -> Void
 
 @MainActor @Observable
 final class MenuBarModel {
@@ -15,6 +18,7 @@ final class MenuBarModel {
     private(set) var error: String?
     private(set) var lastActionResult: ActionResult?
     private(set) var savedMessage: SavedMessage?
+    @ObservationIgnored private let liveInterval = LiveInterval(1)
     @ObservationIgnored private var collection: Task<Void, Never>?
     @ObservationIgnored private var action: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
@@ -34,13 +38,16 @@ final class MenuBarModel {
         let previousAction = action
         let token = UUID()
         generation = token
-        report = LiveReportState(grouping: .session)
+        report.resetCollection()
+        liveInterval.set(report.interval)
         collection = Task { [self] in
             await previous?.value
             await previousAction?.value
             do {
                 try Task.checkCancellation()
-                try await source { [weak self] snapshot in
+                try await source(
+                    { [weak self] in await self?.report.thresholds ?? Thresholds() }, liveInterval
+                ) { [weak self] snapshot in
                     try Task.checkCancellation()
                     await self?.receive(snapshot, generation: token)
                 }
@@ -73,7 +80,7 @@ final class MenuBarModel {
         generation = UUID()
         collection?.cancel()
         action?.cancel()
-        report = LiveReportState(grouping: .session)
+        report.resetCollection()
     }
 
     func stop() async {
@@ -98,19 +105,60 @@ final class MenuBarModel {
             if row == .process(savedMessage.process.process) { resumeMessage() }
             return
         }
-        if case .process(let identity) = row,
-            let group = report.groups.first(where: {
-                $0.processes.count == 1 && $0.processes.first?.process == identity
-            }), !report.openGroups.contains(group.id)
-        {
-            // Singleton rows bypass group disclosure in the native view; shared action selection
-            // still addresses the process inside LiveReportState's session hierarchy.
-            report.select(.group(group.id))
-            report.toggleDisclosure()
-        }
-        guard report.visibleRows.contains(where: { $0.id == row }) else { return }
-        report.select(row)
+        guard visibleRowIDs.contains(row) else { return }
+        selectRow(row)
+        guard report.selection == row else { return }
         perform(report.beginAction(kind))
+    }
+
+    func adjustInterval(_ adjustment: IntervalAdjustment) {
+        report.adjustInterval(adjustment)
+        liveInterval.set(report.interval)
+    }
+
+    func selectRow(_ row: LiveReportRowID) {
+        guard visibleRowIDs.contains(row) else { return }
+        if !report.visibleRows.contains(where: { $0.id == row }),
+            case .process(let identity) = row,
+            let group = report.groups.first(where: { $0.processes.contains { $0.process == identity } })
+        {
+            report.select(.group(group.id))
+            guard report.selectedGroup == group.id else { return }
+            if !report.openGroups.contains(group.id) { report.toggleDisclosure() }
+        }
+        report.select(row)
+    }
+
+    func toggleDetails(for process: ProcessIdentity) {
+        let wasExpanded = report.expanded == process && report.detailsMode != .minimized
+        selectRow(.process(process))
+        guard report.selected == process else { return }
+        if wasExpanded { report.minimizeDetails() } else { report.restoreDetails() }
+    }
+
+    var visibleRowIDs: [LiveReportRowID] {
+        let projection = report.projection
+        return (projection.pinnedRows + projection.unpinnedRows).flatMap { row in
+            switch row {
+            case .group(let group):
+                if !report.isPinned(row.id), group.processes.count == 1, let process = group.processes.first {
+                    return [LiveReportRowID.process(process.process)]
+                }
+                return [row.id]
+                    + (report.openGroups.contains(group.id)
+                        ? report.children(of: group).map { .process($0.process) } : [])
+            case .process, .unavailable: return [row.id]
+            }
+        }
+    }
+
+    func moveFocus(from row: LiveReportRowID, by delta: Int) -> LiveReportRowID? {
+        let rows = visibleRowIDs
+        guard !rows.isEmpty else { return nil }
+        let index = rows.firstIndex(of: row) ?? 0
+        let next = rows[min(max(index + delta, 0), rows.count - 1)]
+        selectRow(next)
+        return next
     }
 
     func resumeMessage() {

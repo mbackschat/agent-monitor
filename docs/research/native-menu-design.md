@@ -54,3 +54,10 @@ The subsequent [sizing experiment](development-tools.md#content-sizing-applicati
 ## Fixed-height clarification — 2026-10-15
 
 The user explicitly requested a stable panel height with optional user resizing, and a freeze control for inspecting rows that reorder. This is a distinct requirement from compact row spacing. Apple's general content-fitting guidance does not establish that a continuously updating process list should resize its outer panel on each membership/disclosure change. The [accepted contract](../architecture.md#native-menu-bar-app) now uses explicit height presets and shared snapshot pause; earlier content-sizing observations above retain their historical context.
+
+
+## Pin controls and keyboard intent — 2026-10-15
+
+Apple's [keyboard guidance](https://developer.apple.com/design/human-interface-guidelines/keyboards/) describes consistent standard shortcuts, and [focus and selection guidance](https://developer.apple.com/design/human-interface-guidelines/focus-and-selection/) distinguishes keyboard focus and selection. Search-visible official excerpts were available during this review; fetching the full linked Markdown pages failed in the browser tool, so this is not a fresh complete-page audit.
+
+Inference: a keyboard command aimed at the hovered row can conflict with the focused control. A dedicated native Pin button and context-menu command make the target explicit while preserving whole-row disclosure. The user selected Space for TUI Pin/Unpin and `p` for Pause, superseding the earlier proposed `i` key; PID sorting moved to `n` to remove the collision. Native Space retains focused-button activation. Live keyboard and VoiceOver behavior remain empirical checks, independently of the model and offscreen rendering tests.

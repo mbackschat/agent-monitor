@@ -19,17 +19,22 @@ agent-monitor --tui --group session
 | `k` | Review SIGTERM for the selected process |
 | `s` | Compose a message to a verified Codex or Claude Code recipient |
 | `f` | Bring the terminal hosting the selected process's or group's agent session to the front |
-| `c` / `m` / `p` | Sort by CPU, memory footprint, or PID |
+| `c` / `m` / `n` | Sort by CPU, memory footprint, or PID |
 | `r` | Reverse the sort direction |
 | `1` / `2` | Lower/raise the CPU threshold by 10 percentage points |
 | `3` / `4` | Lower/raise the memory threshold by 1 decimal GB |
 | `<` / `>` | Update less/more often: 0.5, 1, 2, 5, 10, 30 or 60 seconds, applied at once |
-| Space | Pause/resume the view; sampling continues and resuming shows the latest data |
+| Space | Pin/unpin the selected process or session; values keep updating |
+| `p` | Pause/resume the view; sampling continues and resuming shows the latest data |
 | `[` / `]` | Scroll process details |
 | `-` / `+` | Shrink/grow the details pane by 5 percentage points |
 | `0` / `9` | Minimize/maximize the details pane |
 | `=` | Restore the chosen details split |
 | `q` / Ctrl-C | Quit |
+
+Pins stay first in pin order, independently of sorting. `+` marks a pinned row and `@` marks the selected pinned row; `>` still marks an ordinary selection. A pinned group's expanded children use PID order. If a target leaves the current heavy results, its placeholder remains with **Not in current results**; this does not prove it exited, and no old measurements or actions are offered. The same process lifetime or session can return automatically; PID reuse cannot replace a pin. Space removes the selected pin. Pins last until unpinned or the monitor quits, and native pins also survive closing/reopening the panel. A process pinned separately is omitted from its group's child rows; group totals still cover its full heavy membership. Pinned groups retain their identity when switching to flat mode.
+
+These are the current source-build keys. Release 0.2.2 uses Space for pause and `p` for PID sorting; use the on-screen help for an installed release.
 
 The header shows the update interval and, while frozen, `PAUSED at` the time of the displayed sample. A faster `--interval` than 0.5 seconds is kept until you press `<`. While frozen, selection, sorting, details and actions keep working on the frozen rows; actions still recheck the live process, and threshold changes stay pending until you unfreeze. Selection follows the process across sorting and refreshes. Details start minimized; opening them uses an initial 50% split. The adjustable split ranges from 10–90%, subject to available terminal space. Minimizing or maximizing does not overwrite your chosen split.
 
@@ -132,7 +137,11 @@ For the complete option reference and defaults, run `agent-monitor --help`.
 
 ## Menu bar app
 
-From a source checkout, run `bash scripts/menubar.sh run` and click the terminal icon in the menu bar. This opens a compact native panel, never a standalone window. The panel keeps its height as rows update or details expand; content scrolls inside it. Choose **Compact**, **Standard** or **Tall** in the footer to change the height and see less or more content. The choice lasts until quit and is capped to fit the screen when opening. Click anywhere on a row to expand or collapse it. Sessions with one displayed heavy process show that process directly, including its project and session context; only sessions with multiple displayed processes get a group row. Compact two-line summaries place CPU beside the process/PID and footprint beside project/session context. Expand a process to inspect attribution and find **Terminal**, **Message…** and **Terminate…**. CPU/footprint/PID sorting uses the TUI's sorting rules. The menu bar app uses the default agent-only scope and thresholds; threshold/interval controls and flat mode remain available in the TUI.
+From a source checkout, run `bash scripts/menubar.sh run` and click the terminal icon in the menu bar. This opens a compact native panel, never a standalone window. The panel keeps its height as rows update or details expand; content scrolls inside it. Choose **Compact**, **Standard** or **Tall** in the footer to change the height and see less or more content. The choice lasts until quit and is capped to fit the screen when opening. Click anywhere on a row to expand or collapse it. Unpinned sessions with one displayed heavy process show that process directly, including its project and session context; sessions with multiple displayed processes and pinned sessions get a group row. Compact two-line summaries place CPU beside the process/PID and footprint beside project/session context. Expand a process to inspect attribution and find **Terminal**, **Message…** and **Terminate…**. Open **View options** for **Sessions / Processes**, CPU/footprint/PID sorting, ascending order, CPU and footprint thresholds, and the sampling interval. Threshold steps and interval limits match the TUI. Changes apply to the running collector without restarting its CPU baseline; a pending label remains until the displayed sample uses the requested thresholds. Display/sampling choices survive panel dismissal until quit. The app starts with the default agent-only scope and thresholds.
+
+Point at a row or focus it with the keyboard to reveal **Pin**. A pinned row keeps its pin button visible; click it again to unpin. The row context menu also offers Pin/Unpin. Pins appear in a highlighted section above the other results. Click the row itself to expand/collapse, as before. A pinned session stays a session header even when only one heavy process remains.
+
+Use Tab/Shift-Tab to reach native controls. With a row header focused, ↑/↓ moves between visible rows and scrolls the focused row into view; Enter toggles details. Space activates the focused native button, including Pin/Unpin. A session's **Terminal** action is available in its details and context menu. Native details use the scroll area and panel size choices instead of the TUI's split-pane keys.
 
 Click **Pause** (⇧⌘P) before targeting a moving row. It holds the displayed values and row order, with **Paused at** showing the sample time; **Resume** immediately shows the latest collected sample. Collection continues while paused and the panel is open. You can expand details and use actions against the held rows; actions still verify the live target. Pause is unavailable before the first sample or during action review. Reopening the panel starts live. For live values with less CPU-driven movement, choose PID sorting instead.
 
