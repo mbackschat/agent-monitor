@@ -60,6 +60,7 @@ def main():
             stage / "AgentMonitor_AgentMonitorPresentation.bundle",
         )
         shutil.copy2(root / "LICENSE", stage / "LICENSE")
+        shutil.copy2(root / "THIRD_PARTY_NOTICES.md", stage / "THIRD_PARTY_NOTICES.md")
         notices = stage / "licenses"
         notices.mkdir()
         for dependency in json.loads((root / "Package.resolved").read_text())["pins"]:
@@ -94,7 +95,8 @@ def main():
             '  export PATH="$HOME/.local/bin:$PATH"\n'
             "  agent-monitor --version\n"
             "  agent-monitor --tui --group session\n\n"
-            "Keep the schema bundle beside the executable. Preserve LICENSE and licenses/\n"
+            "Keep the schema bundle beside the executable.\n"
+            "Preserve LICENSE, THIRD_PARTY_NOTICES.md and licenses/\n"
             "when redistributing this package. This binary is ad-hoc signed, not notarized.\n"
             "If macOS blocks it, the repository provides source-build instructions.\n"
             "https://github.com/mbackschat/agent-monitor/blob/main/docs/installation.md\n"

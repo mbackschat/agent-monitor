@@ -142,4 +142,4 @@ The TUI preview is generated from synthetic data using the production layout ren
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.md) for dependencies, bundled components, and their licenses.
