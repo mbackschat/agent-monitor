@@ -10,6 +10,8 @@ Trace heavy CPU and memory usage to **Codex CLI and Claude Code sessions** on ma
 
 When several coding agents are running, a busy `node`, `java`, or `python` process tells you little on its own. Agent Monitor connects heavy processes to their agent session, terminal, and project, so you can see where the work started. Then act on it: message the agent, jump to its terminal, or stop the process.
 
+This README describes the current source build. For the published CLI release, see the [v0.2.2 release notes](docs/releases/0.2.2.md); newer controls, history and the menu bar app require a [source build](docs/installation.md#build-from-source).
+
 ## Features
 
 - **Live terminal view** — refresh every 5 seconds by default; watch CPU and memory usage, sort processes, and open details without leaving your terminal. Stable order keeps existing rows in place and appends newcomers. Change the update interval or freeze the view while you look.
@@ -60,7 +62,7 @@ By default, the monitor shows agent-associated processes exceeding **25% CPU or 
 
 Select a process and press **k** to review a termination request or **s** to compose a message to its Codex or Claude Code session, or **f** to bring the session's terminal to the front. **Ctrl-Y** confirms the reviewed action; **Esc** cancels or returns to editing. Termination sends SIGTERM to that process only.
 
-The monitor automatically includes the selected workload's PID and name, then shows the exact message before sending. Codex messages default to the verified **root agent**; **Tab** can select the attributed agent when it is distinct and reachable. Codex CLI must be on PATH with the session loaded on its default local app server; standalone Codex sessions and remote/custom app servers are not supported. Claude Code messages go to the attributed session's local inbox; Claude Code 2.1.224 or later must be on PATH, and the session may hold or refuse messages from other processes under its own settings. Acceptance does not confirm delivery or action. Focus selects the session's tab in Terminal.app; other terminal apps are only brought to the front, and macOS asks once for Automation permission. See [action controls and limits](docs/usage.md#process-actions).
+The monitor automatically includes the selected workload's PID, name, CPU, memory footprint and sample time, marking unavailable measurements explicitly, then shows the exact message before sending. Codex messages default to the verified **root agent**; **Tab** can select the attributed agent when it is distinct and reachable. Codex CLI must be on PATH with the session loaded on its default local app server; standalone Codex sessions and remote/custom app servers are not supported. Claude Code messages go to the attributed session's local inbox; Claude Code 2.1.224 or later must be on PATH, and the session may hold or refuse messages from other processes under its own settings. Acceptance does not confirm delivery or action. Focus selects the session's tab in Terminal.app; other terminal apps are only brought to the front, and macOS asks once for Automation permission. See [action controls and limits](docs/usage.md#process-actions).
 
 ## More ways to run
 
