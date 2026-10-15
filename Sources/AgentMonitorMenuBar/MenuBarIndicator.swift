@@ -1,12 +1,6 @@
 import AgentMonitorCore
 import Foundation
 
-enum MenuBarStatusSymbol: Equatable {
-    case terminal
-    case bars(Int)
-    case unavailable
-}
-
 struct MenuBarIndicator {
     enum Availability { case waiting, current, unavailable }
 
@@ -21,14 +15,6 @@ struct MenuBarIndicator {
     }
 
     var heavyCount: Int? { load?.heavyProcesses.count }
-
-    var symbol: MenuBarStatusSymbol {
-        if let level { return .bars(level) }
-        switch availability {
-        case .waiting: return .terminal
-        case .current, .unavailable: return .unavailable
-        }
-    }
 
     var level: Int? {
         guard let load, load.missingCPUCount < load.processCount || load.processCount == 0 else { return nil }

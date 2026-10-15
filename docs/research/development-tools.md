@@ -126,3 +126,10 @@ Source inspection found the status button wired only to the popover toggle, with
 The user rejected the startup ellipsis as confusing and reported that the icon still inverted instead of showing the requested number. Source inspection confirmed that the earlier right-click change had retained the inversion renderer; the numeric badge was only recorded as a pending decision. This supersedes the inversion experiment above. The current count comes directly from the existing summary’s distinct heavy process identities, so neither event history nor extra process reads are needed.
 
 The [Swift Testing skill](../../.agents/skills/swift-testing-expert/SKILL.md) informed state-transition guards for sustained load, quiet samples and collection failure/recovery, plus raster comparisons that keep the original bar area unchanged while badge digits vary. The initial test build failed because the count/symbol API did not exist. These checks distinguish the actual badge implementation from status text alone; offscreen images still cannot establish legibility in the user’s live menu bar.
+
+
+## Fixed-width corner badge — 2026-10-15
+
+The user rejected the terminal-to-bars startup change and the adjacent badge widening the menu-bar item, requesting a small Mail-like monochrome overlay. Inspection confirmed two causes: state-specific symbol substitution and a variable-length status item paired with a count-dependent image width. The prior numeric-badge experiment above is superseded on placement and startup identity. The renderer now keeps the three-bar geometry and overlays the count inside 18 × 18 points; 99+ bounds the label while the existing status menu retains the exact count.
+
+The [Swift Testing skill](../../.agents/skills/swift-testing-expert/SKILL.md) helped express the fixed-size invariant across zero, one-, two- and larger-digit counts and compare startup with the unbadged quiet icon. The red run reproduced both the reported startup substitution and widening, plus the same problems for unavailable data and four-digit counts. Raster guards preserve the lower bars beneath the overlay; native menu-bar legibility remains a user visual check.

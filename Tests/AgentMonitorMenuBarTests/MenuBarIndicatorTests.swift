@@ -29,7 +29,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
 
 @Test func badgeCountsCurrentHeavyProcessesFromTheFirstSampleUntilTheyBecomeQuiet() throws {
     var indicator = MenuBarIndicator(processorCount: 8)
-    #expect(indicator.symbol == .terminal)
+    #expect(indicator.level == nil)
     #expect(indicator.heavyCount == nil)
     for cpu in [50.0, 80, 100, 150] {
         indicator.receive(try loadSample(cpu))
@@ -37,7 +37,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     }
     indicator.receive(try loadSample(0))
     #expect(indicator.heavyCount == 0)
-    #expect(indicator.symbol == .bars(0))
+    #expect(indicator.level == 0)
     indicator.receive(try loadSample(150, pid: 42002))
     #expect(indicator.heavyCount == 1)
     #expect(!indicator.statusDescription.contains("temporary"))
@@ -52,13 +52,13 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
             memoryThresholdBytes: 999_000_000_000, sampledProcessCount: 2, unreadableProcessCount: 0,
             findings: [], agentLoad: AgentLoadSummary(processes: fixture.findings + fixture.findings)))
     #expect(indicator.heavyCount == 2)
-    #expect(indicator.symbol == .bars(0))
+    #expect(indicator.level == 0)
 }
 
 @Test @MainActor func loadIconsKeepSizeAndIncreaseFilledAreaAtActualResolution() throws {
     var areas: [Int] = []
     for level in 0...3 {
-        let image = MenuBarStatusImage.make(symbol: .bars(level), heavyCount: nil)
+        let image = MenuBarStatusImage.make(level: level, heavyCount: nil)
         #expect(image.size == NSSize(width: 18, height: 18))
         #expect(image.isTemplate)
         let bitmap = try #require(
@@ -85,39 +85,40 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     indicator.receive(try loadSample(50))
     #expect(indicator.heavyCount == 1)
     indicator.fail()
-    #expect(indicator.symbol == .unavailable)
+    #expect(indicator.level == nil)
     #expect(indicator.heavyCount == nil)
     indicator.receive(try loadSample(50))
     #expect(indicator.heavyCount == 1)
     #expect(indicator.statusDescription.contains("50"))
 }
 
-@Test @MainActor func numericBadgePreservesTheBarsAndGrowsToFitEveryDigit() throws {
-    let normal = try iconBitmap(MenuBarStatusImage.make(symbol: .bars(3), heavyCount: nil))
-    var widths: [CGFloat] = []
-    for count in [0, 1, 12, 1234] {
-        let image = MenuBarStatusImage.make(symbol: .bars(3), heavyCount: count)
+@Test @MainActor func numericBadgeOverlaysTheCornerWithoutWideningTheIcon() throws {
+    let startup = try iconBitmap(MenuBarStatusImage.make(level: nil, heavyCount: nil))
+    let quiet = try iconBitmap(MenuBarStatusImage.make(level: 0, heavyCount: nil))
+    #expect(
+        startup.representation(using: .png, properties: [:])
+            == quiet.representation(using: .png, properties: [:]))
+    let normal = try iconBitmap(MenuBarStatusImage.make(level: 3, heavyCount: nil))
+    for count in [0, 1, 12, 99, 100, 1234] {
+        let image = MenuBarStatusImage.make(level: 3, heavyCount: count)
         #expect(image.isTemplate)
-        #expect(image.size.height == 18)
-        #expect(image.size.width >= 40)
-        widths.append(image.size.width)
+        #expect(image.size == NSSize(width: 18, height: 18))
         let bitmap = try iconBitmap(image)
-        for y in 0..<18 {
+        for y in 12..<18 {
             for x in 0..<18 {
                 #expect(bitmap.colorAt(x: x, y: y) == normal.colorAt(x: x, y: y))
             }
         }
     }
-    #expect(widths[0] == widths[1])
-    #expect(widths[2] > widths[1])
-    #expect(widths[3] > widths[2])
-    let one = try iconBitmap(MenuBarStatusImage.make(symbol: .bars(1), heavyCount: 1))
-    let two = try iconBitmap(MenuBarStatusImage.make(symbol: .bars(1), heavyCount: 2))
+    let one = try iconBitmap(MenuBarStatusImage.make(level: 1, heavyCount: 1))
+    let two = try iconBitmap(MenuBarStatusImage.make(level: 1, heavyCount: 2))
     #expect(
         one.representation(using: .png, properties: [:]) != two.representation(using: .png, properties: [:]))
-    let startup = MenuBarStatusImage.make(symbol: .terminal, heavyCount: nil)
-    #expect(startup.size == NSSize(width: 18, height: 18))
-    #expect(startup.isTemplate)
+    let hundred = try iconBitmap(MenuBarStatusImage.make(level: 1, heavyCount: 100))
+    let thousand = try iconBitmap(MenuBarStatusImage.make(level: 1, heavyCount: 1000))
+    #expect(
+        hundred.representation(using: .png, properties: [:])
+            == thousand.representation(using: .png, properties: [:]))
 }
 
 @MainActor private func iconBitmap(_ image: NSImage) throws -> NSBitmapImageRep {

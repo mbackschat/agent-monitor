@@ -28,7 +28,7 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         self.item = item
         model.onIndicatorChange = { [weak self] in self?.updateIndicator() }
         updateIndicator()
@@ -54,11 +54,11 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
         let description: String
         if model.liveIcon {
             button.image = MenuBarStatusImage.make(
-                symbol: model.indicator.symbol, heavyCount: model.indicator.heavyCount)
+                level: model.indicator.level, heavyCount: model.indicator.heavyCount)
             button.contentTintColor = nil
             description = model.indicator.statusDescription
         } else {
-            button.image = NSImage(systemSymbolName: "terminal", accessibilityDescription: nil)
+            button.image = MenuBarStatusImage.make(level: nil, heavyCount: nil)
             button.contentTintColor = nil
             description = "Agent Monitor — static icon; updates only while open"
         }

@@ -141,7 +141,7 @@ Run `swift test --filter AgentMonitorMenuBarTests` for lifecycle and fake-action
 
 For an opt-in grouping microbenchmark, run `MENUBAR_GROUPING_MEASUREMENT_PATH=/tmp/native-grouping.json swift test --filter measureNativeGroupingProjection`. It compares two reads with one local read of the production grouping getter across synthetic workloads. The output measures that expression only; it does not establish whole-app CPU usage or scrolling performance.
 
-The optional core load summary is tested independently of table filters, including zero/missing resources and unrelated-process exclusion. Icon tests cover fixed capacity bands, current heavy-process counts, deduplication, startup/error count absence, recovery, unchanged bar pixels and badge widths that fit multiple digits. A read-only collection-cost probe runs four 15-second samples; run it **alone** so other tests in the same process do not contaminate CPU accounting:
+The optional core load summary is tested independently of table filters, including zero/missing resources and unrelated-process exclusion. Icon tests cover fixed capacity bands, current heavy-process counts, deduplication, startup/error count absence, recovery, identical startup/quiet bar geometry, fixed 18-point dimensions for every count, preserved lower bar pixels, distinct digits and the 99+ cap. A read-only collection-cost probe runs four 15-second samples; run it **alone** so other tests in the same process do not contaminate CPU accounting:
 
 ```sh
 MENUBAR_LOAD_MEASUREMENT_PATH=/tmp/agent-load.json swift test --filter measureNativeAgentLoadSampling
