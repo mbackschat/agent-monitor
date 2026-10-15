@@ -85,24 +85,36 @@ public struct MonitoringSession: Sendable {
     public var initialThresholds: Thresholds { configuration.thresholds }
     public var initialInterval: Double { configuration.intervalSeconds }
 
-    /// Waits one interval and returns it. A live interval is re-read every quarter second, so a
-    /// shorter one applies without waiting out the old one; CPU stays exact because it divides
-    /// by the measured time between samples.
-    private func wait(_ currentInterval: (@Sendable () async -> Double)?) async throws -> Double {
-        guard let currentInterval else {
+    /// Waits one interval and returns it. Changing a live interval wakes the wait, which then
+    /// counts the time already waited against the new interval; CPU stays exact because it
+    /// divides by the measured time between samples.
+    private func wait(_ live: LiveInterval?) async throws -> Double {
+        guard let live else {
             try await clock.wait(seconds: configuration.intervalSeconds)
             return configuration.intervalSeconds
         }
-        var waited = 0.0
+        let start = clock.now()
         while true {
-            let interval = await currentInterval()
+            let (interval, generation) = live.current()
             guard interval.isFinite, (0.1...60).contains(interval) else {
                 throw MonitoringError.invalidConfiguration
             }
-            guard waited < interval else { return interval }
-            let slice = min(interval - waited, 0.25)
-            try await clock.wait(seconds: slice)
-            waited += slice
+            let remaining = interval - clock.now().timeIntervalSince(start)
+            guard remaining > 0 else { return interval }
+            let changed = try await withThrowingTaskGroup(of: Bool.self) { group in
+                group.addTask {
+                    try await clock.wait(seconds: remaining)
+                    return false
+                }
+                group.addTask {
+                    await live.changed(after: generation)
+                    return true
+                }
+                defer { group.cancelAll() }
+                return try await group.next() ?? false
+            }
+            try Task.checkCancellation()
+            guard changed else { return interval }
         }
     }
 
@@ -110,7 +122,7 @@ public struct MonitoringSession: Sendable {
     /// Reads updated thresholds once per sample, preserving the CPU baseline.
     @concurrent public func run(
         thresholds currentThresholds: (@Sendable () async -> Thresholds)? = nil,
-        interval currentInterval: (@Sendable () async -> Double)? = nil,
+        interval live: LiveInterval? = nil,
         _ receive: @Sendable (MonitoringSnapshot) async throws -> Void
     ) async throws {
         try Task.checkCancellation()
@@ -118,7 +130,7 @@ public struct MonitoringSession: Sendable {
         monitor.ingest(try reader.snapshot(excluding: excluded).samples)
         var count = 0
         while configuration.samples == 0 || count < configuration.samples {
-            let interval = try await wait(currentInterval)
+            let interval = try await wait(live)
             try Task.checkCancellation()
             let thresholds = await currentThresholds?() ?? configuration.thresholds
             guard thresholds.cpuPercent.isFinite, thresholds.cpuPercent >= 0 else {

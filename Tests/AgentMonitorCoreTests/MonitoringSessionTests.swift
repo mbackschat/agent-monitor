@@ -12,10 +12,15 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
     let collected = Mutex<[MonitoringSnapshot]>([])
     let failCollection: Bool
     let cancelWait: Bool
+    /// Runs inside the first wait, which then lasts until the session cancels it.
+    let blockFirstWait: (@Sendable () -> Void)?
 
-    init(failCollection: Bool = false, cancelWait: Bool = false) {
+    init(
+        failCollection: Bool = false, cancelWait: Bool = false, blockFirstWait: (@Sendable () -> Void)? = nil
+    ) {
         self.failCollection = failCollection
         self.cancelWait = cancelWait
+        self.blockFirstWait = blockFirstWait
     }
 
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
@@ -38,8 +43,15 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
     }
 
     func wait(seconds: Double) async throws {
-        events.withLock { $0.append("wait:\(seconds)") }
+        let first = events.withLock { events in
+            defer { events.append("wait:\(seconds)") }
+            return !events.contains { $0.hasPrefix("wait") }
+        }
         if cancelWait { throw CancellationError() }
+        if first, let blockFirstWait {
+            blockFirstWait()
+            try await Task.sleep(for: .seconds(3600))
+        }
     }
 
     func now() -> Date { Date(timeIntervalSince1970: 0) }
@@ -140,22 +152,26 @@ func sessionRejectsInvalidLiveThresholds(cpu: Double) async throws {
     #expect(fixture.collected.withLock { $0.isEmpty })
 }
 
-// The TUI can change the interval at any time; waiting in slices applies a shorter one without
-// first waiting out the old one, and the snapshot reports the interval actually used.
-@Test func liveIntervalChangeAppliesWithinOneSliceAndIsReported() async throws {
+// An unchanged interval costs one wake per sample: a long-lived host must not poll for changes.
+@Test func unchangedLiveIntervalWaitsOnce() async throws {
     let fixture = SessionFixture()
-    let calls = Mutex(0)
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(intervalSeconds: 30, samples: 1), reader: fixture,
         clock: fixture)
-    let interval: @Sendable () async -> Double = {
-        calls.withLock { count in
-            defer { count += 1 }
-            return count == 0 ? 30 : 0.5
-        }
-    }
+    try await session.run(interval: LiveInterval(30), { fixture.receive($0) })
+    #expect(fixture.events.withLock { $0 }.filter { $0.hasPrefix("wait") } == ["wait:30.0"])
+}
+
+// The TUI can change the interval at any time; the change wakes the waiting session, so a shorter
+// one applies without first waiting out the old one, and the snapshot reports the interval used.
+@Test func liveIntervalChangeWakesTheWaitAndIsReported() async throws {
+    let interval = LiveInterval(30)
+    let fixture = SessionFixture(blockFirstWait: { interval.set(0.5) })
+    let session = MonitoringSession(
+        configuration: try MonitoringConfiguration(intervalSeconds: 30, samples: 1), reader: fixture,
+        clock: fixture)
     try await session.run(interval: interval, { fixture.receive($0) })
-    #expect(fixture.events.withLock { $0 }.filter { $0.hasPrefix("wait") } == ["wait:0.25", "wait:0.25"])
+    #expect(fixture.events.withLock { $0 }.filter { $0.hasPrefix("wait") } == ["wait:30.0", "wait:0.5"])
     #expect(fixture.collected.withLock { $0 }.first?.intervalSeconds == 0.5)
 }
 
@@ -164,6 +180,6 @@ func sessionRejectsInvalidLiveThresholds(cpu: Double) async throws {
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(samples: 1), reader: fixture, clock: fixture)
     await #expect(throws: MonitoringError.self) {
-        try await session.run(interval: { 0.01 }, { fixture.receive($0) })
+        try await session.run(interval: LiveInterval(0.01), { fixture.receive($0) })
     }
 }

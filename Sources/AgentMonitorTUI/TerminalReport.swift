@@ -8,7 +8,7 @@ import SwiftTUIRuntime
 public typealias SnapshotSource =
     @Sendable (
         _ thresholds: @escaping @Sendable () async -> Thresholds,
-        _ interval: @escaping @Sendable () async -> Double,
+        _ interval: LiveInterval,
         _ receive: @escaping @Sendable (MonitoringSnapshot) async throws -> Void
     ) async throws -> Void
 
@@ -32,6 +32,7 @@ public enum TerminalReport {
         source: @escaping SnapshotSource
     ) async throws {
         let identity = Identity(components: ["agent-monitor"])
+        let liveInterval = LiveInterval(interval)
         let state = StateContainer(
             initialState: LiveReportState(grouping: grouping, thresholds: thresholds, interval: interval),
             invalidationIdentities: [identity])
@@ -52,6 +53,10 @@ public enum TerminalReport {
             stateContainer: state,
             focusTracker: FocusTracker(invalidationIdentities: [identity]),
             keyHandler: { key, _, state in
+                @MainActor func adjustInterval(_ step: IntervalAdjustment) {
+                    state.mutate { $0.adjustInterval(step) }
+                    liveInterval.set(state.state.interval)
+                }
                 if state.state.actionPanel != nil {
                     guard host.surfaceSize.width >= 40, host.surfaceSize.height >= 8 else { return .handled }
                     if let input = actionInput(key) {
@@ -84,8 +89,8 @@ public enum TerminalReport {
                 case .character("3"): state.mutate { $0.adjustThreshold(.memoryDown) }
                 case .character("4"): state.mutate { $0.adjustThreshold(.memoryUp) }
                 case .character("g"): state.mutate { $0.toggleGrouping() }
-                case .character("<"): state.mutate { $0.adjustInterval(.slower) }
-                case .character(">"): state.mutate { $0.adjustInterval(.faster) }
+                case .character("<"): adjustInterval(.slower)
+                case .character(">"): adjustInterval(.faster)
                 case .space: state.mutate { $0.toggleFreeze() }
                 case .character("-"): state.mutate { $0.adjustDetails(by: -5) }
                 case .character("+"): state.mutate { $0.adjustDetails(by: 5) }
@@ -104,7 +109,8 @@ public enum TerminalReport {
                 return .handled
             },
             viewBuilder: { value, _ in
-                TerminalReportView(state: value, container: state, source: source, outcome: outcome)
+                TerminalReportView(
+                    state: value, container: state, interval: liveInterval, source: source, outcome: outcome)
             }
         )
         do {
@@ -191,6 +197,7 @@ private final class TerminalOutcome {
 private struct TerminalReportView: View {
     let state: LiveReportState
     let container: StateContainer<LiveReportState>
+    let interval: LiveInterval
     let source: SnapshotSource
     let outcome: TerminalOutcome
     @Environment(\.requestTermination) private var requestTermination
@@ -208,7 +215,7 @@ private struct TerminalReportView: View {
         }
         .task {
             do {
-                try await source({ await container.state.thresholds }, { await container.state.interval }) {
+                try await source({ await container.state.thresholds }, interval) {
                     snapshot in
                     _ = await MainActor.run { container.mutate { $0.receive(snapshot) } }
                 }
