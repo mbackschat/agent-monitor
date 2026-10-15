@@ -22,8 +22,8 @@ extension Preview {
                 session: "22222222-2222-4222-8222-222222222222", project: "sample-web", tty: "ttys002",
                 runtime: 41001),
             row(
-                pid: 42005, name: "node", cpu: 2.1, memory: 1_180_000_000, provider: "codex", session: nil,
-                project: "sample-tools", tty: "ttys003", runtime: 41002, ambiguous: true),
+                pid: 42005, name: "codex", cpu: 2.1, memory: 1_180_000_000, provider: "codex", session: nil,
+                project: "sample-tools", tty: nil, runtime: 42005, ambiguous: true),
         ]
         let snapshot = MonitoringSnapshot(
             timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1, cpuThresholdPercent: 25,
@@ -37,17 +37,20 @@ extension Preview {
 
     private static func row(
         pid: Int, name: String, cpu: Double, memory: UInt64, provider: String, session: String?,
-        project: String, tty: String, runtime: Int, ambiguous: Bool = false
+        project: String, tty: String?, runtime: Int, ambiguous: Bool = false
     ) throws -> HeavyProcess {
         var attribution: [String: Any] = [
             "provider": provider, "evidence": ambiguous ? "ambiguous" : "inheritedMarker",
-            "context": "terminal",
-            "runtime": ["pid": runtime, "startMicroseconds": 1], "terminal": tty,
+            "context": tty == nil ? "nonterminal" : "terminal",
+            "runtime": ["pid": runtime, "startMicroseconds": pid == runtime ? 2 : 1],
             "runtimeDirectory": "/projects/\(project)",
             "candidateThreadIDs": ambiguous
                 ? ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"] : [],
-            "ancestry": [["pid": pid, "startMicroseconds": 2], ["pid": runtime, "startMicroseconds": 1]],
+            "ancestry": pid == runtime
+                ? [["pid": pid, "startMicroseconds": 2]]
+                : [["pid": pid, "startMicroseconds": 2], ["pid": runtime, "startMicroseconds": 1]],
         ]
+        if let tty { attribution["terminal"] = tty }
         if let session { attribution["threadID"] = session }
         let value: [String: Any] = [
             "process": ["pid": pid, "startMicroseconds": 2], "executable": "/usr/local/bin/\(name)",

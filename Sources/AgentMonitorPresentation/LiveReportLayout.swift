@@ -221,7 +221,8 @@ public enum LiveReportLayout {
     }
 
     private static func sessionLabel(_ row: HeavyProcess, width: Int) -> String {
-        row.attribution.threadID.map { String($0.prefix(width)) }
+        if row.isSharedRuntime { return row.sessionDescription }
+        return row.attribution.threadID.map { String($0.prefix(width)) }
             ?? (row.attribution.evidence == .ambiguous ? "ambiguous" : "unresolved")
     }
 
@@ -262,7 +263,7 @@ public enum LiveReportLayout {
         if let id = state.selectedGroup, let group = state.groups.first(where: { $0.id == id }) {
             return wrapped(
                 [
-                    "Launch \(group.isRoot ? "root" : "session"): \(group.sessionID ?? "unresolved")",
+                    "Launch \(group.isRoot ? "root" : "session"): \(group.sessionDescription)",
                     group.label,
                     "Heavy-process totals only; ~ marks partial totals with missing measurements.",
                     "Launch origin does not prove current use of shared daemons.",
@@ -273,7 +274,7 @@ public enum LiveReportLayout {
         let attribution = row.attribution
         var values = [
             "PID \(row.process.pid) | \(row.executable)",
-            "Session: \(attribution.threadID ?? "unresolved") [\(attribution.evidence.rawValue), \(attribution.context.rawValue)]",
+            "Session: \(row.sessionDescription) [\(attribution.evidence.rawValue), \(attribution.context.rawValue)]",
             "Runtime: \(attribution.runtime.map { String($0.pid) } ?? "unresolved") | TTY: \(attribution.terminal ?? "unavailable")",
             "Work directory: \(row.cwd ?? "unavailable")",
             "Session directory: \(attribution.runtimeDirectory ?? "unavailable")",

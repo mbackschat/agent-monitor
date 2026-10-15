@@ -42,7 +42,7 @@ public enum ActionWording {
         return [
             "Process PID \(process.process.pid): \(process.name)",
             "Executable: \(process.executable)",
-            "Attributed session: \(attribution.provider?.rawValue ?? "unknown")/\(attribution.threadID ?? "unresolved")",
+            "\(process.isSharedRuntime ? "Attribution" : "Attributed session"): \(attribution.provider?.rawValue ?? "unknown")/\(process.sessionDescription)",
         ]
     }
 

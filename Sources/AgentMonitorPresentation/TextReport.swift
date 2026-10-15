@@ -40,7 +40,7 @@ public enum TextReport {
                 lines.append(ReportLine(""))
                 lines.append(
                     ReportLine(
-                        "Session: \(group.sessionID ?? "unresolved PID \(group.minimumPID)") | \(group.label)",
+                        "Session: \(group.sessionDescription) | \(group.label)",
                         style: .heading))
                 lines.append(
                     ReportLine(
@@ -77,8 +77,8 @@ public enum TextReport {
             let label = owner.runtime == nil ? "Session" : "\(provider) logical thread"
             lines.append(
                 ReportLine(
-                    "  \(label): unresolved [\(owner.evidence.rawValue), \(owner.context.rawValue)]",
-                    style: .warning))
+                    "  \(label): \(row.sessionDescription) [\(owner.evidence.rawValue), \(owner.context.rawValue)]",
+                    style: row.isSharedRuntime ? .normal : .warning))
         }
         if let root = owner.rootSessionID, root != owner.threadID {
             lines.append(ReportLine("  Root session: \(root)"))

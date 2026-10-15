@@ -28,12 +28,20 @@ public struct SessionGroup: Equatable, Sendable {
         return URL(fileURLWithPath: directory).lastPathComponent
     }
 
+    private var isSharedRuntime: Bool {
+        processes.count == 1 && processes.first?.isSharedRuntime == true
+    }
+
+    var sessionDescription: String {
+        sessionID ?? "\(isSharedRuntime ? "shared runtime" : "unresolved") PID \(minimumPID)"
+    }
+
     public var label: String {
-        let session = sessionID.map { String($0.prefix(8)) } ?? "unresolved PID \(minimumPID)"
-        let kind = isRoot ? "root" : "session"
+        let session = sessionID.map { String($0.prefix(8)) } ?? sessionDescription
+        let kind = isSharedRuntime ? "" : (isRoot ? " root" : " session")
         let partial = cpuPartial || memoryPartial ? " | partial totals" : ""
         return
-            "\(provider?.rawValue ?? "unknown")/\(session) \(kind) | \(processes.count) heavy | \(project)\(partial)"
+            "\(provider?.rawValue ?? "unknown")/\(session)\(kind) | \(processes.count) heavy | \(project)\(partial)"
     }
 
     private func sum(_ values: [Double?]) -> Double? {

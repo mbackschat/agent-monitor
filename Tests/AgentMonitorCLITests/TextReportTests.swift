@@ -23,7 +23,7 @@ import Testing
     #expect(text.hasPrefix("\n" + String(repeating: "=", count: 72) + "\nAgent Monitor |"))
     #expect(text.contains("1970-01-01T00:00:00Z"))
     #expect(text.contains("Candidate threads: 2 (use --json for IDs)"))
-    #expect(text.contains("unresolved [ambiguous, nonterminal]"))
+    #expect(text.contains("shared runtime [ambiguous, nonterminal]"))
     let json = String(decoding: try JSONEncoder().encode(JSONReport(report)), as: UTF8.self)
     for candidate in candidates {
         #expect(!text.contains(candidate))
