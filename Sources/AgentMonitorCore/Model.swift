@@ -64,7 +64,7 @@ public struct SessionMarker: Equatable, Codable, Sendable {
     public let inboxSocket: String?
 
     public init(
-        threadID: String, rootSessionID: String? = nil, provider: AgentProvider = .codex,
+        threadID: String, rootSessionID: String? = nil, provider: AgentProvider,
         inboxSocket: String? = nil
     ) {
         self.provider = provider

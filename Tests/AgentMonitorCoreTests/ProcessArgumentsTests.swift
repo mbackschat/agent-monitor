@@ -17,7 +17,7 @@ func argumentBuffer(arguments: [String] = ["worker", ""], environment: [String])
         argumentBuffer(environment: [
             "PRIVATE_TOKEN=never-output", "CODEX_THREAD_ID=\(sessionB)", "CODEX_SESSION_ID=\(sessionA)",
         ]), includeCommand: true)
-    #expect(result.marker == SessionMarker(threadID: sessionB, rootSessionID: sessionA))
+    #expect(result.marker == SessionMarker(threadID: sessionB, rootSessionID: sessionA, provider: .codex))
     #expect(result.command == ["worker", ""])
     #expect(result.status == .markerRead)
 }

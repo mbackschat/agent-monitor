@@ -14,7 +14,8 @@ import Testing
     monitor.enrich(
         ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .claude)),
         for: conflicting.identity)
-    monitor.enrich(ProcessMetadata(marker: SessionMarker(threadID: sessionB)), for: detached.identity)
+    monitor.enrich(
+        ProcessMetadata(marker: SessionMarker(threadID: sessionB, provider: .codex)), for: detached.identity)
     let agents = monitor.findings(scope: .agentsOnly)
     #expect(Set(agents.map { $0.process.pid }) == [10, 20, 30, 40])
     #expect(agents.first { $0.process.pid == 30 }?.attribution.provider == nil)
@@ -42,8 +43,12 @@ func sample(
     let b = sample(30)
     var monitor = Monitor()
     monitor.ingest([a, b, sample(40, memory: 1)])
-    monitor.enrich(ProcessMetadata(marker: SessionMarker(threadID: sessionA), cwd: "/same"), for: a.identity)
-    monitor.enrich(ProcessMetadata(marker: SessionMarker(threadID: sessionB), cwd: "/same"), for: b.identity)
+    monitor.enrich(
+        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex), cwd: "/same"),
+        for: a.identity)
+    monitor.enrich(
+        ProcessMetadata(marker: SessionMarker(threadID: sessionB, provider: .codex), cwd: "/same"),
+        for: b.identity)
     let rows = monitor.findings()
     #expect(rows.count == 2)
     #expect(rows.first { $0.process == a.identity }?.attribution.threadID == sessionA)
@@ -55,7 +60,8 @@ func sample(
     var child = sample(20, parent: 10)
     var monitor = Monitor()
     monitor.ingest([parent, child])
-    monitor.enrich(ProcessMetadata(marker: SessionMarker(threadID: sessionA)), for: parent.identity)
+    monitor.enrich(
+        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: parent.identity)
     child.parentPID = 1
     monitor.ingest([child])
     monitor.enrich(ProcessMetadata(status: .unavailable), for: parent.identity)
@@ -68,7 +74,8 @@ func sample(
     let old = sample(20)
     var monitor = Monitor()
     monitor.ingest([old])
-    monitor.enrich(ProcessMetadata(marker: SessionMarker(threadID: sessionA)), for: old.identity)
+    monitor.enrich(
+        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: old.identity)
     monitor.ingest([sample(20, start: 200, at: 2, cpu: 500)])
     let row = try #require(monitor.findings().first)
     #expect(row.attribution.threadID == nil)
@@ -80,7 +87,8 @@ func sample(
     let child = sample(20, parent: 10, start: 50)
     var monitor = Monitor()
     monitor.ingest([parent, child])
-    monitor.enrich(ProcessMetadata(marker: SessionMarker(threadID: sessionA)), for: parent.identity)
+    monitor.enrich(
+        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: parent.identity)
     #expect(try #require(monitor.findings().first).attribution.threadID == nil)
 }
 
@@ -91,7 +99,8 @@ func sample(
     var monitor = Monitor()
     monitor.ingest([outer, nested, worker])
     monitor.enrich(ProcessMetadata(writerThreadIDs: [sessionA]), for: outer.identity)
-    monitor.enrich(ProcessMetadata(marker: SessionMarker(threadID: sessionA)), for: nested.identity)
+    monitor.enrich(
+        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: nested.identity)
     let result = try #require(monitor.findings().first)
     #expect(result.attribution.runtime == nested.identity)
     #expect(result.attribution.threadID == nil)
@@ -115,9 +124,10 @@ func sample(
     let child = sample(20, parent: 10)
     var monitor = Monitor()
     monitor.ingest([parent, child])
-    monitor.enrich(ProcessMetadata(marker: SessionMarker(threadID: sessionA)), for: parent.identity)
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionB, rootSessionID: sessionA)),
+        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: parent.identity)
+    monitor.enrich(
+        ProcessMetadata(marker: SessionMarker(threadID: sessionB, rootSessionID: sessionA, provider: .codex)),
         for: child.identity)
     let result = try #require(monitor.findings().first)
     #expect(result.attribution.threadID == sessionB)
@@ -160,7 +170,8 @@ func sample(
     let worker = sample(20, parent: 10)
     var monitor = Monitor()
     monitor.ingest([runtime, worker])
-    monitor.enrich(ProcessMetadata(marker: SessionMarker(threadID: sessionA)), for: worker.identity)
+    monitor.enrich(
+        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: worker.identity)
     let row = try #require(monitor.findings().first)
     #expect(row.attribution.evidence == .ambiguous)
     #expect(row.attribution.threadID == nil)
@@ -182,7 +193,8 @@ func sample(
     var worker = sample(20)
     var monitor = Monitor()
     monitor.ingest([worker])
-    monitor.enrich(ProcessMetadata(marker: SessionMarker(threadID: sessionA)), for: worker.identity)
+    monitor.enrich(
+        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: worker.identity)
     worker.executable = "/different/program"
     monitor.ingest([worker])
     #expect(try #require(monitor.findings().first).attribution.threadID == nil)
@@ -194,7 +206,8 @@ func sample(
     var monitor = Monitor()
     monitor.ingest([parent, worker])
     monitor.enrich(ProcessMetadata(status: .malformed), for: parent.identity)
-    monitor.enrich(ProcessMetadata(marker: SessionMarker(threadID: sessionA)), for: worker.identity)
+    monitor.enrich(
+        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: worker.identity)
     let row = try #require(monitor.findings().first)
     #expect(row.attribution.threadID == sessionA)
     #expect(row.attribution.evidence == .marker)
@@ -235,7 +248,8 @@ func sample(
     let worker = sample(20, parent: 10)
     var monitor = Monitor()
     monitor.ingest([runtime, worker])
-    monitor.enrich(ProcessMetadata(marker: SessionMarker(threadID: sessionA)), for: worker.identity)
+    monitor.enrich(
+        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: worker.identity)
     #expect(monitor.attributingMarker(for: worker.identity) == nil)
 }
 

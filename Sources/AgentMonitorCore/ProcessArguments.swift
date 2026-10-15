@@ -51,7 +51,7 @@ public enum ProcessArguments {
                 SessionMarker(threadID: $0, provider: .claude, inboxSocket: inbox(sockets))
             }
             ?? markers["CODEX_THREAD_ID"].map {
-                SessionMarker(threadID: $0, rootSessionID: markers["CODEX_SESSION_ID"])
+                SessionMarker(threadID: $0, rootSessionID: markers["CODEX_SESSION_ID"], provider: .codex)
             }
         return ProcessMetadata(
             marker: marker, status: marker == nil ? .notObserved : .markerRead,
