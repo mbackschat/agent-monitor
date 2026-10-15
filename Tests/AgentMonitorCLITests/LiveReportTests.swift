@@ -170,7 +170,7 @@ func detailsSplitStaysFixedAcrossRefreshSelectionAndDisappearance(width: Int) th
     state.maximizeDetails()
     #expect(state.detailsMode == .maximized)
     let maximized = LiveReportLayout.lines(state: state, width: 100, height: 24)
-    #expect(maximized.firstIndex { $0.style == .separator } == 2)
+    #expect(maximized.firstIndex { $0.style == .separator } == 3)
     #expect(maximized.contains { $0.text.contains("PID 42 |") })
     state.minimizeDetails()
     let minimized = LiveReportLayout.lines(state: state, width: 100, height: 24)
@@ -276,7 +276,7 @@ func keyboardHelpSeparatesControlsWithoutClipping(width: Int) {
     #expect(!applied.contains { $0.text.contains("pending") })
 }
 
-@Test(arguments: [(100, 2, 3), (120, 1, 2), (160, 1, 2), (200, 1, 2)])
+@Test(arguments: [(100, 3, 3), (120, 2, 2), (160, 2, 2), (200, 2, 2)])
 func responsiveChromeReturnsSpareRowsToProcesses(size: (width: Int, header: Int, footer: Int)) throws {
     var state = LiveReportState()
     state.receive(liveSnapshot((1...40).map { liveRow(Int32($0)) }))

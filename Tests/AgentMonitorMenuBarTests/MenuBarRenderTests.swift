@@ -60,8 +60,20 @@ import Testing
     let snapshot = MonitoringSnapshot(
         timestamp: Date(timeIntervalSince1970: 52_496), intervalSeconds: 1,
         cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
-        sampledProcessCount: 42, unreadableProcessCount: 0, findings: findings)
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+        sampledProcessCount: 42, unreadableProcessCount: 0, findings: findings,
+        agentLoad: AgentLoadSummary(processes: findings))
+    let model = MenuBarModel { _, _, receive in
+        for tick in 0..<40 {
+            let historyFindings = Array(findings.prefix(1 + tick % findings.count))
+            try await receive(
+                MonitoringSnapshot(
+                    timestamp: snapshot.timestamp.addingTimeInterval(Double(tick - 40) * 15),
+                    intervalSeconds: 15, cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
+                    sampledProcessCount: 42, unreadableProcessCount: 0, findings: findings,
+                    agentLoad: AgentLoadSummary(processes: historyFindings)))
+        }
+        try await receive(snapshot)
+    }
     model.open()
     await model.waitForCollection()
     model.toggleFreeze()
@@ -296,4 +308,15 @@ import Testing
     }
     #expect(dark ? brightness[1] > brightness[0] : brightness[1] < brightness[0])
     #expect(abs(brightness[1] - brightness[0]) > 0.08)
+}
+
+@Test(arguments: HistoryMetric.allCases, HistoryWindow.allCases)
+@MainActor func historyStripFitsOneSlimRow(metric: HistoryMetric, window: HistoryWindow) {
+    _ = NSApplication.shared
+    let model = MenuBarModel { _, _, _ in }
+    model.report.historyMetric = metric
+    model.report.historyWindow = window
+    let host = NSHostingView(rootView: MenuBarHistoryStrip(model: model).frame(width: 392))
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize == NSSize(width: 392, height: 28))
 }

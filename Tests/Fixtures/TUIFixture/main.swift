@@ -21,7 +21,8 @@ enum TUIFixture {
                         timestamp: Date(), intervalSeconds: 1,
                         cpuThresholdPercent: thresholds.cpuPercent,
                         memoryThresholdBytes: thresholds.memoryBytes,
-                        sampledProcessCount: 2, unreadableProcessCount: 0, findings: findings))
+                        sampledProcessCount: 2, unreadableProcessCount: 0, findings: findings,
+                        agentLoad: AgentLoadSummary(processes: rows)))
                 try await Task.sleep(for: .seconds(1))
             }
         }

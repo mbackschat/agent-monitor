@@ -25,12 +25,24 @@ extension Preview {
                 pid: 42005, name: "codex", cpu: 2.1, memory: 1_180_000_000, provider: "codex", session: nil,
                 project: "sample-tools", tty: nil, runtime: 42005, ambiguous: true),
         ]
-        let snapshot = MonitoringSnapshot(
-            timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1, cpuThresholdPercent: 25,
-            memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 624, unreadableProcessCount: 0,
-            findings: rows)
         var state = LiveReportState()
-        for _ in 0..<15 { state.receive(snapshot) }
+        for tick in 0..<40 {
+            let historyRows =
+                try [
+                    row(
+                        pid: 42001, name: "swift-frontend", cpu: [10, 30, 80, 260, 184.6][tick % 5],
+                        memory: 1_420_000_000, provider: "codex",
+                        session: "11111111-1111-4111-8111-111111111111", project: "sample-app",
+                        tty: "ttys001", runtime: 41000)
+                ] + rows.dropFirst()
+            state.receive(
+                MonitoringSnapshot(
+                    timestamp: Date(timeIntervalSince1970: Double(tick * 15)), intervalSeconds: 15,
+                    cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
+                    sampledProcessCount: 624, unreadableProcessCount: 0, findings: historyRows,
+                    agentLoad: AgentLoadSummary(processes: historyRows)))
+        }
+        state.select(.process(rows[0].process))
         state.toggleDisclosure()
         state.toggleSelectedPin()
         return state

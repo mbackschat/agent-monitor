@@ -28,6 +28,7 @@ public enum LiveReportLayout {
         }
         if let panel = state.actionPanel { return panel.lines(width: width, height: height) }
         var lines = headerLines(state: state, width: width)
+        lines.append(historyLine(state: state, width: width))
         let footer = helpLines(width: width, height: height, headerHeight: lines.count, frozen: state.frozen)
         let available = height - lines.count - footer.count
         let detailHeight = detailHeight(state: state, available: available)
@@ -39,13 +40,19 @@ public enum LiveReportLayout {
 
     public static func maximumDetailOffset(state: LiveReportState, width: Int, height: Int) -> Int {
         guard width >= 40, height >= 8 else { return 0 }
-        let headerHeight = headerLines(state: state, width: width).count
+        let headerHeight = headerLines(state: state, width: width).count + 1
         let available =
             height - headerHeight
             - helpLines(width: width, height: height, headerHeight: headerHeight, frozen: state.frozen).count
         let visible = detailHeight(state: state, available: available) - 1
         guard visible > 0 else { return 0 }
         return max(0, detailLines(state: state, width: width).count - visible)
+    }
+
+    private static func historyLine(state: LiveReportState, width: Int) -> ReportLine {
+        ReportLine(
+            state.history.line(metric: state.historyMetric, window: state.historyWindow, width: width),
+            style: .muted)
     }
 
     private static func headerLines(state: LiveReportState, width: Int) -> [ReportLine] {

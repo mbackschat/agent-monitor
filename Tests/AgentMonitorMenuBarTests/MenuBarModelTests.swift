@@ -164,3 +164,28 @@ private let emptySnapshot = MonitoringSnapshot(
     #expect(calls.withLock { $0 } == 1)
     await model.stop()
 }
+
+@Test @MainActor func closedPanelSamplesFeedHistoryWithoutRetainingReportSnapshots() async throws {
+    let fixture = try menuBarFixture()
+    let source: MenuBarSource = { _, _, receive in
+        for second in [1.0, 16.0] {
+            try await receive(
+                MonitoringSnapshot(
+                    timestamp: Date(timeIntervalSince1970: second), intervalSeconds: 15,
+                    cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
+                    sampledProcessCount: 1, unreadableProcessCount: 0, findings: fixture.findings,
+                    agentLoad: AgentLoadSummary(processes: fixture.findings)))
+        }
+    }
+    let model = MenuBarModel(source: source)
+    model.start()
+    await model.waitForCollection()
+    #expect(model.report.snapshot == nil)
+    #expect(model.report.history.pointCount == 2)
+    model.open()
+    #expect(model.report.history.pointCount == 2)
+    #expect(model.report.history.currentValue(.cpu) == 184.6)
+    model.close()
+    #expect(model.report.history.pointCount == 2)
+    await model.stop()
+}

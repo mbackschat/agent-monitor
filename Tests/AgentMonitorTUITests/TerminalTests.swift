@@ -27,15 +27,24 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     ) {
         $0.contains("Updates: 1") && $0.contains("fixture-42")
     }
+    try writeAllBytes(Array("ht".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("Memory[h]") && $0.contains("1h[t]") && $0.contains("2.4 GB") }
+    try writeAllBytes(Array("hht".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("CPU[h]") && $0.contains("10m[t]") }
     try writeAllBytes([13], to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("Runtime: 1234") && $0.contains("PID 42 |") && $0.contains("Updates: 2")
-            && dividerRow($0) == 11
+        $0.contains("Runtime: 1234") && $0.contains("PID 42 |")
+            && $0.range(of: "Updates: ([2-9]|[1-9][0-9]+) ", options: .regularExpression) != nil
+            && dividerRow($0) == 12
     }
     for (width, headerRows, footerRows, divider) in [
-        (120, 1, 2, 11), (200, 1, 2, 11), (80, 3, 4, 11), (100, 2, 3, 11),
+        (120, 2, 2, 12), (200, 2, 2, 12), (80, 4, 4, 12), (100, 3, 3, 12),
     ] {
         var resized = winsize(ws_row: 24, ws_col: UInt16(width), ws_xpixel: 0, ws_ypixel: 0)
         try #require(ioctl(terminal.slave, TIOCSWINSZ, &resized) == 0)
@@ -72,8 +81,8 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
         $0.contains("PID descending") && $0.contains("PID 42 |")
     }
     for (key, label, divider) in [
-        ("+", "Details 55%", 11), ("9", "Details max", 2), ("0", "Details min", 20),
-        ("=", "Details 55%", 11), ("-", "Details 50%", 11),
+        ("+", "Details 55%", 11), ("9", "Details max", 3), ("0", "Details min", 20),
+        ("=", "Details 55%", 11), ("-", "Details 50%", 12),
     ] {
         try writeAllBytes(Array(key.utf8), to: terminal.master)
         _ = try await waitForANSIVisibleScreen(
@@ -92,7 +101,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
         $0.contains("PID descending") && $0.contains("PID 42 |") && $0.contains("unresolved")
-            && dividerRow($0) == 7
+            && dividerRow($0) == 8
     }
     try writeAllBytes(Array(String(repeating: "]", count: 20).utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
@@ -128,7 +137,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("PID 42 |") && dividerRow($0) == 7
+        $0.contains("PID 42 |") && dividerRow($0) == 8
     }
     try writeAllBytes(Array("g".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(

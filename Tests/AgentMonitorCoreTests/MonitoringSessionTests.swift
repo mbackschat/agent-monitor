@@ -240,3 +240,57 @@ func sessionRejectsInvalidLiveThresholds(cpu: Double) async throws {
     #expect(monitor.agentLoad().cpuPercent == 0)
     #expect(monitor.agentLoad().heavyProcesses.isEmpty)
 }
+
+private final class SummaryClock: SamplingClock, Sendable {
+    let time = Mutex(0.0)
+    func now() -> Date { Date(timeIntervalSince1970: time.withLock { $0 }) }
+    func wait(seconds: Double) async throws { time.withLock { $0 += seconds } }
+}
+
+@Test(arguments: [0.25, 1.0, 15.0, 30.0])
+func agentLoadEnrichmentRunsOnFirstSampleThenAtMostEveryFifteenSeconds(interval: Double) async throws {
+    let fixture = SessionFixture()
+    let clock = SummaryClock()
+    let count = Int(30 / interval) + 1
+    let session = MonitoringSession(
+        configuration: try MonitoringConfiguration(
+            thresholds: Thresholds(cpuPercent: 100, memoryBytes: 100),
+            intervalSeconds: interval, samples: count, collectAgentLoad: true),
+        reader: fixture, clock: clock)
+    try await session.run { fixture.receive($0) }
+    let snapshots = fixture.collected.withLock { $0 }
+    let summaryTimes = snapshots.filter { $0.agentLoad != nil }.map { $0.timestamp.timeIntervalSince1970 }
+    #expect(
+        summaryTimes
+            == stride(from: interval, through: Double(count) * interval, by: max(15, interval)).map { $0 })
+    #expect(snapshots.count == count)
+    #expect(fixture.scans.withLock { $0 } == count + 1)
+    #expect(fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count == summaryTimes.count)
+}
+
+@Test func summaryCadenceDoesNotSlowHeavyProcessEnrichment() async throws {
+    let fixture = SessionFixture()
+    let session = MonitoringSession(
+        configuration: try MonitoringConfiguration(samples: 16, collectAgentLoad: true),
+        reader: fixture, clock: SummaryClock())
+    try await session.run { fixture.receive($0) }
+    let snapshots = fixture.collected.withLock { $0 }
+    #expect(snapshots.filter { $0.agentLoad != nil }.count == 2)
+    #expect(snapshots.allSatisfy { $0.findings.first?.attribution.threadID == sessionA })
+    #expect(fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count == 16)
+}
+
+@Test func summaryCadenceRecoversAfterAWallClockRollback() async throws {
+    let fixture = SessionFixture()
+    let clock = SummaryClock()
+    let session = MonitoringSession(
+        configuration: try MonitoringConfiguration(samples: 4, collectAgentLoad: true),
+        reader: fixture, clock: clock)
+    try await session.run { snapshot in
+        fixture.receive(snapshot)
+        if snapshot.timestamp == Date(timeIntervalSince1970: 2) { clock.time.withLock { $0 = -10 } }
+    }
+    #expect(
+        fixture.collected.withLock { $0 }.filter { $0.agentLoad != nil }.map(\.timestamp)
+            == [Date(timeIntervalSince1970: 1), Date(timeIntervalSince1970: -9)])
+}

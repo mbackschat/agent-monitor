@@ -227,3 +227,19 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(await iterator.next() == 15)
     await model.stop()
 }
+
+@Test func tableSamplesWithoutASummaryPreserveTheBadgeAndItsMeasurementTime() throws {
+    var indicator = MenuBarIndicator(processorCount: 8)
+    let skipped = MonitoringSnapshot(
+        timestamp: Date(timeIntervalSince1970: 2), intervalSeconds: 1,
+        cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
+        sampledProcessCount: 0, unreadableProcessCount: 0, findings: [])
+    indicator.receive(skipped)
+    #expect(indicator.availability == .waiting)
+    indicator.receive(try loadSample(400))
+    let description = indicator.statusDescription
+    indicator.receive(skipped)
+    #expect(indicator.heavyCount == 1)
+    #expect(indicator.level == 3)
+    #expect(indicator.statusDescription == description)
+}

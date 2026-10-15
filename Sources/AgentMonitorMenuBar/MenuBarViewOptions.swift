@@ -5,14 +5,18 @@ import SwiftUI
 
 struct MenuBarViewOptions: NSViewRepresentable {
     let model: MenuBarModel
+    var placement: MenuBarOptionsController.Placement = .pullDown
 
-    func makeCoordinator() -> MenuBarOptionsController { MenuBarOptionsController(model: model) }
+    func makeCoordinator() -> MenuBarOptionsController {
+        MenuBarOptionsController(model: model, placement: placement)
+    }
 
     func makeNSView(context: Context) -> NSPopUpButton { context.coordinator.makeButton() }
 
     func updateNSView(_ button: NSPopUpButton, context: Context) {
         // Samples invalidate the parent report. Menu tracking must retain its items until dismissal.
         // NSMenuDelegate.menuNeedsUpdate supplies fresh options at the next opening instead.
+        context.coordinator.updateTitle(button)
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSPopUpButton, context: Context) -> CGSize? {
@@ -27,11 +31,13 @@ enum MenuBarOption: Equatable {
     case cpu(Double)
     case memory(UInt64)
     case interval(Double)
+    case historyMetric(HistoryMetric)
+    case historyWindow(HistoryWindow)
     case liveIcon, keyboardHelp
 }
 
 @MainActor final class MenuBarOptionsController: NSObject, NSMenuDelegate {
-    enum Placement { case pullDown, submenu }
+    enum Placement { case pullDown, submenu, history }
 
     private let model: MenuBarModel
     private let placement: Placement
@@ -48,14 +54,22 @@ enum MenuBarOption: Equatable {
         button.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         button.bezelStyle = .rounded
         button.preferredEdge = .minY
-        button.setAccessibilityLabel("View options")
+        button.setAccessibilityLabel(placement == .history ? "History metric and time range" : "View options")
         button.toolTip = "Grouping, sort direction, CPU and footprint thresholds, and sampling interval"
         button.menu = makeMenu()
+        updateTitle(button)
         return button
     }
 
+    func updateTitle(_ button: NSPopUpButton) {
+        guard placement == .history, !tracking else { return }
+        let title = "\(model.report.historyMetric.rawValue) · \(model.report.historyWindow.rawValue)"
+        if button.title != title { button.title = title }
+        button.toolTip = "All observed agents; choose a history metric and time range"
+    }
+
     func makeMenu() -> NSMenu {
-        let menu = NSMenu(title: "View options")
+        let menu = NSMenu(title: placement == .history ? "History" : "View options")
         menu.autoenablesItems = false
         menu.delegate = self
         menuNeedsUpdate(menu)
@@ -72,6 +86,22 @@ enum MenuBarOption: Equatable {
         case .pullDown:
             // NSPopUpButton consumes its first item as the button title; a submenu does not.
             menu.addItem(withTitle: "View options", action: nil, keyEquivalent: "")
+        case .history:
+            menu.addItem(
+                withTitle: "\(model.report.historyMetric.rawValue) · \(model.report.historyWindow.rawValue)",
+                action: nil, keyEquivalent: "")
+            for metric in HistoryMetric.allCases {
+                add(
+                    metric == .heavyCount ? "Heavy processes" : metric.rawValue, .historyMetric(metric),
+                    checked: model.report.historyMetric == metric, to: menu)
+            }
+            menu.addItem(.separator())
+            for window in HistoryWindow.allCases {
+                add(
+                    window == .tenMinutes ? "Last 10 minutes" : "Last hour", .historyWindow(window),
+                    checked: model.report.historyWindow == window, to: menu)
+            }
+            return
         case .submenu: break
         }
         menu.addItem(.sectionHeader(title: "Show"))
@@ -146,6 +176,8 @@ enum MenuBarOption: Equatable {
         case .interval(let value): model.setInterval(value)
         case .liveIcon: model.setLiveIcon(!model.liveIcon)
         case .keyboardHelp: model.showsKeyboardHelp.toggle()
+        case .historyMetric(let metric): model.report.historyMetric = metric
+        case .historyWindow(let window): model.report.historyWindow = window
         }
     }
 }

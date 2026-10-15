@@ -1,0 +1,100 @@
+{
+  "date": "2026-10-15",
+  "coreRevision": "25db977",
+  "compiler": "Swift 6.4, -O",
+  "configuration": "Four sequential runs, summary disabled/enabled/enabled/disabled; one-second intervals, ten samples each; new native reader/session per run",
+  "includes": "baseline acquisition, resource snapshots, metadata enrichment and summary construction",
+  "excludes": "UI rendering, history storage/projection, process startup and wakeup accounting",
+  "runs": [
+    {
+      "elapsedSeconds": 10.496857667,
+      "averagePercentOfOneCPUCore": 1.4381065723561743,
+      "samples": 10,
+      "intervalSeconds": 1,
+      "collectAgentLoad": 0,
+      "processCPUMilliseconds": 150.956
+    },
+    {
+      "elapsedSeconds": 11.16571025,
+      "averagePercentOfOneCPUCore": 5.2997792952759095,
+      "samples": 10,
+      "intervalSeconds": 1,
+      "collectAgentLoad": 1,
+      "processCPUMilliseconds": 591.758
+    },
+    {
+      "elapsedSeconds": 11.326550458,
+      "averagePercentOfOneCPUCore": 5.576252031384364,
+      "samples": 10,
+      "intervalSeconds": 1,
+      "collectAgentLoad": 1,
+      "processCPUMilliseconds": 631.597
+    },
+    {
+      "collectAgentLoad": 0,
+      "averagePercentOfOneCPUCore": 1.81821151539376,
+      "intervalSeconds": 1,
+      "samples": 10,
+      "elapsedSeconds": 10.658055917,
+      "processCPUMilliseconds": 193.786
+    }
+  ],
+  "fifteenSecondSummaryFollowup": {
+    "baseRevision": "25db977 plus the 15-second MonitoringSession cadence change in this commit",
+    "monitoringSessionSHA256": "07bb0ec0439cb25feb2771f5e945ab12ff860c1742d6139bff08ee8410c22269",
+    "harness": "Tools/LoadProbe/LoadProbe.swift compiled with -O, --history followed by default closed-panel probe",
+    "configuration": "Four sequential fresh sessions: summary disabled/enabled/enabled/disabled, forty one-second table samples each; then four fifteen-second samples with summaries enabled. No builds or tests ran during these probes.",
+    "runs": [
+      {
+        "averagePercentOfOneCPUCore": 1.8127241303988795,
+        "logicalProcessors": 8,
+        "intervalSeconds": 1,
+        "processCPUMilliseconds": 775.131,
+        "collectAgentLoad": 0,
+        "summaryCount": 0,
+        "elapsedSeconds": 42.760560584,
+        "samples": 40
+      },
+      {
+        "averagePercentOfOneCPUCore": 2.2113677656489954,
+        "logicalProcessors": 8,
+        "intervalSeconds": 1,
+        "processCPUMilliseconds": 948.564,
+        "collectAgentLoad": 1,
+        "summaryCount": 3,
+        "elapsedSeconds": 42.894900375,
+        "samples": 40
+      },
+      {
+        "averagePercentOfOneCPUCore": 2.3098183599944555,
+        "logicalProcessors": 8,
+        "intervalSeconds": 1,
+        "processCPUMilliseconds": 989.916,
+        "collectAgentLoad": 1,
+        "summaryCount": 3,
+        "elapsedSeconds": 42.856876417,
+        "samples": 40
+      },
+      {
+        "averagePercentOfOneCPUCore": 1.9183642680197568,
+        "logicalProcessors": 8,
+        "intervalSeconds": 1,
+        "processCPUMilliseconds": 821.854,
+        "collectAgentLoad": 0,
+        "summaryCount": 0,
+        "elapsedSeconds": 42.841394291,
+        "samples": 40
+      }
+    ],
+    "closedPanelCadence": {
+      "samples": 4,
+      "processCPUMilliseconds": 311.3,
+      "collectAgentLoad": 1,
+      "intervalSeconds": 15,
+      "elapsedSeconds": 63.722471083,
+      "logicalProcessors": 8,
+      "averagePercentOfOneCPUCore": 0.4885246832228532,
+      "summaryCount": 4
+    }
+  }
+}

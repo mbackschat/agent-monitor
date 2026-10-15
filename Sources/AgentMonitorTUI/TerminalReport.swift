@@ -89,6 +89,8 @@ public enum TerminalReport {
                 case .character("2"): state.mutate { $0.adjustThreshold(.cpuUp) }
                 case .character("3"): state.mutate { $0.adjustThreshold(.memoryDown) }
                 case .character("4"): state.mutate { $0.adjustThreshold(.memoryUp) }
+                case .character("h"): state.mutate { $0.historyMetric = $0.historyMetric.next }
+                case .character("t"): state.mutate { $0.historyWindow = $0.historyWindow.next }
                 case .character("g"): state.mutate { $0.toggleGrouping() }
                 case .character("<"): adjustInterval(.slower)
                 case .character(">"): adjustInterval(.faster)

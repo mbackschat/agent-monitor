@@ -51,7 +51,7 @@ struct AgentMonitorCommand: AsyncParsableCommand {
             thresholds: Thresholds(
                 cpuPercent: options.cpu, memoryBytes: UInt64(options.memoryGB * 1_000_000_000)),
             intervalSeconds: options.interval, samples: options.samples, includeCommands: options.commands,
-            scope: options.allProcesses ? .allProcesses : .agentsOnly)
+            scope: options.allProcesses ? .allProcesses : .agentsOnly, collectAgentLoad: options.tui)
         let session = MonitoringSession(
             configuration: configuration, reader: try NativeProcessReader(), excluding: [getpid()])
         if options.tui {

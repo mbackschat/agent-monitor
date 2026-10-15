@@ -126,6 +126,7 @@ struct MenuBarView: View {
                 "\(model.report.sortDescription) · CPU > \(resource(model.report.thresholds.cpuPercent, unit: "%")) or footprint > \(resource(Double(model.report.thresholds.memoryBytes) / 1e9, unit: " GB")) · \(resource(model.report.interval, unit: " s"))"
             )
             .font(.caption).foregroundStyle(.secondary)
+            MenuBarHistoryStrip(model: model)
             if let snapshot = model.report.snapshot,
                 snapshot.cpuThresholdPercent != model.report.thresholds.cpuPercent
                     || snapshot.memoryThresholdBytes != model.report.thresholds.memoryBytes
@@ -165,7 +166,7 @@ struct MenuBarView: View {
             }
             if let snapshot = model.report.snapshot {
                 Text(
-                    "Totals cover displayed heavy processes only. CPU 100% = one core.\n\(snapshot.sampledProcessCount) sampled · \(snapshot.unreadableProcessCount) unreadable"
+                    "Row totals cover displayed heavy processes only. CPU 100% = one core.\n\(snapshot.sampledProcessCount) sampled · \(snapshot.unreadableProcessCount) unreadable"
                 )
                 .font(.caption2).foregroundStyle(.secondary)
             }

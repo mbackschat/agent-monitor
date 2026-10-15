@@ -17,6 +17,16 @@ public struct LiveReportState: Equatable, Sendable {
     public var actionPanel: ActionPanel?
     mutating func setActionNotice(_ text: String) { notice = text }
 
+    public var historyMetric: HistoryMetric = .cpu
+    public var historyWindow: HistoryWindow = .tenMinutes
+    private var collectedHistory = ReportHistory()
+    private var pausedHistory: ReportHistory?
+    public var history: ReportHistory { pausedHistory ?? collectedHistory }
+
+    public mutating func recordHistory(_ snapshot: MonitoringSnapshot) {
+        collectedHistory.receive(snapshot)
+    }
+
     public private(set) var pins: [ReportPin] = []
     public private(set) var snapshot: MonitoringSnapshot?
     public private(set) var sortKey: ReportSort = .stable
@@ -77,6 +87,7 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func toggleFreeze() {
+        pausedHistory = frozen ? nil : collectedHistory
         frozen.toggle()
         if !frozen, let held = heldSnapshot {
             heldSnapshot = nil
@@ -160,6 +171,9 @@ public struct LiveReportState: Equatable, Sendable {
 
     public mutating func resetCollection() {
         var fresh = LiveReportState(grouping: grouping, thresholds: thresholds, interval: interval)
+        fresh.collectedHistory = collectedHistory
+        fresh.historyMetric = historyMetric
+        fresh.historyWindow = historyWindow
         fresh.pins = pins
         fresh.sortKey = sortKey
         fresh.ascending = ascending
@@ -196,6 +210,7 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func receive(_ snapshot: MonitoringSnapshot) {
+        recordHistory(snapshot)
         guard !frozen else {
             heldSnapshot = snapshot
             return

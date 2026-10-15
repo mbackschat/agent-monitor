@@ -143,3 +143,39 @@ func selectedThresholdRejectsNegativeOrNonFiniteCPU(value: Double) {
                 == .cpu(model.report.thresholds.cpuPercent))
     }
 }
+
+@Test @MainActor func historySelectorRetainsTrackingAndChecksMetricAndRange() throws {
+    let model = MenuBarModel { _, _, _ in }
+    let controller = MenuBarOptionsController(model: model, placement: .history)
+    let button = controller.makeButton()
+    let menu = try #require(button.menu)
+    #expect(button.title == "CPU · 10m")
+    #expect(menu.item(withTitle: "CPU")?.state == .on)
+    #expect(menu.item(withTitle: "Last 10 minutes")?.state == .on)
+    let items = menu.items
+    controller.menuWillOpen(menu)
+    model.report.receive(try menuBarFixture())
+    controller.menuNeedsUpdate(menu)
+    controller.updateTitle(button)
+    #expect(menu.items == items)
+    controller.menuDidClose(menu)
+    for title in ["Memory", "Last hour"] {
+        let item = try #require(menu.item(withTitle: title))
+        menu.performActionForItem(at: menu.index(of: item))
+        controller.menuNeedsUpdate(menu)
+        #expect(menu.item(withTitle: title)?.state == .on)
+    }
+    controller.updateTitle(button)
+    #expect(button.title == "Memory · 1h")
+    #expect(model.report.interval == 1)
+}
+
+@Test(arguments: HistoryMetric.allCases, HistoryWindow.allCases)
+@MainActor func historyMenuTitleFitsItsCompactSlot(metric: HistoryMetric, window: HistoryWindow) {
+    let model = MenuBarModel { _, _, _ in }
+    model.report.historyMetric = metric
+    model.report.historyWindow = window
+    let controller = MenuBarOptionsController(model: model, placement: .history)
+    let button = controller.makeButton()
+    #expect(button.intrinsicContentSize.width <= 120)
+}

@@ -154,13 +154,15 @@ final class MenuBarModel {
             needsStartupSample = false
             liveInterval.set(samplingInterval)
         }
-        if liveIcon {
+        if liveIcon, snapshot.agentLoad != nil {
             indicator.receive(snapshot)
             onIndicatorChange?()
         }
         if isOpen {
             report.receive(snapshot)
             updateArrivals()
+        } else {
+            report.recordHistory(snapshot)
         }
     }
 

@@ -14,6 +14,7 @@ When several coding agents are running, a busy `node`, `java`, or `python` proce
 
 - **Live terminal view** — watch CPU and memory usage, sort processes, and open details without leaving your terminal. Stable order keeps existing rows in place and appends newcomers. Change the update interval or freeze the view while you look.
 - **Native menu bar app** — open a compact macOS panel for resource usage and session actions, with Pause/Resume for inspection; three bold load bars get a quick startup sample, then update every 15 seconds while the panel is closed. Available from a source build.
+- **Compact history** — one strip for agent CPU, memory or heavy-process count, covering the last 10 minutes or one hour in both live views, updated at most every 15 seconds.
 - **Pinned inspection** — keep a process or session at the top while its values update, in both native and terminal views. Missing targets stay marked until unpinned.
 - **Session grouping** — bring related heavy processes together and see their combined resource usage.
 - **Adjustable filters** — change CPU and memory thresholds while the monitor runs.
@@ -51,7 +52,7 @@ Switch between individual processes and session groups to see which agent launch
 
 *Illustrative process view with the selected process pinned (`@`) and details open. The text comes from the real layout renderer using entirely synthetic data; terminal colors and window decoration are illustrative. Press `g` to switch between this view and session groups.*
 
-Use **↑ / ↓** to select, **Enter** to expand a session or inspect a process, **g** to toggle grouping, **o** for Stable order, **< / >** to update less or more often, **Space** to pin/unpin the selected row, **p** to pause/resume the view, and **q** to quit. The controls and current filters are shown in the terminal.
+Use **↑ / ↓** to select, **Enter** to expand a session or inspect a process, **g** to toggle grouping, **o** for Stable order, **h** to change the history metric, **t** for 10-minute/hour history, **< / >** to update less or more often, **Space** to pin/unpin the selected row, **p** to pause/resume the view, and **q** to quit. The controls and current filters are shown in the terminal.
 
 By default, the monitor shows agent-associated processes exceeding **25% CPU or 1 GB memory footprint**. If the list is empty, press **1** to lower the CPU threshold or **3** to lower the memory threshold. CPU at 100% means one fully occupied core.
 

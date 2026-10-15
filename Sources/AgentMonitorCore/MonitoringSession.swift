@@ -133,6 +133,7 @@ public struct MonitoringSession: Sendable {
         var monitor = Monitor()
         monitor.ingest(try reader.snapshot(excluding: excluded).samples)
         var count = 0
+        var lastAgentLoadAt: Date?
         while configuration.samples == 0 || count < configuration.samples {
             let interval = try await wait(live)
             try Task.checkCancellation()
@@ -143,7 +144,13 @@ public struct MonitoringSession: Sendable {
             try Task.checkCancellation()
             let snapshot = try reader.snapshot(excluding: excluded)
             monitor.ingest(snapshot.samples)
-            if configuration.collectAgentLoad {
+            let sampledAt = clock.now()
+            // Full-population metadata reads dominate history cost; see docs/research/menu-bar-load-cost.md.
+            let collectAgentLoad =
+                configuration.collectAgentLoad
+                && (lastAgentLoadAt.map { sampledAt < $0 || sampledAt.timeIntervalSince($0) >= 15 } ?? true)
+            if collectAgentLoad {
+                lastAgentLoadAt = sampledAt
                 for sample in snapshot.samples {
                     try Task.checkCancellation()
                     monitor.enrich(
@@ -157,14 +164,14 @@ public struct MonitoringSession: Sendable {
             }
             try await receive(
                 MonitoringSnapshot(
-                    timestamp: clock.now(), intervalSeconds: interval,
+                    timestamp: sampledAt, intervalSeconds: interval,
                     cpuThresholdPercent: thresholds.cpuPercent,
                     memoryThresholdBytes: thresholds.memoryBytes,
                     sampledProcessCount: snapshot.samples.count,
                     unreadableProcessCount: snapshot.unreadableCount,
                     findings: monitor.findings(
                         thresholds: thresholds, scope: configuration.scope),
-                    agentLoad: configuration.collectAgentLoad ? monitor.agentLoad() : nil))
+                    agentLoad: collectAgentLoad ? monitor.agentLoad() : nil))
             count += 1
         }
     }

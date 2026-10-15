@@ -28,10 +28,7 @@ struct MenuBarIndicator {
     }
 
     mutating func receive(_ snapshot: MonitoringSnapshot) {
-        guard let load = snapshot.agentLoad else {
-            fail()
-            return
-        }
+        guard let load = snapshot.agentLoad else { return }
         self.load = load
         sampledAt = snapshot.timestamp
         unreadableCount = snapshot.unreadableProcessCount
