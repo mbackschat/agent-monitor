@@ -48,6 +48,18 @@ public enum FocusWording {
     }
 }
 
+/// Accepted means a signal or message was handed over, never that it took effect.
+public enum ActionResult: Equatable, Sendable {
+    case accepted(String)
+    case failed(String)
+
+    public var text: String {
+        switch self {
+        case .accepted(let text), .failed(let text): text
+        }
+    }
+}
+
 public struct ActionPanel: Equatable, Sendable {
     public enum Phase: Sendable {
         case confirmTermination, loading, compose, review, working, focusing, result
@@ -58,7 +70,7 @@ public struct ActionPanel: Equatable, Sendable {
     public var text = ""
     public var recipientIndex = 0
     public var offset = 0
-    public var result = ""
+    public var result: ActionResult?
     public var recipient: AgentRecipient? {
         guard let choices = draft?.recipients.choices, choices.indices.contains(recipientIndex) else {
             return nil
@@ -108,16 +120,22 @@ public struct ActionPanel: Equatable, Sendable {
         let title: String
         let controls: String
         var content = [
-            "Process PID \(process.process.pid): \(process.name)",
-            "Executable: \(process.executable)",
-            "Attributed session: \(process.attribution.provider?.rawValue ?? "unknown")/\(process.attribution.threadID ?? "unresolved")",
+            ReportLine("Process PID \(process.process.pid): \(process.name)"),
+            ReportLine("Executable: \(process.executable)"),
+            ReportLine(
+                "Attributed session: \(process.attribution.provider?.rawValue ?? "unknown")/\(process.attribution.threadID ?? "unresolved")"
+            ),
         ]
         switch phase {
         case .confirmTermination:
             title = "Terminate selected process?"
             content += [
-                "Send SIGTERM to this process only. It may stop work or lose unsaved changes.",
-                "No process group or session-wide signal. Process identity and owner will be checked again.",
+                ReportLine(
+                    "Send SIGTERM to this process only. It may stop work or lose unsaved changes.",
+                    style: .warning),
+                ReportLine(
+                    "No process group or session-wide signal. Process identity and owner will be checked again.",
+                    style: .muted),
             ]
             controls = "Ctrl-Y terminate | Esc cancel | ↑/↓ scroll"
         case .loading:
@@ -126,15 +144,20 @@ public struct ActionPanel: Equatable, Sendable {
         case .compose, .review:
             title = phase == .compose ? "Message agent" : "Review exact message"
             if let recipient {
-                content += ["Recipient: \(recipient.label) / \(recipient.id)"]
-                if let reason = recipient.unavailableReason { content += ["Unavailable: \(reason)"] }
+                content += [ReportLine("Recipient: \(recipient.label) / \(recipient.id)")]
+                if let reason = recipient.unavailableReason {
+                    content += [ReportLine("Unavailable: \(reason)", style: .warning)]
+                }
             }
             if draft?.recipients.choices.count == 2 {
-                content += ["Tab chooses root or selected agent while editing."]
+                content += [ReportLine("Tab chooses root or selected agent while editing.", style: .muted)]
             }
-            content += [MessageWording.note(process.attribution.provider), ""]
-            content += (draft?.message(text) ?? text).components(separatedBy: "\n")
-            if phase == .compose { content[content.count - 1] += "▏" }
+            content += [
+                ReportLine(MessageWording.note(process.attribution.provider), style: .muted), ReportLine(""),
+            ]
+            var message = (draft?.message(text) ?? text).components(separatedBy: "\n")
+            if phase == .compose { message[message.count - 1] += "▏" }
+            content += message.map { ReportLine($0) }
             controls =
                 phase == .compose
                 ? "Enter review | Tab recipient | Esc cancel | ↑/↓ scroll"
@@ -145,39 +168,44 @@ public struct ActionPanel: Equatable, Sendable {
         case .focusing:
             title = "Focusing terminal…"
             content += [
-                "Bringing the agent runtime's terminal to the front.",
-                "On first use, macOS may ask whether the terminal running Agent Monitor may control it.",
+                ReportLine("Bringing the agent runtime's terminal to the front."),
+                ReportLine(
+                    "On first use, macOS may ask whether the terminal running Agent Monitor may control it.",
+                    style: .muted),
             ]
             controls = "Ctrl-C quit"
         case .result:
             title = "Action result"
-            content += ["", result]
+            switch result {
+            case .accepted(let text): content += [ReportLine(""), ReportLine(text, style: .success)]
+            case .failed(let text): content += [ReportLine(""), ReportLine(text, style: .failure)]
+            case nil: break
+            }
             controls = "Esc close | ↑/↓ scroll"
         }
-        func wrap(_ values: [String]) -> [String] {
-            values.flatMap { value in
-                let safe = TextReport.safe(value)
-                if safe.isEmpty { return [""] }
-                var rows: [String] = []
+        func wrap(_ lines: [ReportLine]) -> [ReportLine] {
+            lines.flatMap { line in
+                if line.text.isEmpty { return [line] }
+                var rows: [ReportLine] = []
                 var row = ""
                 var columns = 0
-                for character in safe {
+                for character in line.text {
                     // Conservatively reserve two cells for non-ASCII text: the one-row
                     // terminal view clips CJK/emoji if wrapping only counts characters.
                     let cells = character.unicodeScalars.allSatisfy { $0.isASCII } ? 1 : 2
                     if columns + cells > width {
-                        rows.append(row)
+                        rows.append(ReportLine(row, style: line.style))
                         row = ""
                         columns = 0
                     }
                     row.append(character)
                     columns += cells
                 }
-                if !row.isEmpty { rows.append(row) }
+                if !row.isEmpty { rows.append(ReportLine(row, style: line.style)) }
                 return rows
             }
         }
-        let footer = wrap([controls])
+        let footer = wrap([ReportLine(controls, style: .muted)])
         let capacity = max(1, height - 1 - footer.count)
         let rows = wrap(content)
         // Editing follows the insertion point; review starts at the target and is scrollable.
@@ -186,9 +214,8 @@ public struct ActionPanel: Equatable, Sendable {
             ? max(0, rows.count - capacity + offset) : min(offset, max(0, rows.count - capacity))
         let visible = Array(rows.dropFirst(start).prefix(capacity))
         let heading = String((title + " [\(start + 1)-\(start + visible.count)/\(rows.count)]").prefix(width))
-        return [ReportLine(heading, style: .heading)] + visible.map { ReportLine($0) }
-            + Array(repeating: ReportLine(""), count: max(0, capacity - visible.count))
-            + footer.map { ReportLine($0, style: .muted) }
+        return [ReportLine(heading, style: .title)] + visible
+            + Array(repeating: ReportLine(""), count: max(0, capacity - visible.count)) + footer
     }
 }
 
@@ -233,7 +260,7 @@ extension LiveReportState {
         actionPanel?.phase = .compose
     }
 
-    public mutating func actionFinished(_ result: String) {
+    public mutating func actionFinished(_ result: ActionResult) {
         actionPanel?.phase = .result
         actionPanel?.result = result
         actionPanel?.offset = 0

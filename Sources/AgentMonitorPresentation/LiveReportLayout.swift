@@ -2,7 +2,10 @@ import AgentMonitorCore
 import Foundation
 
 public struct ReportLine: Equatable, Sendable {
-    public enum Style: Sendable { case normal, heading, selected, heavy, muted, separator }
+    /// Display roles; the TUI maps them to colors, which NO_COLOR removes.
+    public enum Style: Sendable {
+        case normal, title, heading, selected, heavy, muted, separator, warning, success, failure
+    }
     public let text: String
     public let style: Style
 
@@ -71,17 +74,17 @@ public enum LiveReportLayout {
             return [
                 ReportLine(
                     title + " | " + abbreviated(status, width: width - title.count - filters.count - 6)
-                        + " | " + filters, style: .heading)
+                        + " | " + filters, style: .title)
             ]
         case 85..<120:
             return [
                 ReportLine(
-                    title + " | " + abbreviated(status, width: width - title.count - 3), style: .heading),
+                    title + " | " + abbreviated(status, width: width - title.count - 3), style: .title),
                 ReportLine(filters, style: .muted),
             ]
         default:
             return [
-                ReportLine(title, style: .heading), ReportLine(status, style: .muted),
+                ReportLine(title, style: .title), ReportLine(status, style: .title),
                 ReportLine(filters, style: .muted),
             ]
         }

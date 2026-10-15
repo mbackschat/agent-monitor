@@ -52,6 +52,8 @@ The JSON adapter owns serialization and the versioned wire contract. `--json` al
 
 Presentation owns layout, colors, text formatting, keyboard or pointer input, selection, scrolling, and disclosure. Selection and disclosure use process identity (PID plus start time), so sorting or PID reuse cannot silently switch the displayed process. If a process disappears from the findings, clear its details and show a notice while preserving pane geometry. A view refresh does not trigger extra CPU measurements.
 
+Lines carry display roles rather than colors (`ReportLine.Style`): the status line is `title`, filters, key hints and panel notes are `muted`, heavy rows are `heavy`, the selection and details divider are `selected`/`separator`, and action panels add `warning`, `success` and `failure`. The SwiftTUI adapter maps roles to blue, gray, yellow, cyan, green and red; `NO_COLOR` removes the colors, and the README preview approximates them.
+
 Text, TUI, and GUI share measurement and attribution results. Their rendering and interaction code remain specific to each interface. A SwiftUI-like terminal library does not itself guarantee reusable native SwiftUI views. Any reusable presentation state must remain free of terminal control codes and UI framework types.
 
 ## TUI contract

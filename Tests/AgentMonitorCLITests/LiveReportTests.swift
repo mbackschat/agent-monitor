@@ -377,3 +377,17 @@ func processColumnFitsNamesInsteadOfAbsorbingSpareTerminalWidth(width: Int) thro
     #expect(text.contains("claude/" + session))
     #expect(text.contains("no tty / sample-agent-project"))
 }
+
+// Roles, not colors, are the contract; the TUI maps them to colors and NO_COLOR drops them.
+@Test(arguments: [60, 100, 200])
+func statusChromeAndKeysUseTheirOwnRoles(width: Int) {
+    var state = LiveReportState()
+    state.receive(liveSnapshot([liveRow(42)]))
+    let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
+    let status = lines.prefix { !$0.text.contains("PROCESS") }
+    #expect(status.first?.style == .title)
+    #expect(status.contains { $0.text.contains("Updates:") && $0.style == .title })
+    #expect(status.allSatisfy { $0.style == .title || $0.style == .muted })
+    let keys = lines.drop { !$0.text.contains("↑/↓ select") }
+    #expect(!keys.isEmpty && keys.allSatisfy { $0.style == .muted })
+}

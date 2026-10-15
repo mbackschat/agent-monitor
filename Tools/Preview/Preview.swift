@@ -69,10 +69,15 @@ enum Preview {
             let color: String
             let weight: String
             switch line.style {
+            // Approximates the TUI's SwiftTUI 0.14.0 colors (ShapeStyles.swift) on a dark theme.
+            case .title: (color, weight) = ("#5ba3ff", "bold")
             case .heading: (color, weight) = ("#f0f6fc", "bold")
             case .selected, .separator: (color, weight) = ("#79e4ff", "bold")
-            case .heavy: (color, weight) = ("#e3b341", "normal")
-            case .normal, .muted: (color, weight) = ("#c9d1d9", "normal")
+            case .heavy, .warning: (color, weight) = ("#e3b341", "normal")
+            case .muted: (color, weight) = ("#8c92ac", "normal")
+            case .success: (color, weight) = ("#61c67b", "normal")
+            case .failure: (color, weight) = ("#e05757", "normal")
+            case .normal: (color, weight) = ("#c9d1d9", "normal")
             }
             // SVG 2 lengthAdjust can scale glyphs; terminal cells need positions, not fitted text.
             // https://www.w3.org/TR/SVG2/text.html#TextElementLengthAdjustAttribute

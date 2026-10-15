@@ -144,19 +144,23 @@ private final class TerminalOutcome {
                     try await actions.terminate(process)
                     state.mutate {
                         $0.actionFinished(
-                            "SIGTERM accepted for PID \(process.process.pid). Exit is not yet confirmed.")
+                            .accepted(
+                                "SIGTERM accepted for PID \(process.process.pid). Exit is not yet confirmed.")
+                        )
                     }
                 case .send(let draft, let text, let recipient):
                     try await actions.send(draft, text: text, recipient: recipient)
-                    state.mutate { $0.actionFinished(MessageWording.accepted(draft, recipient: recipient)) }
+                    state.mutate {
+                        $0.actionFinished(.accepted(MessageWording.accepted(draft, recipient: recipient)))
+                    }
                 case .focus(let process):
                     let result = try await actions.focusTerminal(of: process)
-                    state.mutate { $0.actionFinished(FocusWording.result(result)) }
+                    state.mutate { $0.actionFinished(.accepted(FocusWording.result(result))) }
                 }
             } catch is CancellationError {
                 return
             } catch {
-                state.mutate { $0.actionFinished(error.localizedDescription) }
+                state.mutate { $0.actionFinished(.failed(error.localizedDescription)) }
             }
         }
     }
@@ -197,11 +201,16 @@ private struct TerminalReportView: View {
     @ViewBuilder
     private func line(_ line: ReportLine) -> some View {
         switch line.style {
+        case .title: Text(line.text).foregroundStyle(.blue).bold()
         case .heading: Text(line.text).bold()
         case .separator: Text(line.text).foregroundStyle(.cyan).bold()
         case .selected: Text(line.text).foregroundStyle(.cyan).bold()
         case .heavy: Text(line.text).foregroundStyle(.yellow)
-        case .muted, .normal: Text(line.text)
+        case .muted: Text(line.text).foregroundStyle(.gray)
+        case .warning: Text(line.text).foregroundStyle(.yellow)
+        case .success: Text(line.text).foregroundStyle(.green)
+        case .failure: Text(line.text).foregroundStyle(.red)
+        case .normal: Text(line.text)
         }
     }
 }

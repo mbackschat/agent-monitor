@@ -119,7 +119,8 @@ func acceptanceWordingFollowsTheProviderTransport(provider: AgentProvider, note:
     #expect(waiting.contains("Focusing terminal") && waiting.contains("macOS may ask"))
     #expect(state.actionInput(.escape) == nil)
     #expect(state.actionPanel != nil)
-    state.actionFinished(FocusWording.result(.session(application: "Terminal", tty: "/dev/ttys019")))
+    state.actionFinished(
+        .accepted(FocusWording.result(.session(application: "Terminal", tty: "/dev/ttys019"))))
     #expect(state.actionInput(.escape) == nil)
     #expect(state.actionPanel == nil)
 }
@@ -134,4 +135,37 @@ func acceptanceWordingFollowsTheProviderTransport(provider: AgentProvider, note:
 ])
 func focusWordingSeparatesExactAndAppOnlyResults(outcome: FocusOutcome, expected: String) {
     #expect(FocusWording.result(outcome).contains(expected))
+}
+
+@Test func panelLinesCarryRolesForTitleNotesWarningsAndKeys() throws {
+    var state = LiveReportState()
+    let row = try panelRow(42)
+    state.receive(panelSnapshot([row]))
+    _ = state.beginAction(.message)
+    let root = AgentRecipient(id: "root", label: "Root agent", unavailableReason: "Root is not loaded.")
+    state.messagePrepared(
+        MessageDraft(
+            process: row,
+            recipients: MessageRecipients(
+                root: root, selected: AgentRecipient(id: "child", label: "Selected agent"))))
+    let lines = LiveReportLayout.lines(state: state, width: 200, height: 24)
+    #expect(lines.first?.style == .title)
+    #expect(lines.first { $0.text.hasPrefix("Unavailable:") }?.style == .warning)
+    #expect(lines.first { $0.text.contains("Queued acceptance") }?.style == .muted)
+    #expect(lines.last?.style == .muted)
+    #expect(lines.first { $0.text.hasPrefix("Process PID 42") }?.style == .normal)
+}
+
+@Test(arguments: [
+    (ActionResult.accepted("SIGTERM accepted."), ReportLine.Style.success),
+    (.failed("Process exited."), .failure),
+])
+func actionResultsAreColoredByOutcome(result: ActionResult, style: ReportLine.Style) throws {
+    var state = LiveReportState()
+    state.receive(panelSnapshot([try panelRow(42)]))
+    _ = state.beginAction(.terminate)
+    _ = state.actionInput(.confirm)
+    state.actionFinished(result)
+    let lines = LiveReportLayout.lines(state: state, width: 200, height: 24)
+    #expect(lines.contains { $0.style == style && result.text.contains($0.text) })
 }
