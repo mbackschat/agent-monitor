@@ -8,11 +8,31 @@ import Testing
 @testable import AgentMonitorMenuBar
 
 @Test(arguments: [false, true])
-@MainActor func pinControlKeepsItsCompactFootprint(pinned: Bool) {
+@MainActor func pinControlHasAnEasyPointerTarget(pinned: Bool) {
     _ = NSApplication.shared
     let host = NSHostingView(rootView: MenuBarPinButton(pinned: pinned) { true })
     host.layoutSubtreeIfNeeded()
-    #expect(host.fittingSize == NSSize(width: 28, height: 28))
+    #expect(host.fittingSize == NSSize(width: 32, height: 32))
+}
+
+@Test(arguments: [MenuBarRowDisclosure.process, .group(count: 6), .group(count: 60), .group(count: 600)])
+@MainActor func rowAccessoriesHaveAnAlignedLargeTarget(disclosure: MenuBarRowDisclosure) {
+    _ = NSApplication.shared
+    let host = NSHostingView(rootView: MenuBarRowAccessory(disclosure: disclosure))
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize == NSSize(width: 40, height: 32))
+}
+
+@Test @MainActor func groupBadgePreservesLargeCountsWithoutClipping() {
+    _ = NSApplication.shared
+    let host = NSHostingView(rootView: MenuBarRowAccessory(disclosure: .group(count: 12345)))
+    let number = NSHostingView(
+        rootView: Text("12345").font(.system(size: 16, weight: .semibold, design: .rounded)).monospacedDigit()
+    )
+    host.layoutSubtreeIfNeeded()
+    number.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize.width >= number.fittingSize.width + 8)
+    #expect(host.fittingSize.height == 32)
 }
 
 @Test(
@@ -130,7 +150,7 @@ import Testing
     }
 }
 
-@Test(arguments: [320.0, 376.0], [false, true])
+@Test(arguments: [244.0, 280.0, 320.0, 376.0], [false, true])
 @MainActor func processSummaryFitsTwoLines(width: Double, showsSession: Bool) throws {
     let snapshot = try menuBarFixture(
         name: "swift-frontend-with-a-long-process-name", project: "a-project-with-a-long-directory-name")

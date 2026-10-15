@@ -202,9 +202,12 @@ struct MenuBarView: View {
         }
     }
 
-    private func disclosureStyle(for id: LiveReportRowID) -> MenuBarDisclosureStyle {
+    private func disclosureStyle(
+        for id: LiveReportRowID, disclosure: MenuBarRowDisclosure
+    ) -> MenuBarDisclosureStyle {
         MenuBarDisclosureStyle(
-            id: id, pinned: model.report.isPinned(id), arrived: model.arrivals.deadlines[id] != nil,
+            id: id, disclosure: disclosure, pinned: model.report.isPinned(id),
+            arrived: model.arrivals.deadlines[id] != nil,
             focus: $focusedRow,
             onPin: { model.togglePin(id) }, onPinShortcut: { togglePinFromKeyboard(id) })
     }
@@ -268,7 +271,7 @@ struct MenuBarView: View {
                 }
                 HStack {
                     Text(
-                        "\(group.provider?.rawValue ?? "unknown") · \(group.sessionID.map { String($0.prefix(8)) } ?? (group.processes.first?.isSharedRuntime == true ? "shared runtime" : "unresolved")) · \(group.processes.count) heavy"
+                        "\(group.provider?.rawValue ?? "unknown") · \(group.sessionID.map { String($0.prefix(8)) } ?? (group.processes.first?.isSharedRuntime == true ? "shared runtime" : "unresolved"))"
                     )
                     .lineLimit(1)
                     Spacer(minLength: 4)
@@ -278,7 +281,9 @@ struct MenuBarView: View {
             }
         }
         .id(LiveReportRowID.group(group.id))
-        .disclosureGroupStyle(disclosureStyle(for: .group(group.id)))
+        .disclosureGroupStyle(
+            disclosureStyle(for: .group(group.id), disclosure: .group(count: group.processes.count))
+        )
         .contextMenu { rowCommands(.group(group.id)) }
     }
 
@@ -333,7 +338,7 @@ struct MenuBarView: View {
                 footprintText: resource(process.footprintBytes.map { Double($0) / 1e9 }, unit: " GB"))
         }
         .id(LiveReportRowID.process(process.process))
-        .disclosureGroupStyle(disclosureStyle(for: .process(process.process)))
+        .disclosureGroupStyle(disclosureStyle(for: .process(process.process), disclosure: .process))
         .contextMenu { rowCommands(.process(process.process)) }
     }
 

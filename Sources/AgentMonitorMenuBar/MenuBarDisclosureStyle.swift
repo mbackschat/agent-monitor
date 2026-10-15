@@ -1,8 +1,45 @@
 import AgentMonitorPresentation
 import SwiftUI
 
+enum MenuBarRowDisclosure {
+    case group(count: Int)
+    case process
+
+    func accessibilityValue(expanded: Bool) -> String {
+        switch self {
+        case .group: expanded ? "Processes shown" : "Processes hidden"
+        case .process: expanded ? "Details shown" : "Details hidden"
+        }
+    }
+}
+
+struct MenuBarRowAccessory: View {
+    let disclosure: MenuBarRowDisclosure
+
+    var body: some View {
+        Group {
+            switch disclosure {
+            case .group(let count):
+                Text(count, format: .number.grouping(.never))
+                    .font(.system(size: 16, weight: .semibold, design: .rounded)).monospacedDigit()
+                    .padding(.horizontal, 4)
+                    .frame(minWidth: 40, minHeight: 32)
+                    .background(.primary.opacity(0.09), in: RoundedRectangle(cornerRadius: 8))
+                    .accessibilityLabel("\(count) heavy processes")
+            case .process:
+                Image(systemName: "info.circle")
+                    .font(.system(size: 20))
+                    .frame(width: 40, height: 32)
+                    .accessibilityLabel("Process details")
+            }
+        }
+        .foregroundStyle(.secondary)
+    }
+}
+
 struct MenuBarDisclosureStyle: DisclosureGroupStyle {
     let id: LiveReportRowID
+    let disclosure: MenuBarRowDisclosure
     let pinned: Bool
     let arrived: Bool
     let focus: FocusState<LiveReportRowID?>.Binding
@@ -12,13 +49,14 @@ struct MenuBarDisclosureStyle: DisclosureGroupStyle {
     func makeBody(configuration: Configuration) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             MenuBarRowHeader(
-                id: id, pinned: pinned, expanded: configuration.isExpanded, focus: focus,
+                id: id, disclosure: disclosure, pinned: pinned, expanded: configuration.isExpanded,
+                focus: focus,
                 onToggle: { configuration.isExpanded.toggle() }, onPin: onPin, onPinShortcut: onPinShortcut,
                 label: configuration.label
             )
             .background(MenuBarArrivalBackground(highlighted: arrived))
             if configuration.isExpanded {
-                configuration.content.padding(.leading, 16)
+                configuration.content.padding(.leading, 24)
             }
         }
         .background(pinned ? Color.accentColor.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 6))
@@ -27,6 +65,7 @@ struct MenuBarDisclosureStyle: DisclosureGroupStyle {
 
 private struct MenuBarRowHeader<Label: View>: View {
     let id: LiveReportRowID
+    let disclosure: MenuBarRowDisclosure
     let pinned: Bool
     let expanded: Bool
     let focus: FocusState<LiveReportRowID?>.Binding
@@ -40,11 +79,19 @@ private struct MenuBarRowHeader<Label: View>: View {
     var body: some View {
         HStack(spacing: 2) {
             Button(action: onToggle) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Image(systemName: expanded ? "chevron.down" : "chevron.right")
-                        .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-                        .frame(width: 10).accessibilityHidden(true)
+                HStack(spacing: 6) {
+                    Group {
+                        switch disclosure {
+                        case .group:
+                            Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                                .font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary)
+                        case .process:
+                            Color.clear
+                        }
+                    }
+                    .frame(width: 18, height: 32).accessibilityHidden(true)
                     label
+                    MenuBarRowAccessory(disclosure: disclosure)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 4).contentShape(Rectangle())
@@ -54,7 +101,7 @@ private struct MenuBarRowHeader<Label: View>: View {
                 onToggle()
                 return .handled
             }
-            .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+            .accessibilityValue(disclosure.accessibilityValue(expanded: expanded))
             MenuBarPinButton(pinned: pinned, action: onPin)
                 .opacity(pinned || hovered || pinFocused || focus.wrappedValue == id ? 1 : 0)
                 .focused($pinFocused)

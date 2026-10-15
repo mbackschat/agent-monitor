@@ -85,7 +85,7 @@ The maintained, source-built native menu bar app runs with `bash scripts/menubar
 
 <p><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/menubar-preview-dark.webp"><img src="docs/assets/menubar-preview.webp" width="420" height="560" alt="Native Agent Monitor menu bar panel paused for inspection, with an expanded pinned Claude session, Codex and Claude process rows, CPU and memory usage, Resume, View options, and panel size controls."></picture></p>
 
-*Native panel captured from the production view with synthetic data. The expanded session is pinned. Pinning keeps values live; Pause holds the displayed sample. View options contains checked sampling values, display choices and optional keyboard help (including ⌘P to pin the focused row), and the size menu changes the fixed panel height. The capture excludes menu bar anchoring and desktop chrome.*
+*Native panel captured from the production view with synthetic data. The expanded session is pinned; its count badge distinguishes it from process rows with info controls. Pinning keeps values live; Pause holds the displayed sample. View options contains checked sampling values, display choices and optional keyboard help (including ⌘P to pin the focused row), and the size menu changes the fixed panel height. The capture excludes menu bar anchoring and desktop chrome.*
 
 ## Options and defaults
 
