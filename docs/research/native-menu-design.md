@@ -43,3 +43,9 @@ The inline message editor and action review provide a concrete reason to use App
 - Do native menu-like highlighting, focus and dismissal behave as expected? Upstream screenshots and source do not establish our app's behavior.
 
 Accepted behavior belongs in [architecture](../architecture.md#native-menu-bar-app); pending work belongs in [PLAN.md](../../PLAN.md).
+
+## Content sizing API observations — 2026-10-15
+
+Apple's [NSPopover.contentSize](https://developer.apple.com/documentation/appkit/nspopover/contentsize) documentation says the initial content size matches the content view when its controller is assigned. [NSHostingController.sizingOptions](https://developer.apple.com/documentation/swiftui/nshostingcontroller/sizingoptions) controls generated sizing constraints; Apple notes that fewer options reduce layout measurements when the host can make size assumptions. The [preferred-content-size option](https://developer.apple.com/documentation/swiftui/nshostingsizingoptions/preferredcontentsize) concerns the ideal size and requires hosting-controller constraints; it does not apply directly to `NSHostingView`. [Size-based scroll bounce](https://developer.apple.com/documentation/swiftui/scrollbouncebehavior/basedonsize) applies only when content exceeds the viewport.
+
+The subsequent [sizing experiment](development-tools.md#content-sizing-application--2026-10-15) distinguishes source guidance from observed offscreen behavior. The original fixed-height and draft-loss observations above describe the pre-change implementation; current accepted behavior is in [architecture](../architecture.md#native-menu-bar-app).

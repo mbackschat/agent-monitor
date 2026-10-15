@@ -6,6 +6,8 @@ import SwiftUI
 
 struct MenuBarView: View {
     @Bindable var model: MenuBarModel
+    var maximumBodyHeight: CGFloat = MenuBarLayout.maximumBodyHeight
+    var onSizeChange: (CGSize) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -16,10 +18,12 @@ struct MenuBarView: View {
             }
             .padding()
             Divider()
-            if let panel = model.report.actionPanel {
-                actionPanel(panel)
-            } else {
-                report
+            MenuBarScrollView(maximumHeight: maximumBodyHeight) {
+                if let panel = model.report.actionPanel {
+                    actionPanel(panel)
+                } else {
+                    report
+                }
             }
             Divider()
             HStack {
@@ -29,7 +33,13 @@ struct MenuBarView: View {
             }
             .padding(12)
         }
-        .frame(width: 420, height: 560)
+        .frame(width: MenuBarLayout.width)
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGSize.self) {
+            $0.size
+        } action: {
+            onSizeChange($0)
+        }
     }
 
     private var report: some View {
@@ -80,24 +90,22 @@ struct MenuBarView: View {
                 VStack(spacing: 10) {
                     ProgressView().controlSize(.small)
                     Text("Measuring activity…").foregroundStyle(.secondary)
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                }.frame(maxWidth: .infinity).padding(.vertical, 20)
             } else if groups.isEmpty {
                 ContentUnavailableView(
                     "No heavy agent processes", systemImage: "checkmark.circle",
                     description: Text("Nothing exceeds the current thresholds."))
             } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(groups, id: \.id) { group in
-                            if group.processes.count == 1, let process = group.processes.first {
-                                processRow(process, session: group)
-                            } else {
-                                session(group)
-                            }
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(groups, id: \.id) { group in
+                        if group.processes.count == 1, let process = group.processes.first {
+                            processRow(process, session: group)
+                        } else {
+                            session(group)
                         }
                     }
-                    .disclosureGroupStyle(MenuBarDisclosureStyle())
                 }
+                .disclosureGroupStyle(MenuBarDisclosureStyle())
             }
             if let result = model.lastActionResult {
                 Text(result.text).font(.caption).textSelection(.enabled)
@@ -110,7 +118,6 @@ struct MenuBarView: View {
             }
         }
         .padding(14)
-        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     private func session(_ group: SessionGroup) -> some View {
@@ -191,35 +198,33 @@ struct MenuBarView: View {
     }
 
     private func actionPanel(_ panel: ActionPanel) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(panel.process.name).font(.headline)
-                ForEach(ActionWording.target(panel.process), id: \.self) { Text($0).font(.caption) }
-                Divider()
-                switch panel.phase {
-                case .confirmTermination:
-                    Text("Terminate this process?").font(.headline)
-                    Text(
-                        "Send SIGTERM to PID \(panel.process.process.pid) only. This may stop work or lose unsaved changes."
-                    )
-                    HStack {
-                        Button("Cancel") { model.input(.escape) }
-                        Spacer()
-                        Button("Terminate", role: .destructive) { model.input(.confirm) }
-                    }
-                case .loading, .working, .focusing:
-                    ProgressView(panel.phase == .loading ? "Checking live recipients…" : "Working…")
-                        .controlSize(.small)
-                    Text("Closing this panel cancels pending work.").font(.caption).foregroundStyle(
-                        .secondary)
-                case .compose, .review:
-                    messagePanel(panel)
-                case .result:
-                    Text(panel.result?.text ?? "Action finished").textSelection(.enabled)
-                    Button("Done") { model.input(.escape) }
+        VStack(alignment: .leading, spacing: 12) {
+            Text(panel.process.name).font(.headline)
+            ForEach(ActionWording.target(panel.process), id: \.self) { Text($0).font(.caption) }
+            Divider()
+            switch panel.phase {
+            case .confirmTermination:
+                Text("Terminate this process?").font(.headline)
+                Text(
+                    "Send SIGTERM to PID \(panel.process.process.pid) only. This may stop work or lose unsaved changes."
+                )
+                HStack {
+                    Button("Cancel") { model.input(.escape) }
+                    Spacer()
+                    Button("Terminate", role: .destructive) { model.input(.confirm) }
                 }
-            }.padding(16)
-        }.frame(maxHeight: .infinity)
+            case .loading, .working, .focusing:
+                ProgressView(panel.phase == .loading ? "Checking live recipients…" : "Working…")
+                    .controlSize(.small)
+                Text("Closing this panel cancels pending work.").font(.caption).foregroundStyle(
+                    .secondary)
+            case .compose, .review:
+                messagePanel(panel)
+            case .result:
+                Text(panel.result?.text ?? "Action finished").textSelection(.enabled)
+                Button("Done") { model.input(.escape) }
+            }
+        }.padding(16)
     }
 
     @ViewBuilder private func messagePanel(_ panel: ActionPanel) -> some View {

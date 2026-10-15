@@ -35,14 +35,25 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
         popover.behavior = .transient
         popover.animates = false
         popover.delegate = self
-        popover.contentViewController = NSHostingController(rootView: MenuBarView(model: model))
-        popover.contentSize = NSSize(width: 420, height: 560)
+        let host = NSHostingController(
+            rootView: MenuBarView(model: model) { [weak popover] size in
+                guard let popover, popover.contentSize != size else { return }
+                popover.contentSize = size
+            })
+        host.sizingOptions = [.intrinsicContentSize]
+        host.view.setFrameSize(host.view.fittingSize)
+        popover.contentViewController = host
     }
 
     @objc private func toggle() {
         if popover.isShown {
             popover.performClose(nil)
         } else if let button = item?.button {
+            if let host = popover.contentViewController as? NSHostingController<MenuBarView> {
+                host.rootView.maximumBodyHeight = min(
+                    MenuBarLayout.maximumBodyHeight,
+                    max(100, (button.window?.screen?.visibleFrame.height ?? 600) - 140))
+            }
             NSApplication.shared.activate()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()

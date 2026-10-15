@@ -69,3 +69,8 @@ The Performance Audit workflow was applied to the repeated getter found in the f
 
 Inference: computing the groups once per report render removes confirmed redundant work without introducing cache invalidation state. The normal small fixture saves only about 0.033 ms per evaluation in this run, so this does not establish a perceptible speedup. The larger fixtures indicate scaling cost, not a claim that users normally have hundreds of heavy agent sessions.
 
+## Content-sizing application — 2026-10-15
+
+The sizing regression independently reproduced a one-process panel staying 560 points tall. Content measurement plus a capped scroll area produced an inspected three-process render of approximately 350 points, with disclosure-growth/collapse checks. A non-visible `NSPopover` initially reported zero content size when only the hosting controller's preferred-size option was set. Explicitly initializing the hosting view's fitting size and reporting root geometry to the popover supplied a verifiable size handoff. This is offscreen layout evidence, not live menu anchoring or VoiceOver evidence. The performance skill's warning about geometry feedback was useful here: measurements use equatable size values and skip unchanged AppKit sizes.
+
+Retaining the intrinsic-size constraint was necessary: disabling every hosting sizing option made later fitting-size reads return zero. The final offscreen test verifies both the initial list and a transition to action review. This is a concrete limit of generic advice to reduce hosting constraints; fewer constraints are useful only if the required sizing contract remains intact.

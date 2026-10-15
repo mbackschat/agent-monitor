@@ -30,7 +30,9 @@ import Testing
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
-    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
+    host.layoutSubtreeIfNeeded()
+    host.frame.size = host.fittingSize
     host.layoutSubtreeIfNeeded()
     let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
     host.cacheDisplay(in: host.bounds, to: bitmap)
@@ -54,4 +56,66 @@ import Testing
     host.layoutSubtreeIfNeeded()
     #expect(host.fittingSize.height <= 36)
     #expect(abs(host.fittingSize.width - width) < 0.5)
+}
+
+@Test @MainActor func sparseNativePanelFitsItsContent() async throws {
+    let snapshot = try menuBarFixture()
+    let model = MenuBarModel { receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    _ = NSApplication.shared
+    let host = NSHostingView(rootView: MenuBarView(model: model))
+    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize.height < 400)
+    #expect(host.fittingSize.height > 180)
+    await model.stop()
+}
+
+@Test @MainActor func nativePanelGrowsForDisclosureAndCapsOverflow() async throws {
+    let snapshot = try menuBarFixture(pids: Array(42001...42030))
+    let model = MenuBarModel { receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    _ = NSApplication.shared
+    let host = NSHostingView(rootView: MenuBarView(model: model, maximumBodyHeight: 300))
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
+    host.layoutSubtreeIfNeeded()
+    let collapsed = host.fittingSize.height
+    model.report.toggleDisclosure()
+    host.layoutSubtreeIfNeeded()
+    let expanded = host.fittingSize.height
+    #expect(expanded > collapsed)
+    #expect(expanded <= 420)
+    model.report.toggleDisclosure()
+    host.layoutSubtreeIfNeeded()
+    #expect(abs(host.fittingSize.height - collapsed) < 1)
+    await model.stop()
+}
+
+@Test @MainActor func popoverTracksContentGeometryWithoutAVisibleWindow() async throws {
+    let snapshot = try menuBarFixture()
+    let model = MenuBarModel { receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    _ = NSApplication.shared
+    let popover = NSPopover()
+    let host = NSHostingController(
+        rootView: MenuBarView(model: model) { size in
+            if popover.contentSize != size { popover.contentSize = size }
+        })
+    host.sizingOptions = [.intrinsicContentSize]
+    host.view.setFrameSize(host.view.fittingSize)
+    popover.contentViewController = host
+    host.view.layoutSubtreeIfNeeded()
+    #expect(abs(popover.contentSize.width - MenuBarLayout.width) < 1)
+    #expect(popover.contentSize.height > 180)
+    #expect(popover.contentSize.height < 400)
+    let row = try #require(snapshot.findings.first)
+    model.begin(.terminate, row: .process(row.process))
+    host.view.layoutSubtreeIfNeeded()
+    let fitted = host.view.fittingSize
+    host.view.layoutSubtreeIfNeeded()
+    #expect(popover.contentSize == fitted)
+    await model.stop()
 }
