@@ -48,8 +48,11 @@ public enum LiveReportLayout {
     }
 
     private static func headerLines(state: LiveReportState, width: Int) -> [ReportLine] {
+        let seconds = String(format: "%g", state.interval)
+        let frozen =
+            state.frozen ? " | FROZEN" + (state.snapshot.map { " at " + clockTime($0.timestamp) } ?? "") : ""
         let title =
-            "Agent Monitor | \(state.sortKey.rawValue) \(state.ascending ? "ascending" : "descending") | Updates: \(state.updates)"
+            "Agent Monitor | \(state.sortKey.rawValue) \(state.ascending ? "ascending" : "descending") | every \(seconds) s\(frozen) | Updates: \(state.updates)"
         let status: String
         if let notice = state.notice {
             status = notice
@@ -94,7 +97,7 @@ public enum LiveReportLayout {
         let groups = [
             ["↑/↓ select", "Enter open", "g group", "c/m/p sort", "r reverse", "[/] scroll"],
             ["k terminate", "s message", "f focus"],
-            ["1/2 CPU -/+10%", "3/4 GB -/+1"],
+            ["1/2 CPU -/+10%", "3/4 GB -/+1", "</> interval", "space freeze"],
             ["-/+ size", "0 min", "9 max", "= restore", "q/Ctrl-C quit"],
         ]
         var lines: [String] = []
@@ -287,6 +290,13 @@ public enum LiveReportLayout {
     }
 
     private static func number(_ value: Double) -> String { String(format: "%.2f", value) }
+
+    /// Local wall-clock time of the frozen snapshot, so the user can judge how stale it is.
+    private static func clockTime(_ date: Date) -> String {
+        let components = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
+        return String(
+            format: "%02d:%02d:%02d", components.hour ?? 0, components.minute ?? 0, components.second ?? 0)
+    }
     private static func pad(_ value: String, to width: Int) -> String {
         String(value.prefix(width)).padding(toLength: width, withPad: " ", startingAt: 0)
     }

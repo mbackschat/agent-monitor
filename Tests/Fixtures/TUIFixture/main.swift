@@ -6,7 +6,7 @@ import Foundation
 @main
 enum TUIFixture {
     static func main() async throws {
-        try await TerminalReport.run(actions: FixtureActions()) { currentThresholds, receive in
+        try await TerminalReport.run(actions: FixtureActions()) { currentThresholds, _, receive in
             var tick = 0
             while !Task.isCancelled {
                 tick += 1

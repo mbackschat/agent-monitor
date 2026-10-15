@@ -10,6 +10,8 @@ public enum ThresholdAdjustment: Sendable { case cpuDown, cpuUp, memoryDown, mem
 
 public enum DetailsPaneMode: Sendable { case minimized, split, maximized }
 
+public enum IntervalAdjustment: Sendable { case faster, slower }
+
 public struct LiveReportState: Equatable, Sendable {
     public var actionPanel: ActionPanel?
     mutating func setActionNotice(_ text: String) { notice = text }
@@ -36,10 +38,36 @@ public struct LiveReportState: Equatable, Sendable {
     public private(set) var updates = 0
 
     public private(set) var thresholds: Thresholds
+    /// Requested seconds between samples; the session reads it live.
+    public private(set) var interval: Double
+    /// A frozen view keeps its snapshot while sampling continues; the latest one waits here.
+    public private(set) var frozen = false
+    private var heldSnapshot: MonitoringSnapshot?
 
-    public init(grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds()) {
+    /// Each sample walks every process, so the TUI does not step below 0.5 s; an explicit faster
+    /// `--interval` is kept until the user slows down.
+    static let intervalSteps: [Double] = [0.5, 1, 2, 5, 10, 30, 60]
+
+    public init(grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(), interval: Double = 1)
+    {
         self.grouping = grouping
         self.thresholds = thresholds
+        self.interval = interval
+    }
+
+    public mutating func adjustInterval(_ adjustment: IntervalAdjustment) {
+        switch adjustment {
+        case .faster: interval = Self.intervalSteps.last { $0 < interval } ?? interval
+        case .slower: interval = Self.intervalSteps.first { $0 > interval } ?? interval
+        }
+    }
+
+    public mutating func toggleFreeze() {
+        frozen.toggle()
+        if !frozen, let held = heldSnapshot {
+            heldSnapshot = nil
+            receive(held)
+        }
     }
 
     public mutating func adjustThreshold(_ adjustment: ThresholdAdjustment) {
@@ -105,6 +133,10 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func receive(_ snapshot: MonitoringSnapshot) {
+        guard !frozen else {
+            heldSnapshot = snapshot
+            return
+        }
         self.snapshot = snapshot
         updates += 1
         if let selected, !snapshot.findings.contains(where: { $0.process == selected }) {

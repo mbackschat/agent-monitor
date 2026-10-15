@@ -83,11 +83,34 @@ public struct MonitoringSession: Sendable {
     }
 
     public var initialThresholds: Thresholds { configuration.thresholds }
+    public var initialInterval: Double { configuration.intervalSeconds }
+
+    /// Waits one interval and returns it. A live interval is re-read every quarter second, so a
+    /// shorter one applies without waiting out the old one; CPU stays exact because it divides
+    /// by the measured time between samples.
+    private func wait(_ currentInterval: (@Sendable () async -> Double)?) async throws -> Double {
+        guard let currentInterval else {
+            try await clock.wait(seconds: configuration.intervalSeconds)
+            return configuration.intervalSeconds
+        }
+        var waited = 0.0
+        while true {
+            let interval = await currentInterval()
+            guard interval.isFinite, (0.1...60).contains(interval) else {
+                throw MonitoringError.invalidConfiguration
+            }
+            guard waited < interval else { return interval }
+            let slice = min(interval - waited, 0.25)
+            try await clock.wait(seconds: slice)
+            waited += slice
+        }
+    }
 
     /// Delivers snapshots sequentially, awaiting each consumer without buffering reports.
     /// Reads updated thresholds once per sample, preserving the CPU baseline.
     @concurrent public func run(
         thresholds currentThresholds: (@Sendable () async -> Thresholds)? = nil,
+        interval currentInterval: (@Sendable () async -> Double)? = nil,
         _ receive: @Sendable (MonitoringSnapshot) async throws -> Void
     ) async throws {
         try Task.checkCancellation()
@@ -95,7 +118,7 @@ public struct MonitoringSession: Sendable {
         monitor.ingest(try reader.snapshot(excluding: excluded).samples)
         var count = 0
         while configuration.samples == 0 || count < configuration.samples {
-            try await clock.wait(seconds: configuration.intervalSeconds)
+            let interval = try await wait(currentInterval)
             try Task.checkCancellation()
             let thresholds = await currentThresholds?() ?? configuration.thresholds
             guard thresholds.cpuPercent.isFinite, thresholds.cpuPercent >= 0 else {
@@ -115,7 +138,7 @@ public struct MonitoringSession: Sendable {
             }
             try await receive(
                 MonitoringSnapshot(
-                    timestamp: clock.now(), intervalSeconds: configuration.intervalSeconds,
+                    timestamp: clock.now(), intervalSeconds: interval,
                     cpuThresholdPercent: thresholds.cpuPercent,
                     memoryThresholdBytes: thresholds.memoryBytes,
                     sampledProcessCount: snapshot.samples.count,

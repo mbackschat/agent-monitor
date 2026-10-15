@@ -275,7 +275,7 @@ func keyboardHelpSeparatesControlsWithoutClipping(width: Int) {
     #expect(!applied.contains { $0.text.contains("pending") })
 }
 
-@Test(arguments: [(100, 2, 3), (120, 1, 2), (160, 1, 2), (200, 1, 1)])
+@Test(arguments: [(100, 2, 3), (120, 1, 2), (160, 1, 2), (200, 1, 2)])
 func responsiveChromeReturnsSpareRowsToProcesses(size: (width: Int, header: Int, footer: Int)) throws {
     var state = LiveReportState()
     state.receive(liveSnapshot((1...40).map { liveRow(Int32($0)) }))
@@ -390,4 +390,49 @@ func statusChromeAndKeysUseTheirOwnRoles(width: Int) {
     #expect(status.allSatisfy { $0.style == .title || $0.style == .muted })
     let keys = lines.drop { !$0.text.contains("↑/↓ select") }
     #expect(!keys.isEmpty && keys.allSatisfy { $0.style == .muted })
+}
+
+@Test func intervalStepsAlongTheLadderFromAnyStart() {
+    var state = LiveReportState(interval: 1)
+    state.adjustInterval(.faster)
+    #expect(state.interval == 0.5)
+    state.adjustInterval(.faster)
+    #expect(state.interval == 0.5)
+    for _ in 0..<10 { state.adjustInterval(.slower) }
+    #expect(state.interval == 60)
+    var between = LiveReportState(interval: 3)
+    between.adjustInterval(.faster)
+    #expect(between.interval == 2)
+    between = LiveReportState(interval: 3)
+    between.adjustInterval(.slower)
+    #expect(between.interval == 5)
+    // Below the ladder, faster keeps the explicit --interval rather than slowing it down.
+    var fast = LiveReportState(interval: 0.2)
+    fast.adjustInterval(.faster)
+    #expect(fast.interval == 0.2)
+    fast.adjustInterval(.slower)
+    #expect(fast.interval == 0.5)
+}
+
+@Test func statusShowsTheRequestedInterval() {
+    var state = LiveReportState(interval: 1)
+    state.receive(liveSnapshot([liveRow(42)]))
+    #expect(LiveReportLayout.lines(state: state, width: 120, height: 24)[0].text.contains("every 1 s"))
+    state.adjustInterval(.faster)
+    #expect(LiveReportLayout.lines(state: state, width: 120, height: 24)[0].text.contains("every 0.5 s"))
+}
+
+@Test func freezeHoldsTheViewAndShowsTheLatestSnapshotOnRelease() {
+    var state = LiveReportState()
+    state.receive(liveSnapshot([liveRow(42)]))
+    state.toggleFreeze()
+    state.receive(liveSnapshot([liveRow(84)]))
+    state.receive(liveSnapshot([liveRow(99)]))
+    #expect(state.rows.map(\.process.pid) == [42])
+    #expect(state.updates == 1)
+    #expect(LiveReportLayout.lines(state: state, width: 120, height: 24)[0].text.contains("FROZEN"))
+    state.toggleFreeze()
+    #expect(state.rows.map(\.process.pid) == [99])
+    #expect(state.updates == 2)
+    #expect(!LiveReportLayout.lines(state: state, width: 120, height: 24)[0].text.contains("FROZEN"))
 }

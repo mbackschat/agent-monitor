@@ -18,17 +18,20 @@ agent-monitor --tui --group session
 | `g` | Toggle session grouping |
 | `k` | Review SIGTERM for the selected process (unreleased) |
 | `s` | Compose a message to a verified Codex or Claude Code recipient (unreleased) |
+| `f` | Bring the terminal hosting the selected process's or group's agent session to the front (unreleased) |
 | `c` / `m` / `p` | Sort by CPU, memory footprint, or PID |
 | `r` | Reverse the sort direction |
 | `1` / `2` | Lower/raise the CPU threshold by 10 percentage points |
 | `3` / `4` | Lower/raise the memory threshold by 1 decimal GB |
+| `<` / `>` | Update less/more often: 0.5, 1, 2, 5, 10, 30 or 60 seconds, applied at once (unreleased) |
+| Space | Freeze/unfreeze the view; sampling continues and unfreezing shows the latest data (unreleased) |
 | `[` / `]` | Scroll process details |
 | `-` / `+` | Shrink/grow the details pane by 5 percentage points |
 | `0` / `9` | Minimize/maximize the details pane |
 | `=` | Restore the chosen details split |
 | `q` / Ctrl-C | Quit |
 
-Selection follows the process across sorting and refreshes. Details start minimized; opening them uses an initial 50% split. The adjustable split ranges from 10–90%, subject to available terminal space. Minimizing or maximizing does not overwrite your chosen split.
+The header shows the update interval and, while frozen, `FROZEN at` the time of the displayed sample. A faster `--interval` than 0.5 seconds is kept until you press `<`. While frozen, selection, sorting, details and actions keep working on the frozen rows; actions still recheck the live process, and threshold changes stay pending until you unfreeze. Selection follows the process across sorting and refreshes. Details start minimized; opening them uses an initial 50% split. The adjustable split ranges from 10–90%, subject to available terminal space. Minimizing or maximizing does not overwrite your chosen split.
 
 The layout adapts to terminal size. Narrow views abbreviate names and session IDs and omit the terminal/project column; open details for the full information. The process column contains names only, with executable paths and optional command arguments in details. Very small windows show a resize hint.
 

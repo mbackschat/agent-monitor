@@ -35,7 +35,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
             && dividerRow($0) == 11
     }
     for (width, headerRows, footerRows, divider) in [
-        (120, 1, 2, 11), (200, 1, 1, 12), (80, 3, 3, 12), (100, 2, 3, 11),
+        (120, 1, 2, 11), (200, 1, 2, 11), (80, 3, 4, 11), (100, 2, 3, 11),
     ] {
         var resized = winsize(ws_row: 24, ws_col: UInt16(width), ws_xpixel: 0, ws_ypixel: 0)
         try #require(ioctl(terminal.slave, TIOCSWINSZ, &resized) == 0)
@@ -290,5 +290,24 @@ private func dividerRow(_ text: String) -> Int? {
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
         $0.contains("Action result") && $0.contains("Selected the session on ttys001 in Terminal")
+    }
+    // ESC immediately followed by a key reads as an Alt sequence, so wait for the panel to close.
+    try writeAllBytes([27], to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("CPU descending") && !$0.contains("Action result")
+    }
+    try writeAllBytes(Array(" ".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("FROZEN")
+    }
+    try writeAllBytes(Array("> ".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("every 0.5 s") && !$0.contains("FROZEN")
     }
 }

@@ -8,6 +8,7 @@ import SwiftTUIRuntime
 public typealias SnapshotSource =
     @Sendable (
         _ thresholds: @escaping @Sendable () async -> Thresholds,
+        _ interval: @escaping @Sendable () async -> Double,
         _ receive: @escaping @Sendable (MonitoringSnapshot) async throws -> Void
     ) async throws -> Void
 
@@ -16,20 +17,23 @@ public enum TerminalReport {
     public static func run(session: MonitoringSession, grouping: ReportGrouping = .none, color: Bool = true)
         async throws
     {
-        try await run(grouping: grouping, thresholds: session.initialThresholds, color: color) {
-            thresholds, receive in
-            try await session.run(thresholds: thresholds, receive)
+        try await run(
+            grouping: grouping, thresholds: session.initialThresholds, interval: session.initialInterval,
+            color: color
+        ) { thresholds, interval, receive in
+            try await session.run(thresholds: thresholds, interval: interval, receive)
         }
     }
 
     public static func run(
-        grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(), color: Bool = true,
+        grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(), interval: Double = 1,
+        color: Bool = true,
         actions: any ProcessActions = SessionActions.local(),
         source: @escaping SnapshotSource
     ) async throws {
         let identity = Identity(components: ["agent-monitor"])
         let state = StateContainer(
-            initialState: LiveReportState(grouping: grouping, thresholds: thresholds),
+            initialState: LiveReportState(grouping: grouping, thresholds: thresholds, interval: interval),
             invalidationIdentities: [identity])
         let outcome = TerminalOutcome()
         // SwiftTUI 0.14.0 defaults to mouse reporting, which captures terminal selection drags.
@@ -80,6 +84,9 @@ public enum TerminalReport {
                 case .character("3"): state.mutate { $0.adjustThreshold(.memoryDown) }
                 case .character("4"): state.mutate { $0.adjustThreshold(.memoryUp) }
                 case .character("g"): state.mutate { $0.toggleGrouping() }
+                case .character("<"): state.mutate { $0.adjustInterval(.slower) }
+                case .character(">"): state.mutate { $0.adjustInterval(.faster) }
+                case .space: state.mutate { $0.toggleFreeze() }
                 case .character("-"): state.mutate { $0.adjustDetails(by: -5) }
                 case .character("+"): state.mutate { $0.adjustDetails(by: 5) }
                 case .character("0"): state.mutate { $0.minimizeDetails() }
@@ -202,7 +209,8 @@ private struct TerminalReportView: View {
         }
         .task {
             do {
-                try await source({ await container.state.thresholds }) { snapshot in
+                try await source({ await container.state.thresholds }, { await container.state.interval }) {
+                    snapshot in
                     _ = await MainActor.run { container.mutate { $0.receive(snapshot) } }
                 }
             } catch is CancellationError {

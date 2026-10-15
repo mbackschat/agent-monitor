@@ -23,7 +23,7 @@ struct Options: ParsableArguments {
     @Flag(
         name: [.long, .customLong("tui", withSingleDash: true)],
         help:
-            "Live terminal report. Keys: arrows select; Enter details; g group; k confirm SIGTERM; s message Codex (root by default) or Claude Code session; f focus the session's terminal (Terminal.app tab; other apps only come to the front); 1/2 lower/raise CPU by 10 percentage points; 3/4 lower/raise footprint by 1 GB; c/m/p sort CPU/memory/PID; r reverse; [/] scroll details; -/+ shrink/grow details by 5 percentage points (10-90%); 0 minimize; 9 maximize; = restore the chosen split (initially 50%); q quits. Requires an interactive terminal."
+            "Live terminal report. Keys: arrows select; Enter details; g group; k confirm SIGTERM; s message Codex (root by default) or Claude Code session; f focus the session's terminal (Terminal.app tab; other apps only come to the front); </> update less/more often (0.5-60 s); space freezes the view while sampling continues; 1/2 lower/raise CPU by 10 percentage points; 3/4 lower/raise footprint by 1 GB; c/m/p sort CPU/memory/PID; r reverse; [/] scroll details; -/+ shrink/grow details by 5 percentage points (10-90%); 0 minimize; 9 maximize; = restore the chosen split (initially 50%); q quits. Requires an interactive terminal."
     )
     var tui = false
 
