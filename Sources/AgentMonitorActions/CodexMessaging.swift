@@ -29,7 +29,7 @@ public struct CodexMessaging: AgentMessaging {
         _ = try socket.request(
             "initialize",
             params: [
-                "clientInfo": ["name": "agent_monitor", "version": "0.1.0"]
+                "clientInfo": ["name": "agent_monitor", "version": AgentMonitorVersion.current]
             ])
         try socket.notify("initialized")
         let selected = try read(thread, using: socket)

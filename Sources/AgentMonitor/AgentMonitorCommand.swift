@@ -25,7 +25,7 @@ struct AgentMonitorCommand: AsyncParsableCommand {
               agent-monitor --all-processes --cpu 40 --memory-gb 0.5
               agent-monitor message --pid 42001 --text "Why is this so busy?"
             """,
-        version: "0.1.0",
+        version: AgentMonitorVersion.current,
         subcommands: [KillCommand.self, MessageCommand.self, FocusCommand.self]
     )
 

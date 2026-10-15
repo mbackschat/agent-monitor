@@ -1,6 +1,6 @@
 # TUI process and session actions
 
-Checked 2026-10-14 against installed Codex CLI 0.162.1, Claude Code 2.1.299, and the official documentation below. The feasibility study originally proposed the behavior below; confirmed SIGTERM and Codex queued messaging are now implemented in the source checkout. See [current usage and limits](../usage.md#process-actions-unreleased) and [architecture](../architecture.md#process-and-session-actions). Live delivery remains untested; validation uses fake provider transports and disposable processes, never user workloads.
+Checked 2026-10-14 against installed Codex CLI 0.162.1, Claude Code 2.1.299, and the official documentation below. The feasibility study originally proposed the behavior below; confirmed SIGTERM and Codex queued messaging are now implemented in the source checkout. See [current usage and limits](../usage.md#process-actions) and [architecture](../architecture.md#process-and-session-actions). Live delivery remains untested; validation uses fake provider transports and disposable processes, never user workloads.
 
 ## Terminate the selected process
 

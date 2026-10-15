@@ -20,6 +20,8 @@ func codexHandshakeReadsSummaryAndQueuesLiteralArguments(mode: String) throws {
     try fixture.client.send(message, to: root, for: target(selected))
     let calls = try fixture.calls()
     #expect(calls.contains { $0.contains("\"includeTurns\": false") })
+    // The handshake names the same release as `agent-monitor --version`.
+    #expect(calls.contains { $0.contains("\"version\": \"\(AgentMonitorVersion.current)\"") })
     let arguments = try #require(calls.last)
     let array = try #require(JSONSerialization.jsonObject(with: Data(arguments.utf8)) as? [String])
     #expect(array == ["queue", "--remote", "unix://", "--thread", root, "--message", message])

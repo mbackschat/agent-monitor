@@ -16,15 +16,15 @@ agent-monitor --tui --group session
 | ↑ / ↓ | Select a row |
 | Enter | Expand/collapse a session or open/close process details |
 | `g` | Toggle session grouping |
-| `k` | Review SIGTERM for the selected process (unreleased) |
-| `s` | Compose a message to a verified Codex or Claude Code recipient (unreleased) |
-| `f` | Bring the terminal hosting the selected process's or group's agent session to the front (unreleased) |
+| `k` | Review SIGTERM for the selected process |
+| `s` | Compose a message to a verified Codex or Claude Code recipient |
+| `f` | Bring the terminal hosting the selected process's or group's agent session to the front |
 | `c` / `m` / `p` | Sort by CPU, memory footprint, or PID |
 | `r` | Reverse the sort direction |
 | `1` / `2` | Lower/raise the CPU threshold by 10 percentage points |
 | `3` / `4` | Lower/raise the memory threshold by 1 decimal GB |
-| `<` / `>` | Update less/more often: 0.5, 1, 2, 5, 10, 30 or 60 seconds, applied at once (unreleased) |
-| Space | Freeze/unfreeze the view; sampling continues and unfreezing shows the latest data (unreleased) |
+| `<` / `>` | Update less/more often: 0.5, 1, 2, 5, 10, 30 or 60 seconds, applied at once |
+| Space | Freeze/unfreeze the view; sampling continues and unfreezing shows the latest data |
 | `[` / `]` | Scroll process details |
 | `-` / `+` | Shrink/grow the details pane by 5 percentage points |
 | `0` / `9` | Minimize/maximize the details pane |
@@ -37,9 +37,9 @@ The layout adapts to terminal size. Narrow views abbreviate names and session ID
 
 To copy text, drag-select it and use your terminal's Copy command (usually Command-C on macOS). Navigation is keyboard-driven; mouse selection belongs to the terminal. Whether selection survives a refresh depends on your terminal.
 
-## Process actions (unreleased)
+## Process actions
 
-These controls are available in the current source checkout, not the v0.1.0 release/Homebrew package. Expand a session group and select an individual process before terminating or messaging; focus also works on a group. Opening a confirmation freezes its process identity: subsequent sorting, refreshes, and filter changes cannot retarget it.
+These controls are available from release 0.2.0. Expand a session group and select an individual process before terminating or messaging; focus also works on a group. Opening a confirmation freezes its process identity: subsequent sorting, refreshes, and filter changes cannot retarget it.
 
 **Terminate:** press `k`, inspect the PID, executable and session, then press Ctrl-Y to send SIGTERM. Esc cancels. Only the selected process is signaled, including when you explicitly select an agent runtime; children and process groups are not signaled automatically. SIGKILL is not offered. The process must still have the same PID, start time and executable and belong to your user. macOS identity checks and PID-based signaling are not atomic, so a small race remains. “SIGTERM accepted” does not mean the process exited.
 

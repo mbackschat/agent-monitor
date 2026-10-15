@@ -95,7 +95,7 @@ Terminal focus is adapter based. `TerminalFocus` reads the runtime's current con
 
 The `kill`, `message` and `focus` subcommands reuse `ProcessActions` through `ActionRunner` in the CLI target. `NativeActions.process(pid:)` replaces row selection: it observes the PID's current lifetime and attribution, independently of thresholds, and that observation is the frozen identity the actions recheck. Confirmation is a `[y/N]` prompt on an interactive stdin, or `--yes`. `ActionFailure.uncertain` marks a request that may have been accepted; the CLI exits with status 2 and the TUI shows it as a warning instead of a failure.
 
-The UI requires a separate Ctrl-Y confirmation for SIGTERM and reviewed messages. Bracketed paste enters only the composer text path. Small viewports cannot confirm hidden actions. Drafts survive report refreshes without following selection; results distinguish accepted signals/queues from confirmed exit or delivery. General provider/plugin registration remains excluded. See [usage](usage.md#process-actions-unreleased) for the public contract and [feasibility research](research/session-actions.md) for provider evidence.
+The UI requires a separate Ctrl-Y confirmation for SIGTERM and reviewed messages. Bracketed paste enters only the composer text path. Small viewports cannot confirm hidden actions. Drafts survive report refreshes without following selection; results distinguish accepted signals/queues from confirmed exit or delivery. General provider/plugin registration remains excluded. See [usage](usage.md#process-actions) for the public contract and [feasibility research](research/session-actions.md) for provider evidence.
 
 ## Proposed agent adapter boundary
 

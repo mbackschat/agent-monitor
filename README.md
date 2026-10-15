@@ -16,7 +16,7 @@ When several coding agents are running, a busy `node`, `java`, or `python` proce
 - **Session grouping** — bring related heavy processes together and see their combined resource usage.
 - **Adjustable filters** — change CPU and memory thresholds while the monitor runs.
 - **Responsive layout** — use narrow or wide terminals, resize the details pane, and copy text with normal terminal selection.
-- **Process actions (unreleased)** — confirm termination of one process or queue a message to its verified Codex agent.
+- **Process actions** — confirm termination of one process, message its verified Codex or Claude Code session, or bring the session's terminal to the front, from the TUI or the command line.
 - **Scriptable output** — print a report or stream JSONL to other tools.
 - **Explicit uncertainty** — unknown or ambiguous sessions stay visible instead of being guessed.
 
@@ -46,17 +46,15 @@ Switch between individual processes and session groups to see which agent launch
 
 *Illustrative process view with details open. The text comes from the real layout renderer using entirely synthetic data; terminal colors and window decoration are illustrative. Press `g` to switch between this view and session groups.*
 
-The preview reflects the current source checkout; process actions are not included in the published v0.1.0/Homebrew package yet.
-
-Use **↑ / ↓** to select, **Enter** to expand a session or inspect a process, **g** to toggle grouping, and **q** to quit. The controls and current filters are shown in the terminal.
+Use **↑ / ↓** to select, **Enter** to expand a session or inspect a process, **g** to toggle grouping, **< / >** to update less or more often, **Space** to freeze the view, and **q** to quit. The controls and current filters are shown in the terminal.
 
 By default, the monitor shows agent-associated processes exceeding **25% CPU or 1 GB memory footprint**. If the list is empty, press **1** to lower the CPU threshold or **3** to lower the memory threshold. CPU at 100% means one fully occupied core.
 
-## Process actions (unreleased)
+## Process actions
 
-In a build from the current source, select a process and press **k** to review a termination request or **s** to compose a message to its Codex or Claude Code session, or **f** to bring the session's terminal to the front. **Ctrl-Y** confirms the reviewed action; **Esc** cancels or returns to editing. Termination sends SIGTERM to that process only.
+Select a process and press **k** to review a termination request or **s** to compose a message to its Codex or Claude Code session, or **f** to bring the session's terminal to the front. **Ctrl-Y** confirms the reviewed action; **Esc** cancels or returns to editing. Termination sends SIGTERM to that process only.
 
-The monitor automatically includes the selected workload's PID and name, then shows the exact message before sending. Codex messages default to the verified **root agent**; **Tab** can select the attributed agent when it is distinct and reachable. Codex CLI must be on PATH with the session loaded on its default local app server; standalone Codex sessions and remote/custom app servers are not supported. Claude Code messages go to the attributed session's local inbox; Claude Code 2.1.224 or later must be on PATH, and the session may hold or refuse messages from other processes under its own settings. Acceptance does not confirm delivery or action. Focus selects the session's tab in Terminal.app; other terminal apps are only brought to the front, and macOS asks once for Automation permission. See [action controls and limits](docs/usage.md#process-actions-unreleased).
+The monitor automatically includes the selected workload's PID and name, then shows the exact message before sending. Codex messages default to the verified **root agent**; **Tab** can select the attributed agent when it is distinct and reachable. Codex CLI must be on PATH with the session loaded on its default local app server; standalone Codex sessions and remote/custom app servers are not supported. Claude Code messages go to the attributed session's local inbox; Claude Code 2.1.224 or later must be on PATH, and the session may hold or refuse messages from other processes under its own settings. Acceptance does not confirm delivery or action. Focus selects the session's tab in Terminal.app; other terminal apps are only brought to the front, and macOS asks once for Automation permission. See [action controls and limits](docs/usage.md#process-actions).
 
 ## More ways to run
 
@@ -122,7 +120,7 @@ Codex CLI and Claude Code are built in today. The planned adapter approach will 
 - **Inspect sessions (optional):** provide additional session information or agent-specific metrics, such as token usage, when available.
 - **Communicate (optional):** expose supported messaging capabilities for a verified session recipient.
 
-CPU and memory measurement stay in the shared monitoring core. The current source has a small, separate messaging capability used by Codex. Attribution adapters and an external plugin protocol remain design work; **there is no third-party plugin API**. The published v0.1.0 package does not include the new action controls. See the [adapter design](docs/architecture.md#proposed-agent-adapter-boundary) for the proposed boundaries.
+CPU and memory measurement stay in the shared monitoring core. A small, separate messaging capability serves Codex and Claude Code. Attribution adapters and an external plugin protocol remain design work; **there is no third-party plugin API**. See the [adapter design](docs/architecture.md#proposed-agent-adapter-boundary) for the proposed boundaries.
 
 ## Documentation and contributing
 

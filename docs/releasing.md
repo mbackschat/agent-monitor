@@ -2,11 +2,11 @@
 
 ## Build and verify
 
-Release v0.1.0 targets Apple Silicon and macOS 27. Use Xcode 27 with Swift 6.4. Before packaging, run the tests and formatting checks in the [development guide](development.md#build-and-verify).
+Releases target Apple Silicon and macOS 27. Use Xcode 27 with Swift 6.4. Before packaging, run the tests and formatting checks in the [development guide](development.md#build-and-verify).
 
 The first publication also requires an owner-selected project license and a review of every commit being pushed for private validation identifiers. The packaging script requires the root `LICENSE`; dependency licenses do not license this project's code.
 
-The CLI version lives in `AgentMonitorCommand.configuration`. Update it and the version behavior test together for a new release. The tag and archive version must match the executable's `--version` output.
+The release version lives in `AgentMonitorVersion.current` (`Sources/AgentMonitorCore/Version.swift`) and feeds both `--version` and the Codex handshake. Update it and the version behavior test together for a new release. The tag and archive version must match the executable's `--version` output.
 
 ```sh
 swift build -c release -debug-info-format none
