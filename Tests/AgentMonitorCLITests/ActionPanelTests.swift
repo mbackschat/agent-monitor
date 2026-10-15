@@ -170,3 +170,39 @@ func actionResultsAreColoredByOutcome(result: ActionResult, style: ReportLine.St
     let lines = LiveReportLayout.lines(state: state, width: 200, height: 24)
     #expect(lines.contains { $0.style == style && result.text.contains($0.text) })
 }
+
+private func sessionRow(_ pid: Int32, runtime: Int32?) throws -> HeavyProcess {
+    let runtimeJSON = runtime.map { #","runtime":{"pid":\#($0),"startMicroseconds":1}"# } ?? ""
+    return try JSONDecoder().decode(
+        HeavyProcess.self,
+        from: Data(
+            """
+            {"process":{"pid":\(pid),"startMicroseconds":1},"executable":"/fixture/worker","name":"worker",
+            "metadataStatus":"markerRead","attribution":{"provider":"claude","evidence":"marker",
+            "context":"terminal","threadID":"11111111-1111-4111-8111-111111111111"\(runtimeJSON),
+            "candidateThreadIDs":[],"ancestry":[]}}
+            """.utf8))
+}
+
+// A launch group identifies one session, which is all focus needs; k and s keep requiring a process.
+@Test func focusOnACollapsedGroupTargetsItsOneRuntime() throws {
+    var state = LiveReportState(grouping: .session)
+    let rows = [try sessionRow(42, runtime: nil), try sessionRow(43, runtime: 700)]
+    state.receive(panelSnapshot(rows))
+    #expect(state.selectedGroup != nil)
+    #expect(state.beginAction(.terminate) == nil)
+    #expect(state.actionPanel == nil)
+    #expect(state.beginAction(.focus) == .focus(rows[1]))
+    #expect(state.actionPanel?.phase == .focusing)
+}
+
+@Test(arguments: [[Int32?.none, nil], [700, 701]])
+func focusOnAGroupWithoutOneRuntimeExplains(runtimes: [Int32?]) throws {
+    var state = LiveReportState(grouping: .session)
+    state.receive(
+        panelSnapshot(
+            try runtimes.enumerated().map { try sessionRow(Int32(42 + $0.offset), runtime: $0.element) }))
+    #expect(state.beginAction(.focus) == nil)
+    #expect(state.actionPanel == nil)
+    #expect(state.notice?.contains("runtime") == true)
+}

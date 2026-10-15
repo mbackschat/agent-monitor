@@ -225,6 +225,9 @@ public struct ActionPanel: Equatable, Sendable {
 extension LiveReportState {
     public mutating func beginAction(_ kind: ProcessActionKind) -> ActionEffect? {
         guard actionPanel == nil else { return nil }
+        if case .focus = kind, let group = selectedGroup.flatMap({ id in groups.first { $0.id == id } }) {
+            return beginFocus(on: group)
+        }
         guard let row = rows.first(where: { $0.process == selected }) else {
             setActionNotice("Expand a group and select a process first.")
             return nil
@@ -240,6 +243,22 @@ extension LiveReportState {
             actionPanel = ActionPanel(process: row, phase: .focusing)
             return .focus(row)
         }
+    }
+
+    /// A launch group names one session, which is all focus needs: it targets the group's runtime
+    /// when its processes agree on exactly one.
+    private mutating func beginFocus(on group: SessionGroup) -> ActionEffect? {
+        let runtimes = Set(group.processes.compactMap(\.attribution.runtime))
+        guard runtimes.count == 1, let row = group.processes.first(where: { $0.attribution.runtime != nil })
+        else {
+            setActionNotice(
+                runtimes.isEmpty
+                    ? "This group has no live agent runtime to focus."
+                    : "This group spans several runtimes; expand it and select a process.")
+            return nil
+        }
+        actionPanel = ActionPanel(process: row, phase: .focusing)
+        return .focus(row)
     }
 
     public mutating func actionInput(_ input: ActionInput) -> ActionEffect? {
