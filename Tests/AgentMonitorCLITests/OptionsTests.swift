@@ -10,7 +10,7 @@ import Testing
         Issue.record("Expected the version request to exit before monitoring")
     } catch {
         #expect(AgentMonitorCommand.exitCode(for: error) == .success)
-        #expect(AgentMonitorCommand.message(for: error) == "0.2.1")
+        #expect(AgentMonitorCommand.message(for: error) == "0.2.2")
     }
     #expect(AgentMonitorCommand.helpMessage().contains("--version"))
 }
