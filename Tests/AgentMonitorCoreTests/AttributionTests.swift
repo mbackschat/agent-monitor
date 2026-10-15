@@ -383,3 +383,97 @@ func nestedAgentWorkloadBelongsToTheNearestRuntime(inner: String, provider: Agen
     #expect(reads == [20, 10])
     #expect(monitor.finding(for: workload.identity)?.attribution.runtime == runtime.identity)
 }
+
+@Test(arguments: [false, true])
+func detachedCodexWorkloadRejoinsItsExactThreadWriter(inherited: Bool) throws {
+    let runtime = sample(10, executable: "/opt/bin/codex", terminal: "ttys010", memory: 1)
+    let other = sample(15, executable: "/opt/bin/codex", terminal: "ttys011", memory: 1)
+    let marked = sample(20, memory: 1)
+    let workload = inherited ? sample(30, parent: 20) : marked
+    var monitor = Monitor()
+    monitor.ingest(inherited ? [runtime, other, marked, workload] : [runtime, other, workload])
+    var reads: [ProcessIdentity] = []
+    monitor.enrich(for: [workload.identity]) { target in
+        reads.append(target.identity)
+        return switch target.identity {
+        case marked.identity:
+            ProcessMetadata(
+                markers: [SessionMarker(threadID: sessionB, rootSessionID: sessionA, provider: .codex)],
+                cwd: "/same")
+        case runtime.identity:
+            ProcessMetadata(cwd: "/same", writerThreadIDs: [sessionA, sessionB])
+        case other.identity:
+            ProcessMetadata(cwd: "/same", writerThreadIDs: [sessionA])
+        default: ProcessMetadata(status: .unavailable)
+        }
+    }
+    let row = try #require(monitor.finding(for: workload.identity))
+    #expect(row.attribution.runtime == runtime.identity)
+    #expect(row.attribution.terminal == "ttys010")
+    #expect(row.attribution.context == .terminal)
+    #expect(row.attribution.threadID == sessionB)
+    #expect(row.attribution.rootSessionID == sessionA)
+    #expect(row.attribution.evidence == (inherited ? .inheritedMarker : .marker))
+    #expect(Set(reads) == Set([runtime, other, marked, workload].map(\.identity)))
+    #expect(reads.count == Set(reads).count)
+}
+
+enum DetachedCodexMismatch: CaseIterable {
+    case laterRuntime, rootOnly, duplicateWriters, wrongProvider, missingLock
+}
+
+@Test(arguments: DetachedCodexMismatch.allCases)
+func detachedCodexWorkloadRequiresOneExistingExactThreadWriter(mismatch: DetachedCodexMismatch) throws {
+    let runtime = sample(
+        10, start: mismatch == .laterRuntime ? 25 : 10,
+        executable: mismatch == .wrongProvider ? "/opt/bin/claude" : "/opt/bin/codex", memory: 1)
+    let other = sample(15, executable: "/opt/bin/codex", memory: 1)
+    let marked = sample(20, memory: 1)
+    let workload = sample(30, parent: 20)
+    var monitor = Monitor()
+    monitor.ingest([runtime, other, marked, workload])
+    monitor.enrich(
+        ProcessMetadata(markers: [
+            SessionMarker(threadID: sessionB, rootSessionID: sessionA, provider: .codex)
+        ]),
+        for: marked.identity)
+    let locks: [String]
+    switch mismatch {
+    case .missingLock: locks = []
+    case .rootOnly: locks = [sessionA]
+    default: locks = [sessionB]
+    }
+    monitor.enrich(ProcessMetadata(writerThreadIDs: locks), for: runtime.identity)
+    monitor.enrich(
+        ProcessMetadata(writerThreadIDs: mismatch == .duplicateWriters ? [sessionB] : []), for: other.identity
+    )
+    let row = try #require(monitor.finding(for: workload.identity))
+    #expect(row.attribution.runtime == nil)
+    #expect(row.attribution.context == .unverified)
+    #expect(row.attribution.threadID == sessionB)
+    #expect(row.attribution.evidence == .inheritedMarker)
+}
+
+@Test func detachedRuntimeCandidatesAreRefreshedEvenAfterAMatch() throws {
+    let runtime = sample(10, executable: "/opt/bin/codex", memory: 1)
+    let other = sample(15, executable: "/opt/bin/codex", memory: 1)
+    let workload = sample(20)
+    var monitor = Monitor()
+    monitor.ingest([runtime, other, workload])
+    let marker = ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)])
+    monitor.enrich(for: [workload.identity]) { target in
+        switch target.identity {
+        case workload.identity: marker
+        case runtime.identity: ProcessMetadata(writerThreadIDs: [sessionA])
+        default: ProcessMetadata()
+        }
+    }
+    #expect(monitor.finding(for: workload.identity)?.attribution.runtime == runtime.identity)
+    var reads: Set<ProcessIdentity> = []
+    monitor.enrich(for: [workload.identity]) { target in
+        reads.insert(target.identity)
+        return target.identity == workload.identity ? marker : ProcessMetadata(writerThreadIDs: [sessionA])
+    }
+    #expect(reads == Set([runtime, other, workload].map(\.identity)))
+    #expect(monitor.finding(for: workload.identity)?.attribution.runtime == nil)
+}

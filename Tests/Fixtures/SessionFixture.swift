@@ -21,7 +21,7 @@ if mode == "root" {
     let worker = Process()
     worker.executableURL = URL(fileURLWithPath: args[0]).deletingLastPathComponent().appendingPathComponent(
         "worker")
-    worker.arguments = ["worker", session, ready, behavior]
+    worker.arguments = [behavior == "detached-shell" ? "shell" : "worker", session, ready, behavior]
     var environment = ProcessInfo.processInfo.environment.filter {
         !$0.key.hasPrefix("CODEX_") && !$0.key.hasPrefix("CLAUDE_CODE_")
     }
@@ -41,9 +41,28 @@ if mode == "root" {
         exit(0)
     }
     worker.waitUntilExit()
+    if behavior == "detached-shell" {
+        try Data().write(to: URL(fileURLWithPath: ready + ".shell-exited"))
+        let deadline = Date().addingTimeInterval(20)
+        while !FileManager.default.fileExists(atPath: ready + ".done"), Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+    }
     try handle.close()
+} else if mode == "shell" {
+    let worker = Process()
+    worker.executableURL = URL(fileURLWithPath: args[0])
+    worker.arguments = ["worker", session, ready, behavior]
+    try worker.run()
 } else {
     if behavior == "orphan" { _ = setsid() }
+    if behavior == "detached-shell" {
+        let deadline = Date().addingTimeInterval(5)
+        while getppid() != 1, Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        guard getppid() == 1 else { exit(4) }
+    }
     let allocation = behavior == "small" ? 4096 : 32 * 1024 * 1024
     let memory = UnsafeMutableRawPointer.allocate(byteCount: allocation, alignment: 4096)
     defer { memory.deallocate() }

@@ -59,7 +59,7 @@ public struct Monitor: Sendable {
     }
 
     /// Reads metadata for the processes, their ancestry and, in a second pass, the runtimes a
-    /// detached Claude marker points to, which are only known once the marker has been read.
+    /// detached session marker points to, which are only known once the marker has been read.
     /// Each process is read once.
     public mutating func enrich(
         for identities: [ProcessIdentity], using metadata: (ProcessSample) -> ProcessMetadata
@@ -82,17 +82,15 @@ public struct Monitor: Sendable {
         enrichmentTargets(for: heavyIdentities(thresholds: thresholds))
     }
 
-    /// Ancestry chains, plus the runtimes a detached Claude marker may point to. Those candidates
+    /// Ancestry chains, plus the runtimes a detached session marker may point to. Those candidates
     /// appear only once the marker has been read, so callers enrich in a second pass.
     public func enrichmentTargets(for identities: some Sequence<ProcessIdentity>) -> [ProcessSample] {
         var targets: Set<ProcessIdentity> = []
         for identity in identities {
             targets.formUnion(chain(from: identity))
-            let resolved = resolve(identity)
-            if resolved.attribution.runtime == nil, let marker = resolved.marker,
-                let owner = resolved.markerOwner
-            {
-                targets.formUnion(inboxCandidates(marker, owner: owner))
+            let walk = walk(from: identity)
+            if walk.runtime == nil, let marker = walk.marker, let owner = walk.markerOwner {
+                targets.formUnion(detachedRuntimeCandidates(marker, owner: owner))
             }
         }
         return targets.intersection(live).compactMap { nodes[$0]?.sample }
@@ -152,12 +150,18 @@ public struct Monitor: Sendable {
         return path
     }
 
-    /// Live Claude runtimes that existed when the marker's process inherited it; a later start
-    /// means a reused PID and therefore possibly a reused socket name.
-    private func inboxCandidates(_ marker: SessionMarker, owner: ProcessIdentity) -> [ProcessIdentity] {
-        guard marker.provider == .claude, marker.inboxSocket != nil else { return [] }
+    /// A later runtime cannot explain launch origin, even if it resumed the same thread or
+    /// reused an inbox path; see docs/architecture.md, attribution evidence and inspection scope.
+    private func detachedRuntimeCandidates(_ marker: SessionMarker, owner: ProcessIdentity)
+        -> [ProcessIdentity]
+    {
+        switch marker.provider {
+        case .claude where marker.inboxSocket == nil: return []
+        case .claude, .codex: break
+        }
         return live.filter {
-            nodes[$0]?.sample.runtimeProvider == .claude && $0.startMicroseconds <= owner.startMicroseconds
+            nodes[$0]?.sample.runtimeProvider == marker.provider
+                && $0.startMicroseconds <= owner.startMicroseconds
         }
     }
 
@@ -175,7 +179,7 @@ public struct Monitor: Sendable {
     ) {
         var walk = self.walk(from: identity)
         if walk.runtime == nil, let marker = walk.marker, let owner = walk.markerOwner {
-            walk.runtime = inboxRuntime(for: marker, owner: owner)
+            walk.runtime = detachedRuntime(for: marker, owner: owner)
         }
         let runtime = walk.runtime
         let candidates = Array(Set(runtime?.metadata.writerThreadIDs ?? [])).sorted()
@@ -227,12 +231,16 @@ public struct Monitor: Sendable {
         return walk
     }
 
-    /// A detached workload keeps the inbox path its runtime exported (docs/research/
-    /// claude-session-messaging.md); the one live runtime still listening on it launched it.
-    private func inboxRuntime(for marker: SessionMarker, owner: ProcessIdentity) -> Node? {
-        guard let inbox = marker.inboxSocket else { return nil }
-        let owners = inboxCandidates(marker, owner: owner).compactMap { nodes[$0] }
-            .filter { $0.metadata.listeningSockets.contains(inbox) }
+    /// Markers bridge lost ancestry through exact thread writer descriptors or inbox listeners;
+    /// see docs/research/codex-terminal-attribution.md and claude-session-messaging.md.
+    private func detachedRuntime(for marker: SessionMarker, owner: ProcessIdentity) -> Node? {
+        let owners = detachedRuntimeCandidates(marker, owner: owner).compactMap { nodes[$0] }
+            .filter { node in
+                switch marker.provider {
+                case .codex: node.metadata.writerThreadIDs.contains(marker.threadID)
+                case .claude: marker.inboxSocket.map { node.metadata.listeningSockets.contains($0) } == true
+                }
+            }
         return owners.count == 1 ? owners[0] : nil
     }
 

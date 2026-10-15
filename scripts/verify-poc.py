@@ -48,7 +48,7 @@ def main():
         shutil.copy2(binary, scratch / "claude")
         roots, ready_files, terminals, ledger = [], [], [], {}
         try:
-            for index, behavior in enumerate(["normal", "normal", "scrubbed", "orphan", "small", "cpu", "claude"], start=1):
+            for index, behavior in enumerate(["normal", "normal", "scrubbed", "orphan", "small", "cpu", "claude", "detached-shell"], start=1):
                 session = f"{index:08d}-1111-4111-8111-111111111111"
                 ready = scratch / f"ready-{index}"
                 master, slave = os.openpty()
@@ -69,6 +69,11 @@ def main():
                 ready_files.append(ready)
                 if behavior == "orphan":
                     check(root.wait(timeout=5) == 0, "Orphan fixture launcher failed")
+                if behavior == "detached-shell":
+                    deadline = time.monotonic() + 5
+                    while not Path(str(ready) + ".shell-exited").exists() and time.monotonic() < deadline:
+                        time.sleep(0.02)
+                    check(Path(str(ready) + ".shell-exited").exists(), "Intermediate shell did not exit")
                 ledger[pid] = (session, behavior, root.pid)
 
             result = subprocess.run([
@@ -92,13 +97,15 @@ def main():
                     check(attribution["context"] == "terminal", "Terminal context missing")
                 if behavior == "scrubbed":
                     check(attribution["evidence"] == "writerLock", "Writer-lock fallback was not exercised")
-                if behavior == "orphan":
+                if behavior in ("orphan", "detached-shell"):
                     check(attribution["evidence"] == "marker", "Detached marker attribution was not exercised")
+                if behavior == "orphan":
+                    check("runtime" not in attribution, "Exited runtime should remain unavailable")
                 if behavior == "cpu":
                     check(20 < row["cpuPercent"] < 120, "CPU normalization or threshold detection failed")
                 check("command" not in row, "Arguments should not be retained by default")
-            print("PASS: 6 heavy workers mapped to exact Codex/Claude sessions; low-load worker excluded.")
-            print("PASS: same-directory sessions, terminal roots, writer-lock fallback, orphan markers, CPU and footprint.")
+            print("PASS: 7 heavy workers mapped to exact Codex/Claude sessions; low-load worker excluded.")
+            print("PASS: same-directory sessions, terminal roots, writer-lock fallback, exited shells, orphan markers, CPU and footprint.")
         finally:
             # A private stop file avoids signaling detached workers by recyclable PID.
             (scratch / "stop").touch()
