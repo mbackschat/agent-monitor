@@ -30,3 +30,23 @@ import Testing
         #expect(json.contains(candidate))
     }
 }
+
+@Test(arguments: [
+    (AgentProvider?.some(.codex), "Codex launch session"), (.claude, "Claude Code launch session"),
+    (nil, "Agent launch session"),
+])
+func textReportNamesTheProvider(provider: AgentProvider?, label: String) {
+    let identity = ProcessIdentity(pid: 42, startMicroseconds: 1)
+    let row = HeavyProcess(
+        process: identity, executable: "/opt/bin/worker", name: "worker", cpuPercent: 1,
+        footprintBytes: 2_000_000_000, cwd: nil, command: nil, metadataStatus: .markerRead,
+        attribution: Attribution(
+            provider: provider, evidence: .marker, context: .terminal,
+            threadID: "11111111-1111-4111-8111-111111111111", rootSessionID: nil, runtime: nil, terminal: nil,
+            runtimeDirectory: nil, candidateThreadIDs: [], ancestry: [identity]))
+    let report = MonitoringSnapshot(
+        timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1, cpuThresholdPercent: 25,
+        memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 1, unreadableProcessCount: 0,
+        findings: [row])
+    #expect(TextReport.render(report).contains(label))
+}

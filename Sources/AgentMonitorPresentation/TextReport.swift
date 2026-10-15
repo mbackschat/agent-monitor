@@ -35,7 +35,12 @@ public enum TextReport {
     private static func processLines(_ row: HeavyProcess) -> [String] {
         var lines: [String] = []
         let owner = row.attribution
-        let provider = owner.provider.map { $0 == .codex ? "Codex" : "Claude Code" } ?? "Agent"
+        let provider =
+            switch owner.provider {
+            case .codex: "Codex"
+            case .claude: "Claude Code"
+            case nil: "Agent"
+            }
         let cpu = row.cpuPercent.map { "\(number($0))%" } ?? "unavailable"
         let memory = row.footprintBytes.map { "\(number(Double($0) / 1e9)) GB" } ?? "unavailable"
         lines.append("")
