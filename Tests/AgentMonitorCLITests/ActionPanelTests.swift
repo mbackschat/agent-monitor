@@ -34,7 +34,8 @@ import Testing
     #expect(state.actionInput(.review) == nil)
     #expect(state.actionPanel?.recipient?.id == "root")
     #expect(state.actionInput(.text("y")) == nil)
-    #expect(state.actionInput(.confirm) == .send(draft, "q\nkill it?", "root"))
+    let prepared = try #require(state.actionPanel?.draft)
+    #expect(state.actionInput(.confirm) == .send(prepared, "q\nkill it?", "root"))
 }
 
 @Test(arguments: [40, 60, 120, 200])
@@ -236,4 +237,20 @@ func focusOnAGroupWithoutOneRuntimeExplains(runtimes: [Int32?]) throws {
         MessageDraft(process: row, recipients: MessageRecipients(root: recipient, selected: recipient)))
     _ = state.actionInput(.text(String(repeating: "x", count: MessageDraft.maximumLength + 10)))
     #expect(state.actionPanel?.text.count == MessageDraft.maximumLength)
+}
+
+@Test func messageObservationRemainsTheSelectedSampleWhilePreparationReceivesNewReports() throws {
+    var state = LiveReportState()
+    let row = try panelRow(42)
+    state.receive(panelSnapshot([row]))
+    _ = state.beginAction(.message)
+    state.receive(
+        MonitoringSnapshot(
+            timestamp: Date(timeIntervalSince1970: 60), intervalSeconds: 1,
+            cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
+            sampledProcessCount: 1, unreadableProcessCount: 0, findings: [row]))
+    let recipient = AgentRecipient(id: "root", label: "Root agent")
+    state.messagePrepared(
+        MessageDraft(process: row, recipients: MessageRecipients(root: recipient, selected: recipient)))
+    #expect(state.actionPanel?.draft?.sampledAt == Date(timeIntervalSince1970: 0))
 }

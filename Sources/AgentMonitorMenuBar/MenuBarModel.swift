@@ -22,6 +22,7 @@ final class MenuBarModel {
     private(set) var error: String?
     private(set) var lastActionResult: ActionResult?
     private(set) var savedMessage: SavedMessage?
+    private(set) var messageCopyStatus: String?
     private(set) var liveIcon = true
     private(set) var indicator = MenuBarIndicator()
     @ObservationIgnored var onIndicatorChange: (() -> Void)?
@@ -113,11 +114,13 @@ final class MenuBarModel {
             case .compose, .review:
                 if !panel.text.isEmpty {
                     savedMessage = SavedMessage(
-                        process: panel.process, text: panel.text, recipientID: panel.recipient?.id)
+                        process: panel.process, sampledAt: panel.sampledAt,
+                        text: panel.text, recipientID: panel.recipient?.id)
                 }
             default: break
             }
         }
+        messageCopyStatus = nil
         isOpen = false
         generation = UUID()
         if liveIcon { liveInterval.set(samplingInterval) } else { cancelCollection() }
@@ -284,7 +287,7 @@ final class MenuBarModel {
 
     func resumeMessage() {
         guard isOpen, report.actionPanel == nil, let savedMessage else { return }
-        perform(report.beginMessage(for: savedMessage.process))
+        perform(report.beginMessage(for: savedMessage.process, sampledAt: savedMessage.sampledAt))
     }
 
     func discardMessage() {
@@ -294,13 +297,27 @@ final class MenuBarModel {
 
     func input(_ input: ActionInput) {
         guard isOpen else { return }
+        messageCopyStatus = nil
         perform(report.actionInput(input))
     }
 
     func setMessage(_ text: String) {
         guard report.actionPanel?.phase == .compose else { return }
+        messageCopyStatus = nil
         report.actionPanel?.text = ""
         _ = report.actionInput(.text(text))
+    }
+
+    @discardableResult
+    func copyMessage(using write: @MainActor (String) -> Bool = MenuBarClipboard.copy) -> Bool {
+        guard isOpen, let panel = report.actionPanel, let draft = panel.draft else { return false }
+        switch panel.phase {
+        case .compose, .review:
+            let copied = write(draft.message(panel.text))
+            messageCopyStatus = copied ? "Copied" : "Copy failed"
+            return copied
+        default: return false
+        }
     }
 
     private func perform(_ effect: ActionEffect?) {

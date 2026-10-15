@@ -10,13 +10,14 @@ private let rootID = "22222222-2222-4222-8222-222222222222"
 
 private func workload(
     start: UInt64 = 1, thread: String? = childID,
+    cpu: Double? = 80, memory: UInt64? = 2_000_000_000, name: String = "worker",
     provider: AgentProvider = .codex, root: String? = rootID,
     context: RuntimeContext = .terminal, evidence: AttributionEvidence? = nil,
     runtime: ProcessIdentity? = ProcessIdentity(pid: 700, startMicroseconds: 1)
 ) -> HeavyProcess {
     HeavyProcess(
         process: ProcessIdentity(pid: 701, startMicroseconds: start),
-        executable: "/fixture/worker", name: "worker", cpuPercent: 80, footprintBytes: 2_000_000_000,
+        executable: "/fixture/worker", name: name, cpuPercent: cpu, footprintBytes: memory,
         cwd: nil, command: nil, metadataStatus: .markerRead,
         attribution: Attribution(
             provider: provider, evidence: evidence ?? (thread == nil ? .ambiguous : .marker),
@@ -55,7 +56,10 @@ private func makeActions(
     let draft = try await actions.prepareMessage(for: workload())
     #expect(draft.recipients.root.id == rootID)
     let message = draft.message("Please investigate.")
-    #expect(message == "[Agent Monitor: selected process PID 701 (worker)]\nPlease investigate.")
+    #expect(
+        message
+            == "[Agent Monitor: selected process PID 701 (worker)]\nSample time: unavailable\nCPU: 80.0% (100% = one core)\nMemory footprint: 2.00 GB\n\nPlease investigate."
+    )
     try await actions.send(draft, text: "Please investigate.", recipient: rootID)
     #expect(provider.sent.withLock { $0 } == [rootID + "\n" + message])
 }
@@ -126,4 +130,29 @@ func snapshotEligibilityUsesTheExecutionPrerequisites(
 ) {
     #expect(SessionActions.canMessage(process) == message)
     #expect(SessionActions.canFocusTerminal(process) == focus)
+}
+
+@Test func preparedMessageIncludesFrozenResourcesAndTimestampWithoutChangingUserText() {
+    let recipient = AgentRecipient(id: rootID, label: "Root agent")
+    let draft = MessageDraft(
+        process: workload(name: "worker\nforged"),
+        recipients: MessageRecipients(root: recipient, selected: recipient),
+        sampledAt: Date(timeIntervalSince1970: 0))
+    #expect(draft.context.contains("worker�forged"))
+    #expect(draft.context.contains("Sample time: 1970-01-01T00:00:00Z"))
+    #expect(draft.context.contains("CPU: 80.0% (100% = one core)"))
+    #expect(draft.context.contains("Memory footprint: 2.00 GB"))
+    #expect(
+        draft.message("Check `literal` text.\nPlease.") == draft.context
+            + "\n\nCheck `literal` text.\nPlease.")
+}
+
+@Test func unavailableMessageResourcesAndTimeAreExplicitInsteadOfFabricatedZeroes() {
+    let recipient = AgentRecipient(id: rootID, label: "Root agent")
+    let draft = MessageDraft(
+        process: workload(cpu: nil, memory: nil),
+        recipients: MessageRecipients(root: recipient, selected: recipient))
+    #expect(draft.context.contains("Sample time: unavailable"))
+    #expect(draft.context.contains("CPU: unavailable"))
+    #expect(draft.context.contains("Memory footprint: unavailable"))
 }

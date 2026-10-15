@@ -383,12 +383,16 @@ struct MenuBarView: View {
             if (panel.draft?.recipients.choices.count ?? 0) > 1 {
                 Button("Change recipient") { model.input(.recipient) }
             }
+            if let context = panel.draft?.context {
+                Text(context).font(.caption).textSelection(.enabled)
+            }
             TextEditor(text: Binding(get: { model.report.actionPanel?.text ?? "" }, set: model.setMessage))
                 .font(.body).frame(height: 130).border(.quaternary)
                 .accessibilityLabel("Message to agent")
             HStack {
                 Button("Cancel") { model.input(.escape) }
                 Spacer()
+                copyMessageButton
                 Button("Review…") { model.input(.review) }
                     .disabled(
                         panel.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -399,11 +403,17 @@ struct MenuBarView: View {
             HStack {
                 Button("Edit") { model.input(.escape) }
                 Spacer()
+                copyMessageButton
                 Button("Send message") { model.input(.confirm) }.buttonStyle(.borderedProminent)
             }
         }
         Text(MessageWording.note(panel.process.attribution.provider)).font(.caption).foregroundStyle(
             .secondary)
+    }
+
+    private var copyMessageButton: some View {
+        Button(model.messageCopyStatus ?? "Copy message", systemImage: "doc.on.doc") { model.copyMessage() }
+            .help("Copy the exact message, including the inspected process's resource context.")
     }
 
     private func resource(_ value: Double?, unit: String, partial: Bool = false) -> String {

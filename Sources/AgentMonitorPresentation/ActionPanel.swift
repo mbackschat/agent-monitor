@@ -85,6 +85,7 @@ public struct ActionPanel: Equatable, Sendable {
     public let process: HeavyProcess
     public var phase: Phase
     public var draft: MessageDraft?
+    public var sampledAt: Date?
     public var text = ""
     public var recipientIndex = 0
     public var offset = 0
@@ -266,7 +267,7 @@ extension LiveReportState {
             actionPanel = ActionPanel(process: row, phase: .confirmTermination)
             return nil
         case .message:
-            return beginMessage(for: row)
+            return beginMessage(for: row, sampledAt: snapshot?.timestamp)
         case .focus:
             actionPanel = ActionPanel(process: row, phase: .focusing)
             return .focus(row)
@@ -274,9 +275,9 @@ extension LiveReportState {
     }
 
     /// Starts fresh recipient verification for a frozen target, including a restored UI draft.
-    public mutating func beginMessage(for process: HeavyProcess) -> ActionEffect? {
+    public mutating func beginMessage(for process: HeavyProcess, sampledAt: Date? = nil) -> ActionEffect? {
         guard actionPanel == nil else { return nil }
-        actionPanel = ActionPanel(process: process, phase: .loading)
+        actionPanel = ActionPanel(process: process, phase: .loading, sampledAt: sampledAt)
         return .prepare(process)
     }
 
@@ -313,7 +314,9 @@ extension LiveReportState {
 
     public mutating func messagePrepared(_ draft: MessageDraft) {
         guard actionPanel?.phase == .loading, actionPanel?.process == draft.process else { return }
-        actionPanel?.draft = draft
+        let prepared = MessageDraft(
+            process: draft.process, recipients: draft.recipients, sampledAt: actionPanel?.sampledAt)
+        actionPanel?.draft = prepared
         actionPanel?.phase = .compose
     }
 

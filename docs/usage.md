@@ -55,14 +55,18 @@ These controls are available from release 0.2.0. Expand a session group and sele
 
 **Focus:** press `f` to bring the terminal hosting the selected process's agent runtime to the front. On a collapsed session group, `f` focuses the group's runtime when its processes share exactly one; otherwise expand the group and select a process. The runtime, not the workload, is the target because agent tool subprocesses often have no terminal. In Terminal.app the tab on the runtime's terminal device is selected, its window is unminimized and ordered front, and Terminal is activated; the result panel names the device. Other terminal and editor apps found above the runtime are only asked to come to the front, so another of their windows may show. Sessions under tmux, screen, or ssh, and background runtimes without a terminal, report that nothing was focused. On first use macOS asks whether the terminal running Agent Monitor may control Terminal; that Automation grant applies to everything run in that terminal, and it can be revoked in System Settings › Privacy & Security › Automation. Since macOS 14 activation is a request, so macOS may keep another app in front. Focus never types into, runs commands in, or reads the target terminal.
 
-The generated prefix identifies the selected workload, for example:
+The generated context identifies the selected workload and the measurements you inspected, for example:
 
 ```text
 [Agent Monitor: selected process PID 42001 (swift-frontend)]
+Sample time: 2026-10-15T18:42:00Z
+CPU: 184.6% (100% = one core)
+Memory footprint: 1.42 GB
+
 Please investigate why this process is using so much CPU.
 ```
 
-The prefix uses the workload PID, not the recipient's runtime PID. Both target and message remain visible in the scrollable review. Immediately before sending, the monitor rechecks live provider routing, process lifetime, executable and attribution. An exited/reused process, changed attribution or changed recipient availability requires reopening the composer. Historical detached ancestry, ambiguous sessions and unverified runtimes cannot be messaged.
+The context uses the workload PID, not the recipient's runtime PID. CPU and memory come from the selected observation, including when paused; the ISO 8601 sample time remains unchanged during composition or saved-draft restoration. Missing resources or time are explicitly unavailable. Direct-PID CLI messaging has no recorded sample time or CPU interval, so those fields are unavailable rather than inferred. Both target and message remain visible in the scrollable review. Immediately before sending, the monitor rechecks live provider routing, process lifetime, executable and attribution. An exited/reused process, changed attribution or changed recipient availability requires reopening the composer. Historical detached ancestry, ambiguous sessions and unverified runtimes cannot be messaged.
 
 Messaging requires a Codex CLI supporting `app-server proxy`, `thread/read` with `sessionId`, and `queue` (protocol checked against 0.162.1). Both inspection and queueing use the default local app-server socket under the current Codex environment. The monitor never starts a server, resumes a transcript or injects terminal input. Standalone/no-daemon sessions and remote/custom sockets are unsupported. Provider calls have a 10-second deadline and bounded output. A queue timeout or failure may occur after acceptance: check Codex before retrying. There are no automatic retries.
 
@@ -80,7 +84,7 @@ agent-monitor message --pid 42001 --text "Why is this so busy?" [--to root|selec
 agent-monitor focus --pid 42001
 ```
 
-Each command reads the process's current lifetime and attribution, independently of the display thresholds, and applies the same identity, recipient and runtime checks as the TUI. `kill` and `message` print the target, and for messages the recipient and the exact text with its PID prefix, then ask `[y/N]`. Without an interactive stdin they refuse unless `--yes` is given, so a script must opt in explicitly. `--to selected` addresses the Codex agent that launched the process instead of the root; a Claude Code session has one recipient. `focus` needs no confirmation.
+Each command reads the process's current lifetime and attribution, independently of the display thresholds, and applies the same identity, recipient and runtime checks as the TUI. `kill` and `message` print the target, and for messages the recipient and the exact text with its observation context, then ask `[y/N]`. Without an interactive stdin they refuse unless `--yes` is given, so a script must opt in explicitly. `--to selected` addresses the Codex agent that launched the process instead of the root; a Claude Code session has one recipient. `focus` needs no confirmation.
 
 | Exit status | Meaning |
 | --- | --- |
@@ -156,7 +160,7 @@ Open **View options → Keyboard shortcuts** for compact help inside the panel; 
 
 Click **Pause** (⇧⌘P) before targeting a moving row. It holds the displayed values and row order, with **Paused at** showing the sample time; **Resume** immediately shows the latest collected sample. Collection and the live menu bar icon continue while the table is paused. You can expand details and use actions against the held rows; actions still verify the live target. Pause is unavailable before the first sample or during action review. Reopening the panel starts live. For live values without resource-driven movement, use Stable order.
 
-**Terminate…** reviews one frozen process before sending SIGTERM. **Message…** verifies live recipients, defaults to the root agent where applicable, then shows the exact outgoing text including workload context before **Send message**. **Terminal** uses the existing terminal-focus adapters; macOS may ask to let Agent Monitor control the target terminal. Acceptance does not confirm termination or message delivery. No action automatically retries.
+**Terminate…** reviews one frozen process before sending SIGTERM. **Message…** verifies live recipients, defaults to the root agent where applicable, then shows the exact outgoing text including PID, CPU, memory footprint and sample time before **Send message**. **Copy message** is available while composing and reviewing, and copies exactly that outgoing text without sending it; it reports Copied or Copy failed. **Terminal** uses the existing terminal-focus adapters; macOS may ask to let Agent Monitor control the target terminal. Acceptance does not confirm termination or message delivery. No action automatically retries.
 
 An unsent message is kept in memory when you dismiss the panel. On reopening, use **Resume…** to recheck the original target and recipient, **Copy text** to recover it, or **Discard** to remove it. Resume returns to editing and requires review again. If verification fails, the text stays saved. Cancel in the composer discards the message; quitting the app clears saved drafts.
 

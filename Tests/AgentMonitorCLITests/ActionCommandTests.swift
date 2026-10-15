@@ -119,7 +119,11 @@ func messageGoesToTheChosenVerifiedRecipientWithTheReviewedText(choice: Recipien
     #expect(exit == .accepted)
     #expect(actions.calls.withLock { $0 } == ["send \(recipient) Please check."])
     let review = console.output.withLock { $0.joined(separator: "\n") }
-    #expect(review.contains("[Agent Monitor: selected process PID 42 (worker)]\nPlease check."))
+    #expect(review.contains("[Agent Monitor: selected process PID 42 (worker)]"))
+    #expect(review.contains("Sample time: unavailable"))
+    #expect(review.contains("CPU:"))
+    #expect(review.contains("Memory footprint:"))
+    #expect(review.contains("\n\nPlease check."))
     #expect(review.contains(recipient))
 }
 

@@ -36,21 +36,32 @@ public struct MessageRecipients: Equatable, Sendable {
 }
 
 public struct MessageDraft: Equatable, Sendable {
-    /// Characters a user may write; the PID prefix is added on top.
+    /// Maximum user-written characters; automatic observation context does not consume this allowance.
     public static let maximumLength = 4000
 
     public let process: HeavyProcess
     public let recipients: MessageRecipients
-    public init(process: HeavyProcess, recipients: MessageRecipients) {
+    public let sampledAt: Date?
+    public init(process: HeavyProcess, recipients: MessageRecipients, sampledAt: Date? = nil) {
         self.process = process
         self.recipients = recipients
+        self.sampledAt = sampledAt
     }
-    public func message(_ text: String) -> String {
+    public var context: String {
         let name = process.name.unicodeScalars.map {
             CharacterSet.controlCharacters.contains($0) ? "�" : String($0)
         }.joined()
-        return "[Agent Monitor: selected process PID \(process.process.pid) (\(name))]\n" + text
+        let cpu = process.cpuPercent.map { String(format: "%.1f%% (100%% = one core)", $0) } ?? "unavailable"
+        let memory =
+            process.footprintBytes.map { String(format: "%.2f GB", Double($0) / 1e9) } ?? "unavailable"
+        return [
+            "[Agent Monitor: selected process PID \(process.process.pid) (\(name))]",
+            "Sample time: \(sampledAt?.ISO8601Format() ?? "unavailable")",
+            "CPU: \(cpu)",
+            "Memory footprint: \(memory)",
+        ].joined(separator: "\n")
     }
+    public func message(_ text: String) -> String { context + "\n\n" + text }
 }
 
 /// A message request checked against fresh attribution: an exact session under a live runtime.

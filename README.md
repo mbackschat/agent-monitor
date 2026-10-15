@@ -18,7 +18,7 @@ When several coding agents are running, a busy `node`, `java`, or `python` proce
 - **Pinned inspection** — keep a process or session at the top while its values update, in both native and terminal views. Missing targets stay marked until unpinned.
 - **Session grouping** — bring related heavy processes together and see their combined resource usage.
 - **Adjustable filters** — change CPU and memory thresholds while the monitor runs.
-- **Message the agent** — send a reviewed message to the process's verified Codex agent or Claude Code session; the process's PID and name are included automatically.
+- **Message the agent** — send a reviewed message to the process's verified Codex agent or Claude Code session; the inspected PID, CPU, memory and sample time are included automatically. Copy the prepared message from the native app.
 - **Jump to the session's terminal** — bring the terminal running the agent to the front, selecting its tab in Terminal.app.
 - **Stop a runaway process** — review and send SIGTERM to one process only.
 - **Actions from scripts** — the same actions as `kill`, `message`, and `focus` commands, with confirmation or `--yes`.

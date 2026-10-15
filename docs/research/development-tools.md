@@ -168,3 +168,9 @@ An additional exact-boundary fixture exposed a blank first chart bin and merged 
 ## History selector dismissal trial — 2026-10-15
 
 The user's report exposed a tracking-lifecycle gap: history selection changed the observed chart model while `updateTitle` intentionally suppressed button mutations during menu tracking. A parameterized no-sampling fixture reproduced the stale label for both Memory and Last hour. Retaining a weak button reference and updating its title when tracking ends passed both cases while preserving the same menu items; normal model updates still cover action dispatch after dismissal. This checks delegate order in the controller, not physical menu interaction.
+
+## Prepared-message context and clipboard trial — 2026-10-15
+
+The [Swift Testing skill](../../.agents/skills/swift-testing-expert/SKILL.md) helped keep resource/time fixtures deterministic and clipboard tests isolated: injected writers compare copied text with the exact reviewed and sent payload, without touching the system clipboard or sending real messages. Saved-draft tests retain the original observation through a later sample. Unknown measurements remain explicitly unavailable.
+
+The [Swift Concurrency skill](../../.agents/skills/swift-concurrency/SKILL.md) was useful for keeping AppKit clipboard access and its injected callback on the main actor under Swift 6 checking. An inline closure inside `#expect` produced actor-isolation diagnostics during macro expansion; evaluating the clipboard operation before asserting its result preserved the callback's isolation. This was a test-expression issue, not evidence for making the clipboard API Sendable or moving it off the main actor.

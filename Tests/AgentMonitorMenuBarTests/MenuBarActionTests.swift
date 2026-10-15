@@ -108,7 +108,7 @@ func menuBarFixture(
     #expect(
         actions.calls.withLock { $0 } == [
             "prepare",
-            "send root: [Agent Monitor: selected process PID 42001 (swift-frontend)]\nPlease inspect this workload.",
+            "send root: [Agent Monitor: selected process PID 42001 (swift-frontend)]\nSample time: 1970-01-01T00:00:00Z\nCPU: 184.6% (100% = one core)\nMemory footprint: 1.42 GB\n\nPlease inspect this workload.",
         ])
     #expect(model.lastActionResult == .uncertain("Check delivery before retrying."))
     await model.stop()
@@ -285,5 +285,69 @@ func menuBarFixture(
     await model.waitForAction()
     #expect(actions.calls.withLock { $0 } == ["focus 42001"])
     #expect(model.report.actionPanel?.phase == .result)
+    await model.stop()
+}
+
+@Test @MainActor func copyingPreparedMessageMatchesReviewAndSendWithoutSendingOrTouchingTheRealClipboard()
+    async throws
+{
+    let actions = FakeActions()
+    let model = try await readyModel(actions)
+    var copied = ""
+    let noDraft = model.copyMessage(using: {
+        copied = $0
+        return true
+    })
+    #expect(!noDraft)
+    let row = try #require(model.report.rows.first)
+    model.begin(.message, row: .process(row.process))
+    await model.waitForAction()
+    model.setMessage("Please inspect this workload.")
+    let success = model.copyMessage(using: {
+        copied = $0
+        return true
+    })
+    #expect(success)
+    #expect(model.messageCopyStatus == "Copied")
+    #expect(copied.contains("CPU: 184.6%"))
+    #expect(copied.contains("Memory footprint: 1.42 GB"))
+    #expect(copied.contains("Sample time: 1970-01-01T00:00:00Z"))
+    #expect(actions.calls.withLock { $0 } == ["prepare"])
+    model.input(.review)
+    let panel = try #require(model.report.actionPanel)
+    #expect(copied == panel.draft?.message(panel.text))
+    let failure = model.copyMessage(using: { _ in false })
+    #expect(!failure)
+    #expect(model.messageCopyStatus == "Copy failed")
+    model.input(.confirm)
+    await model.waitForAction()
+    #expect(actions.calls.withLock { $0.last } == "send root: " + copied)
+    let afterSend = model.copyMessage(using: { _ in
+        Issue.record("Copied after send")
+        return true
+    })
+    #expect(!afterSend)
+    await model.stop()
+}
+
+@Test @MainActor func restoredMessageKeepsOriginalObservationTimeAndResources() async throws {
+    let actions = FakeActions()
+    let model = try await readyModel(actions)
+    let row = try #require(model.report.rows.first)
+    model.begin(.message, row: .process(row.process))
+    await model.waitForAction()
+    model.setMessage("Keep these observations.")
+    let original = try #require(model.report.actionPanel?.draft?.message("Keep these observations."))
+    model.close()
+    model.open()
+    await model.waitForCollection()
+    model.report.receive(
+        MonitoringSnapshot(
+            timestamp: Date(timeIntervalSince1970: 60), intervalSeconds: 1,
+            cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
+            sampledProcessCount: 1, unreadableProcessCount: 0, findings: [row]))
+    model.resumeMessage()
+    await model.waitForAction()
+    #expect(model.report.actionPanel?.draft?.message("Keep these observations.") == original)
     await model.stop()
 }
