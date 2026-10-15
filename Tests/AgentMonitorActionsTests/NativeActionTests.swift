@@ -47,6 +47,21 @@ import Testing
     #expect(monitor.finding(for: identity) == nil)
 }
 
+@Test func lookupByPIDReturnsTheCurrentLifetimeIndependentOfThresholds() throws {
+    let child = Process()
+    child.executableURL = URL(fileURLWithPath: "/bin/sleep")
+    child.arguments = ["30"]
+    try child.run()
+    defer {
+        child.terminate()
+        child.waitUntilExit()
+    }
+    let row = try NativeActions.process(pid: child.processIdentifier)
+    #expect(row.process.pid == child.processIdentifier)
+    #expect(row.executable == "/bin/sleep")
+    #expect(throws: ActionFailure.self) { try NativeActions.process(pid: getpid()) }
+}
+
 // Every Terminal.app shell runs under root-owned `login`; the ancestor walk must read processes
 // of other users, which proc_pidinfo refuses with EPERM (observed 2026-10-15, macOS 27).
 @Test func ancestorLineageIsReadableForProcessesOfOtherUsers() throws {

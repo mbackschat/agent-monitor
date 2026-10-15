@@ -18,7 +18,7 @@ public enum ActionEffect: Equatable, Sendable {
 /// Acceptance means different things per transport: Codex accepts a queue request, while a Claude
 /// inbox applies the session's peer controls after the handoff (docs/research/claude-session-messaging.md).
 public enum MessageWording {
-    static func note(_ provider: AgentProvider?) -> String {
+    public static func note(_ provider: AgentProvider?) -> String {
         switch provider {
         case .codex, nil: "Queued acceptance does not mean delivery or action."
         case .claude:
@@ -52,10 +52,12 @@ public enum FocusWording {
 public enum ActionResult: Equatable, Sendable {
     case accepted(String)
     case failed(String)
+    /// Possibly accepted; the user must check before retrying.
+    case uncertain(String)
 
     public var text: String {
         switch self {
-        case .accepted(let text), .failed(let text): text
+        case .accepted(let text), .failed(let text), .uncertain(let text): text
         }
     }
 }
@@ -179,6 +181,7 @@ public struct ActionPanel: Equatable, Sendable {
             switch result {
             case .accepted(let text): content += [ReportLine(""), ReportLine(text, style: .success)]
             case .failed(let text): content += [ReportLine(""), ReportLine(text, style: .failure)]
+            case .uncertain(let text): content += [ReportLine(""), ReportLine(text, style: .warning)]
             case nil: break
             }
             controls = "Esc close | ↑/↓ scroll"

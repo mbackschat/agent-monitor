@@ -3,7 +3,14 @@ import Foundation
 
 public struct ActionFailure: Error, LocalizedError, Sendable {
     public let message: String
-    public init(_ message: String) { self.message = message }
+    /// The request may have been accepted although that could not be confirmed; never retry blindly.
+    public let uncertain: Bool
+    public init(_ message: String) { self.init(message, uncertain: false) }
+    private init(_ message: String, uncertain: Bool) {
+        self.message = message
+        self.uncertain = uncertain
+    }
+    public static func uncertain(_ message: String) -> Self { Self(message, uncertain: true) }
     public var errorDescription: String? { message }
 }
 

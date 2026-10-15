@@ -23,8 +23,10 @@ struct AgentMonitorCommand: AsyncParsableCommand {
               agent-monitor --json-schema
               agent-monitor --tui --group session
               agent-monitor --all-processes --cpu 40 --memory-gb 0.5
+              agent-monitor message --pid 42001 --text "Why is this so busy?"
             """,
-        version: "0.1.0"
+        version: "0.1.0",
+        subcommands: [KillCommand.self, MessageCommand.self, FocusCommand.self]
     )
 
     @OptionGroup var options: Options

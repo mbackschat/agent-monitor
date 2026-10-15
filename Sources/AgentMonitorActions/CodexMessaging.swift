@@ -71,7 +71,7 @@ public struct CodexMessaging: AgentMessaging {
         do {
             try process.finish()
         } catch {
-            throw ActionFailure(
+            throw ActionFailure.uncertain(
                 "Queue acceptance could not be confirmed. Check Codex before retrying; the message may have been accepted."
             )
         }

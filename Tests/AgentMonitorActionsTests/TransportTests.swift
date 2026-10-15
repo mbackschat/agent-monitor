@@ -56,6 +56,7 @@ func unavailableRootDoesNotSilentlySelectChild(mode: String) throws {
         Issue.record("Expected uncertain queue result")
     } catch {
         #expect(error.localizedDescription.contains("may have been accepted"))
+        #expect((error as? ActionFailure)?.uncertain == true)
     }
 }
 

@@ -6,7 +6,7 @@ import Foundation
 /// so end-of-stream is the strongest acceptance signal and still says nothing about delivery.
 enum InboxSocket {
     static let notSent = ActionFailure("Claude session inbox is unavailable. Nothing was sent.")
-    static let uncertain = ActionFailure(
+    static let uncertain = ActionFailure.uncertain(
         "Inbox acceptance could not be confirmed. Check the Claude session before retrying; the message may have been accepted."
     )
 

@@ -160,7 +160,11 @@ private final class TerminalOutcome {
             } catch is CancellationError {
                 return
             } catch {
-                state.mutate { $0.actionFinished(.failed(error.localizedDescription)) }
+                state.mutate {
+                    $0.actionFinished(
+                        (error as? ActionFailure)?.uncertain == true
+                            ? .uncertain(error.localizedDescription) : .failed(error.localizedDescription))
+                }
             }
         }
     }

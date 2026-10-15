@@ -95,6 +95,14 @@ With no options, `agent-monitor` prints one text report after a one-second basel
 | `--version` | Print the installed version and exit. | — |
 | `-h`, `--help` | Show command help and exit. | — |
 
+| Command | Description |
+| --- | --- |
+| `kill --pid <pid> [--yes]` | Review and send SIGTERM to one process. |
+| `message --pid <pid> --text <text> [--to root\|selected] [--yes]` | Review and message the process's Codex or Claude Code session. |
+| `focus --pid <pid>` | Bring the terminal hosting the process's agent session to the front. |
+
+The commands ask for confirmation in a terminal and need `--yes` in scripts; see [actions from the command line](docs/usage.md#actions-from-the-command-line) for exit statuses.
+
 Choose only one of `--tui`, `--json`, or `--json-schema`. Session grouping is available for text and TUI output; `--group session` cannot be combined with `--json` or `--json-schema`.
 
 ## Current support

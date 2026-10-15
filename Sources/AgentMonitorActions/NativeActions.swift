@@ -24,15 +24,38 @@ public enum NativeActions {
         return inbox
     }
 
+    /// The current lifetime of a PID, attributed independently of display thresholds, for
+    /// command-line actions that start from a PID rather than a selected row.
+    public static func process(pid: Int32) throws -> HeavyProcess {
+        guard pid > 1, pid != getpid() else { throw ActionFailure("Refusing this protected PID.") }
+        let reader = try NativeProcessReader()
+        let samples = try reader.snapshot().samples
+        guard let sample = samples.first(where: { $0.identity.pid == pid }) else {
+            throw ActionFailure("No process with PID \(pid) owned by your user is running.")
+        }
+        guard
+            let row = observe(sample.identity, reader: reader, samples: samples).finding(for: sample.identity)
+        else { throw ActionFailure("Process \(pid) exited.") }
+        return row
+    }
+
     private static func observe(_ expected: HeavyProcess) throws -> Monitor {
         try validate(expected)
         let reader = try NativeProcessReader()
+        return observe(expected.process, reader: reader, samples: try reader.snapshot().samples)
+    }
+
+    private static func observe(
+        _ identity: ProcessIdentity, reader: NativeProcessReader, samples: [ProcessSample]
+    )
+        -> Monitor
+    {
         var monitor = Monitor()
-        monitor.ingest(try reader.snapshot().samples)
+        monitor.ingest(samples)
         // Same two passes as MonitoringSession, so a detached workload rejoins its runtime here too.
         var enriched: Set<ProcessIdentity> = []
         for _ in 1...2 {
-            for sample in monitor.enrichmentTargets(for: [expected.process])
+            for sample in monitor.enrichmentTargets(for: [identity])
             where enriched.insert(sample.identity).inserted {
                 monitor.enrich(reader.metadata(for: sample), for: sample.identity)
             }

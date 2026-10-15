@@ -10,7 +10,7 @@ Keep the [README](README.md) focused on users: purpose, features, quick start, a
 
 When changing CLI options, defaults, or incompatible combinations, update the README option table and affected usage examples in the same commit. Verify them against `Options.swift` and the executable's generated `--help`, including the different default sample count in TUI mode.
 
-Read [PLAN.md](PLAN.md) when resuming. Keep task scope, completion evidence, and next action current. Process termination, Codex messaging, (on 2026-10-14) Claude Code messaging through the session inbox and (on 2026-10-15) adapter-based terminal focus, Terminal.app first, were explicitly authorized after v0.1.0; unrelated product expansion remains out of scope.
+Read [PLAN.md](PLAN.md) when resuming. Keep task scope, completion evidence, and next action current. Process termination, Codex messaging, (on 2026-10-14) Claude Code messaging through the session inbox (on 2026-10-15) adapter-based terminal focus, Terminal.app first, and the same actions as `kill`/`message`/`focus` subcommands were explicitly authorized after v0.1.0; unrelated product expansion remains out of scope.
 
 Follow [architecture boundaries](docs/architecture.md): monitoring logic and snapshots are UI-independent; text, TUI, and future native views own presentation only. Document architectural changes alongside the code.
 

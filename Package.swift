@@ -30,7 +30,7 @@ let package = Package(
         .executableTarget(
             name: "AgentMonitor",
             dependencies: [
-                "AgentMonitorCore", "AgentMonitorPresentation", "AgentMonitorTUI",
+                "AgentMonitorCore", "AgentMonitorActions", "AgentMonitorPresentation", "AgentMonitorTUI",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]),
         .testTarget(name: "AgentMonitorCoreTests", dependencies: ["AgentMonitorCore"]),

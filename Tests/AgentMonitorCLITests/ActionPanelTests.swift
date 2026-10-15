@@ -159,6 +159,7 @@ func focusWordingSeparatesExactAndAppOnlyResults(outcome: FocusOutcome, expected
 @Test(arguments: [
     (ActionResult.accepted("SIGTERM accepted."), ReportLine.Style.success),
     (.failed("Process exited."), .failure),
+    (.uncertain("The message may have been accepted."), .warning),
 ])
 func actionResultsAreColoredByOutcome(result: ActionResult, style: ReportLine.Style) throws {
     var state = LiveReportState()

@@ -52,6 +52,7 @@ func unusableInboxIsReportedAsNotSent(kind: String) throws {
         Issue.record("Expected an unusable inbox to fail")
     } catch {
         #expect(error.localizedDescription.contains("Nothing was sent"))
+        #expect((error as? ActionFailure)?.uncertain == false)
     }
 }
 
@@ -64,6 +65,7 @@ func unusableInboxIsReportedAsNotSent(kind: String) throws {
         Issue.record("Expected an unconfirmed inbox handoff")
     } catch {
         #expect(error.localizedDescription.contains("may have been accepted"))
+        #expect((error as? ActionFailure)?.uncertain == true)
     }
     #expect(start.duration(to: .now) < .seconds(3))
 }
