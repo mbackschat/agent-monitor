@@ -97,7 +97,7 @@ public enum TextReport {
         }
         if let cwd = row.cwd { lines.append(ReportLine("  Work directory: \(cwd)", style: .muted)) }
         if let cwd = owner.runtimeDirectory {
-            lines.append(ReportLine("  Session directory: \(cwd)", style: .muted))
+            lines.append(ReportLine("  Runtime directory: \(cwd)", style: .muted))
         }
         if let command = row.command {
             lines.append(

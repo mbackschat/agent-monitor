@@ -8,13 +8,15 @@ struct MenuBarIndicator {
     private var load: AgentLoadSummary?
     private var sampledAt: Date?
     private var unreadableCount = 0
+    private var thresholds = Thresholds()
+    private var paused = false
     private(set) var availability = Availability.waiting
 
     init(processorCount: Int = ProcessInfo.processInfo.activeProcessorCount) {
         self.processorCount = max(1, processorCount)
     }
 
-    var heavyCount: Int? { load?.heavyProcesses.count }
+    var heavyCount: Int? { load?.processCount }
 
     var level: Int? {
         guard let load, load.missingCPUCount < load.processCount || load.processCount == 0 else { return nil }
@@ -27,9 +29,11 @@ struct MenuBarIndicator {
         }
     }
 
-    mutating func receive(_ snapshot: MonitoringSnapshot) {
-        guard let load = snapshot.agentLoad else { return }
-        self.load = load
+    mutating func receive(_ snapshot: MonitoringSnapshot, paused: Bool = false) {
+        load = AgentLoadSummary(processes: snapshot.findings)
+        thresholds = Thresholds(
+            cpuPercent: snapshot.cpuThresholdPercent, memoryBytes: snapshot.memoryThresholdBytes)
+        self.paused = paused
         sampledAt = snapshot.timestamp
         unreadableCount = snapshot.unreadableProcessCount
         availability = .current
@@ -54,12 +58,12 @@ struct MenuBarIndicator {
         let memory = (Double(load.footprintBytes) / 1e9).formatted(.number.precision(.fractionLength(1)))
         let partial = load.missingCPUCount > 0 || load.missingFootprintCount > 0
         return [
-            "Agent Monitor — \(load.processCount) observed agent processes",
+            "Agent Monitor — \(load.processCount) heavy processes in view",
+            paused ? "Paused — matching the displayed table" : nil,
             "CPU \(load.missingCPUCount > 0 ? "≥ " : "")\(cpu)% (100% = one core)",
             "Footprint \(load.missingFootprintCount > 0 ? "≥ " : "")\(memory) GB",
             "Bars: share of all cores · boundaries at 25% and 50%",
-            "\(load.heavyProcesses.count) heavy agent processes",
-            "Heavy: CPU > 25% of one core or footprint > 1 GB",
+            "Filter: CPU > \(thresholds.cpuPercent.formatted())% of one core or footprint > \((Double(thresholds.memoryBytes) / 1e9).formatted()) GB",
             partial ? "Some resource measurements are unavailable" : nil,
             unreadableCount > 0 ? "\(unreadableCount) processes could not be read" : nil,
             "Sampled \(sampledAt.formatted(date: .omitted, time: .standard))",

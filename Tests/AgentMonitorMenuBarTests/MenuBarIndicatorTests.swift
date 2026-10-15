@@ -10,8 +10,8 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     let sample = try menuBarFixture(pids: [pid], cpu: cpu, memoryBytes: 10)
     return MonitoringSnapshot(
         timestamp: Date(timeIntervalSince1970: time), intervalSeconds: 15,
-        cpuThresholdPercent: 999, memoryThresholdBytes: 999, sampledProcessCount: 1,
-        unreadableProcessCount: 0, findings: [], agentLoad: AgentLoadSummary(processes: sample.findings))
+        cpuThresholdPercent: 0, memoryThresholdBytes: 999, sampledProcessCount: 1,
+        unreadableProcessCount: 0, findings: cpu > 0 ? sample.findings : [], agentLoad: nil)
 }
 
 @Test func loadBarsUseFixedMachineCapacityAndDistinguishUnknown() throws {
@@ -49,8 +49,8 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     indicator.receive(
         MonitoringSnapshot(
             timestamp: fixture.timestamp, intervalSeconds: 15, cpuThresholdPercent: 999,
-            memoryThresholdBytes: 999_000_000_000, sampledProcessCount: 2, unreadableProcessCount: 0,
-            findings: [], agentLoad: AgentLoadSummary(processes: fixture.findings + fixture.findings)))
+            memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 2, unreadableProcessCount: 0,
+            findings: fixture.findings + fixture.findings, agentLoad: nil))
     #expect(indicator.heavyCount == 2)
     #expect(indicator.level == 0)
 }
@@ -160,10 +160,16 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(await iterator.next() == 5)
     model.toggleFreeze()
     let held = model.report.snapshot
-    input.yield(try loadSample(400, time: 2))
+    let heldLevel = model.indicator.level
+    let heldCount = model.indicator.heavyCount
+    input.yield(try loadSample(Double(ProcessInfo.processInfo.activeProcessorCount) * 100, time: 2))
     #expect(await iterator.next() == 5)
     #expect(model.report.snapshot == held)
-    #expect(model.indicator.level != 0)
+    #expect(model.indicator.level == heldLevel)
+    #expect(model.indicator.heavyCount == heldCount)
+    model.toggleFreeze()
+    #expect(model.report.snapshot?.timestamp == Date(timeIntervalSince1970: 2))
+    #expect(model.indicator.level != heldLevel)
     model.close()
     model.adjustInterval(.slower)
     input.yield(try loadSample(0, time: 3))
@@ -228,18 +234,61 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     await model.stop()
 }
 
-@Test func tableSamplesWithoutASummaryPreserveTheBadgeAndItsMeasurementTime() throws {
+@Test func tableFindingsDriveBarsAndBadgeEvenWithoutAHistorySummary() throws {
     var indicator = MenuBarIndicator(processorCount: 8)
-    let skipped = MonitoringSnapshot(
-        timestamp: Date(timeIntervalSince1970: 2), intervalSeconds: 1,
-        cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
-        sampledProcessCount: 0, unreadableProcessCount: 0, findings: [])
-    indicator.receive(skipped)
-    #expect(indicator.availability == .waiting)
     indicator.receive(try loadSample(400))
-    let description = indicator.statusDescription
-    indicator.receive(skipped)
     #expect(indicator.heavyCount == 1)
     #expect(indicator.level == 3)
-    #expect(indicator.statusDescription == description)
+    let fixture = try menuBarFixture(pids: [42001, 42002], cpu: 10, memoryBytes: 10)
+    indicator.receive(
+        MonitoringSnapshot(
+            timestamp: Date(timeIntervalSince1970: 2), intervalSeconds: 5,
+            cpuThresholdPercent: 5, memoryThresholdBytes: 500_000_000,
+            sampledProcessCount: 3, unreadableProcessCount: 0, findings: fixture.findings,
+            agentLoad: AgentLoadSummary(processes: (try loadSample(2000)).findings)))
+    #expect(indicator.heavyCount == 2)
+    #expect(indicator.level == 1)
+    #expect(indicator.statusDescription.contains("2 heavy processes in view"))
+    #expect(!indicator.statusDescription.contains("CPU > 25%"))
+    indicator.receive(try loadSample(0, time: 3))
+    #expect(indicator.availability == .current)
+    #expect(indicator.heavyCount == 0)
+    #expect(indicator.level == 0)
+}
+
+@Test @MainActor func headingAndIconCountCollapsedChildrenSingletonsAndExcludeMissingPins() async throws {
+    let grouped = try menuBarFixture(pids: [42001, 42002])
+    let singleton = try menuBarFixture(pids: [42003], sessionID: "22222222-2222-4222-8222-222222222222")
+    let snapshot = MonitoringSnapshot(
+        timestamp: grouped.timestamp, intervalSeconds: 5,
+        cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
+        sampledProcessCount: 3, unreadableProcessCount: 0, findings: grouped.findings + singleton.findings)
+    let (samples, input) = AsyncStream<MonitoringSnapshot>.makeStream()
+    let (received, output) = AsyncStream<Void>.makeStream()
+    let model = MenuBarModel { _, _, receive in
+        for await sample in samples {
+            try await receive(sample)
+            output.yield(())
+        }
+    }
+    var iterator = received.makeAsyncIterator()
+    model.open()
+    input.yield(snapshot)
+    _ = await iterator.next()
+    #expect(model.visibleRowIDs.count == 2)
+    #expect(model.displayedProcessCount == 3)
+    #expect(model.indicator.heavyCount == model.displayedProcessCount)
+    let group = try #require(model.report.groups.first { $0.processes.count == 2 })
+    model.togglePin(.group(group.id))
+    model.toggleFreeze()
+    input.yield(try menuBarFixture(pids: []))
+    _ = await iterator.next()
+    #expect(model.displayedProcessCount == 3)
+    #expect(model.indicator.heavyCount == 3)
+    #expect(model.indicator.statusDescription.contains("Paused"))
+    model.toggleFreeze()
+    #expect(model.visibleRowIDs.count == 1)
+    #expect(model.displayedProcessCount == 0)
+    #expect(model.indicator.heavyCount == 0)
+    await model.stop()
 }

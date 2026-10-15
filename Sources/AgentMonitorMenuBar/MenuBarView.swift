@@ -29,9 +29,8 @@ struct MenuBarView: View {
                     model.report.frozen ? "Resume" : "Pause",
                     systemImage: model.report.frozen ? "play.fill" : "pause.fill"
                 ) { model.toggleFreeze() }
-                .keyboardShortcut("p", modifiers: [.command, .shift])
                 .disabled(model.report.snapshot == nil || model.report.actionPanel != nil)
-                .help("Hold the displayed sample and row order. Resume shows the latest sample (⇧⌘P).")
+                .help("Hold the displayed sample and row order. Resume shows the latest sample (p).")
             }
             .padding()
             Divider()
@@ -75,6 +74,16 @@ struct MenuBarView: View {
         .frame(width: MenuBarLayout.width, height: min(model.panelSize.height, maximumHeight))
         .onKeyPress(.downArrow) { moveFocus(by: 1) }
         .onKeyPress(.upArrow) { moveFocus(by: -1) }
+        .onKeyPress(keys: MenuBarKeyboard.keys, phases: .down) { key in
+            guard model.report.actionPanel == nil,
+                MenuBarKeyboard.accepts(key.characters, modifiers: key.modifiers)
+            else { return .ignored }
+            if key.characters == "q" {
+                NSApplication.shared.terminate(nil)
+                return .handled
+            }
+            return model.handleShortcut(key.characters, row: focusedRow) ? .handled : .ignored
+        }
         .task(id: pendingPinFocus) {
             guard let row = pendingPinFocus else { return }
             if model.visibleRowIDs.contains(row) { focusedRow = row }
@@ -118,7 +127,8 @@ struct MenuBarView: View {
                 Divider()
             }
             HStack {
-                Text("Heavy processes").font(.subheadline.bold())
+                Text(model.displayedProcessCount.map { "Heavy processes · \($0)" } ?? "Heavy processes")
+                    .font(.subheadline.bold())
                 Spacer()
                 MenuBarViewOptions(model: model)
             }
@@ -216,7 +226,7 @@ struct MenuBarView: View {
     private func togglePinFromKeyboard(_ row: LiveReportRowID) -> Bool {
         guard model.togglePin(row) else { return false }
         // Pinning moves rows between ForEach containers, replacing their focusable controls.
-        // Restore focus after the new row mounts so a second ⌘P can undo the pin.
+        // Restore focus after the new row mounts so a second Space can undo the pin.
         focusedRow = nil
         pendingPinFocus = row
         return true
@@ -228,6 +238,8 @@ struct MenuBarView: View {
 
     @ViewBuilder private func rowCommands(_ id: LiveReportRowID) -> some View {
         pinCommand(id)
+        Button("Copy PID", systemImage: "doc.on.doc") { model.copyPID(row: id) }
+            .disabled(model.pidToCopy(for: id) == nil)
         Divider()
         Button("Focus terminal", systemImage: "terminal") { model.begin(.focus, row: id) }
             .disabled(!model.canBegin(.focus, row: id))
@@ -296,6 +308,12 @@ struct MenuBarView: View {
             )
         ) {
             VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("PID: \(String(process.process.pid))").textSelection(.enabled)
+                    Button("Copy PID", systemImage: "doc.on.doc") {
+                        model.copyPID(row: .process(process.process))
+                    }.controlSize(.small).help("Copy this process ID (y when its row is focused)")
+                }
                 Text(process.executable)
                 Text(
                     "Session: \(process.attribution.threadID ?? (process.isSharedRuntime ? "shared runtime" : "unresolved"))"
@@ -304,7 +322,7 @@ struct MenuBarView: View {
                 Text("Directory: \(process.cwd ?? "unavailable")")
                 Text("Terminal: \(process.attribution.terminal ?? "unavailable")")
                 Text("Runtime: \(process.attribution.runtime.map { String($0.pid) } ?? "unresolved")")
-                Text("Session directory: \(process.attribution.runtimeDirectory ?? "unavailable")")
+                Text("Runtime directory: \(process.attribution.runtimeDirectory ?? "unavailable")")
                 Text(
                     "Observed chain: \(process.attribution.ancestry.map { String($0.pid) }.joined(separator: " ← "))"
                 )

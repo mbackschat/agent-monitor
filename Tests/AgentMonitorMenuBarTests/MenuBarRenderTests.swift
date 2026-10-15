@@ -48,15 +48,8 @@ import Testing
             pids: [42001, 42004], name: "node", project: "sample-graph", cpu: 63.7, memoryBytes: 320_000_000,
             provider: "claude"),
         menuBarFixture(
-            pids: [42002], name: "swift-frontend", project: "sample-editor",
-            sessionID: "22222222-2222-4222-8222-222222222222"),
-        menuBarFixture(
-            pids: [42003], name: "java", project: "sample-server", cpu: 0.2, memoryBytes: 1_900_000_000,
-            provider: "claude",
-            sessionID: "33333333-3333-4333-8333-333333333333"),
-        menuBarFixture(
-            pids: [42005], name: "python", project: "sample-analysis", cpu: 46.2, memoryBytes: 610_000_000,
-            sessionID: "44444444-4444-4444-8444-444444444444"),
+            pids: [42005], name: "codex", project: "old-launch-project", cpu: 6.1, memoryBytes: 2_100_000_000,
+            sharedRuntime: true),
     ].flatMap(\.findings)
     let snapshot = MonitoringSnapshot(
         timestamp: Date(timeIntervalSince1970: 52_496), intervalSeconds: 1,
@@ -271,11 +264,21 @@ import Testing
     host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
     host.layoutSubtreeIfNeeded()
     #expect(host.fittingSize == NSSize(width: 420, height: 560))
-    let help = NSHostingView(rootView: MenuBarKeyboardHelp { model.showsKeyboardHelp = false })
+    let help = NSHostingView(
+        rootView: MenuBarKeyboardHelp { model.showsKeyboardHelp = false }
+            .background(Color(nsColor: .windowBackgroundColor)))
     help.frame.size.width = 388
     help.layoutSubtreeIfNeeded()
     #expect(help.fittingSize.height < 230)
     #expect(help.fittingSize.width <= 388)
+    if let path = ProcessInfo.processInfo.environment["MENUBAR_HELP_PREVIEW_PATH"] {
+        help.frame.size = help.fittingSize
+        help.layoutSubtreeIfNeeded()
+        let bitmap = try #require(help.bitmapImageRepForCachingDisplay(in: help.bounds))
+        help.cacheDisplay(in: help.bounds, to: bitmap)
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: path))
+    }
     model.close()
     #expect(model.showsKeyboardHelp)
     await model.stop()
@@ -353,4 +356,9 @@ import Testing
     try #require(bitmap.representation(using: .png, properties: [:])).write(
         to: URL(fileURLWithPath: output + "-\(dark ? "dark" : "light")-\(review ? "review" : "compose").png"))
     await model.stop()
+}
+
+@Test @MainActor func nativePopoverAllowsAppKitDetachment() {
+    let delegate = MenuBarDelegate()
+    #expect(delegate.popoverShouldDetach(NSPopover()))
 }

@@ -106,7 +106,7 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
 
     func popoverDidShow(_ notification: Notification) { model.open() }
     func popoverWillClose(_ notification: Notification) { model.close() }
-    func popoverShouldDetach(_ popover: NSPopover) -> Bool { false }
+    func popoverShouldDetach(_ popover: NSPopover) -> Bool { true }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         Task {

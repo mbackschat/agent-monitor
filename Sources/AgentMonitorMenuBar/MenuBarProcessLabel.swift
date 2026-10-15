@@ -18,10 +18,12 @@ struct MenuBarProcessLabel: View {
             }
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 if let session {
-                    Text(session.project)
-                        .lineLimit(1).truncationMode(.middle).layoutPriority(-1)
-                        .help(session.project)
-                    Text("·")
+                    if !process.isSharedRuntime {
+                        Text(session.project)
+                            .lineLimit(1).truncationMode(.middle).layoutPriority(-1)
+                            .help(session.project)
+                        Text("·")
+                    }
                     Text(
                         "\(session.provider?.rawValue ?? "unknown") · \(session.sessionID.map { String($0.prefix(8)) } ?? (process.isSharedRuntime ? "shared runtime" : "unresolved"))"
                     )

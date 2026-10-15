@@ -97,6 +97,7 @@ private struct MenuBarRowHeader<Label: View>: View {
                 .padding(.vertical, 4).contentShape(Rectangle())
             }
             .buttonStyle(.plain).focused(focus, equals: id)
+            .pinShortcut(onPinShortcut)
             .onKeyPress(.return) {
                 onToggle()
                 return .handled
@@ -105,16 +106,16 @@ private struct MenuBarRowHeader<Label: View>: View {
             MenuBarPinButton(pinned: pinned, action: onPin)
                 .opacity(pinned || hovered || pinFocused || focus.wrappedValue == id ? 1 : 0)
                 .focused($pinFocused)
+                .pinShortcut(onPinShortcut)
         }
         .onHover { hovered = $0 }
-        .pinShortcut(onPinShortcut)
     }
 }
 
 extension View {
     func pinShortcut(_ action: @escaping () -> Bool) -> some View {
-        onKeyPress(keys: ["p"], phases: .down) { key in
-            guard key.modifiers == .command else { return .ignored }
+        onKeyPress(keys: [.space], phases: .down) { key in
+            guard key.modifiers.isEmpty else { return .ignored }
             return action() ? .handled : .ignored
         }
     }

@@ -22,8 +22,8 @@ func statusItemRoutesSecondaryClicksToTheContextMenu(
     let fixture = try menuBarFixture(cpu: 50, memoryBytes: 2_000_000_000)
     let snapshot = MonitoringSnapshot(
         timestamp: fixture.timestamp, intervalSeconds: 15, cpuThresholdPercent: 999,
-        memoryThresholdBytes: 999_000_000_000, sampledProcessCount: 1, unreadableProcessCount: 0,
-        findings: [], agentLoad: AgentLoadSummary(processes: fixture.findings))
+        memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 1, unreadableProcessCount: 0,
+        findings: fixture.findings, agentLoad: AgentLoadSummary(processes: fixture.findings))
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.start()
     await model.waitForCollection()
@@ -72,7 +72,7 @@ func statusItemRoutesSecondaryClicksToTheContextMenu(
         MonitoringSnapshot(
             timestamp: fixture.timestamp, intervalSeconds: 15, cpuThresholdPercent: 25,
             memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 1, unreadableProcessCount: 0,
-            findings: [], agentLoad: AgentLoadSummary(processes: fixture.findings)))
+            findings: fixture.findings, agentLoad: AgentLoadSummary(processes: fixture.findings)))
     _ = await iterator.next()
     #expect(heldMenu.items == heldItems)
     #expect(heldMenu.items.contains { $0.title.contains("waiting") })

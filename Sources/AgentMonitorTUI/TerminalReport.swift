@@ -53,10 +53,6 @@ public enum TerminalReport {
             stateContainer: state,
             focusTracker: FocusTracker(invalidationIdentities: [identity]),
             keyHandler: { key, _, state in
-                @MainActor func adjustInterval(_ step: IntervalAdjustment) {
-                    state.mutate { $0.adjustInterval(step) }
-                    liveInterval.set(state.state.interval)
-                }
                 if state.state.actionPanel != nil {
                     guard host.surfaceSize.width >= 40, host.surfaceSize.height >= 8 else { return .handled }
                     if let input = actionInput(key) {
@@ -72,6 +68,18 @@ public enum TerminalReport {
                     state.mutate { effect = $0.beginAction(kind) }
                     outcome.perform(effect, actions: actions, state: state)
                 }
+                let shortcut: ReportShortcut?
+                switch key.key {
+                case .character(let character): shortcut = ReportShortcut(rawValue: String(character))
+                case .space: shortcut = .pin
+                default: shortcut = nil
+                }
+                if let shortcut {
+                    let previousInterval = state.state.interval
+                    state.mutate { $0.apply(shortcut) }
+                    if state.state.interval != previousInterval { liveInterval.set(state.state.interval) }
+                    return .handled
+                }
                 switch key.key {
                 case .character("q"): return .exit(.userExit(key))
                 case .character("k"): begin(.terminate)
@@ -80,22 +88,6 @@ public enum TerminalReport {
                 case .arrowUp: state.mutate { $0.moveSelection(by: -1) }
                 case .arrowDown: state.mutate { $0.moveSelection(by: 1) }
                 case .return: state.mutate { $0.toggleDisclosure() }
-                case .character("o"): state.mutate { $0.sort(by: .stable) }
-                case .character("c"): state.mutate { $0.sort(by: .cpu) }
-                case .character("m"): state.mutate { $0.sort(by: .memory) }
-                case .character("n"): state.mutate { $0.sort(by: .pid) }
-                case .character("r"): state.mutate { $0.reverseSort() }
-                case .character("1"): state.mutate { $0.adjustThreshold(.cpuDown) }
-                case .character("2"): state.mutate { $0.adjustThreshold(.cpuUp) }
-                case .character("3"): state.mutate { $0.adjustThreshold(.memoryDown) }
-                case .character("4"): state.mutate { $0.adjustThreshold(.memoryUp) }
-                case .character("h"): state.mutate { $0.historyMetric = $0.historyMetric.next }
-                case .character("t"): state.mutate { $0.historyWindow = $0.historyWindow.next }
-                case .character("g"): state.mutate { $0.toggleGrouping() }
-                case .character("<"): adjustInterval(.slower)
-                case .character(">"): adjustInterval(.faster)
-                case .character("p"): state.mutate { $0.toggleFreeze() }
-                case .space: state.mutate { $0.toggleSelectedPin() }
                 case .character("-"): state.mutate { $0.adjustDetails(by: -5) }
                 case .character("+"): state.mutate { $0.adjustDetails(by: 5) }
                 case .character("0"): state.mutate { $0.minimizeDetails() }

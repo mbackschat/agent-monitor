@@ -126,16 +126,17 @@ import Testing
 
 private func groupedRow(
     _ pid: Int32, thread: String?, root: String? = nil, provider: AgentProvider = .codex,
-    evidence: AttributionEvidence = .marker, cpu: Double? = 50, memory: UInt64? = 1_200_000_000
+    evidence: AttributionEvidence = .marker, cpu: Double? = 50, memory: UInt64? = 1_200_000_000,
+    cwd: String? = "/same/project", runtimeDirectory: String? = "/same/project"
 ) -> HeavyProcess {
     let identity = ProcessIdentity(pid: pid, startMicroseconds: 1)
     return HeavyProcess(
         process: identity, executable: "/bin/worker", name: "worker", cpuPercent: cpu,
-        footprintBytes: memory, cwd: "/same/project", command: nil, metadataStatus: .markerRead,
+        footprintBytes: memory, cwd: cwd, command: nil, metadataStatus: .markerRead,
         attribution: Attribution(
             provider: provider, evidence: evidence, context: .terminal,
             threadID: thread, rootSessionID: root, runtime: ProcessIdentity(pid: 999, startMicroseconds: 1),
-            terminal: "ttys001", runtimeDirectory: "/same/project", candidateThreadIDs: [],
+            terminal: "ttys001", runtimeDirectory: runtimeDirectory, candidateThreadIDs: [],
             ancestry: [identity]))
 }
 
@@ -165,4 +166,25 @@ private func groupedSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
     #expect(state.children(of: try #require(state.groups.first)).map(\.process.pid) == [10, 20, 5])
     state.toggleGrouping()
     #expect(state.rows.map(\.process.pid) == [10, 20, 30, 40, 5])
+}
+
+@Test func groupProjectUsesWorkloadDirectoriesWithoutChangingSessionIdentity() throws {
+    let first = groupedRow(
+        1, thread: "same", cwd: "/work/actual-project", runtimeDirectory: "/launch/old-project")
+    let second = groupedRow(
+        2, thread: "same", cwd: "/work/actual-project", runtimeDirectory: "/launch/old-project")
+    let group = try #require(SessionGrouping.groups([first, second]).first)
+    #expect(group.project == "actual-project")
+    #expect(group.id == .session(provider: "codex", id: "same"))
+    #expect(
+        SessionGrouping.groups([first, groupedRow(3, thread: "same", cwd: "/work/another-project")]).first?
+            .project == "Multiple projects")
+    #expect(
+        SessionGrouping.groups([groupedRow(4, thread: "same", cwd: nil)]).first?.project == "Unknown project")
+    var state = LiveReportState()
+    state.receive(groupedSnapshot([first]))
+    let text = LiveReportLayout.lines(state: state, width: 140, height: 24).map(\.text).joined(
+        separator: "\n")
+    #expect(text.contains("actual-project"))
+    #expect(!text.contains("old-project"))
 }

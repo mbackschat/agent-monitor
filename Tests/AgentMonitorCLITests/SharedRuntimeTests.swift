@@ -10,17 +10,17 @@ private let sharedThreads = [
 
 private func runtimeRow(
     pid: Int32 = 42, runtimeStart: UInt64 = 1, provider: AgentProvider? = .codex,
-    thread: String? = nil, candidates: [String] = sharedThreads
+    thread: String? = nil, candidates: [String] = sharedThreads, directory: String? = nil
 ) -> HeavyProcess {
     let identity = ProcessIdentity(pid: pid, startMicroseconds: 1)
     return HeavyProcess(
         process: identity, executable: "/opt/bin/codex", name: "codex", cpuPercent: 50,
-        footprintBytes: 2_000_000_000, cwd: nil, command: nil, metadataStatus: .notObserved,
+        footprintBytes: 2_000_000_000, cwd: directory, command: nil, metadataStatus: .notObserved,
         attribution: Attribution(
             provider: provider, evidence: thread == nil ? .ambiguous : .marker, context: .nonterminal,
             threadID: thread, rootSessionID: nil,
             runtime: ProcessIdentity(pid: 42, startMicroseconds: runtimeStart), terminal: nil,
-            runtimeDirectory: nil, candidateThreadIDs: candidates, ancestry: [identity]))
+            runtimeDirectory: directory, candidateThreadIDs: candidates, ancestry: [identity]))
 }
 
 private func runtimeSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
@@ -87,4 +87,18 @@ func sharedRuntimeLabelRequiresTheRuntimeItselfAndDistinctCodexThreads(_ scenari
     #expect(groups.first { $0.processes == [runtime] }?.label.contains("shared runtime") == true)
     #expect(groups.first { $0.processes == [exact] }?.sessionID == sharedThreads[0])
     #expect(groups.first { $0.processes == [unresolved] }?.label.contains("unresolved PID 44") == true)
+}
+
+@Test func sharedRuntimeProjectDoesNotClaimItsLaunchDirectory() throws {
+    let row = runtimeRow(directory: "/launch/unrelated-project")
+    #expect(row.isSharedRuntime)
+    let group = try #require(SessionGrouping.groups([row]).first)
+    #expect(group.project == "Shared runtime")
+    #expect(!group.label.contains("unrelated-project"))
+    var state = LiveReportState()
+    state.receive(runtimeSnapshot([row]))
+    let text = LiveReportLayout.lines(state: state, width: 160, height: 24).map(\.text).joined(
+        separator: "\n")
+    #expect(!text.contains("unrelated-project"))
+    #expect(TextReport.render(runtimeSnapshot([row])).contains("/launch/unrelated-project"))
 }

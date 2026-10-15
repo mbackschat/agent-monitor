@@ -53,6 +53,7 @@ final class MenuBarModel {
         report.resetCollection()
         if let latestSnapshot { report.receive(latestSnapshot) }
         updateArrivals()
+        refreshIndicator()
         startCollection()
     }
 
@@ -61,6 +62,7 @@ final class MenuBarModel {
         liveIcon = enabled
         indicator = MenuBarIndicator()
         if enabled || isOpen { startCollection() } else { cancelCollection() }
+        refreshIndicator()
         onIndicatorChange?()
     }
 
@@ -106,6 +108,7 @@ final class MenuBarModel {
         guard isOpen, report.snapshot != nil, report.actionPanel == nil else { return }
         report.toggleFreeze()
         updateArrivals()
+        refreshIndicator()
     }
 
     func close() {
@@ -127,6 +130,7 @@ final class MenuBarModel {
         action?.cancel()
         report.resetCollection()
         updateArrivals()
+        refreshIndicator()
     }
 
     func stop() async {
@@ -157,16 +161,23 @@ final class MenuBarModel {
             needsStartupSample = false
             liveInterval.set(samplingInterval)
         }
-        if liveIcon, snapshot.agentLoad != nil {
-            indicator.receive(snapshot)
-            onIndicatorChange?()
-        }
         if isOpen {
             report.receive(snapshot)
             updateArrivals()
         } else {
             report.recordHistory(snapshot)
         }
+        refreshIndicator()
+    }
+
+    var displayedProcessCount: Int? {
+        report.snapshot.map { Set($0.findings.map(\.process)).count }
+    }
+
+    private func refreshIndicator() {
+        guard liveIcon, let snapshot = isOpen ? report.snapshot : latestSnapshot else { return }
+        indicator.receive(snapshot, paused: isOpen && report.frozen)
+        onIndicatorChange?()
     }
 
     private func updateArrivals() {

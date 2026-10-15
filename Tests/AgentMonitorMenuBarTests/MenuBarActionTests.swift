@@ -44,7 +44,8 @@ private final class FakeActions: ProcessActions, Sendable {
 func menuBarFixture(
     pids: [Int32] = [42001], name: String = "swift-frontend", project: String = "sample-app",
     cpu: Double = 184.6, memoryBytes: UInt64 = 1_420_000_000,
-    provider: String = "codex", sessionID: String = "11111111-1111-4111-8111-111111111111"
+    provider: String = "codex", sessionID: String = "11111111-1111-4111-8111-111111111111",
+    sharedRuntime: Bool = false
 ) throws -> MonitoringSnapshot {
     let rows = try pids.map { pid in
         try JSONDecoder().decode(
@@ -53,10 +54,10 @@ func menuBarFixture(
                 """
                 {"process":{"pid":\(pid),"startMicroseconds":1},"executable":"/fixture/\(name)",
                 "name":"\(name)","cpuPercent":\(cpu),"footprintBytes":\(memoryBytes),"cwd":"/projects/\(project)",
-                "metadataStatus":"markerRead","attribution":{"provider":"\(provider)","evidence":"marker",
-                "context":"terminal","threadID":"\(sessionID)",
-                "runtime":{"pid":41000,"startMicroseconds":1},"terminal":"ttys001",
-                "runtimeDirectory":"/projects/\(project)","candidateThreadIDs":[],"ancestry":[]}}
+                "metadataStatus":"markerRead","attribution":{"provider":"\(provider)","evidence":"\(sharedRuntime ? "ambiguous" : "marker")",
+                "context":"\(sharedRuntime ? "nonterminal" : "terminal")","threadID":\(sharedRuntime ? "null" : "\"\(sessionID)\""),
+                "runtime":{"pid":\(sharedRuntime ? pid : 41000),"startMicroseconds":1},"terminal":"ttys001",
+                "runtimeDirectory":"/projects/\(project)","candidateThreadIDs":\(sharedRuntime ? "[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\"]" : "[]"),"ancestry":[]}}
                 """.utf8))
     }
     return MonitoringSnapshot(

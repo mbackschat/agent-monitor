@@ -251,7 +251,7 @@ public enum LiveReportLayout {
     {
         switch columns {
         case .wide(let processWidth, let agentWidth):
-            let project = row.attribution.runtimeDirectory ?? row.cwd
+            let project = row.isSharedRuntime ? nil : row.cwd
             return
                 "\(ReportTable.pad(row.name, to: processWidth)) \(ReportTable.pad(agent, to: agentWidth)) \(row.attribution.terminal ?? "no tty") / \(project.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "?")"
         case .compact(let processWidth, let agentWidth):
@@ -317,7 +317,7 @@ public enum LiveReportLayout {
             "Session: \(row.sessionDescription) [\(attribution.evidence.rawValue), \(attribution.context.rawValue)]",
             "Runtime: \(attribution.runtime.map { String($0.pid) } ?? "unresolved") | TTY: \(attribution.terminal ?? "unavailable")",
             "Work directory: \(row.cwd ?? "unavailable")",
-            "Session directory: \(attribution.runtimeDirectory ?? "unavailable")",
+            "Runtime directory: \(attribution.runtimeDirectory ?? "unavailable")",
             "Observed chain: \(attribution.ancestry.map { String($0.pid) }.joined(separator: " ← "))",
         ]
         if let root = attribution.rootSessionID { values.append("Root session: \(root)") }

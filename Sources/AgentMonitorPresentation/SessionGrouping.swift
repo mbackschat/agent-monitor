@@ -21,9 +21,13 @@ public struct SessionGroup: Equatable, Sendable {
     public var memoryPartial: Bool { processes.contains { $0.footprintBytes == nil } }
     public var minimumPID: Int32 { processes.map(\.process.pid).min() ?? 0 }
     public var project: String {
-        let directories = Set(processes.compactMap { $0.attribution.runtimeDirectory ?? $0.cwd })
-        guard directories.count == 1, let directory = directories.first else {
-            return "multiple/unknown projects"
+        if isSharedRuntime { return "Shared runtime" }
+        let workloads = processes.filter { $0.process != $0.attribution.runtime }
+        let members = workloads.isEmpty ? processes : workloads
+        let directories = Set(members.compactMap(\.cwd))
+        if directories.count > 1 { return "Multiple projects" }
+        guard members.allSatisfy({ $0.cwd != nil }), let directory = directories.first else {
+            return "Unknown project"
         }
         return URL(fileURLWithPath: directory).lastPathComponent
     }
