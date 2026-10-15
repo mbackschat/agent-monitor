@@ -161,82 +161,93 @@ public struct Monitor: Sendable {
         }
     }
 
-    private func resolve(_ identity: ProcessIdentity) -> (
-        attribution: Attribution, marker: SessionMarker?, markerOwner: ProcessIdentity?
-    ) {
+    /// What walking up from a process found before the first agent runtime.
+    private struct Walk {
         var path: [ProcessIdentity] = []
         var marker: SessionMarker?
         var markerOwner: ProcessIdentity?
         var runtime: Node?
         var unresolvedMetadata = false
-        let ancestors = chain(from: identity)
-        let nearest = ancestors.lazy.compactMap { self.nodes[$0]?.sample.runtimeProvider }.first
-        for key in ancestors {
-            guard let node = nodes[key] else { continue }
-            path.append(key)
-            if node.sample.runtimeProvider != nil {
-                runtime = node
-                break
-            }
-            if marker == nil, node.metadata.status == .malformed { unresolvedMetadata = true }
-            if marker == nil, !node.metadata.markers.isEmpty {
-                // Nested agents leave both markers; the inner agent is the nearest runtime.
-                let markers = node.metadata.markers
-                if let value = markers.count == 1
-                    ? markers[0] : markers.first(where: { $0.provider == nearest })
-                {
-                    marker = value
-                    markerOwner = key
-                } else {
-                    unresolvedMetadata = true
-                }
-            }
+    }
+
+    private func resolve(_ identity: ProcessIdentity) -> (
+        attribution: Attribution, marker: SessionMarker?, markerOwner: ProcessIdentity?
+    ) {
+        var walk = self.walk(from: identity)
+        if walk.runtime == nil, let marker = walk.marker, let owner = walk.markerOwner {
+            walk.runtime = inboxRuntime(for: marker, owner: owner)
         }
-        // A detached workload keeps the inbox path its runtime exported (docs/research/
-        // claude-session-messaging.md); the one live runtime still listening on it launched it.
-        if runtime == nil, let marker, let markerOwner, let inbox = marker.inboxSocket {
-            let owners = inboxCandidates(marker, owner: markerOwner).compactMap { nodes[$0] }
-                .filter { $0.metadata.listeningSockets.contains(inbox) }
-            if owners.count == 1 { runtime = owners[0] }
-        }
+        let runtime = walk.runtime
         let candidates = Array(Set(runtime?.metadata.writerThreadIDs ?? [])).sorted()
-        let evidence: AttributionEvidence
-        let thread: String?
         let providerConflict =
-            marker != nil && runtime?.sample.runtimeProvider != nil
-            && marker?.provider != runtime?.sample.runtimeProvider
-        if providerConflict || unresolvedMetadata {
-            evidence = .ambiguous
-            thread = nil
-        } else if let marker {
-            evidence = markerOwner == identity ? .marker : .inheritedMarker
-            thread = marker.threadID
-        } else {
-            switch candidates.count {
-            case 1:
-                evidence = .writerLock
-                thread = candidates[0]
-            case 2...:
-                evidence = .ambiguous
-                thread = nil
-            default:
-                evidence = runtime == nil ? .unknown : .runtimeOnly
-                thread = nil
-            }
-        }
+            walk.marker != nil && runtime?.sample.runtimeProvider != nil
+            && walk.marker?.provider != runtime?.sample.runtimeProvider
+        let (evidence, thread) = classify(
+            walk, uncertain: providerConflict || walk.unresolvedMetadata, of: identity, candidates: candidates
+        )
         let attribution = Attribution(
-            provider: providerConflict ? nil : marker?.provider ?? runtime?.sample.runtimeProvider,
+            provider: providerConflict ? nil : walk.marker?.provider ?? runtime?.sample.runtimeProvider,
             evidence: evidence,
             context: runtime.map {
                 $0.sample.terminal == nil && $0.sample.terminalDevice == nil ? .nonterminal : .terminal
             } ?? .unverified,
             threadID: thread,
-            rootSessionID: providerConflict || unresolvedMetadata ? nil : marker?.rootSessionID,
+            rootSessionID: providerConflict || walk.unresolvedMetadata ? nil : walk.marker?.rootSessionID,
             runtime: runtime?.sample.identity,
             terminal: runtime?.metadata.terminal ?? runtime?.sample.terminal,
-            runtimeDirectory: runtime?.metadata.cwd, candidateThreadIDs: candidates, ancestry: path
+            runtimeDirectory: runtime?.metadata.cwd, candidateThreadIDs: candidates, ancestry: walk.path
         )
-        return (attribution, marker, markerOwner)
+        return (attribution, walk.marker, walk.markerOwner)
+    }
+
+    private func walk(from identity: ProcessIdentity) -> Walk {
+        var walk = Walk()
+        let ancestors = chain(from: identity)
+        let nearest = ancestors.lazy.compactMap { self.nodes[$0]?.sample.runtimeProvider }.first
+        for key in ancestors {
+            guard let node = nodes[key] else { continue }
+            walk.path.append(key)
+            if node.sample.runtimeProvider != nil {
+                walk.runtime = node
+                break
+            }
+            guard walk.marker == nil else { continue }
+            if node.metadata.status == .malformed { walk.unresolvedMetadata = true }
+            let markers = node.metadata.markers
+            guard !markers.isEmpty else { continue }
+            // Nested agents leave both markers; the inner agent is the nearest runtime.
+            if let value = markers.count == 1 ? markers[0] : markers.first(where: { $0.provider == nearest })
+            {
+                walk.marker = value
+                walk.markerOwner = key
+            } else {
+                walk.unresolvedMetadata = true
+            }
+        }
+        return walk
+    }
+
+    /// A detached workload keeps the inbox path its runtime exported (docs/research/
+    /// claude-session-messaging.md); the one live runtime still listening on it launched it.
+    private func inboxRuntime(for marker: SessionMarker, owner: ProcessIdentity) -> Node? {
+        guard let inbox = marker.inboxSocket else { return nil }
+        let owners = inboxCandidates(marker, owner: owner).compactMap { nodes[$0] }
+            .filter { $0.metadata.listeningSockets.contains(inbox) }
+        return owners.count == 1 ? owners[0] : nil
+    }
+
+    private func classify(
+        _ walk: Walk, uncertain: Bool, of identity: ProcessIdentity, candidates: [String]
+    ) -> (AttributionEvidence, String?) {
+        if uncertain { return (.ambiguous, nil) }
+        if let marker = walk.marker {
+            return (walk.markerOwner == identity ? .marker : .inheritedMarker, marker.threadID)
+        }
+        switch candidates.count {
+        case 1: return (.writerLock, candidates[0])
+        case 2...: return (.ambiguous, nil)
+        default: return (walk.runtime == nil ? .unknown : .runtimeOnly, nil)
+        }
     }
 }
 
