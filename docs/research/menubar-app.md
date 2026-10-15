@@ -6,7 +6,7 @@ Local checks were read-only: reading repository sources and docs, `sw_vers`, `xc
 
 ## Verdict
 
-**Feasible; prototype first, then decide on Developer ID before promising distribution.** The architecture already anticipates this consumer: `MonitoringSession`, `LiveReportState`, `SessionGrouping`, `ActionPanel`'s state machine, `SessionActions` and `TerminalFocus` can drive a SwiftUI `MenuBarExtra` with little or no change, and the app must run outside the App Sandbox, which rules out the Mac App Store but matches the CLI's current same-user model. The real costs sit outside the view code: (1) provider messaging resolves `claude`/`codex` through the inherited `PATH`, which a Finder- or login-launched app does not have; (2) only a Developer ID-signed, notarized app gives a stable code identity for the Automation grant and passes Gatekeeper for a downloaded app, which needs the paid Apple Developer Program; (3) a long-lived agent needs a different sampling cadence than the TUI, and the current live-interval wait wakes four times per second regardless of the interval. A minimal read-only menu bar view is **S–M**; feature parity with actions, composer, focus, notifications, login item and a notarized cask is **L**.
+**Feasible; prototype first, then decide on Developer ID before promising distribution.** The architecture already anticipates this consumer: `MonitoringSession`, `LiveReportState`, `SessionGrouping`, `ActionPanel`'s state machine, `SessionActions` and `TerminalFocus` can drive a SwiftUI `MenuBarExtra` with little or no change, and the app must run outside the App Sandbox, which rules out the Mac App Store but matches the CLI's current same-user model. The real costs sit outside the view code: (1) provider messaging resolves `claude`/`codex` through the inherited `PATH`, which a Finder- or login-launched app does not have; (2) only a Developer ID-signed, notarized app gives a stable code identity for the Automation grant and passes Gatekeeper for a downloaded app, which needs the paid Apple Developer Program; (3) a long-lived agent must stop sampling entirely while its popover is closed (decided 2026-10-15), and the current live-interval wait wakes four times per second while it runs. A minimal read-only menu bar view is **S–M**; feature parity with actions, composer, focus, notifications, login item and a notarized cask is **L**.
 
 ## Local observations
 
@@ -42,15 +42,17 @@ Local checks were read-only: reading repository sources and docs, `sw_vers`, `xc
 
 ### Sampling in a long-lived agent
 
-The TUI is a foreground tool that runs while the user watches; a menu bar app runs all day. Three cadences are needed (**Inference**):
+The TUI is a foreground tool that runs while the user watches; a menu bar app runs all day.
 
-| State | Proposed interval | Why |
+**Decision (user, 2026-10-15): when the popover is closed the app does nothing, and battery use is reduced at all costs.** That fixes the cadence to two states:
+
+| State | Interval | Consequence |
 |---|---|---|
 | Popover open | 1 s (TUI default) | Matches what users know from the TUI |
-| Popover closed, status label or notifications enabled | 5–10 s | The label and threshold notifications need data; 0.805% of one core at 1 s suggests roughly a tenth of that at 10 s, unmeasured |
-| Popover closed, label shows no live data and notifications off | Paused (cancel the session task) | No consumer, so no sampling; a fresh baseline is taken on reopen, at the cost of one interval before the first CPU value |
+| Popover closed | None: cancel the session task, schedule no timer, keep no observer that wakes the process | The status item is a static icon; no live label and no threshold notifications. On reopen a fresh baseline is taken, so footprint shows at once and CPU after the first interval |
 
-- **Local/Inference** `MonitoringSession` already supports live interval changes, so switching between 1 s and 10 s on open/close needs no core change. Pausing means cancelling the `run` task; process history is then lost, so detached-child attribution that relies on observed ancestry weakens after a pause. Prefer a slow interval over a pause when attribution quality matters.
+- **Local/Inference** Pausing means cancelling the `run` task. Process history is then lost, so detached-child attribution that relies on observed ancestry is weaker right after reopening than in a long-running TUI. The decision accepts that trade-off; markers, inbox sockets and writer locks are read fresh on each sample and are unaffected.
+- **Inference** The closed state must also release what keeps the process awake indirectly: the action `Task` finishes or is cancelled, owned provider subprocesses are reaped, and an unseen popover is not redrawn. The measurement gate is zero CPU time and no wakeups attributable to the app over ten minutes closed.
 - **Local/Inference** The quarter-second re-read in `MonitoringSession.wait` costs four wakeups per second even at a 60 s interval. That is harmless for a foreground TUI but is the wrong shape for an always-on agent; Apple's guidance is to respond to events rather than poll and to give timers at least 10% tolerance ([Energy Efficiency Guide: timers](https://developer.apple.com/library/archive/documentation/Performance/Conceptual/power_efficiency_guidelines_osx/Timers.html)). A change notification (for example an `AsyncStream` of interval updates) plus a tolerance on the sleep ([`Task.sleep(for:tolerance:clock:)`](https://developer.apple.com/documentation/swift/task/sleep(for:tolerance:clock:)), macOS 13+) would fix it at the root in the core, for every host.
 - **Doc** App Nap may throttle a non-foreground app's timers when it has not "recently updated content in the visible portion of a window" and holds no `NSProcessInfo` assertion; Apple warns not to rely on App Nap to idle ([App Nap](https://developer.apple.com/library/archive/documentation/Performance/Conceptual/power_efficiency_guidelines_osx/AppNap.html)). **Inference** Throttling only widens the averaging window (see the CPU observation above); it does not corrupt values. Do not take a `beginActivity` assertion for background sampling.
 - **Inference** A longer interval turns the threshold into a longer average: at 10 s, a 3-second spike to 100% reads as about 30%. This touches the open "sustained versus instantaneous threshold" decision in [PRODUCT.md](PRODUCT.md#decisions-still-open) and must be stated in the UI.
@@ -132,6 +134,9 @@ The TUI is a foreground tool that runs while the user watches; a menu bar app ru
 - **Doc** Homebrew 5.0.0 deprecated `--no-quarantine`/`--quarantine` because Homebrew "does not wish to easily provide circumvention to macOS security features", deprecated casks without codesigning, and announced disabling `Homebrew/homebrew-cask` casks that fail Gatekeeper checks in September 2026 ([Homebrew 5.0.0](https://brew.sh/2025/11/12/homebrew-5.0.0/)); official casks must pass Gatekeeper ([Acceptable Casks](https://docs.brew.sh/Acceptable-Casks)). Neither page says whether third-party taps are held to it.
 - **Inference** The current formula works with an ad-hoc binary because it installs a command-line tool, not a quarantined app. A cask in `mbackschat/homebrew-tap` with an ad-hoc app would install, then hit Gatekeeper on first launch, with no supported bypass flag; Homebrew's direction makes a signed, notarized app the only durable cask. Use a distinct token (for example `agent-monitor-app`) so `brew install agent-monitor` keeps meaning the formula. Keep the CLI in the formula; shipping it also through the cask's `binary` stanza raises a resource-bundle lookup question (the CLI would then run from inside an app bundle) and a formula/cask conflict, so defer it.
 
+- **Local/Inference (2026-10-15)** Homebrew applies quarantine only in its cask code (`cask/download.rb` calls `Quarantine.cask!`); the installed formula's `agent-monitor` carries `com.apple.provenance` but no `com.apple.quarantine` (`xattr -l`). A formula in the own tap that installs an ad-hoc signed `.app` into its prefix would therefore avoid the Gatekeeper prompt without a Developer ID, as would a source build. Untested: whether macOS 27 treats such an app like the CLI. Homebrew's core repository would not accept it; the own tap can.
+- **Inference** Signing every release with one self-signed certificate gives a stable designated requirement (TN3127 above), so the Automation grant would survive updates without a Developer ID. A downloaded, double-click install without a warning, and an official cask, still need the paid program.
+
 ### Release-process impact
 
 - **Inference** `scripts/package-release.py` stays for the CLI tarball. Add a sibling (for example `scripts/package-app.py`) that assembles, signs with Developer ID and hardened runtime, submits with `notarytool --wait`, staples, zips, verifies with `codesign --verify --strict` and `spctl --assess`, and checks the version from the bundle. Credentials stay in the keychain (`notarytool store-credentials`), never in the repository or CI by default.
@@ -183,7 +188,7 @@ The TUI is a foreground tool that runs while the user watches; a menu bar app ru
 
 1. **Distribution requires a paid Developer ID.** Without it, a downloaded app is blocked by Gatekeeper until the user approves it in System Settings, Homebrew offers no supported bypass, and every update silently drops the Automation grant. Decide this before promising a cask.
 2. **Provider messaging breaks outside a shell environment.** `/usr/bin/env` cannot find `claude` or `codex` from a launchd-started app. Resolving an absolute path safely, and keeping it valid across provider updates, is new work and a new trust decision.
-3. **Long-lived energy cost.** The quarter-second wait loop, a 1 s default, and SwiftUI redraws of an unseen popover could make the app a visible entry in Activity Monitor's Energy tab. Needs the cadence policy and a measurement gate before release.
+3. **Long-lived energy cost.** Decided: nothing runs while the popover is closed. The risk is a leftover wakeup source (a timer, an observer, an unfinished action task, SwiftUI redraws of an unseen popover); the ten-minute closed measurement must show none.
 4. **`MenuBarExtra` gaps.** No first-party presentation control; possible text-field focus quirks for the composer. The `NSStatusItem` fallback is known, but costs AppKit glue.
 5. **Automation attribution is undocumented.** TCC's responsible-process algorithm "has changed in the past"; the app-as-responsible behavior and the entitlement need for an `osascript` child must be observed, not assumed.
 6. **Scope.** [PLAN.md](../../PLAN.md) and [PRODUCT.md](PRODUCT.md) currently list a menu bar UI, packaging and notifications as outside the PoC; building this requires an explicit scope decision.
@@ -192,7 +197,6 @@ The TUI is a foreground tool that runs while the user watches; a menu bar app ru
 
 - Does hiding the item via System Settings › Menu Bar terminate a menu-bar-only app, as removing the extra does?
 - Does focus from an active accessory app (with `yieldActivation(to:)`) reliably bring Terminal's window forward on macOS 27, including other Spaces and full screen?
-- Should the app also own a long-lived history (for detached-child attribution) while the popover is closed, or is a slow cadence enough?
 - Should the menu bar app and a running TUI share one collector? Today each would sample independently, doubling the cost when both run; sharing would need IPC that the architecture deliberately avoids.
 - Is one cask that also links the CLI wanted later, or should formula and cask stay separate?
 
@@ -203,7 +207,7 @@ The TUI is a foreground tool that runs while the user watches; a menu bar app ru
 
 ### Recommendation
 
-**Prototype first (go for a prototype, no-go for distribution until Developer ID is decided).** The smallest sensible first step: add an `AgentMonitorMenuBar` executable target that runs unbundled via `swift run` with `.accessory` activation policy, shows a read-only `MenuBarExtra(.window)` with session groups and details driven by the existing `MonitoringSession` and `LiveReportState`, and switches between a 1 s interval when open and 10 s when closed. Its acceptance criteria are: no change to core, CLI or TUI behavior; and a measured background cost (CPU and wakeups with the popover closed over ten minutes) compared with the headless watch. Actions, bundling, signing and distribution follow only after that gate passes and the Developer ID question is answered.
+**Prototype first (go for a prototype, no-go for distribution until Developer ID is decided).** The smallest sensible first step: add an `AgentMonitorMenuBar` executable target that runs unbundled via `swift run` with `.accessory` activation policy, shows a read-only `MenuBarExtra(.window)` with session groups and details driven by the existing `MonitoringSession` and `LiveReportState`, samples at 1 s while open and cancels sampling entirely when closed. Its acceptance criteria are: no change to core, CLI or TUI behavior; and a measured background cost (CPU and wakeups with the popover closed over ten minutes) compared with the headless watch. Actions, bundling, signing and distribution follow only after that gate passes and the Developer ID question is answered.
 
 ## Gaps
 
@@ -213,4 +217,4 @@ The TUI is a foreground tool that runs while the user watches; a menu bar app ru
 - The launch environment `PATH` of a Finder- or login-started app on macOS 27 was inferred, not printed from a running app.
 - Homebrew's Gatekeeper policy for third-party taps after September 2026 is not stated in the inspected pages; Homebrew's post-September behavior was not checked.
 - Pricing and membership terms were read from Apple's program page on 2026-10-15 and can change.
-- Background sampling cost at 5–10 s intervals is extrapolated from the 1 s measurement, not measured.
+- That a closed `MenuBarExtra` app reaches zero wakeups is unmeasured.
