@@ -28,7 +28,7 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         self.item = item
         model.onIndicatorChange = { [weak self] in self?.updateIndicator() }
         updateIndicator()
@@ -53,16 +53,8 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
         guard let button = item?.button else { return }
         let description: String
         if model.liveIcon {
-            if let level = model.indicator.level {
-                button.image = MenuBarStatusImage.make(level: level, highlighted: model.indicator.highlighted)
-            } else {
-                let symbol: String
-                switch model.indicator.availability {
-                case .waiting: symbol = "ellipsis"
-                case .current, .unavailable: symbol = "questionmark.square"
-                }
-                button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-            }
+            button.image = MenuBarStatusImage.make(
+                symbol: model.indicator.symbol, heavyCount: model.indicator.heavyCount)
             button.contentTintColor = nil
             description = model.indicator.statusDescription
         } else {

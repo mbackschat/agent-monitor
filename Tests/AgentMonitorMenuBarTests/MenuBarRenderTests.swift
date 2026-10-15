@@ -83,11 +83,13 @@ import Testing
         row.layer?.backgroundColor = (dark ? NSColor.black : NSColor.white).cgColor
         row.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         view.addSubview(row)
-        for (index, label) in ["Quiet", "Low", "Medium", "High", "New load"].enumerated() {
-            let button = NSButton(frame: NSRect(x: index * 60 + 18, y: 20, width: 24, height: 24))
+        for (index, label) in ["Starting", "0 heavy", "1 heavy", "12 heavy", "99 heavy"].enumerated() {
+            let button = NSButton(frame: NSRect(x: index * 60 + 4, y: 20, width: 52, height: 24))
             button.isBordered = false
             button.imagePosition = .imageOnly
-            button.image = MenuBarStatusImage.make(level: index == 4 ? 1 : index, highlighted: index == 4)
+            button.image = MenuBarStatusImage.make(
+                symbol: index == 0 ? .terminal : .bars(index - 1),
+                heavyCount: [nil, 0, 1, 12, 99][index])
             button.contentTintColor = dark ? .white : .black
             row.addSubview(button)
             let title = NSTextField(labelWithString: label)

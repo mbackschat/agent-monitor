@@ -1,6 +1,12 @@
 import AgentMonitorCore
 import Foundation
 
+enum MenuBarStatusSymbol: Equatable {
+    case terminal
+    case bars(Int)
+    case unavailable
+}
+
 struct MenuBarIndicator {
     enum Availability { case waiting, current, unavailable }
 
@@ -8,15 +14,21 @@ struct MenuBarIndicator {
     private var load: AgentLoadSummary?
     private var sampledAt: Date?
     private var unreadableCount = 0
-    private var previousHeavy: Set<ProcessIdentity>?
-    private var highlightSamples = 0
     private(set) var availability = Availability.waiting
 
     init(processorCount: Int = ProcessInfo.processInfo.activeProcessorCount) {
         self.processorCount = max(1, processorCount)
     }
 
-    var highlighted: Bool { highlightSamples > 0 }
+    var heavyCount: Int? { load?.heavyProcesses.count }
+
+    var symbol: MenuBarStatusSymbol {
+        if let level { return .bars(level) }
+        switch availability {
+        case .waiting: return .terminal
+        case .current, .unavailable: return .unavailable
+        }
+    }
 
     var level: Int? {
         guard let load, load.missingCPUCount < load.processCount || load.processCount == 0 else { return nil }
@@ -34,12 +46,6 @@ struct MenuBarIndicator {
             fail()
             return
         }
-        if highlightSamples > 0 {
-            highlightSamples -= 1
-        } else if let previousHeavy, !load.heavyProcesses.subtracting(previousHeavy).isEmpty {
-            highlightSamples = 2
-        }
-        previousHeavy = load.heavyProcesses
         self.load = load
         sampledAt = snapshot.timestamp
         unreadableCount = snapshot.unreadableProcessCount
@@ -49,8 +55,6 @@ struct MenuBarIndicator {
     mutating func fail() {
         load = nil
         sampledAt = nil
-        previousHeavy = nil
-        highlightSamples = 0
         availability = .unavailable
     }
 
@@ -59,7 +63,7 @@ struct MenuBarIndicator {
     var statusLines: [String] {
         guard let load, let sampledAt else {
             switch availability {
-            case .waiting: return ["Agent Monitor — waiting for a load sample"]
+            case .waiting: return ["Agent Monitor — waiting for first sample"]
             case .unavailable, .current: return ["Agent Monitor — load unavailable; open to inspect"]
             }
         }
@@ -73,7 +77,6 @@ struct MenuBarIndicator {
             "Bars: share of all cores · boundaries at 25% and 50%",
             "\(load.heavyProcesses.count) heavy agent processes",
             "Heavy: CPU > 25% of one core or footprint > 1 GB",
-            highlighted ? "New heavy load — temporary highlight" : nil,
             partial ? "Some resource measurements are unavailable" : nil,
             unreadableCount > 0 ? "\(unreadableCount) processes could not be read" : nil,
             "Sampled \(sampledAt.formatted(date: .omitted, time: .standard))",

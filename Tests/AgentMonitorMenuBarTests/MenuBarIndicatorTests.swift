@@ -23,31 +23,42 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     }
     indicator.fail()
     #expect(indicator.level == nil)
-    #expect(!indicator.highlighted)
+    #expect(indicator.heavyCount == nil)
     #expect(indicator.statusDescription.contains("unavailable"))
 }
 
-@Test func newHeavyLoadHighlightsForTwoSamplesWithoutRenewingSustainedLoad() throws {
+@Test func badgeCountsCurrentHeavyProcessesFromTheFirstSampleUntilTheyBecomeQuiet() throws {
     var indicator = MenuBarIndicator(processorCount: 8)
-    indicator.receive(try loadSample(50))
-    #expect(!indicator.highlighted)
+    #expect(indicator.symbol == .terminal)
+    #expect(indicator.heavyCount == nil)
+    for cpu in [50.0, 80, 100, 150] {
+        indicator.receive(try loadSample(cpu))
+        #expect(indicator.heavyCount == 1)
+    }
     indicator.receive(try loadSample(0))
-    indicator.receive(try loadSample(50))
-    #expect(indicator.highlighted)
-    indicator.receive(try loadSample(80))
-    #expect(indicator.highlighted)
-    indicator.receive(try loadSample(100))
-    #expect(!indicator.highlighted)
-    indicator.receive(try loadSample(150))
-    #expect(!indicator.highlighted)
+    #expect(indicator.heavyCount == 0)
+    #expect(indicator.symbol == .bars(0))
     indicator.receive(try loadSample(150, pid: 42002))
-    #expect(indicator.highlighted)
+    #expect(indicator.heavyCount == 1)
+    #expect(!indicator.statusDescription.contains("temporary"))
+}
+
+@Test func badgeIncludesMemoryHeavyProcessesAndDeduplicatesProcessLifetimes() throws {
+    let fixture = try menuBarFixture(pids: [42001, 42002], cpu: 0, memoryBytes: 2_000_000_000)
+    var indicator = MenuBarIndicator()
+    indicator.receive(
+        MonitoringSnapshot(
+            timestamp: fixture.timestamp, intervalSeconds: 15, cpuThresholdPercent: 999,
+            memoryThresholdBytes: 999_000_000_000, sampledProcessCount: 2, unreadableProcessCount: 0,
+            findings: [], agentLoad: AgentLoadSummary(processes: fixture.findings + fixture.findings)))
+    #expect(indicator.heavyCount == 2)
+    #expect(indicator.symbol == .bars(0))
 }
 
 @Test @MainActor func loadIconsKeepSizeAndIncreaseFilledAreaAtActualResolution() throws {
     var areas: [Int] = []
     for level in 0...3 {
-        let image = MenuBarStatusImage.make(level: level, highlighted: false)
+        let image = MenuBarStatusImage.make(symbol: .bars(level), heavyCount: nil)
         #expect(image.size == NSSize(width: 18, height: 18))
         #expect(image.isTemplate)
         let bitmap = try #require(
@@ -69,35 +80,58 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(zip(areas, areas.dropFirst()).allSatisfy { $0 < $1 })
 }
 
-@Test func unavailableLoadNeverMasqueradesAsIdleAndRecoveryDoesNotTriggerAnAlert() throws {
+@Test func unavailableLoadClearsTheBadgeAndRecoveryRestoresTheActualCount() throws {
     var indicator = MenuBarIndicator(processorCount: 8)
-    indicator.receive(try loadSample(0))
     indicator.receive(try loadSample(50))
-    #expect(indicator.highlighted)
+    #expect(indicator.heavyCount == 1)
     indicator.fail()
-    #expect(indicator.level == nil)
+    #expect(indicator.symbol == .unavailable)
+    #expect(indicator.heavyCount == nil)
     indicator.receive(try loadSample(50))
-    #expect(!indicator.highlighted)
+    #expect(indicator.heavyCount == 1)
     #expect(indicator.statusDescription.contains("50"))
 }
 
-@Test @MainActor func newLoadBadgeInvertsTheBarsInsideAFilledBackground() throws {
-    let image = MenuBarStatusImage.make(level: 3, highlighted: true)
-    #expect(image.isTemplate)
-    #expect(image.size == NSSize(width: 18, height: 18))
+@Test @MainActor func numericBadgePreservesTheBarsAndGrowsToFitEveryDigit() throws {
+    let normal = try iconBitmap(MenuBarStatusImage.make(symbol: .bars(3), heavyCount: nil))
+    var widths: [CGFloat] = []
+    for count in [0, 1, 12, 1234] {
+        let image = MenuBarStatusImage.make(symbol: .bars(3), heavyCount: count)
+        #expect(image.isTemplate)
+        #expect(image.size.height == 18)
+        #expect(image.size.width >= 40)
+        widths.append(image.size.width)
+        let bitmap = try iconBitmap(image)
+        for y in 0..<18 {
+            for x in 0..<18 {
+                #expect(bitmap.colorAt(x: x, y: y) == normal.colorAt(x: x, y: y))
+            }
+        }
+    }
+    #expect(widths[0] == widths[1])
+    #expect(widths[2] > widths[1])
+    #expect(widths[3] > widths[2])
+    let one = try iconBitmap(MenuBarStatusImage.make(symbol: .bars(1), heavyCount: 1))
+    let two = try iconBitmap(MenuBarStatusImage.make(symbol: .bars(1), heavyCount: 2))
+    #expect(
+        one.representation(using: .png, properties: [:]) != two.representation(using: .png, properties: [:]))
+    let startup = MenuBarStatusImage.make(symbol: .terminal, heavyCount: nil)
+    #expect(startup.size == NSSize(width: 18, height: 18))
+    #expect(startup.isTemplate)
+}
+
+@MainActor private func iconBitmap(_ image: NSImage) throws -> NSBitmapImageRep {
     let bitmap = try #require(
         NSBitmapImageRep(
-            bitmapDataPlanes: nil, pixelsWide: 18, pixelsHigh: 18, bitsPerSample: 8,
+            bitmapDataPlanes: nil, pixelsWide: Int(image.size.width), pixelsHigh: 18, bitsPerSample: 8,
             samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
             bytesPerRow: 0, bitsPerPixel: 0))
     let context = try #require(NSGraphicsContext(bitmapImageRep: bitmap))
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = context
-    image.draw(in: NSRect(x: 0, y: 0, width: 18, height: 18))
+    image.draw(in: NSRect(origin: .zero, size: image.size))
     NSGraphicsContext.restoreGraphicsState()
-    #expect((bitmap.colorAt(x: 6, y: 8)?.alphaComponent ?? 0) > 0.9)
-    #expect((bitmap.colorAt(x: 14, y: 8)?.alphaComponent ?? 1) < 0.1)
-    #expect((bitmap.colorAt(x: 0, y: 0)?.alphaComponent ?? 1) < 0.1)
+    return bitmap
 }
 
 @Test @MainActor func liveIconSamplesClosedAtFifteenSecondsAndKeepsOneCollector() async throws {
