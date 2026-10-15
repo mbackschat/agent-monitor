@@ -1,0 +1,106 @@
+{
+  "date": "2026-10-15",
+  "platform": "macOS 27.0.1, Swift 6.4, Apple Silicon",
+  "runs": [
+    {
+      "stage": "initial-isolated",
+      "build": "debug",
+      "harness": "Swift Testing",
+      "environment": "restricted",
+      "averagePercentOfOneCPUCore": 7.085746576536138,
+      "elapsedSeconds": 68.416093458,
+      "intervalSeconds": 15,
+      "logicalProcessors": 8,
+      "processCPUMilliseconds": 4847.791,
+      "samples": 4
+    },
+    {
+      "stage": "initial-breakdown",
+      "build": "debug",
+      "harness": "Swift Testing",
+      "environment": "restricted",
+      "averagePercentOfOneCPUCore": 7.380567957500121,
+      "elapsedSeconds": 68.669037792,
+      "intervalSeconds": 15,
+      "logicalProcessors": 8,
+      "metadataCPUMilliseconds": 3589.985000000002,
+      "metadataCalls": 2465,
+      "processCPUMilliseconds": 5068.165,
+      "samples": 4,
+      "snapshotCPUMilliseconds": 60.453,
+      "snapshotCalls": 5
+    },
+    {
+      "stage": "recognition-and-parsing",
+      "build": "debug",
+      "harness": "Swift Testing",
+      "environment": "unrestricted",
+      "averagePercentOfOneCPUCore": 5.522289280052589,
+      "elapsedSeconds": 66.248684458,
+      "intervalSeconds": 15,
+      "logicalProcessors": 8,
+      "metadataCPUMilliseconds": 3496.7319999999913,
+      "metadataCalls": 2526,
+      "processCPUMilliseconds": 3658.444,
+      "samples": 4,
+      "snapshotCPUMilliseconds": 62.59,
+      "snapshotCalls": 5
+    },
+    {
+      "stage": "bulk-initialization",
+      "build": "debug",
+      "harness": "Swift Testing",
+      "environment": "unrestricted",
+      "averagePercentOfOneCPUCore": 0.8883580023783327,
+      "elapsedSeconds": 64.257089875,
+      "intervalSeconds": 15,
+      "logicalProcessors": 8,
+      "metadataCPUMilliseconds": 434.6169999999998,
+      "metadataCalls": 2674,
+      "processCPUMilliseconds": 570.833,
+      "samples": 4,
+      "snapshotCPUMilliseconds": 57.104,
+      "snapshotCalls": 5
+    },
+    {
+      "stage": "final",
+      "build": "debug",
+      "harness": "Swift Testing",
+      "environment": "unrestricted",
+      "averagePercentOfOneCPUCore": 0.6748489816536781,
+      "elapsedSeconds": 64.19762225,
+      "intervalSeconds": 15,
+      "logicalProcessors": 8,
+      "metadataCPUMilliseconds": 308.01600000000093,
+      "metadataCalls": 2689,
+      "processCPUMilliseconds": 433.237,
+      "samples": 4,
+      "snapshotCPUMilliseconds": 57.89,
+      "snapshotCalls": 5
+    },
+    {
+      "stage": "final",
+      "build": "optimized",
+      "harness": "standalone shared core",
+      "environment": "unrestricted",
+      "processCPUMilliseconds": 191.076,
+      "elapsedSeconds": 63.12974375,
+      "logicalProcessors": 8,
+      "intervalSeconds": 15,
+      "averagePercentOfOneCPUCore": 0.30267190812096395,
+      "samples": 4
+    }
+  ],
+  "parser": {
+    "before": {
+      "bufferBytes": 200095,
+      "repetitions": 100,
+      "milliseconds": 526.0175
+    },
+    "after": {
+      "bufferBytes": 200095,
+      "repetitions": 100,
+      "milliseconds": 3.464208
+    }
+  }
+}

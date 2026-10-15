@@ -49,6 +49,7 @@ private let emptySnapshot = MonitoringSnapshot(
         continuation.yield("end \(call)")
     }
     var iterator = events.makeAsyncIterator()
+    model.setLiveIcon(false)
     model.open()
     model.open()
     #expect(await iterator.next() == "start 1")

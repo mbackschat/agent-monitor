@@ -20,7 +20,8 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
     private let model = MenuBarModel { thresholds, interval, receive in
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(
-                thresholds: await thresholds(), intervalSeconds: interval.seconds, samples: 0),
+                thresholds: await thresholds(), intervalSeconds: interval.seconds, samples: 0,
+                collectAgentLoad: true),
             reader: try NativeProcessReader(), excluding: [ProcessInfo.processInfo.processIdentifier])
         try await session.run(thresholds: thresholds, interval: interval, receive)
     }
@@ -28,9 +29,8 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         self.item = item
-        item.button?.image = NSImage(systemSymbolName: "terminal", accessibilityDescription: "Agent Monitor")
-        item.button?.image?.isTemplate = true
-        item.button?.toolTip = "Agent Monitor"
+        model.onIndicatorChange = { [weak self] in self?.updateIndicator() }
+        updateIndicator()
         item.button?.target = self
         item.button?.action = #selector(toggle)
         popover.behavior = .transient
@@ -44,6 +44,33 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
         host.sizingOptions = [.intrinsicContentSize]
         host.view.setFrameSize(host.view.fittingSize)
         popover.contentViewController = host
+        model.start()
+    }
+
+    private func updateIndicator() {
+        guard let button = item?.button else { return }
+        let tooltip: String
+        if model.liveIcon {
+            if let level = model.indicator.level {
+                button.image = MenuBarStatusImage.make(level: level, highlighted: model.indicator.highlighted)
+            } else {
+                let symbol: String
+                switch model.indicator.availability {
+                case .waiting: symbol = "ellipsis"
+                case .current, .unavailable: symbol = "questionmark.square"
+                }
+                button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+            }
+            button.contentTintColor = model.indicator.highlighted ? .controlAccentColor : nil
+            tooltip = model.indicator.tooltip
+        } else {
+            button.image = NSImage(systemSymbolName: "terminal", accessibilityDescription: nil)
+            button.contentTintColor = nil
+            tooltip = "Agent Monitor — static icon; updates only while open"
+        }
+        button.image?.isTemplate = true
+        button.toolTip = tooltip
+        button.setAccessibilityLabel(tooltip)
     }
 
     @objc private func toggle() {
@@ -65,7 +92,6 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
     func popoverShouldDetach(_ popover: NSPopover) -> Bool { false }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        model.close()
         Task {
             await model.stop()
             sender.reply(toApplicationShouldTerminate: true)

@@ -1,6 +1,8 @@
 import AgentMonitorCore
 import AgentMonitorPresentation
+import Darwin
 import Foundation
+import Synchronization
 import Testing
 
 private struct GroupingMeasurement: Codable {
@@ -61,4 +63,56 @@ func measureNativeGroupingProjection() throws {
     }
     let groups = state.groups
     return groups.isEmpty ? 0 : groups.reduce(0) { $0 + $1.processes.count }
+}
+
+@Test(.enabled(if: ProcessInfo.processInfo.environment["MENUBAR_LOAD_MEASUREMENT_PATH"] != nil))
+func measureNativeAgentLoadSampling() async throws {
+    let path = try #require(ProcessInfo.processInfo.environment["MENUBAR_LOAD_MEASUREMENT_PATH"])
+    let reader = try MeasuredProcessReader()
+    let session = MonitoringSession(
+        configuration: try MonitoringConfiguration(intervalSeconds: 15, samples: 4, collectAgentLoad: true),
+        reader: reader, excluding: [ProcessInfo.processInfo.processIdentifier])
+    let start = ContinuousClock.now
+    let cpuStart = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
+    try await session.run { snapshot in #expect(snapshot.agentLoad != nil) }
+    let cpuMilliseconds = Double(clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID) - cpuStart) / 1e6
+    let duration = start.duration(to: .now).components
+    let elapsedSeconds = Double(duration.seconds) + Double(duration.attoseconds) / 1e18
+    var data: [String: Double] = [
+        "samples": 4, "intervalSeconds": 15, "elapsedSeconds": elapsedSeconds,
+        "processCPUMilliseconds": cpuMilliseconds,
+        "averagePercentOfOneCPUCore": cpuMilliseconds / (elapsedSeconds * 10),
+        "logicalProcessors": Double(ProcessInfo.processInfo.activeProcessorCount),
+    ]
+    data.merge(reader.measurements.withLock { $0 }, uniquingKeysWith: { _, last in last })
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    try encoder.encode(data).write(to: URL(fileURLWithPath: path))
+}
+
+private final class MeasuredProcessReader: ProcessReading, Sendable {
+    let measurements = Mutex<[String: Double]>([:])
+    let reader: NativeProcessReader
+
+    init() throws { reader = try NativeProcessReader() }
+
+    func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
+        let start = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
+        defer { record("snapshot", start: start) }
+        return try reader.snapshot(excluding: excluding)
+    }
+
+    func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
+        let start = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
+        defer { record("metadata", start: start) }
+        return reader.metadata(for: sample, includeCommand: includeCommand)
+    }
+
+    private func record(_ operation: String, start: UInt64) {
+        let elapsed = Double(clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID) - start) / 1e6
+        measurements.withLock {
+            $0["\(operation)CPUMilliseconds", default: 0] += elapsed
+            $0["\(operation)Calls", default: 0] += 1
+        }
+    }
 }

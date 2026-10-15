@@ -33,6 +33,11 @@ struct MenuBarViewOptions: View {
                     ))
             }
             Section("Sampling") {
+                Toggle(
+                    "Live menu bar icon",
+                    isOn: Binding(get: { model.liveIcon }, set: { model.setLiveIcon($0) })
+                )
+                .help("Samples every 15 seconds while closed. Turn off to stop closed-panel sampling.")
                 Menu("CPU > \(model.report.thresholds.cpuPercent.formatted())%") {
                     Button("Lower by 10 percentage points") { model.report.adjustThreshold(.cpuDown) }
                         .disabled(model.report.thresholds.cpuPercent == 0)

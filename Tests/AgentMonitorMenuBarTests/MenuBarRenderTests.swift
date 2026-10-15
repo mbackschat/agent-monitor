@@ -55,7 +55,45 @@ import Testing
     host.cacheDisplay(in: host.bounds, to: bitmap)
     let png = try #require(bitmap.representation(using: .png, properties: [:]))
     try png.write(to: URL(fileURLWithPath: output))
+    if let icons = ProcessInfo.processInfo.environment["MENUBAR_ICON_PREVIEW_PATH"] {
+        try renderLoadIcons(to: icons)
+    }
     await model.stop()
+}
+
+@MainActor private func renderLoadIcons(to path: String) throws {
+    let view = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 92))
+    view.wantsLayer = true
+    view.layer?.backgroundColor = NSColor.white.cgColor
+    for dark in [false, true] {
+        let row = NSView(frame: NSRect(x: 0, y: dark ? 0 : 46, width: 300, height: 46))
+        row.wantsLayer = true
+        row.layer?.backgroundColor = (dark ? NSColor.black : NSColor.white).cgColor
+        row.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        view.addSubview(row)
+        for (index, label) in ["Quiet", "Low", "Medium", "High", "New load"].enumerated() {
+            let button = NSButton(frame: NSRect(x: index * 60 + 18, y: 20, width: 24, height: 24))
+            button.isBordered = false
+            button.imagePosition = .imageOnly
+            button.image = MenuBarStatusImage.make(level: index == 4 ? 1 : index, highlighted: index == 4)
+            button.contentTintColor = index == 4 ? .controlAccentColor : (dark ? .white : .black)
+            row.addSubview(button)
+            let title = NSTextField(labelWithString: label)
+            title.font = .systemFont(ofSize: 10)
+            title.textColor = dark ? .white : .black
+            title.alignment = .center
+            title.frame = NSRect(x: index * 60, y: 3, width: 60, height: 14)
+            row.addSubview(title)
+        }
+    }
+    let bitmap = try #require(
+        NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 600, pixelsHigh: 184, bitsPerSample: 8, samplesPerPixel: 4,
+            hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+    bitmap.size = view.bounds.size
+    view.layoutSubtreeIfNeeded()
+    view.cacheDisplay(in: view.bounds, to: bitmap)
+    try #require(bitmap.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: path))
 }
 
 @Test(arguments: [320.0, 376.0], [false, true])

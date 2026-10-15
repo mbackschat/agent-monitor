@@ -26,10 +26,11 @@ public struct MonitoringConfiguration: Sendable {
     public let samples: Int
     public let includeCommands: Bool
     public let scope: ProcessScope
+    public let collectAgentLoad: Bool
 
     public init(
         thresholds: Thresholds = Thresholds(), intervalSeconds: Double = 1, samples: Int = 1,
-        includeCommands: Bool = false, scope: ProcessScope = .agentsOnly
+        includeCommands: Bool = false, scope: ProcessScope = .agentsOnly, collectAgentLoad: Bool = false
     ) throws {
         guard intervalSeconds.isFinite, (0.1...60).contains(intervalSeconds), samples >= 0,
             thresholds.cpuPercent.isFinite, thresholds.cpuPercent >= 0
@@ -39,6 +40,7 @@ public struct MonitoringConfiguration: Sendable {
         self.samples = samples
         self.includeCommands = includeCommands
         self.scope = scope
+        self.collectAgentLoad = collectAgentLoad
     }
 }
 
@@ -50,11 +52,12 @@ public struct MonitoringSnapshot: Equatable, Sendable {
     public let sampledProcessCount: Int
     public let unreadableProcessCount: Int
     public let findings: [HeavyProcess]
+    public let agentLoad: AgentLoadSummary?
 
     public init(
         timestamp: Date, intervalSeconds: Double, cpuThresholdPercent: Double,
         memoryThresholdBytes: UInt64, sampledProcessCount: Int, unreadableProcessCount: Int,
-        findings: [HeavyProcess]
+        findings: [HeavyProcess], agentLoad: AgentLoadSummary? = nil
     ) {
         self.timestamp = timestamp
         self.intervalSeconds = intervalSeconds
@@ -63,6 +66,7 @@ public struct MonitoringSnapshot: Equatable, Sendable {
         self.sampledProcessCount = sampledProcessCount
         self.unreadableProcessCount = unreadableProcessCount
         self.findings = findings
+        self.agentLoad = agentLoad
     }
 }
 
@@ -139,8 +143,17 @@ public struct MonitoringSession: Sendable {
             try Task.checkCancellation()
             let snapshot = try reader.snapshot(excluding: excluded)
             monitor.ingest(snapshot.samples)
-            monitor.enrich(thresholds: thresholds) {
-                reader.metadata(for: $0, includeCommand: configuration.includeCommands)
+            if configuration.collectAgentLoad {
+                for sample in snapshot.samples {
+                    try Task.checkCancellation()
+                    monitor.enrich(
+                        reader.metadata(for: sample, includeCommand: configuration.includeCommands),
+                        for: sample.identity)
+                }
+            } else {
+                monitor.enrich(thresholds: thresholds) {
+                    reader.metadata(for: $0, includeCommand: configuration.includeCommands)
+                }
             }
             try await receive(
                 MonitoringSnapshot(
@@ -150,7 +163,8 @@ public struct MonitoringSession: Sendable {
                     sampledProcessCount: snapshot.samples.count,
                     unreadableProcessCount: snapshot.unreadableCount,
                     findings: monitor.findings(
-                        thresholds: thresholds, scope: configuration.scope)))
+                        thresholds: thresholds, scope: configuration.scope),
+                    agentLoad: configuration.collectAgentLoad ? monitor.agentLoad() : nil))
             count += 1
         }
     }

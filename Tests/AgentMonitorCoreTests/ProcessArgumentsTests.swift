@@ -89,3 +89,45 @@ func unusableInboxPathKeepsTheSessionMarker(paths: [String]) {
     #expect(result.markers == [SessionMarker(threadID: sessionA, provider: .claude)])
     #expect(result.status == .markerRead)
 }
+
+@Test(arguments: [false, true])
+func longUnrelatedFieldsCannotHideOrImitateAnAllowedMarker(includeCommand: Bool) {
+    let long = String(repeating: "x", count: 100_000)
+    let result = ProcessArguments.parse(
+        argumentBuffer(
+            arguments: ["worker", long, ""],
+            environment: [
+                "PRIVATE_VALUE=\(long)", "CODEX_THREAD_ID_EXTRA=\(sessionB)",
+                "CODEX_THREAD_ID=\(sessionA)", "NO_EQUAL_SIGN", "=ignored",
+            ]), includeCommand: includeCommand)
+    #expect(result.markers == [SessionMarker(threadID: sessionA, provider: .codex)])
+    #expect(result.command == (includeCommand ? ["worker", long, ""] : nil))
+    #expect(result.status == .markerRead)
+}
+
+@Test func unterminatedLongEnvironmentValueRejectsTheWholeObservation() {
+    var bytes = argumentBuffer(environment: ["CODEX_THREAD_ID=\(sessionA)"])
+    bytes.removeLast()
+    bytes += Array(("PRIVATE_VALUE=" + String(repeating: "x", count: 100_000)).utf8)
+    #expect(ProcessArguments.parse(bytes).status == .malformed)
+}
+
+@Test(.enabled(if: ProcessInfo.processInfo.environment["ARGUMENT_PARSE_MEASUREMENT_PATH"] != nil))
+func measureAllowlistedArgumentParsing() throws {
+    let path = try #require(ProcessInfo.processInfo.environment["ARGUMENT_PARSE_MEASUREMENT_PATH"])
+    let long = String(repeating: "x", count: 100_000)
+    let bytes = argumentBuffer(
+        arguments: ["worker", long],
+        environment: [
+            "PRIVATE_VALUE=\(long)", "CODEX_THREAD_ID=\(sessionA)",
+        ])
+    let start = ContinuousClock.now
+    for _ in 0..<100 {
+        let result = ProcessArguments.parse(bytes)
+        #expect(result.markers.first?.threadID == sessionA)
+    }
+    let elapsed = start.duration(to: .now).components
+    let milliseconds = Double(elapsed.seconds) * 1000 + Double(elapsed.attoseconds) / 1e15
+    let data = ["repetitions": 100.0, "bufferBytes": Double(bytes.count), "milliseconds": milliseconds]
+    try JSONEncoder().encode(data).write(to: URL(fileURLWithPath: path))
+}

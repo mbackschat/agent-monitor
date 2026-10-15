@@ -9,8 +9,13 @@ case "$mode" in
 esac
 
 cd "$root"
-swift build --disable-sandbox --product agent-monitor-menubar
-products=$(swift build --disable-sandbox --show-bin-path)
+configuration=${AGENT_MONITOR_BUILD_CONFIGURATION:-release}
+case "$configuration" in
+    debug|release) ;;
+    *) echo 'AGENT_MONITOR_BUILD_CONFIGURATION must be debug or release' >&2; exit 2 ;;
+esac
+swift build --disable-sandbox -c "$configuration" -debug-info-format none --product agent-monitor-menubar
+products=$(swift build --disable-sandbox -c "$configuration" --show-bin-path)
 app="$root/.build/Agent Monitor.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$products/agent-monitor-menubar" "$app/Contents/MacOS/agent-monitor-menubar"

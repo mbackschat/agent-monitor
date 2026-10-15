@@ -1,14 +1,23 @@
 import Foundation
+import Synchronization
 import Testing
 
 @testable import AgentMonitorCore
 
+private final class RecognitionCounter: Sendable {
+    let value = Mutex(0)
+}
+
 private struct FixtureAttributionAdapter: AgentAttributionAdapter {
     let provider: AgentProvider
+    var recognitionCalls: RecognitionCounter?
     var environmentKeys: Set<String> { ["FIXTURE_SESSION"] }
     var runtimeObservations: Set<RuntimeObservation> { [.openFilePaths] }
 
-    func recognizesRuntime(_ executable: String) -> Bool { executable == "/fixture/agent" }
+    func recognizesRuntime(_ executable: String) -> Bool {
+        recognitionCalls?.value.withLock { $0 += 1 }
+        return executable == "/fixture/agent"
+    }
 
     func marker(in environment: [String: Set<String>]) throws -> SessionMarker? {
         #expect(Set(environment.keys).isSubset(of: environmentKeys))
@@ -132,4 +141,31 @@ func malformedAdapterMarkersCannotFallBackToAnotherProvider(environment: [String
         sample(10, executable: "/Users/test/.local/share/claude/versions/2.1.300").runtimeProvider == .claude)
     #expect(sample(10, executable: "/opt/bin/node").runtimeProvider == nil)
     #expect(sample(10, executable: "/fixture/versions/2.1.300").runtimeProvider == nil)
+}
+
+@Test func runtimeRecognitionIsBoundedByExecutableChangesInsteadOfAttributionQueries() throws {
+    let calls = RecognitionCounter()
+    let adapter = FixtureAttributionAdapter(provider: .codex, recognitionCalls: calls)
+    var monitor = Monitor(adapters: try AttributionAdapters([adapter]))
+    let runtime = sample(10, executable: "/fixture/agent", memory: 1)
+    let workers = (20..<120).map { sample(Int32($0)) }
+    let all = [runtime] + workers
+    monitor.ingest(all)
+    for _ in 0..<2 {
+        monitor.enrich(for: workers.map(\.identity)) { target in
+            target.identity == runtime.identity
+                ? ProcessMetadata(writerThreadIDs: [sessionA])
+                : ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)])
+        }
+        for worker in workers {
+            #expect(monitor.finding(for: worker.identity)?.attribution.runtime == runtime.identity)
+        }
+        monitor.ingest(all)
+    }
+    #expect(calls.value.withLock { $0 } == all.count)
+    monitor.ingest([sample(10, executable: "/usr/bin/other", memory: 1)] + workers)
+    #expect(monitor.finding(for: workers[0].identity)?.attribution.runtime == nil)
+    #expect(calls.value.withLock { $0 } == all.count + 1)
+    monitor.ingest([sample(10, start: 11, executable: "/fixture/agent", memory: 1)] + workers)
+    #expect(calls.value.withLock { $0 } == all.count + 2)
 }

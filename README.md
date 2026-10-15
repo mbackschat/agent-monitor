@@ -13,7 +13,7 @@ When several coding agents are running, a busy `node`, `java`, or `python` proce
 ## Features
 
 - **Live terminal view** — watch CPU and memory usage, sort processes, and open details without leaving your terminal. Change the update interval or freeze the view while you look.
-- **Native menu bar app** — open a compact macOS panel for resource usage and session actions, with Pause/Resume for inspection; monitoring stops when the panel closes. Available from a source build.
+- **Native menu bar app** — open a compact macOS panel for resource usage and session actions, with Pause/Resume for inspection; three bold load bars keep updating every 15 seconds while the panel is closed. Available from a source build.
 - **Pinned inspection** — keep a process or session at the top while its values update, in both native and terminal views. Missing targets stay marked until unpinned.
 - **Session grouping** — bring related heavy processes together and see their combined resource usage.
 - **Adjustable filters** — change CPU and memory thresholds while the monitor runs.
@@ -81,7 +81,7 @@ See the [usage guide](docs/usage.md) for all keyboard controls, filters, session
 
 ## Menu bar app
 
-The maintained, source-built native menu bar app runs with `bash scripts/menubar.sh run`. Click its terminal icon for session groups, resource usage and process details; expand a process to focus its terminal, review a termination request or compose a message. It uses the same monitoring and verified action services as the TUI, with a native popover and no standalone window. Sampling stops when the panel closes. See [menu bar usage](docs/usage.md#menu-bar-app) and [build and validation limits](docs/development.md#menu-bar-app).
+The maintained, source-built native menu bar app runs with `bash scripts/menubar.sh run`. Click its load icon for session groups, resource usage and process details; expand a process to focus its terminal, review a termination request or compose a message. It uses the same monitoring and verified action services as the TUI, with a native popover and no standalone window. The live icon shows aggregate agent CPU load and briefly highlights newly heavy processes. Choose a static icon in View options to stop closed-panel sampling. See [menu bar usage](docs/usage.md#menu-bar-app) and [build and validation limits](docs/development.md#menu-bar-app).
 
 <p><img src="docs/assets/menubar-preview.webp" width="420" height="560" alt="Native Agent Monitor menu bar panel paused for inspection, with an expanded pinned Claude session, Codex and Claude process rows, CPU and memory usage, Resume, View options, and panel size controls."></p>
 

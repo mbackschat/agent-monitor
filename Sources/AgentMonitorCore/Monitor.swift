@@ -4,10 +4,12 @@ public struct Monitor: Sendable {
         var parent: ProcessIdentity?
         var metadata = ProcessMetadata(status: .unavailable)
         var cpuPercent: Double?
+        var runtimeProviders: Set<AgentProvider>
     }
 
     private var nodes: [ProcessIdentity: Node] = [:]
     private var live: Set<ProcessIdentity> = []
+    private var runtimes: [AgentProvider: Set<ProcessIdentity>] = [:]
     private let adapters: AttributionAdapters
 
     public init() { adapters = .builtIn }
@@ -19,7 +21,9 @@ public struct Monitor: Sendable {
             samples.map { ($0.identity.pid, $0.identity) }, uniquingKeysWith: { _, new in new })
         live = Set(samples.map(\.identity))
         for sample in samples {
-            var node = nodes[sample.identity] ?? Node(sample: sample)
+            var node =
+                nodes[sample.identity]
+                ?? Node(sample: sample, runtimeProviders: adapters.runtimeProviders(for: sample.executable))
             let previous = nodes[sample.identity]?.sample
             node.cpuPercent = nil
             if let previous, let oldCPU = previous.cpuSeconds, let newCPU = sample.cpuSeconds,
@@ -29,6 +33,7 @@ public struct Monitor: Sendable {
             }
             if node.sample.executable != sample.executable {
                 node.metadata = ProcessMetadata(status: .unavailable)
+                node.runtimeProviders = adapters.runtimeProviders(for: sample.executable)
             }
             if let parent = byPID[sample.parentPID], parent != sample.identity,
                 parent.startMicroseconds <= sample.identity.startMicroseconds
@@ -37,6 +42,13 @@ public struct Monitor: Sendable {
             }
             node.sample = sample
             nodes[sample.identity] = node
+        }
+        runtimes = [:]
+        for identity in live {
+            guard let providers = nodes[identity]?.runtimeProviders, providers.count == 1,
+                let provider = providers.first
+            else { continue }
+            runtimes[provider, default: []].insert(identity)
         }
 
         // Retain departed ancestors only while a live descendant needs them; see
@@ -113,6 +125,10 @@ public struct Monitor: Sendable {
         }
     }
 
+    public func agentLoad() -> AgentLoadSummary {
+        AgentLoadSummary(processes: live.compactMap { finding(for: $0) })
+    }
+
     /// Inspect a live process independently of display thresholds.
     public func finding(for identity: ProcessIdentity) -> HeavyProcess? {
         guard live.contains(identity), let node = nodes[identity] else { return nil }
@@ -159,10 +175,7 @@ public struct Monitor: Sendable {
         -> [ProcessIdentity]
     {
         guard adapters.runtimeLink(for: marker) != nil else { return [] }
-        return live.filter {
-            guard let node = nodes[$0], $0.startMicroseconds <= owner.startMicroseconds else { return false }
-            return adapters.runtimeProviders(for: node.sample.executable) == [marker.provider]
-        }
+        return (runtimes[marker.provider] ?? []).filter { $0.startMicroseconds <= owner.startMicroseconds }
     }
 
     /// What walking up from a process found before the first agent runtime.
@@ -183,7 +196,7 @@ public struct Monitor: Sendable {
         }
         let runtime = walk.runtime
         let candidates = Array(Set(runtime?.metadata.writerThreadIDs ?? [])).sorted()
-        let runtimeProviders = runtime.map { adapters.runtimeProviders(for: $0.sample.executable) } ?? []
+        let runtimeProviders = runtime?.runtimeProviders ?? []
         let runtimeProvider = runtimeProviders.count == 1 ? runtimeProviders.first : nil
         let providerConflict =
             runtimeProviders.count > 1
@@ -211,12 +224,12 @@ public struct Monitor: Sendable {
         let ancestors = chain(from: identity)
         let nearestProviders =
             ancestors.lazy.compactMap { self.nodes[$0] }
-            .map { adapters.runtimeProviders(for: $0.sample.executable) }.first { !$0.isEmpty } ?? []
+            .map(\.runtimeProviders).first { !$0.isEmpty } ?? []
         let nearest = nearestProviders.count == 1 ? nearestProviders.first : nil
         for key in ancestors {
             guard let node = nodes[key] else { continue }
             walk.path.append(key)
-            let providers = adapters.runtimeProviders(for: node.sample.executable)
+            let providers = node.runtimeProviders
             if !providers.isEmpty {
                 walk.runtime = node
                 if providers.count > 1 { walk.unresolvedMetadata = true }

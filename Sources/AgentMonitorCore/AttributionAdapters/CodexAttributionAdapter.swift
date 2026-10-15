@@ -6,7 +6,7 @@ struct CodexAttributionAdapter: AgentAttributionAdapter {
     let runtimeObservations: Set<RuntimeObservation> = [.openFilePaths]
 
     func recognizesRuntime(_ executable: String) -> Bool {
-        URL(fileURLWithPath: executable).lastPathComponent == "codex"
+        URL(filePath: executable, directoryHint: .notDirectory).lastPathComponent == "codex"
     }
 
     func marker(in environment: [String: Set<String>]) throws -> SessionMarker? {
@@ -19,7 +19,7 @@ struct CodexAttributionAdapter: AgentAttributionAdapter {
     /// docs/research/codex-terminal-attribution.md, recovering identity for sessions already running.
     func runtimeEvidence(from observations: RuntimeObservations) -> RuntimeEvidence {
         let threads = observations.openFilePaths.compactMap { value -> String? in
-            let path = URL(fileURLWithPath: value)
+            let path = URL(filePath: value, directoryHint: .notDirectory)
             guard path.deletingLastPathComponent().lastPathComponent == "thread-writer-locks",
                 path.pathExtension == "lock",
                 let uuid = UUID(uuidString: path.deletingPathExtension().lastPathComponent)

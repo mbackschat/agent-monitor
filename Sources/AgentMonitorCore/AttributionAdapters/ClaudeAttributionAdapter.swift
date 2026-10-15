@@ -6,7 +6,7 @@ struct ClaudeAttributionAdapter: AgentAttributionAdapter {
     let runtimeObservations: Set<RuntimeObservation> = [.listeningSockets]
 
     func recognizesRuntime(_ executable: String) -> Bool {
-        let path = URL(fileURLWithPath: executable)
+        let path = URL(filePath: executable, directoryHint: .notDirectory)
         if path.lastPathComponent == "claude" { return true }
         let directory = path.deletingLastPathComponent()
         return directory.lastPathComponent == "versions"

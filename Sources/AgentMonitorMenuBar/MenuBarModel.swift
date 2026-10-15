@@ -18,10 +18,16 @@ final class MenuBarModel {
     private(set) var error: String?
     private(set) var lastActionResult: ActionResult?
     private(set) var savedMessage: SavedMessage?
+    private(set) var liveIcon = true
+    private(set) var indicator = MenuBarIndicator()
+    @ObservationIgnored var onIndicatorChange: (() -> Void)?
     @ObservationIgnored private let liveInterval = LiveInterval(1)
     @ObservationIgnored private var collection: Task<Void, Never>?
     @ObservationIgnored private var action: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
+    @ObservationIgnored private var collectionGeneration = UUID()
+    @ObservationIgnored private var isCollecting = false
+    @ObservationIgnored private var latestSnapshot: MonitoringSnapshot?
     @ObservationIgnored private let source: MenuBarSource
     @ObservationIgnored private let actions: any ProcessActions
 
@@ -30,19 +36,40 @@ final class MenuBarModel {
         self.source = source
     }
 
+    func start() {
+        if liveIcon { startCollection() }
+    }
+
     func open() {
         guard !isOpen else { return }
         isOpen = true
+        generation = UUID()
+        report.resetCollection()
+        if let latestSnapshot { report.receive(latestSnapshot) }
+        startCollection()
+    }
+
+    func setLiveIcon(_ enabled: Bool) {
+        guard liveIcon != enabled else { return }
+        liveIcon = enabled
+        indicator = MenuBarIndicator()
+        if enabled || isOpen { startCollection() } else { cancelCollection() }
+        onIndicatorChange?()
+    }
+
+    private func startCollection() {
+        liveInterval.set(isOpen ? report.interval : 15)
+        guard !isCollecting else { return }
+        isCollecting = true
         error = nil
         let previous = collection
         let previousAction = action
         let token = UUID()
-        generation = token
-        report.resetCollection()
-        liveInterval.set(report.interval)
+        collectionGeneration = token
         collection = Task { [self] in
             await previous?.value
             await previousAction?.value
+            defer { if collectionGeneration == token { isCollecting = false } }
             do {
                 try Task.checkCancellation()
                 try await source(
@@ -54,8 +81,11 @@ final class MenuBarModel {
             } catch is CancellationError {
                 return
             } catch {
-                guard isOpen, generation == token else { return }
+                guard collectionGeneration == token else { return }
                 self.error = error.localizedDescription
+                indicator.fail()
+                latestSnapshot = nil
+                onIndicatorChange?()
             }
         }
     }
@@ -78,13 +108,14 @@ final class MenuBarModel {
         }
         isOpen = false
         generation = UUID()
-        collection?.cancel()
+        if liveIcon { liveInterval.set(15) } else { cancelCollection() }
         action?.cancel()
         report.resetCollection()
     }
 
     func stop() async {
         close()
+        cancelCollection()
         await collection?.value
         await action?.value
         collection = nil
@@ -94,9 +125,23 @@ final class MenuBarModel {
     func waitForCollection() async { await collection?.value }
     func waitForAction() async { await action?.value }
 
+    private func cancelCollection() {
+        collectionGeneration = UUID()
+        collection?.cancel()
+        isCollecting = false
+        latestSnapshot = nil
+        indicator = MenuBarIndicator()
+        onIndicatorChange?()
+    }
+
     private func receive(_ snapshot: MonitoringSnapshot, generation token: UUID) {
-        guard isOpen, generation == token else { return }
-        report.receive(snapshot)
+        guard collectionGeneration == token else { return }
+        latestSnapshot = snapshot
+        if liveIcon {
+            indicator.receive(snapshot)
+            onIndicatorChange?()
+        }
+        if isOpen { report.receive(snapshot) }
     }
 
     func begin(_ kind: ProcessActionKind, row: LiveReportRowID) {
@@ -113,7 +158,7 @@ final class MenuBarModel {
 
     func adjustInterval(_ adjustment: IntervalAdjustment) {
         report.adjustInterval(adjustment)
-        liveInterval.set(report.interval)
+        liveInterval.set(isOpen ? report.interval : 15)
     }
 
     func selectRow(_ row: LiveReportRowID) {

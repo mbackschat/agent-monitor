@@ -183,3 +183,60 @@ func sessionRejectsInvalidLiveThresholds(cpu: Double) async throws {
         try await session.run(interval: LiveInterval(0.01), { fixture.receive($0) })
     }
 }
+
+@Test func optionalAgentLoadIncludesProcessesHiddenByReportThresholds() async throws {
+    let fixture = SessionFixture()
+    let session = MonitoringSession(
+        configuration: try MonitoringConfiguration(
+            thresholds: Thresholds(cpuPercent: 100, memoryBytes: 100), collectAgentLoad: true),
+        reader: fixture, clock: fixture)
+    try await session.run { fixture.receive($0) }
+    let snapshot = try #require(fixture.collected.withLock { $0.first })
+    #expect(snapshot.findings.isEmpty)
+    let load = try #require(snapshot.agentLoad)
+    #expect(load.processCount == 1)
+    #expect(load.cpuPercent == 50)
+    #expect(load.footprintBytes == 1)
+    #expect(load.heavyProcesses == [ProcessIdentity(pid: 42, startMicroseconds: 42)])
+    #expect(fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count == 1)
+}
+
+@Test func ordinarySamplingDoesNotCollectAnAgentLoadSummary() async throws {
+    let fixture = SessionFixture()
+    let session = MonitoringSession(
+        configuration: try MonitoringConfiguration(
+            thresholds: Thresholds(cpuPercent: 100, memoryBytes: 100)),
+        reader: fixture, clock: fixture)
+    try await session.run { fixture.receive($0) }
+    #expect(fixture.collected.withLock { $0.first?.agentLoad } == nil)
+    #expect(!fixture.events.withLock { $0 }.contains("metadata"))
+}
+
+@Test func agentLoadCountsEachLifetimeOnceAndPreservesMissingMeasurements() throws {
+    var monitor = Monitor()
+    monitor.ingest([
+        sample(42, at: 1, cpu: 0, memory: 10), sample(43, at: 1, cpu: 0, memory: 0),
+        sample(44, at: 1, cpu: 0, memory: 50),
+    ])
+    monitor.ingest([
+        sample(42, at: 2, cpu: 1, memory: 10), sample(43, at: 2, cpu: 0, memory: 0),
+        sample(44, at: 2, cpu: 10, memory: 50), sample(45, at: 2, cpu: nil, memory: nil),
+    ])
+    monitor.enrich(for: [42, 43, 44, 45].map { ProcessIdentity(pid: $0, startMicroseconds: UInt64($0)) }) {
+        sample in
+        sample.identity.pid == 44
+            ? ProcessMetadata(status: .markerRead)
+            : ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)])
+    }
+    let load = monitor.agentLoad()
+    #expect(load.processCount == 3)
+    #expect(load.cpuPercent == 100)
+    #expect(load.footprintBytes == 10)
+    #expect(load.missingCPUCount == 1)
+    #expect(load.missingFootprintCount == 1)
+    #expect(load.heavyProcesses == [ProcessIdentity(pid: 42, startMicroseconds: 42)])
+    monitor.ingest([sample(43, at: 3, cpu: 0, memory: 0)])
+    #expect(monitor.agentLoad().processCount == 1)
+    #expect(monitor.agentLoad().cpuPercent == 0)
+    #expect(monitor.agentLoad().heavyProcesses.isEmpty)
+}

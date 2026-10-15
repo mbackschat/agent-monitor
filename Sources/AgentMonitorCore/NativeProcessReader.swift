@@ -66,7 +66,7 @@ public struct NativeProcessReader: Sendable {
         guard matches(sample) else { return ProcessMetadata(status: .unavailable) }
         var metadata = arguments(sample.identity.pid, includeCommand: includeCommand)
         metadata.cwd = currentDirectory(sample.identity.pid)
-        if !adapters.runtimeProviders(for: sample.executable).isEmpty, let device = sample.terminalDevice {
+        if let device = sample.terminalDevice, !adapters.runtimeProviders(for: sample.executable).isEmpty {
             metadata.terminal = terminalName(device)
         }
         let evidence = adapters.runtimeEvidence(for: sample.executable) { requests in
@@ -154,14 +154,20 @@ public struct NativeProcessReader: Sendable {
         guard sysctl(&sizeMIB, 2, &maximum, &size, nil, 0) == 0,
             maximum > 0, maximum <= 16 * 1024 * 1024
         else { return ProcessMetadata(status: .unavailable) }
-        var buffer = [UInt8](repeating: 0, count: Int(maximum))
-        size = buffer.count
-        var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
-        guard sysctl(&mib, 3, &buffer, &size, nil, 0) == 0, size <= buffer.count else {
-            return ProcessMetadata(status: .unavailable)
+        return withUnsafeTemporaryAllocation(byteCount: Int(maximum), alignment: 1) { buffer in
+            guard let base = buffer.baseAddress else { return ProcessMetadata(status: .unavailable) }
+            // Bulk initialization avoids the bytewise debug-build cost measured in
+            // docs/research/menu-bar-load-cost.md; parsing still sees only the returned bytes.
+            memset(base, 0, buffer.count)
+            size = buffer.count
+            var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
+            guard sysctl(&mib, 3, base, &size, nil, 0) == 0, size <= buffer.count else {
+                return ProcessMetadata(status: .unavailable)
+            }
+            return ProcessArguments.parse(
+                UnsafeRawBufferPointer(rebasing: buffer[..<size]), includeCommand: includeCommand,
+                adapters: adapters)
         }
-        return ProcessArguments.parse(
-            Array(buffer.prefix(size)), includeCommand: includeCommand, adapters: adapters)
     }
 
     private func descriptors(_ pid: Int32) -> [proc_fdinfo] {
