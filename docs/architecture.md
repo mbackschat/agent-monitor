@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-Agent Monitor maps heavy processes to specific coding-agent sessions. Sampling and attribution must be reusable by text output, an optional terminal UI, and a possible future menu bar application. See [PLAN.md](../PLAN.md) for open work and scope, and the [development guide](development.md#validation-coverage) for validation limits.
+Agent Monitor maps heavy processes to specific coding-agent sessions. Sampling and attribution must be reusable by text output, an optional terminal UI, and a native menu bar spike. See [PLAN.md](../PLAN.md) for open work and scope, and the [development guide](development.md#validation-coverage) for validation limits.
 
 ## Current implementation
 
@@ -129,3 +129,13 @@ Contract tests use a synthetic adapter to prove that custom recognition, declare
 Optional session inspection and provider-specific metrics remain proposals; OS CPU/footprint measurements stay in the shared collector. Preserve typed values and units if inspection is added, and keep display strings in presentation. External plugins, dynamic loading and generic capability frameworks are excluded from the current implementation.
 
 A third provider requires an explicit revision of the closed provider enum and JSON schema before it can participate. A future external adapter may use a versioned subprocess protocol with validated stable provider identifiers; its transport, discovery, installation and trust policy remain deferred until requested. The internal built-in interface does not promise binary or wire compatibility for third-party extensions.
+
+## Native menu bar spike
+
+`AgentMonitorMenuBar` hosts SwiftUI content in a transient, non-detachable AppKit `NSPopover` anchored to a static `NSStatusItem`. It is an accessory app, with no standalone window. Native disclosure rows, sorting, resource summaries and inline action review replace terminal cell layout. The view consumes `LiveReportState` and `SessionGrouping`; direct row selection is a neutral presentation operation shared with keyboard navigation. No provider recognition or process collection lives in the view.
+
+`MenuBarModel` owns main-actor UI state and cancellable collection/action tasks. The host opens collection only after the popover shows and cancels it when closing starts. Each opening creates a fresh `MonitoringSession`, resetting baseline and ancestry history; CPU appears after the first interval. Reopening waits for the prior collection and action tasks to drain before collecting again, and generation checks reject stale results. Closed state has no application sampling timer, polling loop or monitoring observer. Cancellation cannot interrupt a synchronous native read already in progress; it drains before the next run. AppKit remains responsible for normal UI event processing. Physical closed-state CPU/wakeups remain a measurement gate.
+
+The panel reuses the existing action review state and `SessionActions` services. Confirmation targets a frozen process lifetime, and messages retain root-by-default routing, automatic workload context, exact-text review and live recipient verification. Closing cancels owned action work; quit awaits completion. A cancelled signal/send can have an uncertain outcome, which is retained for the next opening without automatic retry. Terminal focus can itself dismiss the transient panel. Live Automation behavior and provider delivery from the bundle are not established by fake-service tests.
+
+The development script assembles an ad-hoc-signed, unsandboxed local bundle with `LSUIElement` and an Automation usage description. Its run mode passes the invoking shell's PATH for existing provider transports. This is separate from CLI release packaging; signing identity, notarization, Finder/login PATH discovery, login items and production installation are deferred. App and TUI collectors are independent; there is no IPC or background service.

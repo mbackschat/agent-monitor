@@ -7,12 +7,18 @@ let package = Package(
     products: [
         .library(name: "AgentMonitorCore", targets: ["AgentMonitorCore"]),
         .executable(name: "agent-monitor", targets: ["AgentMonitor"]),
+        .executable(name: "agent-monitor-menubar", targets: ["AgentMonitorMenuBar"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", exact: "1.8.2"),
         .package(url: "https://github.com/SwiftTUI/swift-tui.git", exact: "0.14.0"),
     ],
     targets: [
+        .executableTarget(
+            name: "AgentMonitorMenuBar",
+            dependencies: ["AgentMonitorCore", "AgentMonitorPresentation", "AgentMonitorActions"]),
+        .testTarget(
+            name: "AgentMonitorMenuBarTests", dependencies: ["AgentMonitorMenuBar"]),
         .target(name: "AgentMonitorCore"),
         .target(name: "AgentMonitorActions", dependencies: ["AgentMonitorCore"]),
         .testTarget(

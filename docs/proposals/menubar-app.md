@@ -1,6 +1,6 @@
 # Menu bar front end: retained direction
 
-Status: a possible future front end, not authorized for implementation. Platform evidence and unanswered feasibility questions belong in [menu bar research](../research/menubar-app.md); current product scope is in [PLAN.md](../../PLAN.md#scope-and-pending-decisions).
+Status: superseded for the local spike authorized on 2026-10-15. The implemented contract is in [architecture](../architecture.md#native-menu-bar-spike); this note retains decisions beyond the spike. Platform evidence and unanswered feasibility questions belong in [menu bar research](../research/menubar-app.md); current product scope is in [PLAN.md](../../PLAN.md#scope-and-pending-decisions).
 
 ## Confirmed constraint
 
@@ -10,9 +10,8 @@ While open, the proposed cadence uses the existing one-second default. Reopening
 
 ## Decisions still needed
 
-- UI host: SwiftUI `MenuBarExtra(.window)` or AppKit `NSStatusItem`/`NSPopover`, depending on reliable visibility observation and composer/focus behavior.
-- Scope: read-only view or parity with the CLI's reviewed actions; launch at login is optional and unvalidated for self-signed distribution.
+- Product scope beyond the spike: AppKit `NSStatusItem`/`NSPopover` with native SwiftUI content, shared grouping and reviewed actions is implemented. Broader TUI control parity and launch at login are not included.
 - Distribution: signing identity, formula versus cask, installation location and whether the app also distributes the CLI. No signing or Gatekeeper behavior has been established by a GUI install test.
 - Concurrent use: independent app/TUI collectors or a separate sharing mechanism. No IPC service is authorized by this proposal.
 
-A future design must preserve the [monitoring and action boundaries](../architecture.md). Target names, file changes and effort estimates are implementation planning, not established requirements.
+Any extension must preserve the [monitoring and action boundaries](../architecture.md). Target names, file changes and effort estimates are implementation planning, not established requirements.

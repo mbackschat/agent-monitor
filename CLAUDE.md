@@ -2,7 +2,7 @@
 
 ## Project Status & Structure
 
-Agent Monitor is a macOS Swift PoC for mapping heavy processes to specific coding-agent sessions. `Sources/AgentMonitorCore/` contains native sampling, attribution, and models; `Sources/AgentMonitor/` contains the command-line harness; `AgentMonitorPresentation/` owns neutral rendering/interaction state and `AgentMonitorTUI/` owns SwiftTUI views. `AgentMonitorActions/` owns verified process termination and provider messaging. `Tests/` contains Swift Testing tests and disposable process fixtures. [TUI research](docs/research/terminal-ui.md) records the isolated probe; its temporary build directory has been removed. Keep UI dependencies out of the monitoring core. See [README.md](README.md), [development guidance](docs/development.md), and [current scope](PLAN.md#scope-and-pending-decisions).
+Agent Monitor is a macOS Swift PoC for mapping heavy processes to specific coding-agent sessions. `Sources/AgentMonitorCore/` contains native sampling, attribution, and models; `Sources/AgentMonitor/` contains the command-line harness; `AgentMonitorPresentation/` owns neutral rendering/interaction state and `AgentMonitorTUI/` owns SwiftTUI views. `AgentMonitorActions/` owns verified process termination and provider messaging. `AgentMonitorMenuBar/` owns the native AppKit/SwiftUI menu bar spike; reuse core, presentation and action services without importing SwiftTUI. `Tests/` contains Swift Testing tests and disposable process fixtures. [TUI research](docs/research/terminal-ui.md) records the isolated probe; its temporary build directory has been removed. Keep UI dependencies out of the monitoring core. See [README.md](README.md), [development guidance](docs/development.md), and [current scope](PLAN.md#scope-and-pending-decisions).
 
 `CLAUDE.md` is canonical; preserve the `AGENTS.md` symlink.
 
@@ -67,3 +67,7 @@ Git is initialized on `main`. Build outputs, caches, and temporary evaluations m
 Automatically commit completed, validated checkpoints and relevant features without asking for confirmation. Keep each commit coherent, include related documentation, and leave unrelated work untouched. This project-specific authorization overrides the global preference to only propose commits for fixes; it does not authorize pushing.
 
 Pull requests should describe the problem, resulting behavior, and validation performed. Link applicable issues and include screenshots for visible UI changes. Do not create or switch worktrees without explicit instructions.
+
+## Menu bar spike
+
+The native spike is authorized: a menu-bar-anchored popover, no standalone window, static status icon and no sampling while closed. Keep native controls separate from terminal layout, reuse neutral grouping/selection/action review and verified action services, cancel and drain collection/actions on close or quit, and restart from a fresh baseline on reopening. Build the local development bundle with `bash scripts/menubar.sh build`; use `run` to pass the shell PATH to provider transports. Production distribution, login items, background services and notifications remain out of scope. See [architecture](docs/architecture.md#native-menu-bar-spike) and [validation limits](docs/development.md#menu-bar-spike).

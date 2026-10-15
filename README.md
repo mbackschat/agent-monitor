@@ -77,6 +77,10 @@ agent-monitor --help
 
 See the [usage guide](docs/usage.md) for all keyboard controls, filters, session grouping, and output options.
 
+## Menu bar spike
+
+A source-only native menu bar spike is available with `bash scripts/menubar.sh run`. Click its terminal icon for session groups, resource usage and process details; expand a process to focus its terminal, review a termination request or compose a message. It uses the same monitoring and verified action services as the TUI, with a native popover and no standalone window. Sampling stops when the panel closes. See [spike usage](docs/usage.md#menu-bar-spike) and [build and validation limits](docs/development.md#menu-bar-spike).
+
 ## Options and defaults
 
 With no options, `agent-monitor` prints one text report after a one-second baseline interval. A process appears when **CPU OR memory exceeds its threshold**; only your user's agent-associated processes are included by default.

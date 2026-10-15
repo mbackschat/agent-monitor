@@ -169,7 +169,12 @@ public struct LiveReportState: Equatable, Sendable {
         let ordered = visibleRows
         guard !ordered.isEmpty else { return }
         let index = ordered.firstIndex { $0.id == selection } ?? 0
-        selection = ordered[min(max(index + delta, 0), ordered.count - 1)].id
+        select(ordered[min(max(index + delta, 0), ordered.count - 1)].id)
+    }
+
+    public mutating func select(_ id: LiveReportRowID) {
+        guard visibleRows.contains(where: { $0.id == id }) else { return }
+        selection = id
         if expanded != nil || detailsMode != .minimized { expanded = selected }
         detailOffset = 0
         notice = nil
