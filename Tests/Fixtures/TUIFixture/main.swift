@@ -52,4 +52,7 @@ private struct FixtureActions: ProcessActions {
         )
     }
     func send(_ draft: MessageDraft, text: String, recipient: String) async throws {}
+    func focusTerminal(of process: HeavyProcess) async throws -> FocusOutcome {
+        .session(application: "Terminal", tty: "/dev/ttys001")
+    }
 }

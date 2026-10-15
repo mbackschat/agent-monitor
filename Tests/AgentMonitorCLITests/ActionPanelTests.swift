@@ -108,3 +108,30 @@ func acceptanceWordingFollowsTheProviderTransport(provider: AgentProvider, note:
     #expect(LiveReportLayout.lines(state: state, width: 200, height: 24).map(\.text).joined().contains(note))
     #expect(MessageWording.accepted(draft, recipient: "root").hasPrefix(result))
 }
+
+@Test func focusStartsImmediatelyAndWaitsForTheResult() throws {
+    var state = LiveReportState()
+    let row = try panelRow(42)
+    state.receive(panelSnapshot([row]))
+    #expect(state.beginAction(.focus) == .focus(row))
+    #expect(state.actionPanel?.phase == .focusing)
+    let waiting = LiveReportLayout.lines(state: state, width: 200, height: 24).map(\.text).joined()
+    #expect(waiting.contains("Focusing terminal") && waiting.contains("macOS may ask"))
+    #expect(state.actionInput(.escape) == nil)
+    #expect(state.actionPanel != nil)
+    state.actionFinished(FocusWording.result(.session(application: "Terminal", tty: "/dev/ttys019")))
+    #expect(state.actionInput(.escape) == nil)
+    #expect(state.actionPanel == nil)
+}
+
+// A selected tab is exact; activating an app without an adapter may show another of its windows.
+@Test(arguments: [
+    (
+        FocusOutcome.session(application: "Terminal", tty: "/dev/ttys019"),
+        "Selected the session on ttys019 in Terminal"
+    ),
+    (.application("Editor"), "cannot select the session's tab"),
+])
+func focusWordingSeparatesExactAndAppOnlyResults(outcome: FocusOutcome, expected: String) {
+    #expect(FocusWording.result(outcome).contains(expected))
+}

@@ -42,7 +42,10 @@ private func makeActions(
     terminate: @escaping @Sendable (HeavyProcess) throws -> Void = { _ in },
     codex: FakeMessaging = FakeMessaging(), claude: FakeMessaging = FakeMessaging(single: true)
 ) -> SessionActions {
-    SessionActions(inspect: inspect, terminate: terminate, codex: codex, claude: claude)
+    SessionActions(
+        inspect: inspect, terminate: terminate, codex: codex, claude: claude,
+        focus: TerminalFocus(
+            locate: { _ in throw ActionFailure("Not used.") }, adapters: [], activate: { _ in false }))
 }
 
 @Test func messageDefaultsToRootAndIncludesWorkloadPID() async throws {

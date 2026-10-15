@@ -65,6 +65,7 @@ public protocol ProcessActions: Sendable {
     func terminate(_ process: HeavyProcess) async throws
     func prepareMessage(for process: HeavyProcess) async throws -> MessageDraft
     func send(_ draft: MessageDraft, text: String, recipient: String) async throws
+    func focusTerminal(of process: HeavyProcess) async throws -> FocusOutcome
 }
 
 public struct SessionActions: ProcessActions {
@@ -72,22 +73,24 @@ public struct SessionActions: ProcessActions {
     private let signal: @Sendable (HeavyProcess) throws -> Void
     private let codex: any AgentMessaging
     private let claude: any AgentMessaging
+    private let focus: TerminalFocus
 
     public init(
         inspect: @escaping @Sendable (HeavyProcess) throws -> HeavyProcess,
         terminate: @escaping @Sendable (HeavyProcess) throws -> Void,
-        codex: any AgentMessaging, claude: any AgentMessaging
+        codex: any AgentMessaging, claude: any AgentMessaging, focus: TerminalFocus
     ) {
         self.inspect = inspect
         self.signal = terminate
         self.codex = codex
         self.claude = claude
+        self.focus = focus
     }
 
     public static func local() -> Self {
         Self(
             inspect: NativeActions.inspect, terminate: NativeActions.terminate, codex: CodexMessaging(),
-            claude: ClaudeMessaging())
+            claude: ClaudeMessaging(), focus: .local())
     }
 
     @concurrent public func terminate(_ process: HeavyProcess) async throws {
@@ -127,6 +130,19 @@ public struct SessionActions: ProcessActions {
         try validateAttribution(draft.process, inspect(draft.process))
         try Task.checkCancellation()
         try messaging.send(draft.message(text), to: recipient, for: target)
+    }
+
+    /// Focus follows the runtime rather than the workload, which may have exited or have no terminal.
+    @concurrent public func focusTerminal(of process: HeavyProcess) async throws -> FocusOutcome {
+        try Task.checkCancellation()
+        switch process.attribution.context {
+        case .terminal:
+            guard let runtime = process.attribution.runtime else { break }
+            return try focus.focus(runtime: runtime)
+        case .nonterminal: throw ActionFailure("The agent runtime has no terminal.")
+        case .unverified: break
+        }
+        throw ActionFailure("Focus needs the session's live agent runtime.")
     }
 
     private func messaging(for process: HeavyProcess) throws -> any AgentMessaging {

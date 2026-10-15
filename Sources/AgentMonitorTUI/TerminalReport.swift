@@ -52,14 +52,16 @@ public enum TerminalReport {
                     return .handled
                 }
                 guard key.modifiers.isEmpty else { return .ignored }
+                @MainActor func begin(_ kind: ProcessActionKind) {
+                    var effect: ActionEffect?
+                    state.mutate { effect = $0.beginAction(kind) }
+                    outcome.perform(effect, actions: actions, state: state)
+                }
                 switch key.key {
                 case .character("q"): return .exit(.userExit(key))
-                case .character("k"), .character("s"):
-                    var effect: ActionEffect?
-                    state.mutate {
-                        effect = $0.beginAction(key.key == .character("k") ? .terminate : .message)
-                    }
-                    outcome.perform(effect, actions: actions, state: state)
+                case .character("k"): begin(.terminate)
+                case .character("s"): begin(.message)
+                case .character("f"): begin(.focus)
                 case .arrowUp: state.mutate { $0.moveSelection(by: -1) }
                 case .arrowDown: state.mutate { $0.moveSelection(by: 1) }
                 case .return: state.mutate { $0.toggleDisclosure() }
@@ -147,6 +149,9 @@ private final class TerminalOutcome {
                 case .send(let draft, let text, let recipient):
                     try await actions.send(draft, text: text, recipient: recipient)
                     state.mutate { $0.actionFinished(MessageWording.accepted(draft, recipient: recipient)) }
+                case .focus(let process):
+                    let result = try await actions.focusTerminal(of: process)
+                    state.mutate { $0.actionFinished(FocusWording.result(result)) }
                 }
             } catch is CancellationError {
                 return

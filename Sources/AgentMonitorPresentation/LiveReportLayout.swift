@@ -90,7 +90,7 @@ public enum LiveReportLayout {
     private static func helpLines(width: Int, height: Int, headerHeight: Int) -> [String] {
         let groups = [
             ["↑/↓ select", "Enter open", "g group", "c/m/p sort", "r reverse", "[/] scroll"],
-            ["k terminate", "s message"],
+            ["k terminate", "s message", "f focus"],
             ["1/2 CPU -/+10%", "3/4 GB -/+1"],
             ["-/+ size", "0 min", "9 max", "= restore", "q/Ctrl-C quit"],
         ]

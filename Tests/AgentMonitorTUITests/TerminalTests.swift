@@ -32,10 +32,10 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
         $0.contains("Runtime: 1234") && $0.contains("PID 42 |") && $0.contains("Updates: 2")
-            && dividerRow($0) == 12
+            && dividerRow($0) == 11
     }
     for (width, headerRows, footerRows, divider) in [
-        (120, 1, 2, 11), (200, 1, 1, 12), (80, 3, 3, 12), (100, 2, 2, 12),
+        (120, 1, 2, 11), (200, 1, 1, 12), (80, 3, 3, 12), (100, 2, 3, 11),
     ] {
         var resized = winsize(ws_row: 24, ws_col: UInt16(width), ws_xpixel: 0, ws_ypixel: 0)
         try #require(ioctl(terminal.slave, TIOCSWINSZ, &resized) == 0)
@@ -64,8 +64,8 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
         $0.contains("PID descending") && $0.contains("PID 42 |")
     }
     for (key, label, divider) in [
-        ("+", "Details 55%", 11), ("9", "Details max", 2), ("0", "Details min", 21),
-        ("=", "Details 55%", 11), ("-", "Details 50%", 12),
+        ("+", "Details 55%", 11), ("9", "Details max", 2), ("0", "Details min", 20),
+        ("=", "Details 55%", 11), ("-", "Details 50%", 11),
     ] {
         try writeAllBytes(Array(key.utf8), to: terminal.master)
         _ = try await waitForANSIVisibleScreen(
@@ -278,5 +278,17 @@ private func dividerRow(_ text: String) -> Int? {
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
         $0.contains("Message queued for 11111111") && $0.contains("not confirmed")
+    }
+    try writeAllBytes([27], to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("CPU descending") && !$0.contains("Action result")
+    }
+    try writeAllBytes(Array("f".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("Action result") && $0.contains("Selected the session on ttys001 in Terminal")
     }
 }

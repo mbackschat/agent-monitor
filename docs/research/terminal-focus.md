@@ -4,6 +4,8 @@ Checked 2026-10-14 on macOS 27.0.1 (build 26A434). Question: can a TUI key bring
 
 Local checks were read-only: listing `/Applications` and `~/Applications`, `sdef` on installed apps, `plutil`/`PlistBuddy` reads of `Info.plist`, `--help` of installed CLIs, `man tmux`, SDK header reads, `ps` ancestry of this shell, environment variable *names* (`env | cut -d= -f1`), and `defaults read -g AppleSpacesSwitchOnActivate`. No AppleScript, `osascript`, `open`, terminal CLI command, activation, selection, or input was run. No permission was granted or changed.
 
+Implementation status (2026-10-15): the adapter boundary, the Terminal.app adapter and the app-only fallback are implemented; see [architecture](../architecture.md#process-and-session-actions). The prototype gate below is still open.
+
 ## Verdict
 
 Feasible with exact tab (and pane where the terminal has them) fidelity for terminals that let an outside process match a session by TTY: Terminal.app and iTerm2 via Apple Events with no user setup beyond one Automation consent, WezTerm via its CLI, kitty only after the user enables a remote-control socket, and Ghostty only from the unreleased 1.4 line. A tmux layer can resolve the pane and the outer client terminal, then hand off to those adapters. VS Code, Cursor, JetBrains IDEs, Zed, Warp, and Alacritty offer no outside interface to select a specific terminal tab; only activating the application is safe there. Two uncertainties block a firm promise: whether macOS 14+ cooperative activation honors activation triggered from a command-line process on macOS 27, and how Spaces and full-screen windows behave. Both need a manual prototype gate before the feature is claimed.

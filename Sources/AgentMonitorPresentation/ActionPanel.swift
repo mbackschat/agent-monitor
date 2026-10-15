@@ -2,7 +2,7 @@ import AgentMonitorActions
 import AgentMonitorCore
 import Foundation
 
-public enum ProcessActionKind: Sendable { case terminate, message }
+public enum ProcessActionKind: Sendable { case terminate, message, focus }
 public enum ActionInput: Sendable {
     case text(String)
     case backspace, review, confirm, escape, recipient
@@ -12,6 +12,7 @@ public enum ActionEffect: Equatable, Sendable {
     case prepare(HeavyProcess)
     case terminate(HeavyProcess)
     case send(MessageDraft, String, String)
+    case focus(HeavyProcess)
 }
 
 /// Acceptance means different things per transport: Codex accepts a queue request, while a Claude
@@ -34,8 +35,23 @@ public enum MessageWording {
     }
 }
 
+/// A selected session is exact; activating an application without an adapter may surface another
+/// of its windows (docs/research/terminal-focus.md#4-generic-fallback).
+public enum FocusWording {
+    public static func result(_ outcome: FocusOutcome) -> String {
+        switch outcome {
+        case .session(let application, let tty):
+            "Selected the session on \(tty.replacing("/dev/", with: "")) in \(application) and asked \(application) to come to the front. macOS may keep another app in front."
+        case .application(let name):
+            "Asked \(name) to come to the front. Agent Monitor cannot select the session's tab in \(name), so another of its windows may show."
+        }
+    }
+}
+
 public struct ActionPanel: Equatable, Sendable {
-    public enum Phase: Sendable { case confirmTermination, loading, compose, review, working, result }
+    public enum Phase: Sendable {
+        case confirmTermination, loading, compose, review, working, focusing, result
+    }
     public let process: HeavyProcess
     public var phase: Phase
     public var draft: MessageDraft?
@@ -126,6 +142,13 @@ public struct ActionPanel: Equatable, Sendable {
         case .working:
             title = "Submitting action…"
             controls = "Ctrl-C quit"
+        case .focusing:
+            title = "Focusing terminal…"
+            content += [
+                "Bringing the agent runtime's terminal to the front.",
+                "On first use, macOS may ask whether the terminal running Agent Monitor may control it.",
+            ]
+            controls = "Ctrl-C quit"
         case .result:
             title = "Action result"
             content += ["", result]
@@ -183,6 +206,9 @@ extension LiveReportState {
         case .message:
             actionPanel = ActionPanel(process: row, phase: .loading)
             return .prepare(row)
+        case .focus:
+            actionPanel = ActionPanel(process: row, phase: .focusing)
+            return .focus(row)
         }
     }
 
@@ -193,7 +219,7 @@ extension LiveReportState {
             case .confirmTermination, .compose, .result:
                 actionPanel = nil
                 return nil
-            case .loading, .working, .review: break
+            case .loading, .working, .focusing, .review: break
             }
         }
         let effect = panel.input(input)
