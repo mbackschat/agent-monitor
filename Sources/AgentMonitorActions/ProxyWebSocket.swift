@@ -38,26 +38,48 @@ final class ProxyWebSocket {
         else { throw ActionFailure("Codex proxy did not accept the WebSocket connection.") }
     }
 
-    func notify(_ method: String) throws { try send(["method": method]) }
+    private struct Notification: Encodable { let method: String }
+    private struct Request<Params: Encodable>: Encodable {
+        let id: Int
+        let method: String
+        let params: Params
+    }
+    /// Notifications and replies to other requests carry no matching `id` and are skipped.
+    private struct Envelope: Decodable { let id: Int? }
+    private struct Reply<Result: Decodable>: Decodable {
+        let result: Result?
+        let error: Ignored?
+    }
+    private struct Ignored: Decodable { init(from decoder: any Decoder) throws {} }
 
-    func request(_ method: String, params: [String: Any]) throws -> [String: Any] {
+    func notify(_ method: String) throws { try send(Notification(method: method)) }
+
+    func request<Params: Encodable, Result: Decodable>(
+        _ method: String, params: Params, as _: Result.Type = Result.self
+    ) throws -> Result {
         sequence += 1
-        try send(["id": sequence, "method": method, "params": params])
+        try send(Request(id: sequence, method: method, params: params))
         while true {
             let data = try message()
             guard String(data: data, encoding: .utf8) != nil,
-                let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                let envelope = try? JSONDecoder().decode(Envelope.self, from: data)
             else { throw ActionFailure("Invalid Codex protocol response.") }
-            guard object["id"] as? Int == sequence else { continue }
-            guard object["error"] == nil, let result = object["result"] as? [String: Any] else {
+            guard envelope.id == sequence else { continue }
+            let reply: Reply<Result>
+            do {
+                reply = try JSONDecoder().decode(Reply<Result>.self, from: data)
+            } catch {
+                throw ActionFailure("Codex returned an unsupported response. Update Codex CLI.")
+            }
+            guard reply.error == nil, let result = reply.result else {
                 throw ActionFailure("Codex cannot verify this session on its local app server.")
             }
             return result
         }
     }
 
-    private func send(_ value: [String: Any]) throws {
-        try frame(JSONSerialization.data(withJSONObject: value), opcode: 1)
+    private func send(_ value: some Encodable) throws {
+        try frame(JSONEncoder().encode(value), opcode: 1)
     }
 
     private func frame(_ data: Data, opcode: UInt8) throws {

@@ -35,19 +35,19 @@ public struct ClaudeMessaging: AgentMessaging {
             tool: "Claude Code")
         defer { command.close() }
         let listing = try command.readOutput()
-        guard let sessions = (try? JSONSerialization.jsonObject(with: listing)) as? [[String: Any]] else {
+        guard let sessions = try? JSONDecoder().decode([AgentEntry].self, from: listing) else {
             throw ActionFailure("Claude Code returned an unsupported session listing. Update Claude Code.")
         }
-        let hosted = sessions.filter { ($0["pid"] as? Int) == Int(target.runtime.pid) }
+        let hosted = sessions.filter { $0.pid == Int(target.runtime.pid) }
         guard hosted.count == 1, let session = hosted.first else {
             throw ActionFailure("Claude Code does not list the runtime as one live session.")
         }
-        guard (session["sessionId"] as? String)?.lowercased() == target.session else {
+        guard session.sessionId?.lowercased() == target.session else {
             throw ActionFailure("The Claude runtime now hosts another session. Select the process again.")
         }
-        switch session["status"] as? String {
-        case "busy", "waiting", "idle": break
-        default: throw ActionFailure("Claude Code returned an unknown session status.")
+        switch session.status.flatMap(AgentStatus.init(rawValue:)) {
+        case .busy, .waiting, .idle: break
+        case nil: throw ActionFailure("Claude Code returned an unknown session status.")
         }
         _ = try inbox(for: target)
         let recipient = AgentRecipient(id: target.session, label: "Claude session")
@@ -61,9 +61,9 @@ public struct ClaudeMessaging: AgentMessaging {
         // line is omitted deliberately: the session token identifies the session's own children,
         // whose messages bypass the peer controls that should apply to an external monitor.
         // https://code.claude.com/docs/en/cross-session-messaging#the-sessions-inbox-socket
-        var line = try JSONSerialization.data(
-            withJSONObject: ["type": "user", "message": ["role": "user", "content": message]],
-            options: [.sortedKeys, .withoutEscapingSlashes])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        var line = try encoder.encode(InboxLine(message: .init(content: message)))
         line.append(10)
         try InboxSocket.post(line, to: path, timeout: timeout)
     }
@@ -77,4 +77,25 @@ public struct ClaudeMessaging: AgentMessaging {
         }
         return path
     }
+}
+
+/// One `claude agents --json` entry. Fields are optional so an entry for another session that
+/// lacks one does not reject the whole listing.
+private struct AgentEntry: Decodable {
+    let pid: Int?
+    let sessionId: String?
+    let status: String?
+}
+
+private enum AgentStatus: String {
+    case busy, waiting, idle
+}
+
+private struct InboxLine: Encodable {
+    struct Message: Encodable {
+        var role = "user"
+        let content: String
+    }
+    var type = "user"
+    let message: Message
 }

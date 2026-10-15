@@ -28,9 +28,9 @@ public struct CodexMessaging: AgentMessaging {
         let socket = try ProxyWebSocket(process)
         _ = try socket.request(
             "initialize",
-            params: [
-                "clientInfo": ["name": "agent_monitor", "version": AgentMonitorVersion.current]
-            ])
+            params: Initialize(
+                clientInfo: .init(name: "agent_monitor", version: AgentMonitorVersion.current)),
+            as: Empty.self)
         try socket.notify("initialized")
         let selected = try read(thread, using: socket)
         guard selected.available, UUID(uuidString: selected.root) != nil else {
@@ -78,15 +78,46 @@ public struct CodexMessaging: AgentMessaging {
     }
 
     private func read(_ id: String, using process: ProxyWebSocket) throws -> (root: String, available: Bool) {
-        let result = try process.request("thread/read", params: ["threadId": id, "includeTurns": false])
-        guard let thread = result["thread"] as? [String: Any], thread["id"] as? String == id,
-            let root = thread["sessionId"] as? String,
-            let status = thread["status"] as? [String: Any], let type = status["type"] as? String
-        else { throw ActionFailure("Codex returned an unsupported session response. Update Codex CLI.") }
-        switch type {
-        case "idle", "active": return (root, true)
-        case "notLoaded", "systemError": return (root, false)
-        default: throw ActionFailure("Codex returned an unknown session status.")
+        let thread = try process.request(
+            "thread/read", params: ThreadRead(threadId: id, includeTurns: false), as: ThreadReply.self
+        ).thread
+        guard thread.id == id else {
+            throw ActionFailure("Codex returned an unsupported session response. Update Codex CLI.")
+        }
+        switch ThreadStatus(rawValue: thread.status.type) {
+        case .idle, .active: return (thread.sessionId, true)
+        case .notLoaded, .systemError: return (thread.sessionId, false)
+        case nil: throw ActionFailure("Codex returned an unknown session status.")
         }
     }
+}
+
+// Only the app-server fields this client reads; decoding ignores the rest.
+private struct Initialize: Encodable {
+    struct ClientInfo: Encodable {
+        let name: String
+        let version: String
+    }
+    let clientInfo: ClientInfo
+}
+
+private struct Empty: Decodable {}
+
+private struct ThreadRead: Encodable {
+    let threadId: String
+    let includeTurns: Bool
+}
+
+private struct ThreadReply: Decodable {
+    struct Thread: Decodable {
+        struct Status: Decodable { let type: String }
+        let id: String
+        let sessionId: String
+        let status: Status
+    }
+    let thread: Thread
+}
+
+private enum ThreadStatus: String {
+    case idle, active, notLoaded, systemError
 }
