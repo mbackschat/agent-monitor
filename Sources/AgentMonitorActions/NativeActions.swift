@@ -51,7 +51,7 @@ public enum NativeActions {
             devname_r(Int32(bitPattern: info.e_tdev), S_IFCHR, &name, Int32(name.count)) != nil
         else { throw ActionFailure("The agent runtime has no terminal.") }
         let tty =
-            "/dev/" + String(decoding: name.prefix { $0 != 0 }.map(UInt8.init(bitPattern:)), as: UTF8.self)
+            "/dev/" + string(name)
         var device = stat()
         guard TerminalHost.isDevicePath(tty), stat(tty, &device) == 0,
             UInt32(bitPattern: device.st_rdev) == info.e_tdev
@@ -102,10 +102,14 @@ public enum NativeActions {
         var path = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
         guard start(info) == expected.process.startMicroseconds,
             proc_pidpath(pid, &path, UInt32(path.count)) > 0,
-            String(cString: path) == expected.executable
+            string(path) == expected.executable
         else {
             throw ActionFailure("Process identity changed. Select it again.")
         }
+    }
+
+    private static func string(_ buffer: [CChar]) -> String {
+        String(decoding: buffer.prefix { $0 != 0 }.map(UInt8.init(bitPattern:)), as: UTF8.self)
     }
 
     private static func bsdInfo(_ pid: Int32) -> proc_bsdinfo? {
