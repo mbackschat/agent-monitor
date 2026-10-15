@@ -108,6 +108,8 @@ func terminalAppFailuresAreExplained(reply: String, expected: String) throws {
         Issue.record("Expected \(reply) to fail")
     } catch {
         #expect(error.localizedDescription.contains(expected))
+        // The same failure reaches the TUI and `focus --pid`, so it must not name a key.
+        #expect(!error.localizedDescription.contains("press"))
     }
 }
 

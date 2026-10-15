@@ -72,11 +72,11 @@ public struct TerminalAppFocus: TerminalFocusAdapter {
         // -1743 errAEEventNotPermitted and -1712 errAETimeout, AppleEvents.h / MacErrors.h.
         case "error -1743":
             throw ActionFailure(
-                "macOS has not allowed the terminal running Agent Monitor to control Terminal. Allow it in System Settings › Privacy & Security › Automation, then press f again."
+                "macOS has not allowed the terminal running Agent Monitor to control Terminal. Allow it in System Settings › Privacy & Security › Automation, then try again."
             )
         case "error -1712":
             throw ActionFailure(
-                "Terminal did not answer in time. If macOS is asking for permission, answer it and press f again."
+                "Terminal did not answer in time. If macOS is asking for permission, answer it and try again."
             )
         case let error where error.hasPrefix("error "):
             throw ActionFailure("Terminal refused the focus request (AppleScript \(error)).")

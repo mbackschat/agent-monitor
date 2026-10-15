@@ -159,7 +159,7 @@ The TUI is a foreground tool that runs while the user watches; a menu bar app ru
 | `Sources/AgentMonitorPresentation/LiveReportState.swift` | Add `select(_:)`, direct threshold/interval setters, group toggle independent of TUI details |
 | `Sources/AgentMonitorPresentation/LiveReportLayout.swift` | Extract details facts into a neutral model; TUI output unchanged (preview check guards it) |
 | `Sources/AgentMonitorPresentation/ActionPanel.swift` | Whole-text composer setter with the same filtering; host-neutral focusing note (today it says "the terminal running Agent Monitor") |
-| `Sources/AgentMonitorActions/TerminalFocus/Adapters/TerminalAppFocus.swift` | Error texts name "the terminal running Agent Monitor" and "press f again"; wording must come from the host |
+| `Sources/AgentMonitorActions/TerminalFocus/Adapters/TerminalAppFocus.swift` | Error texts name "the terminal running Agent Monitor", which is wrong for an app; a GUI host needs typed failures it can word |
 | `Sources/AgentMonitorActions/ClaudeMessaging.swift`, `CodexMessaging.swift` | Injectable absolute executable path instead of `/usr/bin/env` lookup for GUI hosts |
 | `Sources/AgentMonitorCore/MonitoringSession.swift` (recommended) | Event-driven interval changes and sleep tolerance instead of quarter-second polling |
 | [.github/workflows/verify.yml](../../.github/workflows/verify.yml) | Nothing required (`swift test` builds the new targets); optionally an unsigned bundle-assembly check |
@@ -198,7 +198,7 @@ The TUI is a foreground tool that runs while the user watches; a menu bar app ru
 
 ### Pre-existing issues found (not fixed here)
 
-- **Host-specific wording inside `AgentMonitorActions`.** `TerminalAppFocus` errors say "the terminal running Agent Monitor" and "press f again"; the same text already reaches the `focus --pid` CLI subcommand, which has no `f` key. Presentation wording belongs to each host; the action layer should return a typed failure (for example permission denied, timed out) that hosts word. This is a separate change.
+- **Host-specific wording inside `AgentMonitorActions`.** `TerminalAppFocus` errors say "the terminal running Agent Monitor" and "press f again"; the same text already reaches the `focus --pid` CLI subcommand, which has no `f` key. Presentation wording belongs to each host; the action layer should return a typed failure (for example permission denied, timed out) that hosts word. Since 2026-10-15 the texts say "try again" instead of naming a key, which suits both current hosts; "the terminal running Agent Monitor" still needs a typed failure before an app host exists.
 - **Polling wait in `MonitoringSession`.** Fine for the TUI, but four wakeups per second independent of the interval; see section 1.
 
 ### Recommendation
