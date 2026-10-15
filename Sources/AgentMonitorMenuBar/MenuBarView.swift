@@ -198,12 +198,14 @@ struct MenuBarView: View {
                     .pinShortcut { togglePinFromKeyboard(pin.id) }
             }.padding(6)
                 .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                .contextMenu { rowCommands(pin.id) }
         }
     }
 
     private func disclosureStyle(for id: LiveReportRowID) -> MenuBarDisclosureStyle {
         MenuBarDisclosureStyle(
-            id: id, pinned: model.report.isPinned(id), focus: $focusedRow,
+            id: id, pinned: model.report.isPinned(id), arrived: model.arrivals.deadlines[id] != nil,
+            focus: $focusedRow,
             onPin: { model.togglePin(id) }, onPinShortcut: { togglePinFromKeyboard(id) })
     }
 
@@ -218,6 +220,17 @@ struct MenuBarView: View {
 
     private func pinCommand(_ id: LiveReportRowID) -> some View {
         Button(model.report.isPinned(id) ? "Unpin" : "Pin", systemImage: "pin") { model.togglePin(id) }
+    }
+
+    @ViewBuilder private func rowCommands(_ id: LiveReportRowID) -> some View {
+        pinCommand(id)
+        Divider()
+        Button("Focus terminal", systemImage: "terminal") { model.begin(.focus, row: id) }
+            .disabled(!model.canBegin(.focus, row: id))
+        Button("Message…", systemImage: "bubble") { model.begin(.message, row: id) }
+            .disabled(!model.canBegin(.message, row: id))
+        Button("Terminate…", systemImage: "stop", role: .destructive) { model.begin(.terminate, row: id) }
+            .disabled(!model.canBegin(.terminate, row: id))
     }
 
     private func moveFocus(by delta: Int) -> KeyPress.Result {
@@ -241,6 +254,7 @@ struct MenuBarView: View {
                     .font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
                 Button("Terminal", systemImage: "terminal") { model.begin(.focus, row: .group(group.id)) }
                     .controlSize(.small)
+                    .disabled(!model.canBegin(.focus, row: .group(group.id)))
                 ForEach(model.report.children(of: group), id: \.process) { process in
                     processRow(process)
                 }
@@ -265,10 +279,7 @@ struct MenuBarView: View {
         }
         .id(LiveReportRowID.group(group.id))
         .disclosureGroupStyle(disclosureStyle(for: .group(group.id)))
-        .contextMenu {
-            pinCommand(.group(group.id))
-            Button("Focus terminal") { model.begin(.focus, row: .group(group.id)) }
-        }
+        .contextMenu { rowCommands(.group(group.id)) }
     }
 
     private func processRow(_ process: HeavyProcess, session: SessionGroup? = nil) -> some View {
@@ -302,10 +313,11 @@ struct MenuBarView: View {
                     Button("Terminal", systemImage: "terminal") {
                         model.begin(.focus, row: .process(process.process))
                     }
+                    .disabled(!model.canBegin(.focus, row: .process(process.process)))
                     Button("Message…", systemImage: "bubble") {
                         model.begin(.message, row: .process(process.process))
                     }
-                    .disabled(model.savedMessage != nil)
+                    .disabled(!model.canBegin(.message, row: .process(process.process)))
                     Spacer(minLength: 0)
                     Button("Terminate…", role: .destructive) {
                         model.begin(.terminate, row: .process(process.process))
@@ -322,7 +334,7 @@ struct MenuBarView: View {
         }
         .id(LiveReportRowID.process(process.process))
         .disclosureGroupStyle(disclosureStyle(for: .process(process.process)))
-        .contextMenu { pinCommand(.process(process.process)) }
+        .contextMenu { rowCommands(.process(process.process)) }
     }
 
     private func actionPanel(_ panel: ActionPanel) -> some View {

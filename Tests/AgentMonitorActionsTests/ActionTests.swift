@@ -11,6 +11,7 @@ private let rootID = "22222222-2222-4222-8222-222222222222"
 private func workload(
     start: UInt64 = 1, thread: String? = childID,
     provider: AgentProvider = .codex, root: String? = rootID,
+    context: RuntimeContext = .terminal, evidence: AttributionEvidence? = nil,
     runtime: ProcessIdentity? = ProcessIdentity(pid: 700, startMicroseconds: 1)
 ) -> HeavyProcess {
     HeavyProcess(
@@ -18,8 +19,8 @@ private func workload(
         executable: "/fixture/worker", name: "worker", cpuPercent: 80, footprintBytes: 2_000_000_000,
         cwd: nil, command: nil, metadataStatus: .markerRead,
         attribution: Attribution(
-            provider: provider, evidence: thread == nil ? .ambiguous : .marker,
-            context: .terminal, threadID: thread, rootSessionID: root, runtime: runtime,
+            provider: provider, evidence: evidence ?? (thread == nil ? .ambiguous : .marker),
+            context: context, threadID: thread, rootSessionID: root, runtime: runtime,
             terminal: "ttys001", runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []))
 }
 
@@ -108,4 +109,21 @@ func unverifiableRecipientsAreRejected(row: HeavyProcess) async {
     try await actions.send(draft, text: "Investigate", recipient: childID)
     #expect(claude.sent.withLock { $0 } == [childID + "\n" + draft.message("Investigate")])
     #expect(codex.sent.withLock { $0.isEmpty })
+}
+
+@Test(arguments: [
+    (workload(), true, true),
+    (workload(thread: nil), false, true),
+    (workload(thread: "invalid"), false, true),
+    (workload(runtime: nil), false, false),
+    (workload(context: .nonterminal), true, false),
+    (workload(context: .unverified), false, false),
+    (workload(evidence: .ambiguous), false, true),
+    (workload(evidence: .runtimeOnly), false, true),
+])
+func snapshotEligibilityUsesTheExecutionPrerequisites(
+    process: HeavyProcess, message: Bool, focus: Bool
+) {
+    #expect(SessionActions.canMessage(process) == message)
+    #expect(SessionActions.canFocusTerminal(process) == focus)
 }

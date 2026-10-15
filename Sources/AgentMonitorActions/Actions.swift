@@ -113,7 +113,7 @@ public struct SessionActions: ProcessActions {
 
     @concurrent public func prepareMessage(for process: HeavyProcess) async throws -> MessageDraft {
         try Task.checkCancellation()
-        let target = try validateMessaging(process)
+        let target = try Self.validateMessaging(process)
         let current = try inspect(process)
         try validateAttribution(process, current)
         let recipients = try messaging(for: process).recipients(for: target)
@@ -133,7 +133,7 @@ public struct SessionActions: ProcessActions {
         guard let chosen = draft.recipients.choices.first(where: { $0.id == recipient }),
             chosen.unavailableReason == nil
         else { throw ActionFailure("Choose an available, verified recipient.") }
-        let target = try validateMessaging(draft.process)
+        let target = try Self.validateMessaging(draft.process)
         let messaging = try messaging(for: draft.process)
         let recipients = try messaging.recipients(for: target)
         guard recipients == draft.recipients else {
@@ -148,10 +148,23 @@ public struct SessionActions: ProcessActions {
     /// Focus follows the runtime rather than the workload, which may have exited or have no terminal.
     @concurrent public func focusTerminal(of process: HeavyProcess) async throws -> FocusOutcome {
         try Task.checkCancellation()
+        return try focus.focus(runtime: Self.focusRuntime(for: process))
+    }
+
+    /// Snapshot eligibility only; execution still verifies the live process and recipient.
+    public static func canMessage(_ process: HeavyProcess) -> Bool {
+        (try? validateMessaging(process)) != nil
+    }
+
+    /// Snapshot eligibility only; the focus adapter still verifies the runtime.
+    public static func canFocusTerminal(_ process: HeavyProcess) -> Bool {
+        (try? focusRuntime(for: process)) != nil
+    }
+
+    private static func focusRuntime(for process: HeavyProcess) throws -> ProcessIdentity {
         switch process.attribution.context {
         case .terminal:
-            guard let runtime = process.attribution.runtime else { break }
-            return try focus.focus(runtime: runtime)
+            if let runtime = process.attribution.runtime { return runtime }
         case .nonterminal: throw ActionFailure("The agent runtime has no terminal.")
         case .unverified: break
         }
@@ -174,7 +187,7 @@ public struct SessionActions: ProcessActions {
 
     private func validateAttribution(_ expected: HeavyProcess, _ current: HeavyProcess) throws {
         try validateProcess(expected, current)
-        _ = try validateMessaging(current)
+        _ = try Self.validateMessaging(current)
         let a = expected.attribution
         let b = current.attribution
         guard a.provider == b.provider, a.threadID == b.threadID,
@@ -188,7 +201,7 @@ public struct SessionActions: ProcessActions {
         }
     }
 
-    private func validateMessaging(_ process: HeavyProcess) throws -> MessageTarget {
+    private static func validateMessaging(_ process: HeavyProcess) throws -> MessageTarget {
         guard process.attribution.provider != nil, let thread = process.attribution.threadID,
             UUID(uuidString: thread) != nil, let runtime = process.attribution.runtime,
             process.attribution.context != .unverified

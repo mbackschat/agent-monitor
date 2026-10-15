@@ -4,6 +4,7 @@ import SwiftUI
 struct MenuBarDisclosureStyle: DisclosureGroupStyle {
     let id: LiveReportRowID
     let pinned: Bool
+    let arrived: Bool
     let focus: FocusState<LiveReportRowID?>.Binding
     let onPin: () -> Bool
     let onPinShortcut: () -> Bool
@@ -13,7 +14,9 @@ struct MenuBarDisclosureStyle: DisclosureGroupStyle {
             MenuBarRowHeader(
                 id: id, pinned: pinned, expanded: configuration.isExpanded, focus: focus,
                 onToggle: { configuration.isExpanded.toggle() }, onPin: onPin, onPinShortcut: onPinShortcut,
-                label: configuration.label)
+                label: configuration.label
+            )
+            .background(MenuBarArrivalBackground(highlighted: arrived))
             if configuration.isExpanded {
                 configuration.content.padding(.leading, 16)
             }
@@ -67,5 +70,17 @@ extension View {
             guard key.modifiers == .command else { return .ignored }
             return action() ? .handled : .ignored
         }
+    }
+}
+
+struct MenuBarArrivalBackground: View {
+    let highlighted: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 6)
+            .fill(.primary.opacity(highlighted ? 0.08 : 0))
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: highlighted)
+            .accessibilityHidden(true)
     }
 }

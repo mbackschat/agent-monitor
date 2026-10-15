@@ -15,6 +15,9 @@ final class MenuBarModel {
     var report = LiveReportState(grouping: .session)
     var panelSize: MenuBarPanelSize = .standard
     var showsKeyboardHelp = false
+    private(set) var arrivals = MenuBarArrivals()
+    @ObservationIgnored private var arrivalExpiry: Task<Void, Never>?
+    @ObservationIgnored private var arrivalDeadline: ContinuousClock.Instant?
     private(set) var isOpen = false
     private(set) var error: String?
     private(set) var lastActionResult: ActionResult?
@@ -47,6 +50,7 @@ final class MenuBarModel {
         generation = UUID()
         report.resetCollection()
         if let latestSnapshot { report.receive(latestSnapshot) }
+        updateArrivals()
         startCollection()
     }
 
@@ -94,6 +98,7 @@ final class MenuBarModel {
     func toggleFreeze() {
         guard isOpen, report.snapshot != nil, report.actionPanel == nil else { return }
         report.toggleFreeze()
+        updateArrivals()
     }
 
     func close() {
@@ -112,6 +117,7 @@ final class MenuBarModel {
         if liveIcon { liveInterval.set(15) } else { cancelCollection() }
         action?.cancel()
         report.resetCollection()
+        updateArrivals()
     }
 
     func stop() async {
@@ -142,7 +148,53 @@ final class MenuBarModel {
             indicator.receive(snapshot)
             onIndicatorChange?()
         }
-        if isOpen { report.receive(snapshot) }
+        if isOpen {
+            report.receive(snapshot)
+            updateArrivals()
+        }
+    }
+
+    private func updateArrivals() {
+        arrivals.update(report.snapshot, now: .now)
+        scheduleArrivalExpiry()
+    }
+
+    private func scheduleArrivalExpiry() {
+        let next = arrivals.deadlines.values.min()
+        guard next != arrivalDeadline else { return }
+        arrivalExpiry?.cancel()
+        arrivalDeadline = next
+        guard let next else {
+            arrivalExpiry = nil
+            return
+        }
+        arrivalExpiry = Task { [weak self] in
+            do { try await ContinuousClock().sleep(until: next) } catch { return }
+            guard let self, !Task.isCancelled else { return }
+            arrivalDeadline = nil
+            arrivals.expire(at: .now)
+            scheduleArrivalExpiry()
+        }
+    }
+
+    func canBegin(_ kind: ProcessActionKind, row: LiveReportRowID) -> Bool {
+        guard isOpen, report.actionPanel == nil, visibleRowIDs.contains(row) else { return false }
+        switch row {
+        case .group(let id):
+            guard case .focus = kind,
+                let group = report.groups.first(where: { $0.id == id }),
+                Set(group.processes.compactMap(\.attribution.runtime)).count == 1,
+                let process = group.processes.first(where: { $0.attribution.runtime != nil })
+            else { return false }
+            return SessionActions.canFocusTerminal(process)
+        case .process(let id):
+            guard let process = report.rows.first(where: { $0.process == id }) else { return false }
+            switch kind {
+            case .terminate: return true
+            case .focus: return SessionActions.canFocusTerminal(process)
+            case .message: return savedMessage == nil && SessionActions.canMessage(process)
+            }
+        }
     }
 
     func begin(_ kind: ProcessActionKind, row: LiveReportRowID) {
@@ -151,7 +203,7 @@ final class MenuBarModel {
             if row == .process(savedMessage.process.process) { resumeMessage() }
             return
         }
-        guard visibleRowIDs.contains(row) else { return }
+        guard canBegin(kind, row: row) else { return }
         selectRow(row)
         guard report.selection == row else { return }
         perform(report.beginAction(kind))

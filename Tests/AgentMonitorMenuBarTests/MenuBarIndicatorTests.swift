@@ -104,7 +104,10 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
         #expect(image.isTemplate)
         #expect(image.size == NSSize(width: 18, height: 18))
         let bitmap = try iconBitmap(image)
-        for y in 12..<18 {
+        for x in 0..<18 {
+            #expect((bitmap.colorAt(x: x, y: 8)?.alphaComponent ?? 0) < 0.1)
+        }
+        for y in 10..<18 {
             for x in 0..<18 {
                 #expect(bitmap.colorAt(x: x, y: y) == normal.colorAt(x: x, y: y))
             }

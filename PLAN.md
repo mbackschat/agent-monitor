@@ -19,7 +19,7 @@ Real terminal Codex workload attribution and live Codex child-recipient routing/
 
 The shipped scope includes text/TUI/JSONL reports, session grouping in text and TUI, built-in Codex/Claude attribution, confirmed single-process termination, verified session messaging and terminal focus through both TUI and CLI actions. Preserve the [architecture boundaries](docs/architecture.md) when extending it.
 
-Pending idea: briefly mark newly appearing list identities with a faint system-adaptive background, excluding initial population and ordinary reorderings. Recommended duration is about three seconds; not yet implemented.
+Pending idea: add **Stable order** to GUI and TUI through shared presentation state. Preserve surviving process/session identity order and append arrivals; keep pins above the list and CPU/footprint/PID sorting as explicit alternatives. Not yet implemented.
 
 Pending ideas: a compact provider column with sorting and a command-line-only provider filter; author credit in `--help`. Provider recognition must come from attribution adapters. These ideas are not part of the completed adapter extraction.
 

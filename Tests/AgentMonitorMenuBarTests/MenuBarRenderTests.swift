@@ -247,3 +247,33 @@ import Testing
     #expect(model.showsKeyboardHelp)
     await model.stop()
 }
+
+@Test(arguments: [false, true])
+@MainActor func arrivalHighlightAdaptsToSystemAppearance(dark: Bool) throws {
+    _ = NSApplication.shared
+    var brightness: [CGFloat] = []
+    for highlighted in [false, true] {
+        let host = NSHostingView(
+            rootView:
+                Text("New process").padding(12)
+                .frame(width: 160, height: 40)
+                .background(MenuBarArrivalBackground(highlighted: highlighted))
+                .background(Color(nsColor: .windowBackgroundColor)))
+        host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        host.setFrameSize(NSSize(width: 160, height: 40))
+        host.layoutSubtreeIfNeeded()
+        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        let color = try #require(bitmap.colorAt(x: 12, y: 12)?.usingColorSpace(.deviceRGB))
+        brightness.append((color.redComponent + color.greenComponent + color.blueComponent) / 3)
+        if highlighted, let base = ProcessInfo.processInfo.environment["MENUBAR_PREVIEW_PATH"] {
+            let path =
+                URL(fileURLWithPath: base).deletingPathExtension().path
+                + (dark ? "-arrival-dark.png" : "-arrival.png")
+            try #require(bitmap.representation(using: .png, properties: [:]))
+                .write(to: URL(fileURLWithPath: path))
+        }
+    }
+    #expect(dark ? brightness[1] > brightness[0] : brightness[1] < brightness[0])
+    #expect(abs(brightness[1] - brightness[0]) > 0.02)
+}

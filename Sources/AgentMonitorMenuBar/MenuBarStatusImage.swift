@@ -6,7 +6,7 @@ enum MenuBarStatusImage {
             NSAttributedString(
                 string: $0 > 99 ? "99+" : String($0),
                 attributes: [
-                    .font: NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold),
+                    .font: NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .bold),
                     .foregroundColor: NSColor.black,
                 ])
         }
@@ -15,7 +15,7 @@ enum MenuBarStatusImage {
             defer { NSGraphicsContext.restoreGraphicsState() }
             NSColor.black.set()
             for index in 0..<3 {
-                let rect = NSRect(x: 1 + index * 6, y: 3, width: 4, height: 4 + index * 5)
+                let rect = NSRect(x: 1 + index * 6, y: 1, width: 4, height: 3 + index * 2)
                 let bar = NSBezierPath(roundedRect: rect, xRadius: 0.8, yRadius: 0.8)
                 if index < (level ?? 0) {
                     bar.fill()
@@ -26,12 +26,8 @@ enum MenuBarStatusImage {
             }
             if let text {
                 let size = text.size()
-                let width = min(18, max(10, ceil(size.width) + 2))
-                let rect = NSRect(x: 18 - width, y: 8, width: width, height: 10)
-                // A clear halo separates the overlay from the bars without fixing a light/dark background.
-                NSGraphicsContext.current?.compositingOperation = .destinationOut
-                NSBezierPath(roundedRect: rect.insetBy(dx: -1, dy: -1), xRadius: 4, yRadius: 4).fill()
-                NSGraphicsContext.current?.compositingOperation = .sourceOver
+                let width = min(18, max(8, ceil(size.width) + 2))
+                let rect = NSRect(x: 0, y: 10, width: width, height: 8)
                 NSBezierPath(roundedRect: rect, xRadius: 3, yRadius: 3).fill()
                 NSGraphicsContext.current?.compositingOperation = .destinationOut
                 text.draw(at: NSPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2))

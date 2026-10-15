@@ -107,9 +107,11 @@ private let emptySnapshot = MonitoringSnapshot(
     #expect(model.report.frozen)
     #expect(model.report.snapshot == first)
     #expect(model.report.visibleRows == rows)
+    #expect(model.arrivals.deadlines.isEmpty)
     model.toggleFreeze()
     #expect(!model.report.frozen)
     #expect(model.report.snapshot == latest)
+    #expect(model.arrivals.deadlines[.process(latest.findings[0].process)] != nil)
     let row = try #require(latest.findings.first)
     model.begin(.terminate, row: .process(row.process))
     model.toggleFreeze()
@@ -123,6 +125,7 @@ private let emptySnapshot = MonitoringSnapshot(
     #expect(!model.report.frozen)
     #expect(model.report.snapshot == nil)
     #expect(model.panelSize == .tall)
+    #expect(model.arrivals.deadlines.isEmpty)
     await model.stop()
 }
 
