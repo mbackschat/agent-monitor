@@ -223,3 +223,17 @@ func focusOnAGroupWithoutOneRuntimeExplains(runtimes: [Int32?]) throws {
         ActionWording.terminationAccepted(pid: 42)
             == "SIGTERM accepted for PID 42. Exit is not yet confirmed.")
 }
+
+// The composer, the send check and the CLI help use one limit.
+@Test func messageLengthLimitHasOneSource() throws {
+    #expect(MessageDraft.maximumLength == 4000)
+    var state = LiveReportState()
+    let row = try panelRow(42)
+    state.receive(panelSnapshot([row]))
+    _ = state.beginAction(.message)
+    let recipient = AgentRecipient(id: "root", label: "Root agent")
+    state.messagePrepared(
+        MessageDraft(process: row, recipients: MessageRecipients(root: recipient, selected: recipient)))
+    _ = state.actionInput(.text(String(repeating: "x", count: MessageDraft.maximumLength + 10)))
+    #expect(state.actionPanel?.text.count == MessageDraft.maximumLength)
+}

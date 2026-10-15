@@ -36,6 +36,9 @@ public struct MessageRecipients: Equatable, Sendable {
 }
 
 public struct MessageDraft: Equatable, Sendable {
+    /// Characters a user may write; the PID prefix is added on top.
+    public static let maximumLength = 4000
+
     public let process: HeavyProcess
     public let recipients: MessageRecipients
     public init(process: HeavyProcess, recipients: MessageRecipients) {
@@ -121,9 +124,12 @@ public struct SessionActions: ProcessActions {
     @concurrent public func send(_ draft: MessageDraft, text: String, recipient: String) async throws {
         try Task.checkCancellation()
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-            text.count <= 4000,
+            text.count <= MessageDraft.maximumLength,
             text.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) || $0 == "\n" })
-        else { throw ActionFailure("Use 1–4000 characters without terminal control codes.") }
+        else {
+            throw ActionFailure(
+                "Use 1–\(MessageDraft.maximumLength) characters without terminal control codes.")
+        }
         guard let chosen = draft.recipients.choices.first(where: { $0.id == recipient }),
             chosen.unavailableReason == nil
         else { throw ActionFailure("Choose an available, verified recipient.") }

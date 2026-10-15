@@ -103,7 +103,8 @@ public struct ActionPanel: Equatable, Sendable {
                 !CharacterSet.controlCharacters.contains($0) || $0 == "\n"
             }
             offset = 0
-            self.text = String((self.text + String(String.UnicodeScalarView(safe))).prefix(4000))
+            self.text = String(
+                (self.text + String(String.UnicodeScalarView(safe))).prefix(MessageDraft.maximumLength))
         case .backspace where phase == .compose:
             if !text.isEmpty { text.removeLast() }
         case .recipient where phase == .compose:
