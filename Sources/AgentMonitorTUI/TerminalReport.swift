@@ -163,8 +163,7 @@ private final class TerminalOutcome {
                     try await actions.terminate(process)
                     state.mutate {
                         $0.actionFinished(
-                            .accepted(
-                                "SIGTERM accepted for PID \(process.process.pid). Exit is not yet confirmed.")
+                            .accepted(ActionWording.terminationAccepted(pid: process.process.pid))
                         )
                     }
                 case .send(let draft, let text, let recipient):

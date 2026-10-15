@@ -54,7 +54,7 @@ struct ActionRunner {
                     style: .warning))
             guard approved("Send SIGTERM? [y/N] ", yes: yes) else { return .notDone }
             try await actions.terminate(process)
-            out(ReportLine("SIGTERM accepted for PID \(pid). Exit is not yet confirmed.", style: .success))
+            out(ReportLine(ActionWording.terminationAccepted(pid: pid), style: .success))
             return .accepted
         }
     }
@@ -95,13 +95,7 @@ struct ActionRunner {
     }
 
     private func describe(_ process: HeavyProcess) {
-        let attribution = process.attribution
-        out(ReportLine("Process PID \(process.process.pid): \(process.name)"))
-        out(ReportLine("Executable: \(process.executable)"))
-        out(
-            ReportLine(
-                "Attributed session: \(attribution.provider?.rawValue ?? "unknown")/\(attribution.threadID ?? "unresolved")"
-            ))
+        for line in ActionWording.target(process) { out(ReportLine(line)) }
     }
 
     private func approved(_ prompt: String, yes: Bool) -> Bool {

@@ -206,3 +206,20 @@ func focusOnAGroupWithoutOneRuntimeExplains(runtimes: [Int32?]) throws {
     #expect(state.actionPanel == nil)
     #expect(state.notice?.contains("runtime") == true)
 }
+
+// The TUI panel and the CLI commands show the same target and result wording.
+@Test func actionWordingIsSharedByPanelAndCommands() throws {
+    let row = try panelRow(42)
+    #expect(
+        ActionWording.target(row) == [
+            "Process PID 42: worker", "Executable: /fixture/worker", "Attributed session: codex/child",
+        ])
+    var state = LiveReportState()
+    state.receive(panelSnapshot([row]))
+    _ = state.beginAction(.terminate)
+    let panel = LiveReportLayout.lines(state: state, width: 200, height: 24).map(\.text)
+    #expect(ActionWording.target(row).allSatisfy(panel.contains))
+    #expect(
+        ActionWording.terminationAccepted(pid: 42)
+            == "SIGTERM accepted for PID 42. Exit is not yet confirmed.")
+}

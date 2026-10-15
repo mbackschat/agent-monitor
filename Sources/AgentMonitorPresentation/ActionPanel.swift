@@ -35,6 +35,22 @@ public enum MessageWording {
     }
 }
 
+/// Target and result wording shared by the TUI panel and the command-line actions.
+public enum ActionWording {
+    public static func target(_ process: HeavyProcess) -> [String] {
+        let attribution = process.attribution
+        return [
+            "Process PID \(process.process.pid): \(process.name)",
+            "Executable: \(process.executable)",
+            "Attributed session: \(attribution.provider?.rawValue ?? "unknown")/\(attribution.threadID ?? "unresolved")",
+        ]
+    }
+
+    public static func terminationAccepted(pid: Int32) -> String {
+        "SIGTERM accepted for PID \(pid). Exit is not yet confirmed."
+    }
+}
+
 /// A selected session is exact; activating an application without an adapter may surface another
 /// of its windows (docs/research/terminal-focus.md#4-generic-fallback).
 public enum FocusWording {
@@ -121,13 +137,7 @@ public struct ActionPanel: Equatable, Sendable {
     func lines(width: Int, height: Int) -> [ReportLine] {
         let title: String
         let controls: String
-        var content = [
-            ReportLine("Process PID \(process.process.pid): \(process.name)"),
-            ReportLine("Executable: \(process.executable)"),
-            ReportLine(
-                "Attributed session: \(process.attribution.provider?.rawValue ?? "unknown")/\(process.attribution.threadID ?? "unresolved")"
-            ),
-        ]
+        var content = ActionWording.target(process).map { ReportLine($0) }
         switch phase {
         case .confirmTermination:
             title = "Terminate selected process?"
