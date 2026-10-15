@@ -51,6 +51,10 @@ def main():
         stage = Path(temporary) / name
         stage.mkdir()
         shutil.copy2(binary, stage / "agent-monitor")
+        # Symbols are over half of the unstripped file (40.5 MB to 19.7 MB, measured 2026-10-15).
+        # Keep the unstripped build to symbolicate crash reports. Xcode's strip re-signs the
+        # linker's ad-hoc signature, which the archive check below verifies.
+        subprocess.run(["strip", str(stage / "agent-monitor")], check=True)
         shutil.copytree(
             products / "AgentMonitor_AgentMonitorPresentation.bundle",
             stage / "AgentMonitor_AgentMonitorPresentation.bundle",
@@ -103,6 +107,10 @@ def main():
                 raise SystemExit("Release archive contains local account metadata")
             package.extractall(unpacked, filter="data")
         installed = unpacked / name
+        executable = installed / "agent-monitor"
+        subprocess.run(["codesign", "--verify", "--strict", str(executable)], check=True)
+        if run("nm", "-U", str(executable)).split("\n") != ["0000000100000000 T __mh_execute_header"]:
+            raise SystemExit("Packaged executable still carries its symbol table")
         environment = dict(os.environ, PATH=f"{installed}:/usr/bin:/bin")
         if run("agent-monitor", "--version", cwd=unpacked, env=environment) != version:
             raise SystemExit("Packaged executable reports the wrong version")

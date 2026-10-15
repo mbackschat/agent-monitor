@@ -13,7 +13,7 @@ swift build -c release -debug-info-format none
 uv run scripts/package-release.py .build/release
 ```
 
-The packaging script requires Python 3.12 or later, reads the version and architecture from the built executable, and includes its schema bundle, project license, pinned dependency licenses/notices, and original FIGlet font notices. Archive headers omit the build machine's user and group identities. It extracts the resulting archive and verifies version, help, and schema discovery outside the source checkout. It refuses to overwrite an existing archive.
+The packaging script requires Python 3.12 or later, reads the version and architecture from the built executable, and includes its schema bundle, project license, pinned dependency licenses/notices, and original FIGlet font notices. Archive headers omit the build machine's user and group identities. It strips the packaged executable's symbol table, which is more than half of the unstripped file, and verifies that the result is stripped and validly ad-hoc signed; keep the unstripped `.build/release/agent-monitor` of a published version to symbolicate crash reports. It extracts the resulting archive and verifies version, help, and schema discovery outside the source checkout. It refuses to overwrite an existing archive.
 
 Artifacts are written under ignored `dist/`: a versioned `.tar.gz` and its SHA-256 checksum. Review the archive contents and run the release terminal check from the development guide before publication. The first release is ad-hoc signed and not notarized; do not describe it as Developer ID signed or notarized.
 
