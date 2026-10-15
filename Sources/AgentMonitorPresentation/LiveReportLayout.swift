@@ -155,54 +155,12 @@ public enum LiveReportLayout {
         let selectedIndex = rows.firstIndex { $0.id == state.selection } ?? 0
         let start = max(0, min(selectedIndex - capacity + 1, rows.count - capacity))
         for entry in rows.dropFirst(start).prefix(capacity) {
+            let selected = entry.id == state.selection
             switch entry {
             case .group(let group):
-                let prefix = table.rowPrefix(
-                    marker: entry.id == state.selection ? ">" : " ",
-                    pid: String(group.processes.count), cpu: group.cpuTotal, memoryGB: group.memoryGBTotal,
-                    partialCPU: group.cpuPartial, partialMemory: group.memoryPartial)
-                let disclosure = state.openGroups.contains(group.id) ? "[-]" : "[+]"
-                lines.append(
-                    ReportLine(
-                        prefix + "\(disclosure) \(group.label)",
-                        style: entry.id == state.selection ? .selected : .heading))
+                lines.append(groupLine(group, selected: selected, state: state, table: table))
             case .process(let row):
-                let prefix = table.rowPrefix(
-                    marker: row.process == state.selected ? ">" : " ", pid: String(row.process.pid),
-                    cpu: row.cpuPercent, memoryGB: row.footprintBytes.map { Double($0) / 1e9 },
-                    heavyCPU: row.cpuPercent.map { $0 > (state.snapshot?.cpuThresholdPercent ?? 25) }
-                        ?? false,
-                    heavyMemory: row.footprintBytes.map {
-                        $0 > (state.snapshot?.memoryThresholdBytes ?? 1_000_000_000)
-                    } ?? false)
-                let provider = row.attribution.provider?.rawValue ?? "unknown"
-                let sessionWidth: Int
-                switch columns {
-                case .compact: sessionWidth = 8
-                case .wide(_, let agent): sessionWidth = max(8, agent - provider.count - 1)
-                }
-                let session =
-                    row.attribution.threadID.map { String($0.prefix(sessionWidth)) }
-                    ?? (row.attribution.evidence == .ambiguous ? "ambiguous" : "unresolved")
-                let description: String
-                if state.grouping == .session {
-                    description =
-                        "  \(row.name) \(provider)/\(session) [\(row.attribution.evidence.rawValue), \(row.attribution.context.rawValue)]"
-                } else {
-                    switch columns {
-                    case .wide(let processWidth, let agentWidth):
-                        let project = row.attribution.runtimeDirectory ?? row.cwd
-                        description =
-                            "\(ReportTable.pad(row.name, to: processWidth)) \(ReportTable.pad("\(provider)/\(session)", to: agentWidth)) \(row.attribution.terminal ?? "no tty") / \(project.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "?")"
-                    case .compact(let processWidth, let agentWidth):
-                        description =
-                            ReportTable.pad(abbreviated(row.name, width: processWidth), to: processWidth)
-                            + " " + abbreviated("\(provider)/\(session)", width: agentWidth)
-                    }
-                }
-                lines.append(
-                    ReportLine(
-                        prefix + description, style: row.process == state.selected ? .selected : .heavy))
+                lines.append(processLine(row, state: state, table: table, columns: columns))
             }
         }
         if rows.isEmpty {
@@ -212,6 +170,59 @@ public enum LiveReportLayout {
             )
         }
         return padded(lines, to: height)
+    }
+
+    private static func groupLine(
+        _ group: SessionGroup, selected: Bool, state: LiveReportState, table: ReportTable
+    ) -> ReportLine {
+        let prefix = table.rowPrefix(
+            marker: selected ? ">" : " ", pid: String(group.processes.count), cpu: group.cpuTotal,
+            memoryGB: group.memoryGBTotal, partialCPU: group.cpuPartial, partialMemory: group.memoryPartial)
+        let disclosure = state.openGroups.contains(group.id) ? "[-]" : "[+]"
+        return ReportLine(prefix + "\(disclosure) \(group.label)", style: selected ? .selected : .heading)
+    }
+
+    private static func processLine(
+        _ row: HeavyProcess, state: LiveReportState, table: ReportTable, columns: ReportTable.Columns
+    ) -> ReportLine {
+        let cpuThreshold = state.snapshot?.cpuThresholdPercent ?? state.thresholds.cpuPercent
+        let memoryThreshold = state.snapshot?.memoryThresholdBytes ?? state.thresholds.memoryBytes
+        let prefix = table.rowPrefix(
+            marker: row.process == state.selected ? ">" : " ", pid: String(row.process.pid),
+            cpu: row.cpuPercent, memoryGB: row.footprintBytes.map { Double($0) / 1e9 },
+            heavyCPU: row.cpuPercent.map { $0 > cpuThreshold } ?? false,
+            heavyMemory: row.footprintBytes.map { $0 > memoryThreshold } ?? false)
+        let provider = row.attribution.provider?.rawValue ?? "unknown"
+        let sessionWidth =
+            switch columns {
+            case .compact: 8
+            case .wide(_, let agent): max(8, agent - provider.count - 1)
+            }
+        let agent = "\(provider)/\(sessionLabel(row, width: sessionWidth))"
+        let description =
+            state.grouping == .session
+            ? "  \(row.name) \(agent) [\(row.attribution.evidence.rawValue), \(row.attribution.context.rawValue)]"
+            : flatDescription(row, agent: agent, columns: columns)
+        return ReportLine(prefix + description, style: row.process == state.selected ? .selected : .heavy)
+    }
+
+    private static func flatDescription(_ row: HeavyProcess, agent: String, columns: ReportTable.Columns)
+        -> String
+    {
+        switch columns {
+        case .wide(let processWidth, let agentWidth):
+            let project = row.attribution.runtimeDirectory ?? row.cwd
+            return
+                "\(ReportTable.pad(row.name, to: processWidth)) \(ReportTable.pad(agent, to: agentWidth)) \(row.attribution.terminal ?? "no tty") / \(project.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "?")"
+        case .compact(let processWidth, let agentWidth):
+            return ReportTable.pad(abbreviated(row.name, width: processWidth), to: processWidth) + " "
+                + abbreviated(agent, width: agentWidth)
+        }
+    }
+
+    private static func sessionLabel(_ row: HeavyProcess, width: Int) -> String {
+        row.attribution.threadID.map { String($0.prefix(width)) }
+            ?? (row.attribution.evidence == .ambiguous ? "ambiguous" : "unresolved")
     }
 
     private static func detailsPane(state: LiveReportState, width: Int, height: Int) -> [ReportLine] {
