@@ -132,7 +132,7 @@ For the complete option reference and defaults, run `agent-monitor --help`.
 
 ## Menu bar spike
 
-From a source checkout, run `bash scripts/menubar.sh run` and click the terminal icon in the menu bar. This opens a compact native panel, never a standalone window. Expand a session, then a process to inspect attribution and find **Terminal**, **Message…** and **Terminate…**. CPU/footprint/PID sorting uses the TUI's sorting rules. The spike uses the default agent-only scope and thresholds; threshold/interval controls, flat mode and freeze remain available in the TUI.
+From a source checkout, run `bash scripts/menubar.sh run` and click the terminal icon in the menu bar. This opens a compact native panel, never a standalone window. Click anywhere on a row to expand or collapse it. Sessions with one displayed heavy process show that process directly, including its project and session context; only sessions with multiple displayed processes get a group row. Expand a process to inspect attribution and find **Terminal**, **Message…** and **Terminate…**. CPU/footprint/PID sorting uses the TUI's sorting rules. The spike uses the default agent-only scope and thresholds; threshold/interval controls, flat mode and freeze remain available in the TUI.
 
 **Terminate…** reviews one frozen process before sending SIGTERM. **Message…** verifies live recipients, defaults to the root agent where applicable, then shows the exact outgoing text including workload context before **Send message**. **Terminal** uses the existing terminal-focus adapters; macOS may ask to let Agent Monitor Spike control the target terminal. Acceptance does not confirm termination or message delivery. No action automatically retries.
 

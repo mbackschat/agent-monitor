@@ -39,22 +39,24 @@ private final class FakeActions: ProcessActions, Sendable {
     }
 }
 
-func menuBarFixture() throws -> MonitoringSnapshot {
-    let row = try JSONDecoder().decode(
-        HeavyProcess.self,
-        from: Data(
-            """
-            {"process":{"pid":42001,"startMicroseconds":1},"executable":"/fixture/swift-frontend",
-            "name":"swift-frontend","cpuPercent":184.6,"footprintBytes":1420000000,"cwd":"/projects/sample-app",
-            "metadataStatus":"markerRead","attribution":{"provider":"codex","evidence":"marker",
-            "context":"terminal","threadID":"11111111-1111-4111-8111-111111111111",
-            "runtime":{"pid":41000,"startMicroseconds":1},"terminal":"ttys001",
-            "runtimeDirectory":"/projects/sample-app","candidateThreadIDs":[],"ancestry":[]}}
-            """.utf8))
+func menuBarFixture(pids: [Int32] = [42001]) throws -> MonitoringSnapshot {
+    let rows = try pids.map { pid in
+        try JSONDecoder().decode(
+            HeavyProcess.self,
+            from: Data(
+                """
+                {"process":{"pid":\(pid),"startMicroseconds":1},"executable":"/fixture/swift-frontend",
+                "name":"swift-frontend","cpuPercent":184.6,"footprintBytes":1420000000,"cwd":"/projects/sample-app",
+                "metadataStatus":"markerRead","attribution":{"provider":"codex","evidence":"marker",
+                "context":"terminal","threadID":"11111111-1111-4111-8111-111111111111",
+                "runtime":{"pid":41000,"startMicroseconds":1},"terminal":"ttys001",
+                "runtimeDirectory":"/projects/sample-app","candidateThreadIDs":[],"ancestry":[]}}
+                """.utf8))
+    }
     return MonitoringSnapshot(
         timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1,
         cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
-        sampledProcessCount: 42, unreadableProcessCount: 0, findings: [row])
+        sampledProcessCount: 42, unreadableProcessCount: 0, findings: rows)
 }
 
 @MainActor private func readyModel(_ actions: FakeActions) async throws -> MenuBarModel {
@@ -62,7 +64,6 @@ func menuBarFixture() throws -> MonitoringSnapshot {
     let model = MenuBarModel(actions: actions) { receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
-    model.report.toggleDisclosure()
     return model
 }
 
@@ -139,9 +140,28 @@ func menuBarFixture() throws -> MonitoringSnapshot {
     let row = try #require(model.report.rows.first)
     model.begin(.message, row: .process(row.process))
     var iterator = events.makeAsyncIterator()
+    try #require(model.report.actionPanel?.phase == .loading)
     #expect(await iterator.next() == "started")
     await model.stop()
     #expect(await iterator.next() == "finished")
     #expect(model.report.actionPanel == nil)
     #expect(actions.calls.withLock { $0 } == ["prepare"])
+}
+
+@Test @MainActor func multiProcessSessionRequiresDisclosureAndTargetsTheChosenChild() async throws {
+    let actions = FakeActions()
+    let snapshot = try menuBarFixture(pids: [42001, 42002])
+    let model = MenuBarModel(actions: actions) { receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let process = try #require(model.report.rows.last)
+    model.begin(.terminate, row: .process(process.process))
+    #expect(model.report.actionPanel == nil)
+    model.report.toggleDisclosure()
+    model.begin(.terminate, row: .process(process.process))
+    #expect(model.report.actionPanel?.process.process == process.process)
+    model.input(.confirm)
+    await model.waitForAction()
+    #expect(actions.calls.withLock { $0 } == ["terminate 42002"])
+    await model.stop()
 }

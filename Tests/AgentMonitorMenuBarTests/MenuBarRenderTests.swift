@@ -12,7 +12,6 @@ import Testing
     let model = MenuBarModel { receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
-    model.report.toggleDisclosure()
     _ = NSApplication.shared
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))

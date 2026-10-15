@@ -68,9 +68,14 @@ struct MenuBarView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
                         ForEach(model.report.groups, id: \.id) { group in
-                            session(group)
+                            if group.processes.count == 1, let process = group.processes.first {
+                                processRow(process, session: group)
+                            } else {
+                                session(group)
+                            }
                         }
                     }
+                    .disclosureGroupStyle(MenuBarDisclosureStyle())
                 }
             }
             if let result = model.lastActionResult {
@@ -124,7 +129,7 @@ struct MenuBarView: View {
         }
     }
 
-    private func processRow(_ process: HeavyProcess) -> some View {
+    private func processRow(_ process: HeavyProcess, session: SessionGroup? = nil) -> some View {
         DisclosureGroup {
             VStack(alignment: .leading, spacing: 6) {
                 Text(process.executable)
@@ -160,6 +165,13 @@ struct MenuBarView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(process.name).lineLimit(1)
                     Text("PID \(process.process.pid)").font(.caption2).foregroundStyle(.secondary)
+                    if let session {
+                        Text(session.project).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        Text(
+                            "\(session.provider?.rawValue ?? "unknown") · \(session.sessionID.map { String($0.prefix(8)) } ?? (process.isSharedRuntime ? "shared runtime" : "unresolved"))"
+                        )
+                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    }
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
@@ -239,5 +251,32 @@ struct MenuBarView: View {
     private func resource(_ value: Double?, unit: String, partial: Bool = false) -> String {
         guard let value else { return "—" }
         return "\(partial ? "~" : "")\(value.formatted(.number.precision(.fractionLength(1))))\(unit)"
+    }
+}
+
+struct MenuBarDisclosureStyle: DisclosureGroupStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                configuration.isExpanded.toggle()
+            } label: {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: configuration.isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 10)
+                        .accessibilityHidden(true)
+                    configuration.label
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 5)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(configuration.isExpanded ? "Expanded" : "Collapsed")
+            if configuration.isExpanded {
+                configuration.content.padding(.leading, 16)
+            }
+        }
     }
 }

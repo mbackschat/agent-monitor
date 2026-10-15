@@ -76,7 +76,18 @@ final class MenuBarModel {
     }
 
     func begin(_ kind: ProcessActionKind, row: LiveReportRowID) {
-        guard isOpen, report.visibleRows.contains(where: { $0.id == row }) else { return }
+        guard isOpen, report.actionPanel == nil else { return }
+        if case .process(let identity) = row,
+            let group = report.groups.first(where: {
+                $0.processes.count == 1 && $0.processes.first?.process == identity
+            }), !report.openGroups.contains(group.id)
+        {
+            // Singleton rows bypass group disclosure in the native view; shared action selection
+            // still addresses the process inside LiveReportState's session hierarchy.
+            report.select(.group(group.id))
+            report.toggleDisclosure()
+        }
+        guard report.visibleRows.contains(where: { $0.id == row }) else { return }
         report.select(row)
         perform(report.beginAction(kind))
     }
