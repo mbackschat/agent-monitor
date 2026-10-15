@@ -162,6 +162,17 @@ final class MenuBarModel {
         liveInterval.set(isOpen ? report.interval : 15)
     }
 
+    func setInterval(_ seconds: Double) {
+        report.setInterval(seconds)
+        liveInterval.set(isOpen ? report.interval : 15)
+    }
+
+    @discardableResult func togglePin(_ row: LiveReportRowID) -> Bool {
+        guard isOpen, report.actionPanel == nil, visibleRowIDs.contains(row) else { return false }
+        report.togglePin(row)
+        return true
+    }
+
     func selectRow(_ row: LiveReportRowID) {
         guard visibleRowIDs.contains(row) else { return }
         if !report.visibleRows.contains(where: { $0.id == row }),

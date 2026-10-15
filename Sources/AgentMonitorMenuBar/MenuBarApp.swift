@@ -61,7 +61,7 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
                 }
                 button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
             }
-            button.contentTintColor = model.indicator.highlighted ? .controlAccentColor : nil
+            button.contentTintColor = nil
             tooltip = model.indicator.tooltip
         } else {
             button.image = NSImage(systemSymbolName: "terminal", accessibilityDescription: nil)

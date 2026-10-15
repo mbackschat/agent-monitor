@@ -7,6 +7,7 @@ import SwiftUI
 struct MenuBarView: View {
     @Bindable var model: MenuBarModel
     @FocusState private var focusedRow: LiveReportRowID?
+    @State private var pendingPinFocus: LiveReportRowID?
     var maximumHeight: CGFloat = .infinity
     var onSizeChange: (CGSize) -> Void = { _ in }
 
@@ -74,6 +75,11 @@ struct MenuBarView: View {
         .frame(width: MenuBarLayout.width, height: min(model.panelSize.height, maximumHeight))
         .onKeyPress(.downArrow) { moveFocus(by: 1) }
         .onKeyPress(.upArrow) { moveFocus(by: -1) }
+        .task(id: pendingPinFocus) {
+            guard let row = pendingPinFocus else { return }
+            if model.visibleRowIDs.contains(row) { focusedRow = row }
+            pendingPinFocus = nil
+        }
         .onGeometryChange(for: CGSize.self) {
             $0.size
         } action: {
@@ -187,21 +193,32 @@ struct MenuBarView: View {
                     Text("Not in current results").foregroundStyle(.secondary)
                 }.font(.caption)
                 Spacer()
-                Button("Unpin", systemImage: "pin.slash") { model.report.togglePin(pin.id) }
+                Button("Unpin", systemImage: "pin.slash") { model.togglePin(pin.id) }
                     .focused($focusedRow, equals: pin.id)
+                    .pinShortcut { togglePinFromKeyboard(pin.id) }
+                    .help("Unpin this row (⌘P when focused)")
             }.padding(6)
                 .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
         }
     }
 
     private func disclosureStyle(for id: LiveReportRowID) -> MenuBarDisclosureStyle {
-        MenuBarDisclosureStyle(id: id, pinned: model.report.isPinned(id), focus: $focusedRow) {
-            model.report.togglePin(id)
-        }
+        MenuBarDisclosureStyle(
+            id: id, pinned: model.report.isPinned(id), focus: $focusedRow,
+            onPin: { model.togglePin(id) }, onPinShortcut: { togglePinFromKeyboard(id) })
+    }
+
+    private func togglePinFromKeyboard(_ row: LiveReportRowID) -> Bool {
+        guard model.togglePin(row) else { return false }
+        // Pinning moves rows between ForEach containers, replacing their focusable controls.
+        // Restore focus after the new row mounts so a second ⌘P can undo the pin.
+        focusedRow = nil
+        pendingPinFocus = row
+        return true
     }
 
     private func pinCommand(_ id: LiveReportRowID) -> some View {
-        Button(model.report.isPinned(id) ? "Unpin" : "Pin", systemImage: "pin") { model.report.togglePin(id) }
+        Button(model.report.isPinned(id) ? "Unpin" : "Pin", systemImage: "pin") { model.togglePin(id) }
     }
 
     private func moveFocus(by delta: Int) -> KeyPress.Result {

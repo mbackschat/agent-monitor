@@ -5,13 +5,14 @@ struct MenuBarDisclosureStyle: DisclosureGroupStyle {
     let id: LiveReportRowID
     let pinned: Bool
     let focus: FocusState<LiveReportRowID?>.Binding
-    let onPin: () -> Void
+    let onPin: () -> Bool
+    let onPinShortcut: () -> Bool
 
     func makeBody(configuration: Configuration) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             MenuBarRowHeader(
                 id: id, pinned: pinned, expanded: configuration.isExpanded, focus: focus,
-                onToggle: { configuration.isExpanded.toggle() }, onPin: onPin,
+                onToggle: { configuration.isExpanded.toggle() }, onPin: onPin, onPinShortcut: onPinShortcut,
                 label: configuration.label)
             if configuration.isExpanded {
                 configuration.content.padding(.leading, 16)
@@ -27,7 +28,8 @@ private struct MenuBarRowHeader<Label: View>: View {
     let expanded: Bool
     let focus: FocusState<LiveReportRowID?>.Binding
     let onToggle: () -> Void
-    let onPin: () -> Void
+    let onPin: () -> Bool
+    let onPinShortcut: () -> Bool
     let label: Label
     @State private var hovered = false
     @FocusState private var pinFocused: Bool
@@ -50,7 +52,9 @@ private struct MenuBarRowHeader<Label: View>: View {
                 return .handled
             }
             .accessibilityValue(expanded ? "Expanded" : "Collapsed")
-            Button(action: onPin) {
+            Button {
+                _ = onPin()
+            } label: {
                 Image(systemName: pinned ? "pin.fill" : "pin")
                     .frame(width: 28, height: 28).contentShape(Rectangle())
             }
@@ -58,8 +62,21 @@ private struct MenuBarRowHeader<Label: View>: View {
             .opacity(pinned || hovered || pinFocused || focus.wrappedValue == id ? 1 : 0)
             .focused($pinFocused)
             .accessibilityLabel(pinned ? "Unpin" : "Pin")
-            .help(pinned ? "Unpin this row" : "Pin this row at the top; values stay live")
+            .help(
+                pinned
+                    ? "Unpin this row (⌘P when focused)"
+                    : "Pin this row at the top; values stay live (⌘P when focused)")
         }
         .onHover { hovered = $0 }
+        .pinShortcut(onPinShortcut)
+    }
+}
+
+extension View {
+    func pinShortcut(_ action: @escaping () -> Bool) -> some View {
+        onKeyPress(keys: ["p"], phases: .down) { key in
+            guard key.modifiers == .command else { return .ignored }
+            return action() ? .handled : .ignored
+        }
     }
 }

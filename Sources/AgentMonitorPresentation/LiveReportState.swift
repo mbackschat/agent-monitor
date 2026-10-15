@@ -47,7 +47,7 @@ public struct LiveReportState: Equatable, Sendable {
 
     /// Each sample walks every process, so the TUI does not step below 0.5 s; an explicit faster
     /// `--interval` is kept until the user slows down.
-    static let intervalSteps: [Double] = [0.5, 1, 2, 5, 10, 30, 60]
+    public static let intervalSteps: [Double] = [0.5, 1, 2, 5, 10, 30, 60]
 
     public init(grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(), interval: Double = 1)
     {
@@ -61,6 +61,16 @@ public struct LiveReportState: Equatable, Sendable {
         case .faster: interval = Self.intervalSteps.last { $0 < interval } ?? interval
         case .slower: interval = Self.intervalSteps.first { $0 > interval } ?? interval
         }
+    }
+
+    public mutating func setInterval(_ seconds: Double) {
+        guard seconds.isFinite, seconds > 0 else { return }
+        interval = seconds
+    }
+
+    public mutating func setThresholds(_ value: Thresholds) {
+        guard value.cpuPercent.isFinite, value.cpuPercent >= 0 else { return }
+        thresholds = value
     }
 
     public mutating func toggleFreeze() {

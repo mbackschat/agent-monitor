@@ -81,6 +81,25 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(indicator.tooltip.contains("50"))
 }
 
+@Test @MainActor func newLoadBadgeInvertsTheBarsInsideAFilledBackground() throws {
+    let image = MenuBarStatusImage.make(level: 3, highlighted: true)
+    #expect(image.isTemplate)
+    #expect(image.size == NSSize(width: 18, height: 18))
+    let bitmap = try #require(
+        NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 18, pixelsHigh: 18, bitsPerSample: 8,
+            samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+            bytesPerRow: 0, bitsPerPixel: 0))
+    let context = try #require(NSGraphicsContext(bitmapImageRep: bitmap))
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = context
+    image.draw(in: NSRect(x: 0, y: 0, width: 18, height: 18))
+    NSGraphicsContext.restoreGraphicsState()
+    #expect((bitmap.colorAt(x: 6, y: 8)?.alphaComponent ?? 0) > 0.9)
+    #expect((bitmap.colorAt(x: 14, y: 8)?.alphaComponent ?? 1) < 0.1)
+    #expect((bitmap.colorAt(x: 0, y: 0)?.alphaComponent ?? 1) < 0.1)
+}
+
 @Test @MainActor func liveIconSamplesClosedAtFifteenSecondsAndKeepsOneCollector() async throws {
     let (requests, input) = AsyncStream<MonitoringSnapshot>.makeStream()
     let (events, output) = AsyncStream<Double>.makeStream()

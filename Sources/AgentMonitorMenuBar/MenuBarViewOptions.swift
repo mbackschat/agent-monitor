@@ -1,70 +1,136 @@
+import AgentMonitorCore
 import AgentMonitorPresentation
+import AppKit
 import SwiftUI
 
-struct MenuBarViewOptions: View {
-    @Bindable var model: MenuBarModel
+struct MenuBarViewOptions: NSViewRepresentable {
+    let model: MenuBarModel
 
-    var body: some View {
-        Menu("View options", systemImage: "slider.horizontal.3") {
-            Section("Display") {
-                Picker(
-                    "Show",
-                    selection: Binding(
-                        get: { model.report.grouping },
-                        set: { if $0 != model.report.grouping { model.report.toggleGrouping() } }
-                    )
-                ) {
-                    Text("Sessions").tag(ReportGrouping.session)
-                    Text("Processes").tag(ReportGrouping.none)
-                }
-                Picker(
-                    "Sort by",
-                    selection: Binding(
-                        get: { model.report.sortKey }, set: { model.report.sort(by: $0) }
-                    )
-                ) {
-                    ForEach(ReportSort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }
-                Toggle(
-                    "Ascending",
-                    isOn: Binding(
-                        get: { model.report.ascending },
-                        set: { if $0 != model.report.ascending { model.report.reverseSort() } }
-                    ))
-            }
-            Section("Sampling") {
-                Toggle(
-                    "Live menu bar icon",
-                    isOn: Binding(get: { model.liveIcon }, set: { model.setLiveIcon($0) })
-                )
-                .help("Samples every 15 seconds while closed. Turn off to stop closed-panel sampling.")
-                Menu("CPU > \(model.report.thresholds.cpuPercent.formatted())%") {
-                    Button("Lower by 10 percentage points") { model.report.adjustThreshold(.cpuDown) }
-                        .disabled(model.report.thresholds.cpuPercent == 0)
-                    Button("Raise by 10 percentage points") { model.report.adjustThreshold(.cpuUp) }
-                }
-                Menu("Footprint > \((Double(model.report.thresholds.memoryBytes) / 1e9).formatted()) GB") {
-                    Button("Lower by 1 GB") { model.report.adjustThreshold(.memoryDown) }
-                        .disabled(model.report.thresholds.memoryBytes == 0)
-                    Button("Raise by 1 GB") { model.report.adjustThreshold(.memoryUp) }
-                }
-                Menu("Every \(model.report.interval.formatted()) seconds") {
-                    Button("More often") { model.adjustInterval(.faster) }
-                        .disabled(!canAdjustInterval(.faster))
-                    Button("Less often") { model.adjustInterval(.slower) }
-                        .disabled(!canAdjustInterval(.slower))
-                }
-            }
-            Divider()
-            Toggle("Keyboard shortcuts", isOn: $model.showsKeyboardHelp)
-        }
-        .fixedSize().controlSize(.small)
-        .help("Grouping, sort direction, CPU and footprint thresholds, and sampling interval")
+    func makeCoordinator() -> MenuBarOptionsController { MenuBarOptionsController(model: model) }
+
+    func makeNSView(context: Context) -> NSPopUpButton { context.coordinator.makeButton() }
+
+    func updateNSView(_ button: NSPopUpButton, context: Context) {
+        // Samples invalidate the parent report. Menu tracking must retain its items until dismissal.
+        // NSMenuDelegate.menuNeedsUpdate supplies fresh options at the next opening instead.
     }
 
-    private func canAdjustInterval(_ adjustment: IntervalAdjustment) -> Bool {
-        var report = model.report
-        report.adjustInterval(adjustment)
-        return report.interval != model.report.interval
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSPopUpButton, context: Context) -> CGSize? {
+        nsView.intrinsicContentSize
+    }
+}
+
+enum MenuBarOption: Equatable {
+    case grouping(ReportGrouping)
+    case sort(ReportSort)
+    case ascending
+    case cpu(Double)
+    case memory(UInt64)
+    case interval(Double)
+    case liveIcon, keyboardHelp
+}
+
+@MainActor final class MenuBarOptionsController: NSObject, NSMenuDelegate {
+    private let model: MenuBarModel
+    private var tracking = false
+
+    init(model: MenuBarModel) { self.model = model }
+
+    func makeButton() -> NSPopUpButton {
+        let button = NSPopUpButton(frame: .zero, pullsDown: true)
+        button.controlSize = .small
+        button.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        button.bezelStyle = .rounded
+        button.preferredEdge = .minY
+        button.setAccessibilityLabel("View options")
+        button.toolTip = "Grouping, sort direction, CPU and footprint thresholds, and sampling interval"
+        let menu = NSMenu(title: "View options")
+        menu.autoenablesItems = false
+        menu.delegate = self
+        menuNeedsUpdate(menu)
+        button.menu = menu
+        return button
+    }
+
+    func menuWillOpen(_ menu: NSMenu) { tracking = true }
+    func menuDidClose(_ menu: NSMenu) { tracking = false }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard !tracking else { return }
+        menu.removeAllItems()
+        // NSPopUpButton uses the first pull-down item as its title, not as a selectable option.
+        menu.addItem(withTitle: "View options", action: nil, keyEquivalent: "")
+        menu.addItem(.sectionHeader(title: "Show"))
+        add("Sessions", .grouping(.session), checked: model.report.grouping == .session, to: menu)
+        add("Processes", .grouping(.none), checked: model.report.grouping == .none, to: menu)
+        menu.addItem(.separator())
+        menu.addItem(.sectionHeader(title: "Sort by"))
+        for sort in ReportSort.allCases {
+            add(sort.rawValue, .sort(sort), checked: model.report.sortKey == sort, to: menu)
+        }
+        add("Ascending", .ascending, checked: model.report.ascending, to: menu)
+        menu.addItem(.separator())
+        menu.addItem(.sectionHeader(title: "Sampling"))
+        add("Live menu bar icon", .liveIcon, checked: model.liveIcon, to: menu)
+        let cpu = model.report.thresholds.cpuPercent
+        let cpuMenu = submenu("CPU > \(cpu.formatted())%", in: menu)
+        for value in Set([0, 5, 10, 25, 50, 100, 200, 400, 800, cpu]).sorted() {
+            add("\(value.formatted())%", .cpu(value), checked: value == cpu, to: cpuMenu)
+        }
+        let memory = model.report.thresholds.memoryBytes
+        let memoryMenu = submenu("Footprint > \((Double(memory) / 1e9).formatted()) GB", in: menu)
+        let memorySteps: [UInt64] = [
+            0, 250_000_000, 500_000_000, 1_000_000_000, 2_000_000_000, 4_000_000_000, 8_000_000_000,
+            16_000_000_000,
+        ]
+        for value in Set(memorySteps + [memory]).sorted() {
+            add(
+                "\((Double(value) / 1e9).formatted()) GB", .memory(value), checked: value == memory,
+                to: memoryMenu)
+        }
+        let interval = model.report.interval
+        let intervalMenu = submenu("Every \(interval.formatted()) seconds", in: menu)
+        for value in Set(LiveReportState.intervalSteps + [15, interval]).sorted() {
+            add("\(value.formatted()) s", .interval(value), checked: value == interval, to: intervalMenu)
+        }
+        menu.addItem(.separator())
+        add("Keyboard shortcuts", .keyboardHelp, checked: model.showsKeyboardHelp, to: menu)
+    }
+
+    private func submenu(_ title: String, in menu: NSMenu) -> NSMenu {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let child = NSMenu(title: title)
+        child.autoenablesItems = false
+        item.submenu = child
+        menu.addItem(item)
+        return child
+    }
+
+    private func add(_ title: String, _ option: MenuBarOption, checked: Bool, to menu: NSMenu) {
+        let item = NSMenuItem(title: title, action: #selector(choose(_:)), keyEquivalent: "")
+        item.target = self
+        item.representedObject = option
+        item.state = checked ? .on : .off
+        menu.addItem(item)
+    }
+
+    @objc private func choose(_ item: NSMenuItem) {
+        guard let option = item.representedObject as? MenuBarOption else { return }
+        switch option {
+        case .grouping(let grouping):
+            if model.report.grouping != grouping { model.report.toggleGrouping() }
+        case .sort(let sort):
+            if model.report.sortKey != sort { model.report.sort(by: sort) }
+        case .ascending: model.report.reverseSort()
+        case .cpu(let value):
+            model.report.setThresholds(
+                Thresholds(cpuPercent: value, memoryBytes: model.report.thresholds.memoryBytes))
+        case .memory(let value):
+            model.report.setThresholds(
+                Thresholds(cpuPercent: model.report.thresholds.cpuPercent, memoryBytes: value))
+        case .interval(let value): model.setInterval(value)
+        case .liveIcon: model.setLiveIcon(!model.liveIcon)
+        case .keyboardHelp: model.showsKeyboardHelp.toggle()
+        }
     }
 }

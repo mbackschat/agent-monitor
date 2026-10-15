@@ -7,9 +7,13 @@ import Testing
 
 @testable import AgentMonitorMenuBar
 
-@Test(.enabled(if: ProcessInfo.processInfo.environment["MENUBAR_PREVIEW_PATH"] != nil))
-@MainActor func menuBarNativeLayoutRendersAtPopoverSize() async throws {
-    let output = try #require(ProcessInfo.processInfo.environment["MENUBAR_PREVIEW_PATH"])
+@Test(
+    .enabled(if: ProcessInfo.processInfo.environment["MENUBAR_PREVIEW_PATH"] != nil),
+    arguments: [false, true])
+@MainActor func menuBarNativeLayoutRendersAtPopoverSize(dark: Bool) async throws {
+    let baseOutput = try #require(ProcessInfo.processInfo.environment["MENUBAR_PREVIEW_PATH"])
+    let output =
+        dark ? URL(fileURLWithPath: baseOutput).deletingPathExtension().path + "-dark.png" : baseOutput
     let findings = try [
         menuBarFixture(
             pids: [42001, 42004], name: "node", project: "sample-graph", cpu: 63.7, memoryBytes: 320_000_000,
@@ -40,7 +44,7 @@ import Testing
     _ = NSApplication.shared
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
-    host.appearance = NSAppearance(named: .aqua)
+    host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
     host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
     host.layoutSubtreeIfNeeded()
     host.frame.size = host.fittingSize
@@ -55,7 +59,7 @@ import Testing
     host.cacheDisplay(in: host.bounds, to: bitmap)
     let png = try #require(bitmap.representation(using: .png, properties: [:]))
     try png.write(to: URL(fileURLWithPath: output))
-    if let icons = ProcessInfo.processInfo.environment["MENUBAR_ICON_PREVIEW_PATH"] {
+    if !dark, let icons = ProcessInfo.processInfo.environment["MENUBAR_ICON_PREVIEW_PATH"] {
         try renderLoadIcons(to: icons)
     }
     await model.stop()
@@ -76,7 +80,7 @@ import Testing
             button.isBordered = false
             button.imagePosition = .imageOnly
             button.image = MenuBarStatusImage.make(level: index == 4 ? 1 : index, highlighted: index == 4)
-            button.contentTintColor = index == 4 ? .controlAccentColor : (dark ? .white : .black)
+            button.contentTintColor = dark ? .white : .black
             row.addSubview(button)
             let title = NSTextField(labelWithString: label)
             title.font = .systemFont(ofSize: 10)
@@ -94,6 +98,26 @@ import Testing
     view.layoutSubtreeIfNeeded()
     view.cacheDisplay(in: view.bounds, to: bitmap)
     try #require(bitmap.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: path))
+}
+
+@Test @MainActor func nativePanelInheritsChangingSystemAppearance() throws {
+    _ = NSApplication.shared
+    let model = MenuBarModel { _, _, _ in }
+    let container = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 560))
+    let host = NSHostingView(
+        rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
+    host.frame = container.bounds
+    container.addSubview(host)
+    #expect(host.appearance == nil)
+    for dark in [false, true, false] {
+        container.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        host.layoutSubtreeIfNeeded()
+        #expect(host.fittingSize == NSSize(width: 420, height: 560))
+        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        let background = try #require(bitmap.colorAt(x: 5, y: 5)?.usingColorSpace(.deviceRGB))
+        #expect(dark ? background.redComponent < 0.3 : background.redComponent > 0.8)
+    }
 }
 
 @Test(arguments: [320.0, 376.0], [false, true])

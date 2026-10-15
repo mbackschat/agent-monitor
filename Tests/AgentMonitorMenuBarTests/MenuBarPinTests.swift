@@ -4,6 +4,33 @@ import Testing
 
 @testable import AgentMonitorMenuBar
 
+@Test @MainActor func nativePinCommandRequiresTheExactVisibleRowAndAllowsMissingPinRemoval() async throws {
+    let snapshot = try menuBarFixture(pids: [42001, 42002])
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let group = try #require(model.report.groups.first)
+    let child = LiveReportRowID.process(group.processes[0].process)
+    #expect(!model.togglePin(child))
+    #expect(model.togglePin(.group(group.id)))
+    #expect(model.report.isPinned(.group(group.id)))
+    #expect(model.togglePin(.group(group.id)))
+    #expect(!model.report.isPinned(.group(group.id)))
+    model.report.toggleDisclosure()
+    #expect(model.togglePin(child))
+    model.begin(.terminate, row: child)
+    #expect(model.report.actionPanel != nil)
+    #expect(!model.togglePin(child))
+    model.input(.escape)
+    model.report.receive(try menuBarFixture(pids: []))
+    #expect(model.togglePin(child))
+    #expect(!model.report.isPinned(child))
+    #expect(!model.togglePin(child))
+    model.close()
+    #expect(!model.togglePin(.group(group.id)))
+    await model.stop()
+}
+
 @Test func pinnedGroupsAndChildrenNeverDuplicateRowsOrInflateTotals() throws {
     let snapshot = try menuBarFixture(pids: [42001, 42002])
     var state = LiveReportState(grouping: .session)

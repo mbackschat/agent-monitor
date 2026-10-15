@@ -81,11 +81,11 @@ See the [usage guide](docs/usage.md) for all keyboard controls, filters, session
 
 ## Menu bar app
 
-The maintained, source-built native menu bar app runs with `bash scripts/menubar.sh run`. Click its load icon for session groups, resource usage and process details; expand a process to focus its terminal, review a termination request or compose a message. It uses the same monitoring and verified action services as the TUI, with a native popover and no standalone window. The live icon shows aggregate agent CPU load and briefly highlights newly heavy processes. Choose a static icon in View options to stop closed-panel sampling. See [menu bar usage](docs/usage.md#menu-bar-app) and [build and validation limits](docs/development.md#menu-bar-app).
+The maintained, source-built native menu bar app runs with `bash scripts/menubar.sh run`. Click its load icon for session groups, resource usage and process details; expand a process to focus its terminal, review a termination request or compose a message. It uses the same monitoring and verified action services as the TUI, with a native popover and no standalone window. The app follows the system light/dark appearance. The live icon shows aggregate agent CPU load and briefly inverts into a badge for newly heavy processes. Choose a static icon in View options to stop closed-panel sampling. See [menu bar usage](docs/usage.md#menu-bar-app) and [build and validation limits](docs/development.md#menu-bar-app).
 
-<p><img src="docs/assets/menubar-preview.webp" width="420" height="560" alt="Native Agent Monitor menu bar panel paused for inspection, with an expanded pinned Claude session, Codex and Claude process rows, CPU and memory usage, Resume, View options, and panel size controls."></p>
+<p><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/menubar-preview-dark.webp"><img src="docs/assets/menubar-preview.webp" width="420" height="560" alt="Native Agent Monitor menu bar panel paused for inspection, with an expanded pinned Claude session, Codex and Claude process rows, CPU and memory usage, Resume, View options, and panel size controls."></picture></p>
 
-*Native panel captured from the production view with synthetic data. The expanded session is pinned. Pinning keeps values live; Pause holds the displayed sample. View options contains sampling, display controls and optional keyboard help, and the size menu changes the fixed panel height. The capture excludes menu bar anchoring and desktop chrome.*
+*Native panel captured from the production view with synthetic data. The expanded session is pinned. Pinning keeps values live; Pause holds the displayed sample. View options contains checked sampling values, display choices and optional keyboard help (including ⌘P to pin the focused row), and the size menu changes the fixed panel height. The capture excludes menu bar anchoring and desktop chrome.*
 
 ## Options and defaults
 

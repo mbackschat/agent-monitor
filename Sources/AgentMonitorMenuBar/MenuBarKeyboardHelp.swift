@@ -14,6 +14,7 @@ struct MenuBarKeyboardHelp: View {
                 shortcut("Tab / ⇧Tab", "Move between controls")
                 shortcut("↑ / ↓", "Move between rows when a row is focused")
                 shortcut("Return", "Expand / collapse the focused row")
+                shortcut("⌘P", "Pin / unpin the focused row")
                 shortcut("Space", "Activate the focused button, including Pin")
                 shortcut("⇧⌘P", "Pause / resume the table")
                 shortcut("⌘Q", "Quit Agent Monitor")
