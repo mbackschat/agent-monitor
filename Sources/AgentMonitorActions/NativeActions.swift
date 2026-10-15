@@ -56,13 +56,11 @@ public enum NativeActions {
         guard TerminalHost.isDevicePath(tty), stat(tty, &device) == 0,
             UInt32(bitPattern: device.st_rdev) == info.e_tdev
         else { throw ActionFailure("The agent runtime's terminal cannot be identified.") }
-        var child = info
+        var child = (pid: runtime.pid, start: start(info), parent: Int32(bitPattern: info.pbi_ppid))
         // Helpers such as an editor's terminal process are bundled but not regular apps; keep
         // walking to the application that owns windows.
-        while child.pbi_ppid > 1, let parent = bsdInfo(Int32(bitPattern: child.pbi_ppid)),
-            start(parent) <= start(child)
-        {
-            let pid = Int32(bitPattern: parent.pbi_pid)
+        while child.parent > 1, let parent = lineage(of: child.parent), parent.start <= child.start {
+            let pid = child.parent
             if let app = NSRunningApplication(processIdentifier: pid), app.activationPolicy == .regular {
                 return TerminalHost(
                     tty: tty,
@@ -70,11 +68,25 @@ public enum NativeActions {
                         pid: pid, bundleIdentifier: app.bundleIdentifier,
                         name: app.localizedName ?? app.bundleIdentifier ?? "PID \(pid)"))
             }
-            child = parent
+            child = (pid, parent.start, parent.parent)
         }
         throw ActionFailure(
             "No application hosts this terminal directly, for example under tmux, screen, or ssh. Nothing was focused."
         )
+    }
+
+    /// Parent PID and start time of any user's process. proc_pidinfo refuses other users' processes
+    /// with EPERM, such as the root-owned `login` above every Terminal.app shell (observed
+    /// 2026-10-15, macOS 27); the `KERN_PROC_PID` sysctl that `ps` uses does not.
+    static func lineage(of pid: Int32) -> (parent: Int32, start: UInt64)? {
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        guard sysctl(&mib, 4, &info, &size, nil, 0) == 0, size == MemoryLayout<kinfo_proc>.stride else {
+            return nil
+        }
+        let start = info.kp_proc.p_starttime
+        return (info.kp_eproc.e_ppid, UInt64(start.tv_sec) * 1_000_000 + UInt64(start.tv_usec))
     }
 
     /// Since macOS 14 activation is a request the system may decline; true only means it was made.

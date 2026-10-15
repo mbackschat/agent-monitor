@@ -46,3 +46,11 @@ import Testing
     monitor.ingest([])
     #expect(monitor.finding(for: identity) == nil)
 }
+
+// Every Terminal.app shell runs under root-owned `login`; the ancestor walk must read processes
+// of other users, which proc_pidinfo refuses with EPERM (observed 2026-10-15, macOS 27).
+@Test func ancestorLineageIsReadableForProcessesOfOtherUsers() throws {
+    let launchd = try #require(NativeActions.lineage(of: 1))
+    #expect(launchd.parent == 0)
+    #expect(launchd.start > 0)
+}
