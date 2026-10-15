@@ -36,6 +36,9 @@ struct MenuBarView: View {
             Divider()
             ScrollViewReader { proxy in
                 ScrollView {
+                    if model.showsKeyboardHelp {
+                        MenuBarKeyboardHelp { model.showsKeyboardHelp = false }
+                    }
                     if let panel = model.report.actionPanel {
                         actionPanel(panel)
                     } else {

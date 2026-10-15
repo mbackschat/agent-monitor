@@ -14,6 +14,7 @@ typealias MenuBarSource =
 final class MenuBarModel {
     var report = LiveReportState(grouping: .session)
     var panelSize: MenuBarPanelSize = .standard
+    var showsKeyboardHelp = false
     private(set) var isOpen = false
     private(set) var error: String?
     private(set) var lastActionResult: ActionResult?

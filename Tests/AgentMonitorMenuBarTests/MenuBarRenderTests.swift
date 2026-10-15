@@ -195,3 +195,21 @@ import Testing
     #expect(host.fittingSize.height == min(size.height, 600))
     await model.stop()
 }
+
+@Test @MainActor func keyboardHelpFitsInsideTheFixedPanelAndSurvivesDismissal() async throws {
+    let model = MenuBarModel { _, _, _ in }
+    model.showsKeyboardHelp = true
+    _ = NSApplication.shared
+    let host = NSHostingView(rootView: MenuBarView(model: model))
+    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize == NSSize(width: 420, height: 560))
+    let help = NSHostingView(rootView: MenuBarKeyboardHelp { model.showsKeyboardHelp = false })
+    help.frame.size.width = 388
+    help.layoutSubtreeIfNeeded()
+    #expect(help.fittingSize.height < 230)
+    #expect(help.fittingSize.width <= 388)
+    model.close()
+    #expect(model.showsKeyboardHelp)
+    await model.stop()
+}

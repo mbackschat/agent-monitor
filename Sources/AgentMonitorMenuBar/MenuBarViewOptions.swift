@@ -55,6 +55,8 @@ struct MenuBarViewOptions: View {
                         .disabled(!canAdjustInterval(.slower))
                 }
             }
+            Divider()
+            Toggle("Keyboard shortcuts", isOn: $model.showsKeyboardHelp)
         }
         .fixedSize().controlSize(.small)
         .help("Grouping, sort direction, CPU and footprint thresholds, and sampling interval")
