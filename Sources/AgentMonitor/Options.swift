@@ -49,6 +49,9 @@ struct Options: ParsableArguments {
     @Flag(help: "Include command arguments; these can contain secrets.")
     var commands = false
 
+    @Flag(help: "Disable colors in text and TUI output, like NO_COLOR. JSONL is never colored.")
+    var noColor = false
+
     mutating func validate() throws {
         guard group == .none || (!json && !jsonSchema) else {
             throw ValidationError("--group session is for text/TUI; JSONL retains individual process records")

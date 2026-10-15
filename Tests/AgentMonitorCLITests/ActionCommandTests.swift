@@ -1,4 +1,5 @@
 import AgentMonitorActions
+import AgentMonitorPresentation
 import ArgumentParser
 import Foundation
 import Synchronization
@@ -41,6 +42,7 @@ private final class Console: Sendable {
     let output = Mutex<[String]>([])
     let errors = Mutex<[String]>([])
     let prompts = Mutex<[String]>([])
+    let styles = Mutex<[String: ReportLine.Style]>([:])
 }
 
 private func runner(
@@ -64,8 +66,14 @@ private func runner(
             console.prompts.withLock { $0.append(prompt) }
             return answer
         },
-        out: { line in console.output.withLock { $0.append(line) } },
-        err: { line in console.errors.withLock { $0.append(line) } })
+        out: { line in
+            console.output.withLock { $0.append(line.text) }
+            console.styles.withLock { $0[line.text] = line.style }
+        },
+        err: { line in
+            console.errors.withLock { $0.append(line.text) }
+            console.styles.withLock { $0[line.text] = line.style }
+        })
 }
 
 @Test func killShowsTheTargetAndSignalsOnlyAfterConfirmation() async {
@@ -146,4 +154,18 @@ func messageGoesToTheChosenVerifiedRecipientWithTheReviewedText(choice: Recipien
     #expect(try AgentMonitorCommand.parseAsRoot(["--cpu", "10"]) is AgentMonitorCommand)
     let help = AgentMonitorCommand.helpMessage()
     for name in ["kill", "message", "focus"] { #expect(help.contains(name)) }
+}
+
+@Test func actionOutputCarriesRolesForWarningsResultsAndErrors() async {
+    let console = Console()
+    _ = await runner(FakeActions(), console: console).terminate(pid: 42, yes: true)
+    let styles = console.styles.withLock { $0 }
+    #expect(styles.first { $0.key.hasPrefix("Send SIGTERM") }?.value == .warning)
+    #expect(styles.first { $0.key.hasPrefix("SIGTERM accepted") }?.value == .success)
+    _ = await runner(FakeActions(), console: console).focus(pid: 7)
+    #expect(
+        console.styles.withLock { $0 }.first { $0.key.contains("No process with PID 7") }?.value == .failure)
+    _ = await runner(FakeActions(failure: .uncertain("May have been accepted.")), console: console)
+        .message(pid: 42, text: "Hi", to: .root, yes: true)
+    #expect(console.styles.withLock { $0 }["May have been accepted."] == .warning)
 }

@@ -55,14 +55,16 @@ struct AgentMonitorCommand: AsyncParsableCommand {
         let session = MonitoringSession(
             configuration: configuration, reader: try NativeProcessReader(), excluding: [getpid()])
         if options.tui {
-            try await TerminalReport.run(session: session, grouping: options.grouping)
+            try await TerminalReport.run(
+                session: session, grouping: options.grouping, color: !options.noColor)
             return
         }
+        let color = ColorPolicy.enabled(noColor: options.noColor, descriptor: STDOUT_FILENO)
         try await session.run { snapshot in
             if options.json {
                 try FileHandle.standardOutput.write(contentsOf: JSONReport.encodeLine(snapshot))
             } else {
-                print(TextReport.render(snapshot, grouping: options.grouping))
+                print(TextReport.render(snapshot, grouping: options.grouping, color: color))
             }
         }
     }

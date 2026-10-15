@@ -9,7 +9,7 @@ agent-monitor --tui
 agent-monitor --tui --group session
 ```
 
-`--tui` (also accepted as `-tui`) watches continuously unless you supply a `--samples` limit. It requires interactive stdin and stdout and cannot be combined with JSON output. Set `NO_COLOR=1` to disable colors.
+`--tui` (also accepted as `-tui`) watches continuously unless you supply a `--samples` limit. It requires interactive stdin and stdout and cannot be combined with JSON output. Use `--no-color` or set `NO_COLOR=1` to disable colors.
 
 | Key | Action |
 | --- | --- |
@@ -105,6 +105,8 @@ Unresolved or ambiguous processes stay separate even when they share a project o
 ## Text and JSONL output
 
 With no options, the monitor takes a baseline, waits one second, and prints one report. `--samples 0` watches until Ctrl-C; `--interval` controls the wait between scans (0.1–60 seconds). Each text report includes a UTC timestamp.
+
+Text reports and the `kill`, `message` and `focus` commands use colors only when their output goes to a terminal: the report header in blue, process lines and unresolved sessions in yellow, secondary details in gray, accepted results in green and errors in red. Pipes and files get plain text, and `--no-color` or `NO_COLOR=1` turns colors off everywhere. JSONL is never colored; `--no-color` is accepted with `--json` and has no effect there.
 
 ```sh
 # Continuous text reports every two seconds

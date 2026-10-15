@@ -22,33 +22,39 @@ struct ActionRunner {
     let lookup: @Sendable (Int32) throws -> HeavyProcess
     let interactive: Bool
     let confirm: (String) -> Bool
-    let out: (String) -> Void
-    let err: (String) -> Void
+    let out: (ReportLine) -> Void
+    let err: (ReportLine) -> Void
 
-    static func local() -> Self {
-        Self(
-            actions: SessionActions.local(), lookup: NativeActions.process,
-            interactive: isatty(STDIN_FILENO) == 1,
-            confirm: { prompt in
-                print(prompt, terminator: "")
-                return ["y", "yes"].contains(readLine()?.lowercased() ?? "")
-            },
-            out: { print(TextReport.safe($0)) },
-            err: {
-                // Keep the review and the error in order when stdout is piped and buffered.
-                fflush(stdout)
-                fputs(TextReport.safe($0) + "\n", stderr)
-            })
+    static func local(noColor: Bool) -> Self {
+        let outColor = ColorPolicy.enabled(noColor: noColor, descriptor: STDOUT_FILENO)
+        let errColor = ColorPolicy.enabled(noColor: noColor, descriptor: STDERR_FILENO)
+        return
+            Self(
+                actions: SessionActions.local(), lookup: NativeActions.process,
+                interactive: isatty(STDIN_FILENO) == 1,
+                confirm: { prompt in
+                    print(prompt, terminator: "")
+                    return ["y", "yes"].contains(readLine()?.lowercased() ?? "")
+                },
+                out: { print(outColor ? ANSIText.styled($0) : $0.text) },
+                err: {
+                    // Keep the review and the error in order when stdout is piped and buffered.
+                    fflush(stdout)
+                    fputs((errColor ? ANSIText.styled($0) : $0.text) + "\n", stderr)
+                })
     }
 
     func terminate(pid: Int32, yes: Bool) async -> ActionExit {
         await perform {
             let process = try lookup(pid)
             describe(process)
-            out("Send SIGTERM to this process only. It may stop work or lose unsaved changes.")
+            out(
+                ReportLine(
+                    "Send SIGTERM to this process only. It may stop work or lose unsaved changes.",
+                    style: .warning))
             guard approved("Send SIGTERM? [y/N] ", yes: yes) else { return .notDone }
             try await actions.terminate(process)
-            out("SIGTERM accepted for PID \(pid). Exit is not yet confirmed.")
+            out(ReportLine("SIGTERM accepted for PID \(pid). Exit is not yet confirmed.", style: .success))
             return .accepted
         }
     }
@@ -66,42 +72,49 @@ struct ActionRunner {
                 throw ActionFailure("Recipient unavailable: \(reason)")
             }
             describe(process)
-            out("Recipient: \(recipient.label) / \(recipient.id)")
-            out(MessageWording.note(process.attribution.provider))
-            out("")
-            out(draft.message(text))
-            out("")
+            out(ReportLine("Recipient: \(recipient.label) / \(recipient.id)"))
+            out(ReportLine(MessageWording.note(process.attribution.provider), style: .muted))
+            out(ReportLine(""))
+            for line in draft.message(text).components(separatedBy: "\n") { out(ReportLine(line)) }
+            out(ReportLine(""))
             guard approved("Send this message? [y/N] ", yes: yes) else { return .notDone }
             try await actions.send(draft, text: text, recipient: recipient.id)
-            out(MessageWording.accepted(draft, recipient: recipient.id))
+            out(ReportLine(MessageWording.accepted(draft, recipient: recipient.id), style: .success))
             return .accepted
         }
     }
 
     func focus(pid: Int32) async -> ActionExit {
         await perform {
-            out(FocusWording.result(try await actions.focusTerminal(of: try lookup(pid))))
+            out(
+                ReportLine(
+                    FocusWording.result(try await actions.focusTerminal(of: try lookup(pid))), style: .success
+                ))
             return .accepted
         }
     }
 
     private func describe(_ process: HeavyProcess) {
         let attribution = process.attribution
-        out("Process PID \(process.process.pid): \(process.name)")
-        out("Executable: \(process.executable)")
+        out(ReportLine("Process PID \(process.process.pid): \(process.name)"))
+        out(ReportLine("Executable: \(process.executable)"))
         out(
-            "Attributed session: \(attribution.provider?.rawValue ?? "unknown")/\(attribution.threadID ?? "unresolved")"
-        )
+            ReportLine(
+                "Attributed session: \(attribution.provider?.rawValue ?? "unknown")/\(attribution.threadID ?? "unresolved")"
+            ))
     }
 
     private func approved(_ prompt: String, yes: Bool) -> Bool {
         if yes { return true }
         guard interactive else {
-            err("Confirmation needs an interactive terminal; pass --yes to confirm from a script.")
+            err(
+                ReportLine(
+                    "Confirmation needs an interactive terminal; pass --yes to confirm from a script.",
+                    style: .failure))
             return false
         }
         guard confirm(prompt) else {
-            err("Cancelled. Nothing was done.")
+            err(ReportLine("Cancelled. Nothing was done.", style: .muted))
             return false
         }
         return true
@@ -111,10 +124,10 @@ struct ActionRunner {
         do {
             return try await body()
         } catch let failure as ActionFailure {
-            err(failure.message)
+            err(ReportLine(failure.message, style: failure.uncertain ? .warning : .failure))
             return failure.uncertain ? .uncertain : .notDone
         } catch {
-            err(error.localizedDescription)
+            err(ReportLine(error.localizedDescription, style: .failure))
             return .notDone
         }
     }
@@ -125,6 +138,11 @@ private func finish(_ exit: ActionExit) throws {
     case .accepted: return
     case .notDone, .uncertain: throw ExitCode(exit.rawValue)
     }
+}
+
+struct ColorOption: ParsableArguments {
+    @Flag(help: "Disable colors, like NO_COLOR.")
+    var noColor = false
 }
 
 struct KillCommand: AsyncParsableCommand {
@@ -139,7 +157,11 @@ struct KillCommand: AsyncParsableCommand {
     @Flag(help: "Confirm without a prompt; required when stdin is not a terminal.")
     var yes = false
 
-    func run() async throws { try finish(await ActionRunner.local().terminate(pid: pid, yes: yes)) }
+    @OptionGroup var color: ColorOption
+
+    func run() async throws {
+        try finish(await ActionRunner.local(noColor: color.noColor).terminate(pid: pid, yes: yes))
+    }
 }
 
 struct MessageCommand: AsyncParsableCommand {
@@ -164,8 +186,11 @@ struct MessageCommand: AsyncParsableCommand {
     @Flag(help: "Confirm without a prompt; required when stdin is not a terminal.")
     var yes = false
 
+    @OptionGroup var color: ColorOption
+
     func run() async throws {
-        try finish(await ActionRunner.local().message(pid: pid, text: text, to: to, yes: yes))
+        try finish(
+            await ActionRunner.local(noColor: color.noColor).message(pid: pid, text: text, to: to, yes: yes))
     }
 }
 
@@ -178,5 +203,7 @@ struct FocusCommand: AsyncParsableCommand {
     @Option(help: "PID of the process whose agent runtime's terminal is focused.")
     var pid: Int32
 
-    func run() async throws { try finish(await ActionRunner.local().focus(pid: pid)) }
+    @OptionGroup var color: ColorOption
+
+    func run() async throws { try finish(await ActionRunner.local(noColor: color.noColor).focus(pid: pid)) }
 }

@@ -1,6 +1,7 @@
 import AgentMonitorActions
 import AgentMonitorCore
 import AgentMonitorPresentation
+import Foundation
 import SwiftTUICLI
 import SwiftTUIRuntime
 
@@ -12,14 +13,17 @@ public typealias SnapshotSource =
 
 @MainActor
 public enum TerminalReport {
-    public static func run(session: MonitoringSession, grouping: ReportGrouping = .none) async throws {
-        try await run(grouping: grouping, thresholds: session.initialThresholds) { thresholds, receive in
+    public static func run(session: MonitoringSession, grouping: ReportGrouping = .none, color: Bool = true)
+        async throws
+    {
+        try await run(grouping: grouping, thresholds: session.initialThresholds, color: color) {
+            thresholds, receive in
             try await session.run(thresholds: thresholds, receive)
         }
     }
 
     public static func run(
-        grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(),
+        grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(), color: Bool = true,
         actions: any ProcessActions = SessionActions.local(),
         source: @escaping SnapshotSource
     ) async throws {
@@ -29,7 +33,9 @@ public enum TerminalReport {
             invalidationIdentities: [identity])
         let outcome = TerminalOutcome()
         // SwiftTUI 0.14.0 defaults to mouse reporting, which captures terminal selection drags.
-        let host = TerminalHost(mouseInputResolution: .preResolved(.disabled))
+        let host = TerminalHost(
+            environment: hostEnvironment(color: color, base: ProcessInfo.processInfo.environment),
+            mouseInputResolution: .preResolved(.disabled))
         // SwiftTUI 0.14.0 Running-Apps.md exposes RunLoop for custom hosts.
         // The single-screen monitor needs no scene-discovery IPC or web host.
         let runtime = RunLoop(
@@ -105,6 +111,12 @@ public enum TerminalReport {
         await outcome.actionTask?.value
         if let error = outcome.error { throw error }
     }
+    /// SwiftTUI 0.14.0 resolves color from the host environment and gives NO_COLOR precedence
+    /// (EnvironmentResolver.swift), so `--no-color` is passed as NO_COLOR to this host only.
+    nonisolated public static func hostEnvironment(color: Bool, base: [String: String]) -> [String: String] {
+        color ? base : base.merging(["NO_COLOR": "1"]) { _, new in new }
+    }
+
     private static func actionInput(_ key: KeyPress) -> ActionInput? {
         if key.modifiers == .ctrl, key.key == .character("y") { return .confirm }
         guard key.modifiers.isEmpty || key.modifiers == .shift else { return nil }

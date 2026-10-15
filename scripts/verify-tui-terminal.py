@@ -15,12 +15,12 @@ import termios
 import time
 
 
-def verify(binary, duration, color, fixture, group_session=False):
+def verify(binary, duration, color, fixture, group_session=False, no_color_flag=False):
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 100, 0, 0))
     original = termios.tcgetattr(slave)
     environment = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor")
-    if color:
+    if color or no_color_flag:
         environment.pop("NO_COLOR", None)
     else:
         environment["NO_COLOR"] = "1"
@@ -29,6 +29,8 @@ def verify(binary, duration, color, fixture, group_session=False):
     arguments = [binary] if fixture else [binary, "--tui"]
     if group_session:
         arguments += ["--group", "session"]
+    if no_color_flag:
+        arguments += ["--no-color"]
     process = subprocess.Popen(arguments, stdin=slave, stdout=slave, stderr=slave, env=environment)
     output = bytearray()
 
@@ -68,7 +70,7 @@ def verify(binary, duration, color, fixture, group_session=False):
         has_color = re.search(rb"\x1b\[[0-9;]*(?:38|48);", output) is not None
         assert has_color == color, "Color capability / NO_COLOR mismatch"
         cpu = usage.ru_utime + usage.ru_stime - previous.ru_utime - previous.ru_stime
-        mode = "color + Ctrl-C" if color else "NO_COLOR + SIGTERM"
+        mode = "color + Ctrl-C" if color else "--no-color + SIGTERM" if no_color_flag else "NO_COLOR + SIGTERM"
         print(f"PASS {mode}: {cpu:.3f} CPU s / {elapsed:.3f} wall s = {100 * cpu / elapsed:.2f}% of one core")
         print(f"Child peak RSS high-water mark: {usage.ru_maxrss / 1e6:.1f} MB (not physical footprint)")
     finally:
@@ -92,3 +94,5 @@ if __name__ == "__main__":
         parser.error("--group-session requires the live CLI")
     verify(args.binary, args.seconds, color=True, fixture=args.fixture, group_session=args.group_session)
     verify(args.binary, args.seconds, color=False, fixture=args.fixture, group_session=args.group_session)
+    if not args.fixture:
+        verify(args.binary, args.seconds, color=False, fixture=False, no_color_flag=True)

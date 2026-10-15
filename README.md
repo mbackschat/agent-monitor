@@ -92,14 +92,15 @@ With no options, `agent-monitor` prints one text report after a one-second basel
 | `--json-schema` | Print the report's JSON Schema and exit without sampling. | Off |
 | `--all-processes` | Include unrelated and unattributed processes; same-user scope and heavy thresholds still apply. | Off |
 | `--commands` | Include command arguments in reports and details; arguments can contain secrets. | Off |
+| `--no-color` | Disable colors in text, TUI and action output, like `NO_COLOR=1`; JSONL is never colored. Colors otherwise appear only on a terminal. | Off |
 | `--version` | Print the installed version and exit. | — |
 | `-h`, `--help` | Show command help and exit. | — |
 
 | Command | Description |
 | --- | --- |
-| `kill --pid <pid> [--yes]` | Review and send SIGTERM to one process. |
-| `message --pid <pid> --text <text> [--to root\|selected] [--yes]` | Review and message the process's Codex or Claude Code session. |
-| `focus --pid <pid>` | Bring the terminal hosting the process's agent session to the front. |
+| `kill --pid <pid> [--yes] [--no-color]` | Review and send SIGTERM to one process. |
+| `message --pid <pid> --text <text> [--to root\|selected] [--yes] [--no-color]` | Review and message the process's Codex or Claude Code session. |
+| `focus --pid <pid> [--no-color]` | Bring the terminal hosting the process's agent session to the front. |
 
 The commands ask for confirmation in a terminal and need `--yes` in scripts; see [actions from the command line](docs/usage.md#actions-from-the-command-line) for exit statuses.
 
