@@ -179,3 +179,24 @@ func selectedThresholdRejectsNegativeOrNonFiniteCPU(value: Double) {
     let button = controller.makeButton()
     #expect(button.intrinsicContentSize.width <= 120)
 }
+
+@Test(arguments: [("Memory", "Memory · 10m"), ("Last hour", "CPU · 1h")])
+@MainActor func historySelectionUpdatesTitleWhenTrackingEndsWithoutAnotherSample(
+    itemTitle: String, expectedTitle: String
+) throws {
+    let model = MenuBarModel { _, _, _ in }
+    let controller = MenuBarOptionsController(model: model, placement: .history)
+    let button = controller.makeButton()
+    let menu = try #require(button.menu)
+    let items = menu.items
+    controller.menuWillOpen(menu)
+    let item = try #require(menu.item(withTitle: itemTitle))
+    menu.performActionForItem(at: menu.index(of: item))
+    controller.updateTitle(button)
+    #expect(button.title == "CPU · 10m")
+    #expect(menu.items == items)
+    controller.menuDidClose(menu)
+    #expect(button.title == expectedTitle)
+    #expect(menu.items == items)
+    #expect(model.report.snapshot == nil)
+}

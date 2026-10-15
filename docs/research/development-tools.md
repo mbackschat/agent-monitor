@@ -164,3 +164,7 @@ The [SwiftUI performance-audit skill](../../.agents/skills/swiftui-performance-a
 The cadence follow-up used the same testing skill to verify metadata-read counts with an advancing fake clock at 250 ms, one-second, 15-second and 30-second table intervals. The red run also showed that skipped summaries cleared the icon and current history value. Separate retention guards now distinguish an omitted summary from an unavailable resource inside an observed summary.
 
 An additional exact-boundary fixture exposed a blank first chart bin and merged final pair for 40 observations spaced 15 seconds apart. Right-closed bins preserve all 40 distinct observations. The full terminal journey had one timeout while an optimized compiler process was also active; both PTY tests passed when rerun without that build. This establishes the isolated rerun result, not the cause of the earlier timeout.
+
+## History selector dismissal trial — 2026-10-15
+
+The user's report exposed a tracking-lifecycle gap: history selection changed the observed chart model while `updateTitle` intentionally suppressed button mutations during menu tracking. A parameterized no-sampling fixture reproduced the stale label for both Memory and Last hour. Retaining a weak button reference and updating its title when tracking ends passed both cases while preserving the same menu items; normal model updates still cover action dispatch after dismissal. This checks delegate order in the controller, not physical menu interaction.

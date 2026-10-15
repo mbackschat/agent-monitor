@@ -42,6 +42,7 @@ enum MenuBarOption: Equatable {
     private let model: MenuBarModel
     private let placement: Placement
     private var tracking = false
+    private weak var button: NSPopUpButton?
 
     init(model: MenuBarModel, placement: Placement = .pullDown) {
         self.model = model
@@ -57,6 +58,7 @@ enum MenuBarOption: Equatable {
         button.setAccessibilityLabel(placement == .history ? "History metric and time range" : "View options")
         button.toolTip = "Grouping, sort direction, CPU and footprint thresholds, and sampling interval"
         button.menu = makeMenu()
+        self.button = button
         updateTitle(button)
         return button
     }
@@ -77,7 +79,10 @@ enum MenuBarOption: Equatable {
     }
 
     func menuWillOpen(_ menu: NSMenu) { tracking = true }
-    func menuDidClose(_ menu: NSMenu) { tracking = false }
+    func menuDidClose(_ menu: NSMenu) {
+        tracking = false
+        if let button { updateTitle(button) }
+    }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         guard !tracking else { return }
