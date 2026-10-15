@@ -238,3 +238,64 @@ func sample(
     monitor.enrich(ProcessMetadata(marker: SessionMarker(threadID: sessionA)), for: worker.identity)
     #expect(monitor.attributingMarker(for: worker.identity) == nil)
 }
+
+// A shell that exits after starting a background job reparents the job to launchd; its marker
+// still names the inbox of the runtime that launched it.
+@Test func detachedClaudeWorkloadRejoinsTheRuntimeOwningItsInbox() throws {
+    let inbox = "/tmp/cc-socks/10.sock"
+    let runtime = sample(10, executable: "/usr/local/bin/claude", terminal: "ttys010", memory: 1)
+    let other = sample(15, executable: "/usr/local/bin/claude", terminal: "ttys011", memory: 1)
+    let workload = sample(20)
+    var monitor = Monitor()
+    monitor.ingest([runtime, other, workload])
+    monitor.enrich(
+        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .claude, inboxSocket: inbox)),
+        for: workload.identity)
+    #expect(Set(monitor.enrichmentTargets().map(\.identity.pid)) == [10, 15, 20])
+    monitor.enrich(ProcessMetadata(listeningSockets: [inbox]), for: runtime.identity)
+    monitor.enrich(ProcessMetadata(listeningSockets: ["/tmp/cc-socks/15.sock"]), for: other.identity)
+    let row = try #require(monitor.finding(for: workload.identity))
+    #expect(row.attribution.runtime == runtime.identity)
+    #expect(row.attribution.context == .terminal)
+    #expect(row.attribution.terminal == "ttys010")
+    #expect(row.attribution.threadID == sessionA)
+    #expect(row.attribution.evidence == .marker)
+}
+
+@Test(arguments: ["later runtime", "not listening", "two owners", "codex marker"])
+func detachedWorkloadDoesNotGuessItsRuntime(case name: String) throws {
+    let inbox = "/tmp/cc-socks/10.sock"
+    // A runtime started after the workload reuses a PID and therefore a socket name.
+    let runtime = sample(
+        10, start: name == "later runtime" ? 30 : 10, executable: "/usr/local/bin/claude",
+        terminal: "ttys010", memory: 1)
+    let twin = sample(15, executable: "/usr/local/bin/claude", memory: 1)
+    let workload = sample(20)
+    var monitor = Monitor()
+    monitor.ingest([runtime, twin, workload])
+    monitor.enrich(
+        ProcessMetadata(
+            marker: SessionMarker(
+                threadID: sessionA, provider: name == "codex marker" ? .codex : .claude, inboxSocket: inbox)),
+        for: workload.identity)
+    monitor.enrich(
+        ProcessMetadata(listeningSockets: name == "not listening" ? [] : [inbox]), for: runtime.identity)
+    monitor.enrich(ProcessMetadata(listeningSockets: name == "two owners" ? [inbox] : []), for: twin.identity)
+    let row = try #require(monitor.finding(for: workload.identity))
+    #expect(row.attribution.runtime == nil)
+    #expect(row.attribution.context == .unverified)
+}
+
+@Test func runtimeAncestorNeedsNoInboxCandidates() {
+    let runtime = sample(10, executable: "/usr/local/bin/claude", memory: 1)
+    let other = sample(15, executable: "/usr/local/bin/claude", memory: 1)
+    let workload = sample(20, parent: 10)
+    var monitor = Monitor()
+    monitor.ingest([runtime, other, workload])
+    monitor.enrich(
+        ProcessMetadata(
+            marker: SessionMarker(threadID: sessionA, provider: .claude, inboxSocket: "/tmp/cc-socks/10.sock")
+        ),
+        for: workload.identity)
+    #expect(Set(monitor.enrichmentTargets().map(\.identity.pid)) == [10, 20])
+}

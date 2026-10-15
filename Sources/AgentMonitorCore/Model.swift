@@ -85,10 +85,13 @@ public struct ProcessMetadata: Sendable {
     public var command: [String]?
     public var terminal: String?
     public var writerThreadIDs: [String]
+    /// Unix socket paths a Claude runtime listens on; links detached workloads to their inbox owner.
+    public var listeningSockets: [String]
 
     public init(
         marker: SessionMarker? = nil, status: MetadataStatus = .notObserved,
-        cwd: String? = nil, command: [String]? = nil, terminal: String? = nil, writerThreadIDs: [String] = []
+        cwd: String? = nil, command: [String]? = nil, terminal: String? = nil, writerThreadIDs: [String] = [],
+        listeningSockets: [String] = []
     ) {
         self.marker = marker
         self.status = status
@@ -96,6 +99,7 @@ public struct ProcessMetadata: Sendable {
         self.command = command
         self.terminal = terminal
         self.writerThreadIDs = writerThreadIDs
+        self.listeningSockets = listeningSockets
     }
 }
 

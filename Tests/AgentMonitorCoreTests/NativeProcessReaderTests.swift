@@ -1,4 +1,5 @@
 import Darwin
+import Foundation
 import Testing
 
 @testable import AgentMonitorCore
@@ -31,4 +32,30 @@ import Testing
     let cpu = try #require(own.cpuSeconds)
     #expect(cpu >= before - 0.01)
     #expect(cpu <= after + 0.01)
+}
+
+@Test func listeningUnixSocketsOfAnOwnedProcessAreRead() throws {
+    let directory = "/tmp/am-\(UUID().uuidString.prefix(8))"
+    try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(atPath: directory) }
+    let path = directory + "/in.sock"
+    let child = Process()
+    child.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+    child.arguments = [
+        "-c",
+        "import socket,sys,time\ns=socket.socket(socket.AF_UNIX);s.bind(sys.argv[1]);s.listen(1)\n"
+            + "c=socket.socket(socket.AF_UNIX)\ntime.sleep(30)",
+        path,
+    ]
+    try child.run()
+    defer {
+        child.terminate()
+        child.waitUntilExit()
+    }
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while !FileManager.default.fileExists(atPath: path), ContinuousClock.now < deadline {
+        Thread.sleep(forTimeInterval: 0.01)
+    }
+    Thread.sleep(forTimeInterval: 0.1)
+    #expect(try NativeProcessReader().listeningSockets(child.processIdentifier) == [path])
 }

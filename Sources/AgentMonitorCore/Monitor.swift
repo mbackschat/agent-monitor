@@ -59,11 +59,23 @@ public struct Monitor: Sendable {
     }
 
     public func enrichmentTargets(thresholds: Thresholds = Thresholds()) -> [ProcessSample] {
-        var identities: Set<ProcessIdentity> = []
-        for identity in heavyIdentities(thresholds: thresholds) {
-            identities.formUnion(chain(from: identity))
+        enrichmentTargets(for: heavyIdentities(thresholds: thresholds))
+    }
+
+    /// Ancestry chains, plus the runtimes a detached Claude marker may point to. Those candidates
+    /// appear only once the marker has been read, so callers enrich in a second pass.
+    public func enrichmentTargets(for identities: some Sequence<ProcessIdentity>) -> [ProcessSample] {
+        var targets: Set<ProcessIdentity> = []
+        for identity in identities {
+            targets.formUnion(chain(from: identity))
+            let resolved = resolve(identity)
+            if resolved.attribution.runtime == nil, let marker = resolved.marker,
+                let owner = resolved.markerOwner
+            {
+                targets.formUnion(inboxCandidates(marker, owner: owner))
+            }
         }
-        return identities.intersection(live).compactMap { nodes[$0]?.sample }
+        return targets.intersection(live).compactMap { nodes[$0]?.sample }
     }
 
     public func findings(
@@ -120,7 +132,18 @@ public struct Monitor: Sendable {
         return path
     }
 
-    private func resolve(_ identity: ProcessIdentity) -> (attribution: Attribution, marker: SessionMarker?) {
+    /// Live Claude runtimes that existed when the marker's process inherited it; a later start
+    /// means a reused PID and therefore possibly a reused socket name.
+    private func inboxCandidates(_ marker: SessionMarker, owner: ProcessIdentity) -> [ProcessIdentity] {
+        guard marker.provider == .claude, marker.inboxSocket != nil else { return [] }
+        return live.filter {
+            nodes[$0]?.sample.runtimeProvider == .claude && $0.startMicroseconds <= owner.startMicroseconds
+        }
+    }
+
+    private func resolve(_ identity: ProcessIdentity) -> (
+        attribution: Attribution, marker: SessionMarker?, markerOwner: ProcessIdentity?
+    ) {
         var path: [ProcessIdentity] = []
         var marker: SessionMarker?
         var markerOwner: ProcessIdentity?
@@ -138,6 +161,13 @@ public struct Monitor: Sendable {
                 marker = value
                 markerOwner = key
             }
+        }
+        // A detached workload keeps the inbox path its runtime exported (docs/research/
+        // claude-session-messaging.md); the one live runtime still listening on it launched it.
+        if runtime == nil, let marker, let markerOwner, let inbox = marker.inboxSocket {
+            let owners = inboxCandidates(marker, owner: markerOwner).compactMap { nodes[$0] }
+                .filter { $0.metadata.listeningSockets.contains(inbox) }
+            if owners.count == 1 { runtime = owners[0] }
         }
         let candidates = Array(Set(runtime?.metadata.writerThreadIDs ?? [])).sorted()
         let evidence: AttributionEvidence
@@ -176,7 +206,7 @@ public struct Monitor: Sendable {
             terminal: runtime?.metadata.terminal ?? runtime?.sample.terminal,
             runtimeDirectory: runtime?.metadata.cwd, candidateThreadIDs: candidates, ancestry: path
         )
-        return (attribution, marker)
+        return (attribution, marker, markerOwner)
     }
 }
 

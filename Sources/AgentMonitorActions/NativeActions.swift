@@ -27,21 +27,16 @@ public enum NativeActions {
     private static func observe(_ expected: HeavyProcess) throws -> Monitor {
         try validate(expected)
         let reader = try NativeProcessReader()
-        let samples = try reader.snapshot().samples
-        let byPID = Dictionary(uniqueKeysWithValues: samples.map { ($0.identity.pid, $0) })
-        var chain: [ProcessSample] = []
-        var next = byPID[expected.process.pid]
-        var seen: Set<ProcessIdentity> = []
-        while let sample = next, seen.insert(sample.identity).inserted {
-            chain.append(sample)
-            guard let parent = byPID[sample.parentPID],
-                parent.identity.startMicroseconds <= sample.identity.startMicroseconds
-            else { break }
-            next = parent
-        }
         var monitor = Monitor()
-        monitor.ingest(chain)
-        for sample in chain { monitor.enrich(reader.metadata(for: sample), for: sample.identity) }
+        monitor.ingest(try reader.snapshot().samples)
+        // Same two passes as MonitoringSession, so a detached workload rejoins its runtime here too.
+        var enriched: Set<ProcessIdentity> = []
+        for _ in 1...2 {
+            for sample in monitor.enrichmentTargets(for: [expected.process])
+            where enriched.insert(sample.identity).inserted {
+                monitor.enrich(reader.metadata(for: sample), for: sample.identity)
+            }
+        }
         return monitor
     }
 

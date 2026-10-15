@@ -63,8 +63,10 @@ public struct NativeProcessReader: Sendable {
         if sample.runtimeProvider != nil, let device = sample.terminalDevice {
             metadata.terminal = terminalName(device)
         }
-        if sample.runtimeProvider == .codex {
-            metadata.writerThreadIDs = writerThreadIDs(sample.identity.pid)
+        switch sample.runtimeProvider {
+        case .codex: metadata.writerThreadIDs = writerThreadIDs(sample.identity.pid)
+        case .claude: metadata.listeningSockets = listeningSockets(sample.identity.pid)
+        case nil: break
         }
         guard matches(sample) else { return ProcessMetadata(status: .unavailable) }
         return metadata
@@ -148,7 +150,7 @@ public struct NativeProcessReader: Sendable {
         return ProcessArguments.parse(Array(buffer.prefix(size)), includeCommand: includeCommand)
     }
 
-    private func writerThreadIDs(_ pid: Int32) -> [String] {
+    private func descriptors(_ pid: Int32) -> [proc_fdinfo] {
         let needed = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, nil, 0)
         guard needed > 0, needed < 16 * 1024 * 1024 else { return [] }
         var descriptors = [proc_fdinfo](
@@ -156,9 +158,27 @@ public struct NativeProcessReader: Sendable {
         let capacity = Int32(descriptors.count * MemoryLayout<proc_fdinfo>.stride)
         let bytes = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, &descriptors, capacity)
         guard bytes > 0, bytes < capacity else { return [] }
+        return Array(descriptors.prefix(Int(bytes) / MemoryLayout<proc_fdinfo>.stride))
+    }
+
+    /// Bound Unix sockets in the listening state; client and unbound sockets carry no own path.
+    func listeningSockets(_ pid: Int32) -> [String] {
+        var paths: Set<String> = []
+        for descriptor in descriptors(pid) where descriptor.proc_fdtype == PROX_FDTYPE_SOCKET {
+            var info = socket_fdinfo()
+            let size = Int32(MemoryLayout<socket_fdinfo>.size)
+            guard proc_pidfdinfo(pid, descriptor.proc_fd, PROC_PIDFDSOCKETINFO, &info, size) == size,
+                info.psi.soi_kind == SOCKINFO_UN, Int32(info.psi.soi_options) & SO_ACCEPTCONN != 0
+            else { continue }
+            let path = cString(info.psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path)
+            if path.hasPrefix("/") { paths.insert(path) }
+        }
+        return paths.sorted()
+    }
+
+    private func writerThreadIDs(_ pid: Int32) -> [String] {
         var ids: Set<String> = []
-        for descriptor in descriptors.prefix(Int(bytes) / MemoryLayout<proc_fdinfo>.stride)
-        where descriptor.proc_fdtype == PROX_FDTYPE_VNODE {
+        for descriptor in descriptors(pid) where descriptor.proc_fdtype == PROX_FDTYPE_VNODE {
             var vnode = vnode_fdinfowithpath()
             let size = Int32(MemoryLayout<vnode_fdinfowithpath>.size)
             guard proc_pidfdinfo(pid, descriptor.proc_fd, PROC_PIDFDVNODEPATHINFO, &vnode, size) == size
