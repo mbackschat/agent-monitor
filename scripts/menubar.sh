@@ -11,7 +11,7 @@ esac
 cd "$root"
 swift build --disable-sandbox --product agent-monitor-menubar
 products=$(swift build --disable-sandbox --show-bin-path)
-app="$root/.build/Agent Monitor Spike.app"
+app="$root/.build/Agent Monitor.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$products/agent-monitor-menubar" "$app/Contents/MacOS/agent-monitor-menubar"
 cp -R "$products/AgentMonitor_AgentMonitorPresentation.bundle" "$app/Contents/Resources/"
@@ -23,8 +23,8 @@ import sys
 with open(sys.argv[1], "wb") as output:
     plistlib.dump({
         "CFBundleExecutable": "agent-monitor-menubar",
-        "CFBundleIdentifier": "de.mbackschat.agent-monitor.spike",
-        "CFBundleName": "Agent Monitor Spike",
+        "CFBundleIdentifier": "de.mbackschat.agent-monitor.menubar",
+        "CFBundleName": "Agent Monitor",
         "CFBundlePackageType": "APPL",
         "CFBundleShortVersionString": "0.0.1",
         "CFBundleVersion": "1",

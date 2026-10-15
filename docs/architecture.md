@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-Agent Monitor maps heavy processes to specific coding-agent sessions. Sampling and attribution must be reusable by text output, an optional terminal UI, and a native menu bar spike. See [PLAN.md](../PLAN.md) for open work and scope, and the [development guide](development.md#validation-coverage) for validation limits.
+Agent Monitor maps heavy processes to specific coding-agent sessions. Sampling and attribution must be reusable by text output, an optional terminal UI, and a native menu bar app. See [PLAN.md](../PLAN.md) for open work and scope, and the [development guide](development.md#validation-coverage) for validation limits.
 
 ## Current implementation
 
@@ -45,7 +45,7 @@ flowchart TD
     Session --> Text[Text renderer]
     Session --> JSON[JSONL encoder and schema contract]
     Session --> TUI[Optional terminal UI]
-    Session --> GUI[Future menu bar UI]
+    Session --> GUI[Native menu bar UI]
 ```
 
 The monitoring session owns cadence, baseline acquisition, metadata enrichment, cancellation, and snapshot publication. Snapshot values carry timestamps, measurement semantics, process identities, resource usage, and attribution evidence. UI code consumes them without inspecting processes itself. Sampling must not block keyboard input or native UI interaction, and slow rendering must not create an unbounded snapshot backlog.
@@ -77,7 +77,7 @@ Text, TUI, and GUI share measurement and attribution results. Their rendering an
 
 Core tests continue to use deterministic observations and native measurement checks. The extracted session needs cadence, cancellation, and error tests with controllable inputs. Presentation tests cover selection identity, disclosure, unknown/ambiguous states, and narrow layouts. A real terminal test must verify refresh, resizing, input responsiveness, and terminal restoration. Measure TUI overhead separately from the existing collector result.
 
-The isolated SwiftTUI runtime passed terminal interaction checks; [TUI research](research/terminal-ui.md) records the host behavior and measured probe overhead behind the adoption decision. Integration has dedicated presentation tests and a PTY journey. A menu bar application is a future consumer of the contract, not part of this PoC change.
+The isolated SwiftTUI runtime passed terminal interaction checks; [TUI research](research/terminal-ui.md) records the host behavior and measured probe overhead behind the adoption decision. Integration has dedicated presentation tests and a PTY journey. The native menu bar app consumes the same contract with separate SwiftUI rendering and AppKit lifecycle ownership.
 
 ## SwiftTUI host evaluation
 
@@ -130,12 +130,14 @@ Optional session inspection and provider-specific metrics remain proposals; OS C
 
 A third provider requires an explicit revision of the closed provider enum and JSON schema before it can participate. A future external adapter may use a versioned subprocess protocol with validated stable provider identifiers; its transport, discovery, installation and trust policy remain deferred until requested. The internal built-in interface does not promise binary or wire compatibility for third-party extensions.
 
-## Native menu bar spike
+## Native menu bar app
 
-`AgentMonitorMenuBar` hosts SwiftUI content in a transient, non-detachable AppKit `NSPopover` anchored to a static `NSStatusItem`. It is an accessory app, with no standalone window. Native disclosure rows, sorting, resource summaries and inline action review replace terminal cell layout. Disclosure headers are full-width buttons; details and action controls stay outside the toggle target. A session with one displayed heavy process renders directly as a process row with project/session context; only multiple displayed processes receive a group header. This native projection does not change grouping identities, totals or the TUI hierarchy. The view consumes `LiveReportState` and `SessionGrouping`; direct row selection is a neutral presentation operation shared with keyboard navigation. No provider recognition or process collection lives in the view.
+Apple's interface guidance is the platform baseline; CodexBar is the primary visual reference for density, hierarchy and progressive disclosure, with RepoBar and Trimmy as secondary comparisons. The inline composer and action review justify the complex-content exception to Apple's preference for a menu. Keep system typography and semantic colors, and preserve shared core/action ownership. Reference observations and their limits are recorded in [native menu design research](research/native-menu-design.md).
+
+`AgentMonitorMenuBar` hosts SwiftUI content in a transient, non-detachable AppKit `NSPopover` anchored to a static `NSStatusItem`. It is an accessory app, with no standalone window. Native disclosure rows, sorting, resource summaries and inline action review replace terminal cell layout. Disclosure headers are full-width buttons; details and action controls stay outside the toggle target. A session with one displayed heavy process renders directly as a process row with project/session context; only multiple displayed processes receive a group header. Process summaries use two lines: process/PID and CPU above project/session and footprint, with clipped project names available in a tooltip and full attribution in details. This native projection does not change grouping identities, totals or the TUI hierarchy. The view consumes `LiveReportState` and `SessionGrouping`; direct row selection is a neutral presentation operation shared with keyboard navigation. No provider recognition or process collection lives in the view.
 
 `MenuBarModel` owns main-actor UI state and cancellable collection/action tasks. The host opens collection only after the popover shows and cancels it when closing starts. Each opening creates a fresh `MonitoringSession`, resetting baseline and ancestry history; CPU appears after the first interval. Reopening waits for the prior collection and action tasks to drain before collecting again, and generation checks reject stale results. Closed state has no application sampling timer, polling loop or monitoring observer. Cancellation cannot interrupt a synchronous native read already in progress; it drains before the next run. AppKit remains responsible for normal UI event processing. Physical closed-state CPU/wakeups remain a measurement gate.
 
 The panel reuses the existing action review state and `SessionActions` services. Confirmation targets a frozen process lifetime, and messages retain root-by-default routing, automatic workload context, exact-text review and live recipient verification. Closing cancels owned action work; quit awaits completion. A cancelled signal/send can have an uncertain outcome, which is retained for the next opening without automatic retry. Terminal focus can itself dismiss the transient panel. Live Automation behavior and provider delivery from the bundle are not established by fake-service tests.
 
-The development script assembles an ad-hoc-signed, unsandboxed local bundle with `LSUIElement` and an Automation usage description. Its run mode passes the invoking shell's PATH for existing provider transports. This is separate from CLI release packaging; signing identity, notarization, Finder/login PATH discovery, login items and production installation are deferred. App and TUI collectors are independent; there is no IPC or background service.
+The source-build script assembles an ad-hoc-signed, unsandboxed local bundle with `LSUIElement` and an Automation usage description. Its run mode passes the invoking shell's PATH for existing provider transports. This is separate from CLI release packaging; signing identity, notarization, Finder/login PATH discovery, login items and production installation are deferred. App and TUI collectors are independent; there is no IPC or background service.

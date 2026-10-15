@@ -13,7 +13,6 @@ struct MenuBarView: View {
                 Image(systemName: "terminal.fill").foregroundStyle(.secondary)
                 Text("Agent Monitor").font(.headline)
                 Spacer()
-                Text("Spike").font(.caption).foregroundStyle(.secondary)
             }
             .padding()
             Divider()
@@ -66,7 +65,7 @@ struct MenuBarView: View {
                     description: Text("Nothing exceeds the current thresholds."))
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 4) {
                         ForEach(model.report.groups, id: \.id) { group in
                             if group.processes.count == 1, let process = group.processes.first {
                                 processRow(process, session: group)
@@ -102,7 +101,7 @@ struct MenuBarView: View {
                 }
             )
         ) {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(group.sessionID ?? group.label)
                     .font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
                 ForEach(group.processes, id: \.process) { process in
@@ -161,25 +160,10 @@ struct MenuBarView: View {
             }
             .font(.caption).textSelection(.enabled).padding(.vertical, 6)
         } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(process.name).lineLimit(1)
-                    Text("PID \(process.process.pid)").font(.caption2).foregroundStyle(.secondary)
-                    if let session {
-                        Text(session.project).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        Text(
-                            "\(session.provider?.rawValue ?? "unknown") · \(session.sessionID.map { String($0.prefix(8)) } ?? (process.isSharedRuntime ? "shared runtime" : "unresolved"))"
-                        )
-                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                    }
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(resource(process.cpuPercent, unit: "%"))
-                    Text(resource(process.footprintBytes.map { Double($0) / 1e9 }, unit: " GB"))
-                        .font(.caption2).foregroundStyle(.secondary)
-                }.monospacedDigit()
-            }
+            MenuBarProcessLabel(
+                process: process, session: session,
+                cpuText: resource(process.cpuPercent, unit: "%"),
+                footprintText: resource(process.footprintBytes.map { Double($0) / 1e9 }, unit: " GB"))
         }
     }
 
@@ -269,7 +253,7 @@ struct MenuBarDisclosureStyle: DisclosureGroupStyle {
                     configuration.label
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 5)
+                .padding(.vertical, 4)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

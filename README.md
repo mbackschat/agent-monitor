@@ -13,6 +13,7 @@ When several coding agents are running, a busy `node`, `java`, or `python` proce
 ## Features
 
 - **Live terminal view** — watch CPU and memory usage, sort processes, and open details without leaving your terminal. Change the update interval or freeze the view while you look.
+- **Native menu bar app** — open a compact macOS panel for resource usage and session actions; monitoring stops when the panel closes. Available from a source build.
 - **Session grouping** — bring related heavy processes together and see their combined resource usage.
 - **Adjustable filters** — change CPU and memory thresholds while the monitor runs.
 - **Message the agent** — send a reviewed message to the process's verified Codex agent or Claude Code session; the process's PID and name are included automatically.
@@ -77,9 +78,9 @@ agent-monitor --help
 
 See the [usage guide](docs/usage.md) for all keyboard controls, filters, session grouping, and output options.
 
-## Menu bar spike
+## Menu bar app
 
-A source-only native menu bar spike is available with `bash scripts/menubar.sh run`. Click its terminal icon for session groups, resource usage and process details; expand a process to focus its terminal, review a termination request or compose a message. It uses the same monitoring and verified action services as the TUI, with a native popover and no standalone window. Sampling stops when the panel closes. See [spike usage](docs/usage.md#menu-bar-spike) and [build and validation limits](docs/development.md#menu-bar-spike).
+The maintained, source-built native menu bar app runs with `bash scripts/menubar.sh run`. Click its terminal icon for session groups, resource usage and process details; expand a process to focus its terminal, review a termination request or compose a message. It uses the same monitoring and verified action services as the TUI, with a native popover and no standalone window. Sampling stops when the panel closes. See [menu bar usage](docs/usage.md#menu-bar-app) and [build and validation limits](docs/development.md#menu-bar-app).
 
 ## Options and defaults
 

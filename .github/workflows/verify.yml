@@ -27,6 +27,11 @@ jobs:
         run: swift format lint --strict --recursive Sources Tests Tools Package.swift
       - name: Run tests
         run: swift test
+      - name: Build and verify menu bar app
+        run: |
+          bash scripts/menubar.sh build
+          plutil -lint '.build/Agent Monitor.app/Contents/Info.plist'
+          codesign --verify --deep --strict '.build/Agent Monitor.app'
       - name: Check README preview
         run: bash scripts/preview.sh check
       - name: Test optional skill installer without network access

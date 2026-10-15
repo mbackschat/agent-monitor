@@ -11,11 +11,12 @@ Current behavior and accepted contracts belong in the [README](../../README.md) 
 - [Process signaling and messaging interfaces](session-actions.md): signal races, queue/resume interfaces, recipient identity and acceptance versus delivery.
 - [Terminal focus mechanisms](terminal-focus.md): host identifiers, per-terminal APIs, macOS permission/activation behavior and untested desktop states.
 - [Menu bar feasibility](menubar-app.md): UI/lifecycle APIs, launch environment, process access, signing and Homebrew evidence, with unverified inferences identified.
+- [Native menu design](native-menu-design.md): Apple interface guidance, pinned CodexBar/RepoBar/Trimmy source and screenshots, visual observations and unresolved interaction questions.
 - [Swift terminal UI findings](terminal-ui.md): library observations, discovery-socket failure, direct runtime behavior and bounded probe measurements.
 - [Local process observations](terminal-process-observations.md): anonymized process topology, marker readability and synthetic orphan experiments.
 - [macOS measurement and attribution](macos-process-attribution.md): native APIs, counter units, process identity, permissions and event-collection limits.
 - [Existing tools and reusable mechanisms](existing-solutions.md): inspected source, license files, maintenance observations and untested compatibility.
-- [Development tools](development-tools.md): skill contents, host discovery differences and audit/benchmark gaps.
+- [Development tools](development-tools.md): skill contents, Peter Steinberger's SwiftUI/profiling candidates, host discovery differences and audit/benchmark gaps.
 
 ## Retained measurements
 
