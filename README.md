@@ -121,13 +121,9 @@ The monitor inspects only your user's processes and does not read conversation t
 
 ## Adding more agents
 
-Codex CLI and Claude Code are built in today. The planned adapter approach will let new agents supply their own session knowledge while sharing the same resource monitoring and terminal UI.
+Codex CLI and Claude Code use built-in attribution adapters. Each adapter recognizes its runtime and interprets its session markers and runtime evidence; shared monitoring handles resource measurement, process lifetimes and conflicting claims.
 
-- **Identify sessions (required):** recognize an agent's runtimes and return evidence linking processes to sessions. Conflicting evidence stays ambiguous.
-- **Inspect sessions (optional):** provide additional session information or agent-specific metrics, such as token usage, when available.
-- **Communicate (optional):** expose supported messaging capabilities for a verified session recipient.
-
-CPU and memory measurement stay in the shared monitoring core. A small, separate messaging capability serves Codex and Claude Code. Attribution adapters and an external plugin protocol remain design work; **there is no third-party plugin API**. See the [adapter design](docs/architecture.md#proposed-agent-adapter-boundary) for the proposed boundaries.
+Messaging is a separate capability. Additional session inspection and external plugins remain future work; **there is no third-party plugin API**. See the [adapter architecture](docs/architecture.md#agent-attribution-adapters) for the implemented boundaries and extension limits.
 
 ## Documentation and contributing
 

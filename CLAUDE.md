@@ -14,6 +14,12 @@ Read [PLAN.md](PLAN.md) when resuming. Keep task scope, completion evidence, and
 
 Follow [architecture boundaries](docs/architecture.md): monitoring logic and snapshots are UI-independent; text, TUI, and future native views own presentation only. Document architectural changes alongside the code.
 
+Provider recognition, marker keys/validation, writer-lock or inbox interpretation, and provider-specific runtime classification belong exclusively in the built-in [attribution adapters](Sources/AgentMonitorCore/AttributionAdapters/). Extend the adapter contract only for a concrete observation needed by a provider. Do not add provider-specific attribution branches or executable/environment recognition heuristics to `Monitor`, `NativeProcessReader`, `ProcessArguments`, models or presentation; model conveniences delegate to the registry. Native access and input allowlisting remain in the host, while adapters consume declared observations and report evidence. Messaging and focus keep their separate action adapters.
+
+Preserve all recognition claims: reject duplicate provider registrations and never choose a runtime owner by adapter order. New recognition rules need exact positive attribution plus negative/conflicting fixtures; adapter changes must retain nested-provider, detached-worker, PID-reuse and malformed-marker guards. Provider columns, sorting and filtering consume the resolved attribution, never a second recognition implementation. See [adapter development](docs/development.md#changing-attribution-adapters).
+
+Before extending a feature, check its documented ownership boundary. If the current code bypasses that boundary, make the smallest authorized extraction as part of the change; surface a material scope conflict before building on the bypass. Do not silently leave an accepted architecture as a proposal while expanding the old path. In the same commit, keep architecture status, source ownership, contributor guidance and completion evidence aligned, and clearly separate implemented contracts from deferred capabilities.
+
 Session grouping belongs to presentation and totals only displayed heavy processes. Preserve provider/session identities and attribution uncertainty; never merge by directory or shared runtime alone. Keep JSONL's flat snapshot contract independent of grouping.
 
 ## Build, Test, and Development Commands

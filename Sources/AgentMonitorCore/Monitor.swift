@@ -8,8 +8,11 @@ public struct Monitor: Sendable {
 
     private var nodes: [ProcessIdentity: Node] = [:]
     private var live: Set<ProcessIdentity> = []
+    private let adapters: AttributionAdapters
 
-    public init() {}
+    public init() { adapters = .builtIn }
+
+    init(adapters: AttributionAdapters) { self.adapters = adapters }
 
     public mutating func ingest(_ samples: [ProcessSample]) {
         let byPID = Dictionary(
@@ -155,13 +158,10 @@ public struct Monitor: Sendable {
     private func detachedRuntimeCandidates(_ marker: SessionMarker, owner: ProcessIdentity)
         -> [ProcessIdentity]
     {
-        switch marker.provider {
-        case .claude where marker.inboxSocket == nil: return []
-        case .claude, .codex: break
-        }
+        guard adapters.runtimeLink(for: marker) != nil else { return [] }
         return live.filter {
-            nodes[$0]?.sample.runtimeProvider == marker.provider
-                && $0.startMicroseconds <= owner.startMicroseconds
+            guard let node = nodes[$0], $0.startMicroseconds <= owner.startMicroseconds else { return false }
+            return adapters.runtimeProviders(for: node.sample.executable) == [marker.provider]
         }
     }
 
@@ -183,14 +183,16 @@ public struct Monitor: Sendable {
         }
         let runtime = walk.runtime
         let candidates = Array(Set(runtime?.metadata.writerThreadIDs ?? [])).sorted()
+        let runtimeProviders = runtime.map { adapters.runtimeProviders(for: $0.sample.executable) } ?? []
+        let runtimeProvider = runtimeProviders.count == 1 ? runtimeProviders.first : nil
         let providerConflict =
-            walk.marker != nil && runtime?.sample.runtimeProvider != nil
-            && walk.marker?.provider != runtime?.sample.runtimeProvider
+            runtimeProviders.count > 1
+            || (walk.marker != nil && runtimeProvider != nil && walk.marker?.provider != runtimeProvider)
         let (evidence, thread) = classify(
             walk, uncertain: providerConflict || walk.unresolvedMetadata, of: identity, candidates: candidates
         )
         let attribution = Attribution(
-            provider: providerConflict ? nil : walk.marker?.provider ?? runtime?.sample.runtimeProvider,
+            provider: providerConflict ? nil : walk.marker?.provider ?? runtimeProvider,
             evidence: evidence,
             context: runtime.map {
                 $0.sample.terminal == nil && $0.sample.terminalDevice == nil ? .nonterminal : .terminal
@@ -207,12 +209,17 @@ public struct Monitor: Sendable {
     private func walk(from identity: ProcessIdentity) -> Walk {
         var walk = Walk()
         let ancestors = chain(from: identity)
-        let nearest = ancestors.lazy.compactMap { self.nodes[$0]?.sample.runtimeProvider }.first
+        let nearestProviders =
+            ancestors.lazy.compactMap { self.nodes[$0] }
+            .map { adapters.runtimeProviders(for: $0.sample.executable) }.first { !$0.isEmpty } ?? []
+        let nearest = nearestProviders.count == 1 ? nearestProviders.first : nil
         for key in ancestors {
             guard let node = nodes[key] else { continue }
             walk.path.append(key)
-            if node.sample.runtimeProvider != nil {
+            let providers = adapters.runtimeProviders(for: node.sample.executable)
+            if !providers.isEmpty {
                 walk.runtime = node
+                if providers.count > 1 { walk.unresolvedMetadata = true }
                 break
             }
             guard walk.marker == nil else { continue }
@@ -231,16 +238,12 @@ public struct Monitor: Sendable {
         return walk
     }
 
-    /// Markers bridge lost ancestry through exact thread writer descriptors or inbox listeners;
-    /// see docs/research/codex-terminal-attribution.md and claude-session-messaging.md.
+    /// Adapters supply the exact link; the host requires one live, lifetime-compatible match
+    /// (docs/architecture.md#agent-attribution-adapters).
     private func detachedRuntime(for marker: SessionMarker, owner: ProcessIdentity) -> Node? {
+        guard let link = adapters.runtimeLink(for: marker) else { return nil }
         let owners = detachedRuntimeCandidates(marker, owner: owner).compactMap { nodes[$0] }
-            .filter { node in
-                switch marker.provider {
-                case .codex: node.metadata.writerThreadIDs.contains(marker.threadID)
-                case .claude: marker.inboxSocket.map { node.metadata.listeningSockets.contains($0) } == true
-                }
-            }
+            .filter { link.matches($0.metadata) }
         return owners.count == 1 ? owners[0] : nil
     }
 

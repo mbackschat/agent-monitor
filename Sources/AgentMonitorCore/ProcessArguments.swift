@@ -2,6 +2,12 @@ import Foundation
 
 public enum ProcessArguments {
     public static func parse(_ bytes: [UInt8], includeCommand: Bool = false) -> ProcessMetadata {
+        parse(bytes, includeCommand: includeCommand, adapters: .builtIn)
+    }
+
+    static func parse(
+        _ bytes: [UInt8], includeCommand: Bool = false, adapters: AttributionAdapters
+    ) -> ProcessMetadata {
         let malformed = ProcessMetadata(status: .malformed)
         guard bytes.count >= MemoryLayout<Int32>.size else { return malformed }
         let argc = bytes.withUnsafeBytes { $0.loadUnaligned(as: Int32.self) }
@@ -21,47 +27,21 @@ public enum ProcessArguments {
             if includeCommand { arguments.append(value) }
         }
 
-        var markers: [String: String] = [:]
-        var sockets: Set<String> = []
+        let allowedKeys = adapters.environmentKeys
+        var environment: [String: Set<String>] = [:]
         while cursor < bytes.count {
             guard let entry = nextString() else { return malformed }
             if entry.isEmpty { break }
             guard let equal = entry.firstIndex(of: "=") else { continue }
             let key = String(entry[..<equal])
-            if key == "CLAUDE_CODE_MESSAGING_SOCKET" {
-                sockets.insert(String(entry[entry.index(after: equal)...]))
-                continue
-            }
-            guard ["CODEX_THREAD_ID", "CODEX_SESSION_ID", "CLAUDE_CODE_SESSION_ID"].contains(key) else {
-                continue
-            }
-            let value = String(entry[entry.index(after: equal)...])
-            guard let uuid = UUID(uuidString: value) else { return malformed }
-            let normalized = uuid.uuidString.lowercased()
-            if let previous = markers[key], previous != normalized { return malformed }
-            markers[key] = normalized
+            guard allowedKeys.contains(key) else { continue }
+            environment[key, default: []].insert(String(entry[entry.index(after: equal)...]))
         }
-        let found = [
-            markers["CODEX_THREAD_ID"].map {
-                SessionMarker(threadID: $0, rootSessionID: markers["CODEX_SESSION_ID"], provider: .codex)
-            },
-            markers["CLAUDE_CODE_SESSION_ID"].map {
-                SessionMarker(threadID: $0, provider: .claude, inboxSocket: inbox(sockets))
-            },
-        ].compactMap { $0 }
+        guard let found = try? adapters.markers(in: environment) else { return malformed }
         return ProcessMetadata(
             markers: found, status: found.isEmpty ? .notObserved : .markerRead,
             command: includeCommand ? arguments : nil
         )
     }
 
-    /// An unusable inbox only disables messaging, so it never makes attribution malformed.
-    /// sun_path holds 104 bytes including the terminator (sys/un.h); Claude Code documents the
-    /// variable at https://code.claude.com/docs/en/env-vars.
-    private static func inbox(_ values: Set<String>) -> String? {
-        guard values.count == 1, let path = values.first, path.hasPrefix("/"), path.utf8.count < 104,
-            path.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) })
-        else { return nil }
-        return path
-    }
 }

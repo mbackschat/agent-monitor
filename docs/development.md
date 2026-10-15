@@ -51,6 +51,16 @@ The mutable monitor is an exclusively owned value in one sequential sampling loo
 
 Use four-space indentation and the bundled `swift format`, configured in [.swift-format](../.swift-format). Add behavior-focused Swift Testing tests before implementing changes. Native integration tests should use real API observations; attribution tests should use deterministic process lifetimes and explicit expected session IDs.
 
+## Changing attribution adapters
+
+Provider-specific attribution rules live in [AttributionAdapters](../Sources/AgentMonitorCore/AttributionAdapters/), under the internal `AgentAttributionAdapter` contract. Add executable recognition, allowlisted marker keys and validation, runtime evidence decoding and exact detached links there. The registry wires built-ins into parsing, native observation and resolution. The core owns OS calls, process identities, ancestry and conflict resolution; presentation consumes results. Messaging and terminal focus remain separate action capabilities. The [architecture contract](architecture.md#agent-attribution-adapters) defines these boundaries and the deferred extension scope.
+
+For a provider change, demonstrate the declared inputs and exact session result with deterministic adapter/monitor tests. Retain negative guards for unrelated executable shapes, duplicate marker values, malformed IDs, overlapping recognition claims in both orders, and duplicate provider registration. Exercise detached matches through the shared enrichment path so polling and action lookup stay consistent. A synthetic adapter must work through that path without adding branches to the sampler, parser, model or UI. Use disposable native fixtures to verify changes to descriptor decoding or the observations requested from the OS.
+
+The host retains only declared environment keys and bounds native reads; adapters never receive full environment buffers or read transcripts. Never add the Claude messaging token to an allowlist. New observation kinds require a concrete provider need, a bounded host implementation and a regression test; they do not justify general plugin infrastructure. A third provider or wire-contract change needs an explicit enum/schema decision rather than silently expanding the existing API.
+
+Treat a mismatch between code and documented ownership as part of the change being reviewed. Reconcile it within the authorized scope, or report a material scope conflict before extending the bypass. Keep [CLAUDE.md](../CLAUDE.md), [architecture](architecture.md), the user-facing support claims and [PLAN.md](../PLAN.md) current in the same commit. Do not report a boundary as implemented until production consumers use it and the contract tests pass.
+
 ## Skills shared by Codex CLI and Claude Code
 
 **Every project skill must work with both hosts.** A canonical skill directory must include its `SKILL.md`, referenced resources, and license. Expose the same directory under both `.agents/skills/<name>` and `.claude/skills/<name>` through relative symlinks. Verify both paths resolve to the same file and that every relative reference exists. Do not duplicate the skill contents or silently rely on host-specific hooks, subagents, permission settings, or MCP tool names.

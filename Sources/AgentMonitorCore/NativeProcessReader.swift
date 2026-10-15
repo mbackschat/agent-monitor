@@ -10,14 +10,20 @@ public struct ProcessSnapshot: Sendable {
 public struct NativeProcessReader: Sendable {
     private let numerator: UInt32
     private let denominator: UInt32
+    private let adapters: AttributionAdapters
 
     public init() throws {
+        try self.init(adapters: .builtIn)
+    }
+
+    init(adapters: AttributionAdapters) throws {
         var timebase = mach_timebase_info_data_t()
         guard mach_timebase_info(&timebase) == KERN_SUCCESS, timebase.denom > 0 else {
             throw NativeReadError.timebase
         }
         numerator = timebase.numer
         denominator = timebase.denom
+        self.adapters = adapters
     }
 
     public func snapshot(excluding excluded: Set<Int32> = []) throws -> ProcessSnapshot {
@@ -60,14 +66,21 @@ public struct NativeProcessReader: Sendable {
         guard matches(sample) else { return ProcessMetadata(status: .unavailable) }
         var metadata = arguments(sample.identity.pid, includeCommand: includeCommand)
         metadata.cwd = currentDirectory(sample.identity.pid)
-        if sample.runtimeProvider != nil, let device = sample.terminalDevice {
+        if !adapters.runtimeProviders(for: sample.executable).isEmpty, let device = sample.terminalDevice {
             metadata.terminal = terminalName(device)
         }
-        switch sample.runtimeProvider {
-        case .codex: metadata.writerThreadIDs = writerThreadIDs(sample.identity.pid)
-        case .claude: metadata.listeningSockets = listeningSockets(sample.identity.pid)
-        case nil: break
+        let evidence = adapters.runtimeEvidence(for: sample.executable) { requests in
+            var observations = RuntimeObservations()
+            for request in requests {
+                switch request {
+                case .openFilePaths: observations.openFilePaths = openFilePaths(sample.identity.pid)
+                case .listeningSockets: observations.listeningSockets = listeningSockets(sample.identity.pid)
+                }
+            }
+            return observations
         }
+        metadata.writerThreadIDs = evidence.writerThreadIDs
+        metadata.listeningSockets = evidence.listeningSockets
         guard matches(sample) else { return ProcessMetadata(status: .unavailable) }
         return metadata
     }
@@ -147,7 +160,8 @@ public struct NativeProcessReader: Sendable {
         guard sysctl(&mib, 3, &buffer, &size, nil, 0) == 0, size <= buffer.count else {
             return ProcessMetadata(status: .unavailable)
         }
-        return ProcessArguments.parse(Array(buffer.prefix(size)), includeCommand: includeCommand)
+        return ProcessArguments.parse(
+            Array(buffer.prefix(size)), includeCommand: includeCommand, adapters: adapters)
     }
 
     private func descriptors(_ pid: Int32) -> [proc_fdinfo] {
@@ -176,21 +190,17 @@ public struct NativeProcessReader: Sendable {
         return paths.sorted()
     }
 
-    private func writerThreadIDs(_ pid: Int32) -> [String] {
-        var ids: Set<String> = []
+    private func openFilePaths(_ pid: Int32) -> [String] {
+        var paths: Set<String> = []
         for descriptor in descriptors(pid) where descriptor.proc_fdtype == PROX_FDTYPE_VNODE {
             var vnode = vnode_fdinfowithpath()
             let size = Int32(MemoryLayout<vnode_fdinfowithpath>.size)
             guard proc_pidfdinfo(pid, descriptor.proc_fd, PROC_PIDFDVNODEPATHINFO, &vnode, size) == size
             else { continue }
-            let path = URL(fileURLWithPath: cString(vnode.pvip.vip_path))
-            guard path.deletingLastPathComponent().lastPathComponent == "thread-writer-locks",
-                path.pathExtension == "lock",
-                let uuid = UUID(uuidString: path.deletingPathExtension().lastPathComponent)
-            else { continue }
-            ids.insert(uuid.uuidString.lowercased())
+            let path = cString(vnode.pvip.vip_path)
+            if !path.isEmpty { paths.insert(path) }
         }
-        return ids.sorted()
+        return paths.sorted()
     }
 
     private func cString<T>(_ value: T) -> String {

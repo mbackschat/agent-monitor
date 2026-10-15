@@ -36,19 +36,7 @@ public struct ProcessSample: Sendable {
     }
 
     public var runtimeProvider: AgentProvider? {
-        let path = URL(fileURLWithPath: executable)
-        switch path.lastPathComponent {
-        case "codex": return .codex
-        case "claude": return .claude
-        default:
-            let directory = path.deletingLastPathComponent()
-            if directory.lastPathComponent == "versions",
-                directory.deletingLastPathComponent().lastPathComponent == "claude"
-            {
-                return .claude
-            }
-            return nil
-        }
+        AttributionAdapters.builtIn.runtimeProvider(for: executable)
     }
 }
 
@@ -147,6 +135,9 @@ public struct HeavyProcess: Equatable, Codable, Sendable {
     public let command: [String]?
     public let metadataStatus: MetadataStatus
     public let attribution: Attribution
+
+    /// Provider evidence identifies shared runtime usage without assigning it to one thread.
+    public var isSharedRuntime: Bool { AttributionAdapters.builtIn.isSharedRuntime(self) }
 }
 
 public struct Thresholds: Equatable, Sendable {

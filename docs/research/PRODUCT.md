@@ -58,7 +58,7 @@ The user approved live threshold controls on 2026-10-14: `1`/`2` decrease/increa
 
 ## Proposed agent adapters
 
-Keep adding agent providers inexpensive through a small adapter protocol and registry, with built-in Codex and Claude adapters first. The user offered metrics, details, and communication as an initial idea to refine, not a fixed interface. The recommended [adapter boundary](../architecture.md#proposed-agent-adapter-boundary) requires attribution evidence, with optional structured session inspection and a separate verified-messaging capability; presentation owns the details view. OS resource measurement and attribution safeguards remain shared. External plugins are a future transport for the same contract, not a plugin loader to build now. This is a proposal and does not expand the PoC implementation scope.
+Keep adding agent providers inexpensive through a small adapter protocol and registry, with built-in Codex and Claude adapters first. The user offered metrics, details, and communication as an initial idea to refine, not a fixed interface. The implemented [built-in adapter boundary](../architecture.md#agent-attribution-adapters) owns attribution evidence; optional structured session inspection remains a proposal and verified messaging is a separate capability. Presentation owns the details view. OS resource measurement and attribution safeguards remain shared. External plugins are a future transport for the same contract, not a plugin loader to build now. The user authorized the built-in attribution extraction on 2026-10-15; optional inspection and external plugins remain outside that implementation scope.
 
 ## Research context
 
