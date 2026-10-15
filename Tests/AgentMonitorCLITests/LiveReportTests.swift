@@ -430,9 +430,39 @@ func statusChromeAndKeysUseTheirOwnRoles(width: Int) {
     state.receive(liveSnapshot([liveRow(99)]))
     #expect(state.rows.map(\.process.pid) == [42])
     #expect(state.updates == 1)
-    #expect(LiveReportLayout.lines(state: state, width: 120, height: 24)[0].text.contains("FROZEN"))
+    #expect(LiveReportLayout.lines(state: state, width: 120, height: 24)[0].text.contains("PAUSED"))
     state.toggleFreeze()
     #expect(state.rows.map(\.process.pid) == [99])
     #expect(state.updates == 2)
-    #expect(!LiveReportLayout.lines(state: state, width: 120, height: 24)[0].text.contains("FROZEN"))
+    #expect(!LiveReportLayout.lines(state: state, width: 120, height: 24)[0].text.contains("PAUSED"))
+}
+
+@Test(arguments: [40, 80, 100, 120])
+func pausedStatusAndResumeKeyRemainVisible(width: Int) {
+    var state = LiveReportState()
+    state.receive(liveSnapshot([liveRow(42)]))
+    let live = LiveReportLayout.lines(state: state, width: width, height: 8)
+    #expect(live.contains { $0.text.contains("Space pause") })
+    state.toggleFreeze()
+    let paused = LiveReportLayout.lines(state: state, width: width, height: 8)
+    #expect(paused[0].text.hasPrefix("PAUSED at "))
+    #expect(paused[0].text.contains("Space resume"))
+    #expect(paused.contains { $0.text.contains("CPU > 25.00% OR GB > 1.00") })
+}
+
+@Test func pausedInspectionKeepsSelectionDetailsAndOrderWhileCPUChanges() {
+    var state = LiveReportState()
+    state.receive(liveSnapshot([liveRow(42, cpu: 90), liveRow(84, cpu: 50)]))
+    state.toggleDisclosure()
+    let selected = state.selected
+    let expanded = state.expanded
+    state.toggleFreeze()
+    state.receive(liveSnapshot([liveRow(42, cpu: 30), liveRow(84, cpu: 99)]))
+    #expect(state.rows.map(\.process.pid) == [42, 84])
+    #expect(state.selected == selected)
+    #expect(state.expanded == expanded)
+    state.toggleFreeze()
+    #expect(state.rows.map(\.process.pid) == [84, 42])
+    #expect(state.selected == selected)
+    #expect(state.expanded == expanded)
 }

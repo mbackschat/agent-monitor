@@ -6,35 +6,57 @@ import SwiftUI
 
 struct MenuBarView: View {
     @Bindable var model: MenuBarModel
-    var maximumBodyHeight: CGFloat = MenuBarLayout.maximumBodyHeight
+    var maximumHeight: CGFloat = .infinity
     var onSizeChange: (CGSize) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Image(systemName: "terminal.fill").foregroundStyle(.secondary)
-                Text("Agent Monitor").font(.headline)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Agent Monitor").font(.headline)
+                    if model.report.frozen, let snapshot = model.report.snapshot {
+                        Text("Paused at \(snapshot.timestamp.formatted(date: .omitted, time: .standard))")
+                            .font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                    } else {
+                        Text("Live updates").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
                 Spacer()
+                Button(
+                    model.report.frozen ? "Resume" : "Pause",
+                    systemImage: model.report.frozen ? "play.fill" : "pause.fill"
+                ) { model.toggleFreeze() }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
+                .disabled(model.report.snapshot == nil || model.report.actionPanel != nil)
+                .help("Hold the displayed sample and row order. Resume shows the latest sample (⇧⌘P).")
             }
             .padding()
             Divider()
-            MenuBarScrollView(maximumHeight: maximumBodyHeight) {
+            ScrollView {
                 if let panel = model.report.actionPanel {
                     actionPanel(panel)
                 } else {
                     report
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .scrollBounceBehavior(.basedOnSize)
             Divider()
             HStack {
                 Text("Updates only while open").font(.caption).foregroundStyle(.secondary)
                 Spacer()
+                Picker("Panel size", selection: $model.panelSize) {
+                    ForEach(MenuBarPanelSize.allCases, id: \.self) { size in
+                        Text(size.rawValue).tag(size)
+                    }
+                }
+                .labelsHidden().frame(width: 100).controlSize(.small)
                 Button("Quit") { NSApplication.shared.terminate(nil) }.keyboardShortcut("q")
             }
             .padding(12)
         }
-        .frame(width: MenuBarLayout.width)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: MenuBarLayout.width, height: min(model.panelSize.height, maximumHeight))
         .onGeometryChange(for: CGSize.self) {
             $0.size
         } action: {

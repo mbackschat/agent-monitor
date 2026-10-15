@@ -10,6 +10,7 @@ typealias MenuBarSource =
 @MainActor @Observable
 final class MenuBarModel {
     var report = LiveReportState(grouping: .session)
+    var panelSize: MenuBarPanelSize = .standard
     private(set) var isOpen = false
     private(set) var error: String?
     private(set) var lastActionResult: ActionResult?
@@ -50,6 +51,11 @@ final class MenuBarModel {
                 self.error = error.localizedDescription
             }
         }
+    }
+
+    func toggleFreeze() {
+        guard isOpen, report.snapshot != nil, report.actionPanel == nil else { return }
+        report.toggleFreeze()
     }
 
     func close() {

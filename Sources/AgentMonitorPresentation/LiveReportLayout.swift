@@ -28,7 +28,7 @@ public enum LiveReportLayout {
         }
         if let panel = state.actionPanel { return panel.lines(width: width, height: height) }
         var lines = headerLines(state: state, width: width)
-        let footer = helpLines(width: width, height: height, headerHeight: lines.count)
+        let footer = helpLines(width: width, height: height, headerHeight: lines.count, frozen: state.frozen)
         let available = height - lines.count - footer.count
         let detailHeight = detailHeight(state: state, available: available)
         lines += processLines(state: state, width: width, height: available - detailHeight)
@@ -41,7 +41,8 @@ public enum LiveReportLayout {
         guard width >= 40, height >= 8 else { return 0 }
         let headerHeight = headerLines(state: state, width: width).count
         let available =
-            height - headerHeight - helpLines(width: width, height: height, headerHeight: headerHeight).count
+            height - headerHeight
+            - helpLines(width: width, height: height, headerHeight: headerHeight, frozen: state.frozen).count
         let visible = detailHeight(state: state, available: available) - 1
         guard visible > 0 else { return 0 }
         return max(0, detailLines(state: state, width: width).count - visible)
@@ -50,9 +51,13 @@ public enum LiveReportLayout {
     private static func headerLines(state: LiveReportState, width: Int) -> [ReportLine] {
         let seconds = String(format: "%g", state.interval)
         let frozen =
-            state.frozen ? " | FROZEN" + (state.snapshot.map { " at " + clockTime($0.timestamp) } ?? "") : ""
+            state.frozen
+            ? "PAUSED" + (state.snapshot.map { " at " + clockTime($0.timestamp) } ?? "")
+                + " | Space resume | " : ""
+        let activity =
+            "\(state.sortKey.rawValue) \(state.ascending ? "ascending" : "descending") | every \(seconds) s"
         let title =
-            "Agent Monitor | \(state.sortKey.rawValue) \(state.ascending ? "ascending" : "descending") | every \(seconds) s\(frozen) | Updates: \(state.updates)"
+            state.frozen ? frozen + activity : "Agent Monitor | \(activity) | Updates: \(state.updates)"
         let status: String
         if let notice = state.notice {
             status = notice
@@ -93,11 +98,14 @@ public enum LiveReportLayout {
         }
     }
 
-    private static func helpLines(width: Int, height: Int, headerHeight: Int) -> [String] {
+    private static func helpLines(width: Int, height: Int, headerHeight: Int, frozen: Bool) -> [String] {
         let groups = [
-            ["↑/↓ select", "Enter open", "g group", "c/m/p sort", "r reverse", "[/] scroll"],
+            [
+                "↑/↓ select", "Enter open", "g group", "c/m/p sort", "r reverse",
+                frozen ? "Space resume" : "Space pause",
+            ],
             ["k terminate", "s message", "f focus"],
-            ["1/2 CPU -/+10%", "3/4 GB -/+1", "</> interval", "space freeze"],
+            ["1/2 CPU -/+10%", "3/4 GB -/+1", "</> interval", "[/] scroll"],
             ["-/+ size", "0 min", "9 max", "= restore", "q/Ctrl-C quit"],
         ]
         var lines: [String] = []
@@ -122,7 +130,12 @@ public enum LiveReportLayout {
             }
         }
         lines.append(line)
-        return lines.count <= height - headerHeight - 3 ? lines : ["Resize for all keys", "q/Ctrl-C quit"]
+        return lines.count <= height - headerHeight - 3
+            ? lines
+            : [
+                "Resize for all keys",
+                frozen ? "Space resume | q/Ctrl-C quit" : "Space pause | q/Ctrl-C quit",
+            ]
     }
 
     private static func abbreviated(_ text: String, width: Int) -> String {

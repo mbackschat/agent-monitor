@@ -75,3 +75,52 @@ private let emptySnapshot = MonitoringSnapshot(
     #expect(model.report.snapshot == nil)
     await model.stop()
 }
+
+@Test @MainActor func pauseHoldsRowsUntilResumeAndReopeningStartsLive() async throws {
+    let first = try menuBarFixture(pids: [42001, 42002])
+    let pending = try menuBarFixture(pids: [42003])
+    let latest = try menuBarFixture(pids: [42004])
+    let (samples, input) = AsyncStream<MonitoringSnapshot>.makeStream()
+    let (received, output) = AsyncStream<Void>.makeStream()
+    let model = MenuBarModel { receive in
+        for await sample in samples {
+            try await receive(sample)
+            output.yield(())
+        }
+    }
+    var acknowledgements = received.makeAsyncIterator()
+    model.toggleFreeze()
+    #expect(!model.report.frozen)
+    model.open()
+    model.toggleFreeze()
+    #expect(!model.report.frozen)
+    input.yield(first)
+    await acknowledgements.next()
+    model.report.toggleDisclosure()
+    let rows = model.report.visibleRows
+    model.toggleFreeze()
+    input.yield(pending)
+    await acknowledgements.next()
+    input.yield(latest)
+    await acknowledgements.next()
+    #expect(model.report.frozen)
+    #expect(model.report.snapshot == first)
+    #expect(model.report.visibleRows == rows)
+    model.toggleFreeze()
+    #expect(!model.report.frozen)
+    #expect(model.report.snapshot == latest)
+    let row = try #require(latest.findings.first)
+    model.begin(.terminate, row: .process(row.process))
+    model.toggleFreeze()
+    #expect(!model.report.frozen)
+    model.input(.escape)
+    model.toggleFreeze()
+    #expect(model.report.frozen)
+    model.panelSize = .tall
+    await model.stop()
+    model.open()
+    #expect(!model.report.frozen)
+    #expect(model.report.snapshot == nil)
+    #expect(model.panelSize == .tall)
+    await model.stop()
+}

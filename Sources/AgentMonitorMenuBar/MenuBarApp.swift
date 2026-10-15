@@ -50,9 +50,8 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
             popover.performClose(nil)
         } else if let button = item?.button {
             if let host = popover.contentViewController as? NSHostingController<MenuBarView> {
-                host.rootView.maximumBodyHeight = min(
-                    MenuBarLayout.maximumBodyHeight,
-                    max(100, (button.window?.screen?.visibleFrame.height ?? 600) - 140))
+                host.rootView.maximumHeight = max(
+                    100, (button.window?.screen?.visibleFrame.height ?? 600) - 40)
             }
             NSApplication.shared.activate()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)

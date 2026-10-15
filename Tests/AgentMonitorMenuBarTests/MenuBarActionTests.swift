@@ -43,6 +43,7 @@ private final class FakeActions: ProcessActions, Sendable {
 
 func menuBarFixture(
     pids: [Int32] = [42001], name: String = "swift-frontend", project: String = "sample-app",
+    cpu: Double = 184.6, memoryBytes: UInt64 = 1_420_000_000,
     provider: String = "codex", sessionID: String = "11111111-1111-4111-8111-111111111111"
 ) throws -> MonitoringSnapshot {
     let rows = try pids.map { pid in
@@ -51,7 +52,7 @@ func menuBarFixture(
             from: Data(
                 """
                 {"process":{"pid":\(pid),"startMicroseconds":1},"executable":"/fixture/\(name)",
-                "name":"\(name)","cpuPercent":184.6,"footprintBytes":1420000000,"cwd":"/projects/\(project)",
+                "name":"\(name)","cpuPercent":\(cpu),"footprintBytes":\(memoryBytes),"cwd":"/projects/\(project)",
                 "metadataStatus":"markerRead","attribution":{"provider":"\(provider)","evidence":"marker",
                 "context":"terminal","threadID":"\(sessionID)",
                 "runtime":{"pid":41000,"startMicroseconds":1},"terminal":"ttys001",

@@ -302,12 +302,12 @@ private func dividerRow(_ text: String) -> Int? {
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("FROZEN")
+        $0.contains("PAUSED")
     }
     try writeAllBytes(Array("> ".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("every 0.5 s") && !$0.contains("FROZEN")
+        $0.contains("every 0.5 s") && !$0.contains("PAUSED")
     }
 }

@@ -24,14 +24,14 @@ agent-monitor --tui --group session
 | `1` / `2` | Lower/raise the CPU threshold by 10 percentage points |
 | `3` / `4` | Lower/raise the memory threshold by 1 decimal GB |
 | `<` / `>` | Update less/more often: 0.5, 1, 2, 5, 10, 30 or 60 seconds, applied at once |
-| Space | Freeze/unfreeze the view; sampling continues and unfreezing shows the latest data |
+| Space | Pause/resume the view; sampling continues and resuming shows the latest data |
 | `[` / `]` | Scroll process details |
 | `-` / `+` | Shrink/grow the details pane by 5 percentage points |
 | `0` / `9` | Minimize/maximize the details pane |
 | `=` | Restore the chosen details split |
 | `q` / Ctrl-C | Quit |
 
-The header shows the update interval and, while frozen, `FROZEN at` the time of the displayed sample. A faster `--interval` than 0.5 seconds is kept until you press `<`. While frozen, selection, sorting, details and actions keep working on the frozen rows; actions still recheck the live process, and threshold changes stay pending until you unfreeze. Selection follows the process across sorting and refreshes. Details start minimized; opening them uses an initial 50% split. The adjustable split ranges from 10–90%, subject to available terminal space. Minimizing or maximizing does not overwrite your chosen split.
+The header shows the update interval and, while frozen, `PAUSED at` the time of the displayed sample. A faster `--interval` than 0.5 seconds is kept until you press `<`. While frozen, selection, sorting, details and actions keep working on the frozen rows; actions still recheck the live process, and threshold changes stay pending until you unfreeze. Selection follows the process across sorting and refreshes. Details start minimized; opening them uses an initial 50% split. The adjustable split ranges from 10–90%, subject to available terminal space. Minimizing or maximizing does not overwrite your chosen split.
 
 The layout adapts to terminal size. Narrow views abbreviate names and session IDs and omit the terminal/project column; open details for the full information. The process column contains names only, with executable paths and optional command arguments in details. Very small windows show a resize hint.
 
@@ -132,7 +132,9 @@ For the complete option reference and defaults, run `agent-monitor --help`.
 
 ## Menu bar app
 
-From a source checkout, run `bash scripts/menubar.sh run` and click the terminal icon in the menu bar. This opens a compact native panel, never a standalone window. The panel fits short lists and grows as you expand details; longer content scrolls within a height limit. Click anywhere on a row to expand or collapse it. Sessions with one displayed heavy process show that process directly, including its project and session context; only sessions with multiple displayed processes get a group row. Compact two-line summaries place CPU beside the process/PID and footprint beside project/session context. Expand a process to inspect attribution and find **Terminal**, **Message…** and **Terminate…**. CPU/footprint/PID sorting uses the TUI's sorting rules. The menu bar app uses the default agent-only scope and thresholds; threshold/interval controls, flat mode and freeze remain available in the TUI.
+From a source checkout, run `bash scripts/menubar.sh run` and click the terminal icon in the menu bar. This opens a compact native panel, never a standalone window. The panel keeps its height as rows update or details expand; content scrolls inside it. Choose **Compact**, **Standard** or **Tall** in the footer to change the height and see less or more content. The choice lasts until quit and is capped to fit the screen when opening. Click anywhere on a row to expand or collapse it. Sessions with one displayed heavy process show that process directly, including its project and session context; only sessions with multiple displayed processes get a group row. Compact two-line summaries place CPU beside the process/PID and footprint beside project/session context. Expand a process to inspect attribution and find **Terminal**, **Message…** and **Terminate…**. CPU/footprint/PID sorting uses the TUI's sorting rules. The menu bar app uses the default agent-only scope and thresholds; threshold/interval controls and flat mode remain available in the TUI.
+
+Click **Pause** (⇧⌘P) before targeting a moving row. It holds the displayed values and row order, with **Paused at** showing the sample time; **Resume** immediately shows the latest collected sample. Collection continues while paused and the panel is open. You can expand details and use actions against the held rows; actions still verify the live target. Pause is unavailable before the first sample or during action review. Reopening the panel starts live. For live values with less CPU-driven movement, choose PID sorting instead.
 
 **Terminate…** reviews one frozen process before sending SIGTERM. **Message…** verifies live recipients, defaults to the root agent where applicable, then shows the exact outgoing text including workload context before **Send message**. **Terminal** uses the existing terminal-focus adapters; macOS may ask to let Agent Monitor control the target terminal. Acceptance does not confirm termination or message delivery. No action automatically retries.
 

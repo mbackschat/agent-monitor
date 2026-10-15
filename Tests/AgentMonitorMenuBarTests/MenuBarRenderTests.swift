@@ -11,21 +11,31 @@ import Testing
 @MainActor func menuBarNativeLayoutRendersAtPopoverSize() async throws {
     let output = try #require(ProcessInfo.processInfo.environment["MENUBAR_PREVIEW_PATH"])
     let findings = try [
-        menuBarFixture(name: "node", project: "sample-graph", provider: "claude"),
+        menuBarFixture(
+            pids: [42001, 42004], name: "node", project: "sample-graph", cpu: 63.7, memoryBytes: 320_000_000,
+            provider: "claude"),
         menuBarFixture(
             pids: [42002], name: "swift-frontend", project: "sample-editor",
             sessionID: "22222222-2222-4222-8222-222222222222"),
         menuBarFixture(
-            pids: [42003], name: "java", project: "sample-graph", provider: "claude",
+            pids: [42003], name: "java", project: "sample-server", cpu: 0.2, memoryBytes: 1_900_000_000,
+            provider: "claude",
             sessionID: "33333333-3333-4333-8333-333333333333"),
+        menuBarFixture(
+            pids: [42005], name: "python", project: "sample-analysis", cpu: 46.2, memoryBytes: 610_000_000,
+            sessionID: "44444444-4444-4444-8444-444444444444"),
     ].flatMap(\.findings)
     let snapshot = MonitoringSnapshot(
-        timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1,
+        timestamp: Date(timeIntervalSince1970: 52_496), intervalSeconds: 1,
         cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
         sampledProcessCount: 42, unreadableProcessCount: 0, findings: findings)
     let model = MenuBarModel { receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
+    model.toggleFreeze()
+    let group = try #require(model.report.groups.first { $0.processes.count > 1 })
+    model.report.select(.group(group.id))
+    model.report.toggleDisclosure()
     _ = NSApplication.shared
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
@@ -34,7 +44,13 @@ import Testing
     host.layoutSubtreeIfNeeded()
     host.frame.size = host.fittingSize
     host.layoutSubtreeIfNeeded()
-    let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+    let bitmap = try #require(
+        NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: Int(host.bounds.width * 2),
+            pixelsHigh: Int(host.bounds.height * 2), bitsPerSample: 8, samplesPerPixel: 4,
+            hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+            bytesPerRow: 0, bitsPerPixel: 0))
+    bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
     let png = try #require(bitmap.representation(using: .png, properties: [:]))
     try png.write(to: URL(fileURLWithPath: output))
@@ -58,7 +74,7 @@ import Testing
     #expect(abs(host.fittingSize.width - width) < 0.5)
 }
 
-@Test @MainActor func sparseNativePanelFitsItsContent() async throws {
+@Test @MainActor func sparseNativePanelKeepsStandardHeight() async throws {
     let snapshot = try menuBarFixture()
     let model = MenuBarModel { receive in try await receive(snapshot) }
     model.open()
@@ -67,33 +83,32 @@ import Testing
     let host = NSHostingView(rootView: MenuBarView(model: model))
     host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
     host.layoutSubtreeIfNeeded()
-    #expect(host.fittingSize.height < 400)
-    #expect(host.fittingSize.height > 180)
+    #expect(host.fittingSize.height == 560)
     await model.stop()
 }
 
-@Test @MainActor func nativePanelGrowsForDisclosureAndCapsOverflow() async throws {
+@Test @MainActor func nativePanelKeepsHeightAcrossDisclosureAndOverflow() async throws {
     let snapshot = try menuBarFixture(pids: Array(42001...42030))
     let model = MenuBarModel { receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     _ = NSApplication.shared
-    let host = NSHostingView(rootView: MenuBarView(model: model, maximumBodyHeight: 300))
+    let host = NSHostingView(rootView: MenuBarView(model: model))
     host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
     host.layoutSubtreeIfNeeded()
     let collapsed = host.fittingSize.height
     model.report.toggleDisclosure()
     host.layoutSubtreeIfNeeded()
     let expanded = host.fittingSize.height
-    #expect(expanded > collapsed)
-    #expect(expanded <= 420)
+    #expect(expanded == collapsed)
+    #expect(expanded == 560)
     model.report.toggleDisclosure()
     host.layoutSubtreeIfNeeded()
     #expect(abs(host.fittingSize.height - collapsed) < 1)
     await model.stop()
 }
 
-@Test @MainActor func popoverTracksContentGeometryWithoutAVisibleWindow() async throws {
+@Test @MainActor func popoverKeepsHeightWhenOpeningActionReview() async throws {
     let snapshot = try menuBarFixture()
     let model = MenuBarModel { receive in try await receive(snapshot) }
     model.open()
@@ -109,13 +124,35 @@ import Testing
     popover.contentViewController = host
     host.view.layoutSubtreeIfNeeded()
     #expect(abs(popover.contentSize.width - MenuBarLayout.width) < 1)
-    #expect(popover.contentSize.height > 180)
-    #expect(popover.contentSize.height < 400)
+    #expect(popover.contentSize.height == 560)
     let row = try #require(snapshot.findings.first)
     model.begin(.terminate, row: .process(row.process))
     host.view.layoutSubtreeIfNeeded()
     let fitted = host.view.fittingSize
     host.view.layoutSubtreeIfNeeded()
     #expect(popover.contentSize == fitted)
+    #expect(fitted.height == 560)
+    model.panelSize = .tall
+    host.view.layoutSubtreeIfNeeded()
+    #expect(popover.contentSize.height == 720)
+    await model.stop()
+}
+
+@Test(arguments: MenuBarPanelSize.allCases)
+@MainActor func userChoosesPanelHeightWithAScreenLimit(size: MenuBarPanelSize) async throws {
+    let snapshot = try menuBarFixture()
+    let model = MenuBarModel { receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    _ = NSApplication.shared
+    let host = NSHostingView(rootView: MenuBarView(model: model, maximumHeight: 600))
+    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.layoutSubtreeIfNeeded()
+    model.panelSize = size
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize.height == min(size.height, 600))
+    model.toggleFreeze()
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize.height == min(size.height, 600))
     await model.stop()
 }
