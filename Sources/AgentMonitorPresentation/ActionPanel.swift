@@ -136,6 +136,21 @@ public struct ActionPanel: Equatable, Sendable {
     }
 
     func lines(width: Int, height: Int) -> [ReportLine] {
+        let (title, content, controls) = phaseContent()
+        let footer = Self.wrap([ReportLine(controls, style: .muted)], width: width)
+        let capacity = max(1, height - 1 - footer.count)
+        let rows = Self.wrap(content, width: width)
+        // Editing follows the insertion point; review starts at the target and is scrollable.
+        let start =
+            phase == .compose
+            ? max(0, rows.count - capacity + offset) : min(offset, max(0, rows.count - capacity))
+        let visible = Array(rows.dropFirst(start).prefix(capacity))
+        let heading = String((title + " [\(start + 1)-\(start + visible.count)/\(rows.count)]").prefix(width))
+        return [ReportLine(heading, style: .title)] + visible
+            + Array(repeating: ReportLine(""), count: max(0, capacity - visible.count)) + footer
+    }
+
+    private func phaseContent() -> (title: String, content: [ReportLine], controls: String) {
         let title: String
         let controls: String
         var content = ActionWording.target(process).map { ReportLine($0) }
@@ -156,21 +171,7 @@ public struct ActionPanel: Equatable, Sendable {
             controls = "Ctrl-C quit"
         case .compose, .review:
             title = phase == .compose ? "Message agent" : "Review exact message"
-            if let recipient {
-                content += [ReportLine("Recipient: \(recipient.label) / \(recipient.id)")]
-                if let reason = recipient.unavailableReason {
-                    content += [ReportLine("Unavailable: \(reason)", style: .warning)]
-                }
-            }
-            if draft?.recipients.choices.count == 2 {
-                content += [ReportLine("Tab chooses root or selected agent while editing.", style: .muted)]
-            }
-            content += [
-                ReportLine(MessageWording.note(process.attribution.provider), style: .muted), ReportLine(""),
-            ]
-            var message = (draft?.message(text) ?? text).components(separatedBy: "\n")
-            if phase == .compose { message[message.count - 1] += "▏" }
-            content += message.map { ReportLine($0) }
+            content += messageContent()
             controls =
                 phase == .compose
                 ? "Enter review | Tab recipient | Esc cancel | ↑/↓ scroll"
@@ -197,39 +198,49 @@ public struct ActionPanel: Equatable, Sendable {
             }
             controls = "Esc close | ↑/↓ scroll"
         }
-        func wrap(_ lines: [ReportLine]) -> [ReportLine] {
-            lines.flatMap { line in
-                if line.text.isEmpty { return [line] }
-                var rows: [ReportLine] = []
-                var row = ""
-                var columns = 0
-                for character in line.text {
-                    // Conservatively reserve two cells for non-ASCII text: the one-row
-                    // terminal view clips CJK/emoji if wrapping only counts characters.
-                    let cells = character.unicodeScalars.allSatisfy { $0.isASCII } ? 1 : 2
-                    if columns + cells > width {
-                        rows.append(ReportLine(row, style: line.style))
-                        row = ""
-                        columns = 0
-                    }
-                    row.append(character)
-                    columns += cells
-                }
-                if !row.isEmpty { rows.append(ReportLine(row, style: line.style)) }
-                return rows
+        return (title, content, controls)
+    }
+
+    private func messageContent() -> [ReportLine] {
+        var content: [ReportLine] = []
+        if let recipient {
+            content += [ReportLine("Recipient: \(recipient.label) / \(recipient.id)")]
+            if let reason = recipient.unavailableReason {
+                content += [ReportLine("Unavailable: \(reason)", style: .warning)]
             }
         }
-        let footer = wrap([ReportLine(controls, style: .muted)])
-        let capacity = max(1, height - 1 - footer.count)
-        let rows = wrap(content)
-        // Editing follows the insertion point; review starts at the target and is scrollable.
-        let start =
-            phase == .compose
-            ? max(0, rows.count - capacity + offset) : min(offset, max(0, rows.count - capacity))
-        let visible = Array(rows.dropFirst(start).prefix(capacity))
-        let heading = String((title + " [\(start + 1)-\(start + visible.count)/\(rows.count)]").prefix(width))
-        return [ReportLine(heading, style: .title)] + visible
-            + Array(repeating: ReportLine(""), count: max(0, capacity - visible.count)) + footer
+        if draft?.recipients.choices.count == 2 {
+            content += [ReportLine("Tab chooses root or selected agent while editing.", style: .muted)]
+        }
+        content += [
+            ReportLine(MessageWording.note(process.attribution.provider), style: .muted), ReportLine(""),
+        ]
+        var message = (draft?.message(text) ?? text).components(separatedBy: "\n")
+        if phase == .compose { message[message.count - 1] += "▏" }
+        return content + message.map { ReportLine($0) }
+    }
+
+    private static func wrap(_ lines: [ReportLine], width: Int) -> [ReportLine] {
+        lines.flatMap { line in
+            if line.text.isEmpty { return [line] }
+            var rows: [ReportLine] = []
+            var row = ""
+            var columns = 0
+            for character in line.text {
+                // Conservatively reserve two cells for non-ASCII text: the one-row
+                // terminal view clips CJK/emoji if wrapping only counts characters.
+                let cells = character.unicodeScalars.allSatisfy { $0.isASCII } ? 1 : 2
+                if columns + cells > width {
+                    rows.append(ReportLine(row, style: line.style))
+                    row = ""
+                    columns = 0
+                }
+                row.append(character)
+                columns += cells
+            }
+            if !row.isEmpty { rows.append(ReportLine(row, style: line.style)) }
+            return rows
+        }
     }
 }
 
