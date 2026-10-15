@@ -1,29 +1,21 @@
 # Research index
 
-Research checked on 2026-10-14 for a macOS tool that identifies CPU and memory consumption caused by terminal agent sessions: Codex CLI first, Claude Code afterward. Desktop agent variants remain possible future extensions. Findings describe inspected sources; recommendations are not implementation decisions. No dependencies, skills, hooks, or monitoring services were installed for this research.
+These notes record dated observations, cited source behavior, labeled inferences and unresolved empirical questions. Dates and versions apply to each investigation; editorial cleanup does not revalidate upstream sources. Raw measurements retain their original scope and limitations.
 
-## Start here
+Current behavior and accepted contracts belong in the [README](../../README.md) and [architecture](../architecture.md). Repeatable checks and live coverage belong in [development](../development.md#validation-coverage); unfinished work and scope decisions belong in [PLAN.md](../../PLAN.md). Unapproved designs are separate [menu bar](../proposals/menubar-app.md) and [contributor-model](../proposals/agent-working-model.md) proposals.
 
-- [Product vision and requirements](PRODUCT.md): confirmed scope, proposed behavior, and unresolved product decisions.
-- [Research assessment](assessment.md): decision-oriented synthesis covering existing alternatives, code reuse, attribution, measurement, and development skills.
-- [Proposed agent working model](agent-working-model.md): HIGH, MEDIUM, and LOW responsibilities, escalation, and verification boundaries; does not activate delegation.
+## Findings by topic
 
-## Evidence notes
-
-- [Process termination and session messaging](session-actions.md): proposed TUI actions, installed-provider capabilities, and limits of reaching existing sessions; feasibility only.
-- [Messaging an existing Claude Code session](claude-session-messaging.md): installed-CLI and documentation evidence for verifying and reaching a running Claude session from a separate process.
-- [Focusing the terminal that hosts a session](terminal-focus.md): per-terminal mechanisms, macOS Automation/activation limits, and a recommended minimal design for bringing a session's window, tab, and pane to the front; feasibility only.
-- [Menu bar app as an alternative front end](menubar-app.md): reuse of the presentation and action layers, sandbox and distribution limits, provider CLI lookup, sampling cadence, and blast radius; feasibility only.
-
-- [Terminal UI options](terminal-ui.md): Swift library evaluation and integration evidence for the opt-in live report, disclosure behavior, and the boundary needed for future native presentation.
-
-- [Codex terminal-session attribution](codex-terminal-attribution.md): priority investigation using the installed version's source, root/thread/runtime identities, inherited markers, and specific-session evidence for heavy consumers.
-- [Local terminal-process observations](terminal-process-observations.md): anonymized native process observations, synthetic orphan/marker experiments, environment-inspection limits, and an acceptance matrix.
-- [Existing solutions and reusable code](existing-solutions.md): direct alternatives, general monitors, implementation evidence, license observations, and reuse limits.
-- [macOS process measurement and attribution](macos-process-attribution.md): native APIs, CPU and memory semantics, process identity, permissions, orphaned children, and event collection limits.
-- [Development skills and agent integration](development-skills-and-agent-integration.md): skills for Codex and Claude Code, staged tooling recommendations, session metadata, hooks, and public-interface limitations.
-
-Each evidence note separates findings, inferences, and gaps. Recheck source revisions and compatibility before copying code or installing tooling. Current checks, live coverage limits and skill setup belong in the [development guide](../development.md).
+- [Codex process and session identities](codex-terminal-attribution.md): pinned marker injection, logical thread/root semantics, writer descriptors and tool-call correlation limits.
+- [Claude session metadata and messaging](claude-session-messaging.md): marker lifecycle, session lookup, inbox protocol evidence and the disposable-session transport check.
+- [Process signaling and messaging interfaces](session-actions.md): signal races, queue/resume interfaces, recipient identity and acceptance versus delivery.
+- [Terminal focus mechanisms](terminal-focus.md): host identifiers, per-terminal APIs, macOS permission/activation behavior and untested desktop states.
+- [Menu bar feasibility](menubar-app.md): UI/lifecycle APIs, launch environment, process access, signing and Homebrew evidence, with unverified inferences identified.
+- [Swift terminal UI findings](terminal-ui.md): library observations, discovery-socket failure, direct runtime behavior and bounded probe measurements.
+- [Local process observations](terminal-process-observations.md): anonymized process topology, marker readability and synthetic orphan experiments.
+- [macOS measurement and attribution](macos-process-attribution.md): native APIs, counter units, process identity, permissions and event-collection limits.
+- [Existing tools and reusable mechanisms](existing-solutions.md): inspected source, license files, maintenance observations and untested compatibility.
+- [Development tools](development-tools.md): skill contents, host discovery differences and audit/benchmark gaps.
 
 ## Retained measurements
 

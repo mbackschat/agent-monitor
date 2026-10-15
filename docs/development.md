@@ -40,6 +40,10 @@ The report table's character-based sizing can misalign wide Unicode names; this 
 
 PTY screen checks have occasionally timed out in development; passing retries did not establish the cause. Retain failed-run evidence when investigating timing failures.
 
+## Manual terminal-focus check
+
+With disposable Terminal.app tabs, check selection in a background window, minimized window, another Space, full screen, and when monitor and target share a window. Record which activation route macOS honors and the first Automation prompt, including the controller named by the prompt. Tab selection was user-confirmed on 2026-10-15; these remaining cases are tracked in [PLAN.md](../PLAN.md#open-follow-ups). Fake-adapter tests do not verify desktop activation. The [terminal research](research/terminal-focus.md) explains the platform limits.
+
 ## README preview
 
 The [preview script](../scripts/preview.sh) builds the development-only `monitor-preview` target. Its [synthetic fixture](../Tools/Preview/Fixture.swift) feeds the production `LiveReportState` and `LiveReportLayout`; the [SVG generator](../Tools/Preview/Preview.swift) adds illustrative terminal decoration. It never samples processes or reads agent sessions. Fixed identities, measurements, time, update count, and a 120 × 19 viewport make the output reproducible.
@@ -63,7 +67,7 @@ The PoC uses Swift 6 language mode with complete concurrency checking, a Swift 6
 
 `AgentMonitorCore` owns native inspection, process-lifetime history, attribution, and threshold filtering. `AgentMonitor` uses Apple's Argument Parser for typed options, generated help, and validation; the dependency is pinned to 1.8.2 in [Package.swift](../Package.swift). The migration passed the Swift suite, release build, help/error/JSON checks, and controlled attribution fixtures. Preserve the generated [Package.resolved](../Package.resolved). The monitoring core has no package dependencies. [Argument Parser release](https://github.com/apple/swift-argument-parser/releases/tag/1.8.2).
 
-The completed [SwiftTUI evaluation](research/terminal-ui.md) used version 0.14.0 and synthetic data; its temporary package/build directory has been removed. The monitor now declares the same official remote dependency, exactly pinned in [Package.swift](../Package.swift). It compiles and runs through the public `RunLoop`, avoiding the scene launcher’s discovery socket. See the [evaluation findings](research/terminal-ui.md#source-evaluation-and-local-status).
+The completed [SwiftTUI evaluation](research/terminal-ui.md) used version 0.14.0 and synthetic data; its temporary package/build directory has been removed. The monitor now declares the same official remote dependency, exactly pinned in [Package.swift](../Package.swift). It compiles and runs through the public `RunLoop`, avoiding the scene launcher’s discovery socket. See the [evaluation findings](research/terminal-ui.md#libraries-inspected).
 
 The mutable monitor is an exclusively owned value in one sequential sampling loop. Models are `Sendable`; there is no shared mutable singleton, unchecked sendability, or UI actor dependency. The async loop uses cancellable sleep. Native pointers are confined to the reader and buffer parser. Preserve those boundaries if adding a UI or parallel collection.
 

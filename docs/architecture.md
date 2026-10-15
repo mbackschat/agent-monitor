@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-Agent Monitor maps heavy processes to specific coding-agent sessions. Sampling and attribution must be reusable by text output, an optional terminal UI, and a possible future menu bar application. This is a PoC. The integrated TUI has passed presentation and real-terminal interaction checks. See [PLAN.md](../PLAN.md) for task status and [PRODUCT.md](research/PRODUCT.md) for scope.
+Agent Monitor maps heavy processes to specific coding-agent sessions. Sampling and attribution must be reusable by text output, an optional terminal UI, and a possible future menu bar application. See [PLAN.md](../PLAN.md) for open work and scope, and the [development guide](development.md#validation-coverage) for validation limits.
 
 ## Current implementation
 
@@ -77,7 +77,7 @@ Text, TUI, and GUI share measurement and attribution results. Their rendering an
 
 Core tests continue to use deterministic observations and native measurement checks. The extracted session needs cadence, cancellation, and error tests with controllable inputs. Presentation tests cover selection identity, disclosure, unknown/ambiguous states, and narrow layouts. A real terminal test must verify refresh, resizing, input responsiveness, and terminal restoration. Measure TUI overhead separately from the existing collector result.
 
-The isolated SwiftTUI runtime passed terminal interaction checks; [TUI research](research/terminal-ui.md) records the working host, measured debug/release overhead and the adoption decision. Integration has dedicated presentation tests and a PTY journey. A menu bar application is a future consumer of the contract, not part of this PoC change.
+The isolated SwiftTUI runtime passed terminal interaction checks; [TUI research](research/terminal-ui.md) records the host behavior and measured probe overhead behind the adoption decision. Integration has dedicated presentation tests and a PTY journey. A menu bar application is a future consumer of the contract, not part of this PoC change.
 
 ## SwiftTUI host evaluation
 
@@ -120,7 +120,7 @@ Runtime recognition is a set of claims, not a first-match lookup. Multiple adapt
 
 `ProcessSample.runtimeProvider` delegates to the built-in registry for the unique recognized provider. `Monitor`, native metadata enrichment and marker parsing use that same registry in production; internal injection permits tests to demonstrate the complete path with a synthetic adapter. `HeavyProcess.isSharedRuntime` checks the runtime lifetime and delegates evidence interpretation to the registered built-in provider; presentation supplies only the wording. No provider-specific recognition switch belongs in the sampler, ancestry resolver or UI.
 
-The existing `AgentProvider` enum, marker types, snapshot evidence and JSON schema remain unchanged. Messaging stays in the separate `AgentMessaging` capability and terminal focus in `TerminalFocusAdapter`; neither is required for attribution. Actions and sampling use the same attribution path, preserving recipient verification, process identity checks and launch-origin limitations described in [session actions](research/session-actions.md#recipient-and-process-context).
+The existing `AgentProvider` enum, marker types, snapshot evidence and JSON schema remain unchanged. Messaging stays in the separate `AgentMessaging` capability and terminal focus in `TerminalFocusAdapter`; neither is required for attribution. Actions and sampling use the same attribution path, preserving recipient verification, process identity checks and launch-origin limitations described in [action contract](#process-and-session-actions).
 
 Contract tests use a synthetic adapter to prove that custom recognition, declared marker keys, observation requests and detached-runtime evidence flow through the shared pipeline. They also cover duplicate registrations, overlapping recognition in both orders, malformed markers, built-in executable shapes and writer-path decoding. The existing attribution fixtures remain the behavioral oracle for nested agents, same-directory sessions, PID reuse, detached children and uncertainty. See [development guidance](development.md#changing-attribution-adapters).
 
