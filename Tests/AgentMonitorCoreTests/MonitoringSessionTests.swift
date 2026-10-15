@@ -33,7 +33,7 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
         events.withLock { $0.append("metadata") }
         return ProcessMetadata(
-            marker: SessionMarker(threadID: sessionA, provider: .codex),
+            markers: [SessionMarker(threadID: sessionA, provider: .codex)],
             command: includeCommand ? ["worker"] : nil)
     }
 

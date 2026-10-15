@@ -79,7 +79,9 @@ public enum MetadataStatus: String, Codable, Sendable {
 }
 
 public struct ProcessMetadata: Sendable {
-    public var marker: SessionMarker?
+    /// At most one per provider; two only when one agent runs inside the other, and attribution
+    /// then chooses by the nearest runtime.
+    public var markers: [SessionMarker]
     public var status: MetadataStatus
     public var cwd: String?
     public var command: [String]?
@@ -89,11 +91,11 @@ public struct ProcessMetadata: Sendable {
     public var listeningSockets: [String]
 
     public init(
-        marker: SessionMarker? = nil, status: MetadataStatus = .notObserved,
+        markers: [SessionMarker] = [], status: MetadataStatus = .notObserved,
         cwd: String? = nil, command: [String]? = nil, terminal: String? = nil, writerThreadIDs: [String] = [],
         listeningSockets: [String] = []
     ) {
-        self.marker = marker
+        self.markers = markers
         self.status = status
         self.cwd = cwd
         self.command = command

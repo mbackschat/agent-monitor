@@ -50,7 +50,7 @@ public struct Monitor: Sendable {
         var updated = metadata
         switch metadata.status {
         case .unavailable, .notObserved:
-            updated.marker = metadata.marker ?? node.metadata.marker
+            if updated.markers.isEmpty { updated.markers = node.metadata.markers }
         case .markerRead, .malformed:
             break
         }
@@ -148,18 +148,28 @@ public struct Monitor: Sendable {
         var marker: SessionMarker?
         var markerOwner: ProcessIdentity?
         var runtime: Node?
-        var malformedMetadata = false
-        for key in chain(from: identity) {
+        var unresolvedMetadata = false
+        let ancestors = chain(from: identity)
+        let nearest = ancestors.lazy.compactMap { self.nodes[$0]?.sample.runtimeProvider }.first
+        for key in ancestors {
             guard let node = nodes[key] else { continue }
             path.append(key)
             if node.sample.runtimeProvider != nil {
                 runtime = node
                 break
             }
-            if marker == nil, node.metadata.status == .malformed { malformedMetadata = true }
-            if marker == nil, let value = node.metadata.marker {
-                marker = value
-                markerOwner = key
+            if marker == nil, node.metadata.status == .malformed { unresolvedMetadata = true }
+            if marker == nil, !node.metadata.markers.isEmpty {
+                // Nested agents leave both markers; the inner agent is the nearest runtime.
+                let markers = node.metadata.markers
+                if let value = markers.count == 1
+                    ? markers[0] : markers.first(where: { $0.provider == nearest })
+                {
+                    marker = value
+                    markerOwner = key
+                } else {
+                    unresolvedMetadata = true
+                }
             }
         }
         // A detached workload keeps the inbox path its runtime exported (docs/research/
@@ -175,7 +185,7 @@ public struct Monitor: Sendable {
         let providerConflict =
             marker != nil && runtime?.sample.runtimeProvider != nil
             && marker?.provider != runtime?.sample.runtimeProvider
-        if providerConflict || malformedMetadata {
+        if providerConflict || unresolvedMetadata {
             evidence = .ambiguous
             thread = nil
         } else if let marker {
@@ -201,7 +211,7 @@ public struct Monitor: Sendable {
                 $0.sample.terminal == nil && $0.sample.terminalDevice == nil ? .nonterminal : .terminal
             } ?? .unverified,
             threadID: thread,
-            rootSessionID: providerConflict || malformedMetadata ? nil : marker?.rootSessionID,
+            rootSessionID: providerConflict || unresolvedMetadata ? nil : marker?.rootSessionID,
             runtime: runtime?.sample.identity,
             terminal: runtime?.metadata.terminal ?? runtime?.sample.terminal,
             runtimeDirectory: runtime?.metadata.cwd, candidateThreadIDs: candidates, ancestry: path

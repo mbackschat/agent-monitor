@@ -12,10 +12,11 @@ import Testing
     monitor.ingest([codex, unresolved, conflicting, detached, sample(50), sample(60, memory: 1)])
     monitor.enrich(ProcessMetadata(writerThreadIDs: [sessionA, sessionB]), for: codex.identity)
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .claude)),
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .claude)]),
         for: conflicting.identity)
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionB, provider: .codex)), for: detached.identity)
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionB, provider: .codex)]),
+        for: detached.identity)
     let agents = monitor.findings(scope: .agentsOnly)
     #expect(Set(agents.map { $0.process.pid }) == [10, 20, 30, 40])
     #expect(agents.first { $0.process.pid == 30 }?.attribution.provider == nil)
@@ -44,10 +45,10 @@ func sample(
     var monitor = Monitor()
     monitor.ingest([a, b, sample(40, memory: 1)])
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex), cwd: "/same"),
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)], cwd: "/same"),
         for: a.identity)
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionB, provider: .codex), cwd: "/same"),
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionB, provider: .codex)], cwd: "/same"),
         for: b.identity)
     let rows = monitor.findings()
     #expect(rows.count == 2)
@@ -61,7 +62,7 @@ func sample(
     var monitor = Monitor()
     monitor.ingest([parent, child])
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: parent.identity)
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]), for: parent.identity)
     child.parentPID = 1
     monitor.ingest([child])
     monitor.enrich(ProcessMetadata(status: .unavailable), for: parent.identity)
@@ -75,7 +76,7 @@ func sample(
     var monitor = Monitor()
     monitor.ingest([old])
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: old.identity)
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]), for: old.identity)
     monitor.ingest([sample(20, start: 200, at: 2, cpu: 500)])
     let row = try #require(monitor.findings().first)
     #expect(row.attribution.threadID == nil)
@@ -88,7 +89,7 @@ func sample(
     var monitor = Monitor()
     monitor.ingest([parent, child])
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: parent.identity)
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]), for: parent.identity)
     #expect(try #require(monitor.findings().first).attribution.threadID == nil)
 }
 
@@ -100,7 +101,7 @@ func sample(
     monitor.ingest([outer, nested, worker])
     monitor.enrich(ProcessMetadata(writerThreadIDs: [sessionA]), for: outer.identity)
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: nested.identity)
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]), for: nested.identity)
     let result = try #require(monitor.findings().first)
     #expect(result.attribution.runtime == nested.identity)
     #expect(result.attribution.threadID == nil)
@@ -125,9 +126,11 @@ func sample(
     var monitor = Monitor()
     monitor.ingest([parent, child])
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: parent.identity)
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]), for: parent.identity)
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionB, rootSessionID: sessionA, provider: .codex)),
+        ProcessMetadata(markers: [
+            SessionMarker(threadID: sessionB, rootSessionID: sessionA, provider: .codex)
+        ]),
         for: child.identity)
     let result = try #require(monitor.findings().first)
     #expect(result.attribution.threadID == sessionB)
@@ -171,7 +174,7 @@ func sample(
     var monitor = Monitor()
     monitor.ingest([runtime, worker])
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: worker.identity)
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]), for: worker.identity)
     let row = try #require(monitor.findings().first)
     #expect(row.attribution.evidence == .ambiguous)
     #expect(row.attribution.threadID == nil)
@@ -194,7 +197,7 @@ func sample(
     var monitor = Monitor()
     monitor.ingest([worker])
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: worker.identity)
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]), for: worker.identity)
     worker.executable = "/different/program"
     monitor.ingest([worker])
     #expect(try #require(monitor.findings().first).attribution.threadID == nil)
@@ -207,7 +210,7 @@ func sample(
     monitor.ingest([parent, worker])
     monitor.enrich(ProcessMetadata(status: .malformed), for: parent.identity)
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: worker.identity)
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]), for: worker.identity)
     let row = try #require(monitor.findings().first)
     #expect(row.attribution.threadID == sessionA)
     #expect(row.attribution.evidence == .marker)
@@ -249,7 +252,7 @@ func sample(
     var monitor = Monitor()
     monitor.ingest([runtime, worker])
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .codex)), for: worker.identity)
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]), for: worker.identity)
     #expect(monitor.attributingMarker(for: worker.identity) == nil)
 }
 
@@ -263,7 +266,7 @@ func sample(
     var monitor = Monitor()
     monitor.ingest([runtime, other, workload])
     monitor.enrich(
-        ProcessMetadata(marker: SessionMarker(threadID: sessionA, provider: .claude, inboxSocket: inbox)),
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .claude, inboxSocket: inbox)]),
         for: workload.identity)
     #expect(Set(monitor.enrichmentTargets().map(\.identity.pid)) == [10, 15, 20])
     monitor.enrich(ProcessMetadata(listeningSockets: [inbox]), for: runtime.identity)
@@ -289,8 +292,11 @@ func detachedWorkloadDoesNotGuessItsRuntime(case name: String) throws {
     monitor.ingest([runtime, twin, workload])
     monitor.enrich(
         ProcessMetadata(
-            marker: SessionMarker(
-                threadID: sessionA, provider: name == "codex marker" ? .codex : .claude, inboxSocket: inbox)),
+            markers: [
+                SessionMarker(
+                    threadID: sessionA, provider: name == "codex marker" ? .codex : .claude,
+                    inboxSocket: inbox)
+            ]),
         for: workload.identity)
     monitor.enrich(
         ProcessMetadata(listeningSockets: name == "not listening" ? [] : [inbox]), for: runtime.identity)
@@ -308,8 +314,51 @@ func detachedWorkloadDoesNotGuessItsRuntime(case name: String) throws {
     monitor.ingest([runtime, other, workload])
     monitor.enrich(
         ProcessMetadata(
-            marker: SessionMarker(threadID: sessionA, provider: .claude, inboxSocket: "/tmp/cc-socks/10.sock")
-        ),
+            markers: [
+                SessionMarker(threadID: sessionA, provider: .claude, inboxSocket: "/tmp/cc-socks/10.sock")
+            ]),
         for: workload.identity)
     #expect(Set(monitor.enrichmentTargets().map(\.identity.pid)) == [10, 20])
+}
+
+// Codex → claude → worker and Claude → codex → worker both leave both markers in the worker's
+// environment; the inner agent is the nearest runtime, and it set its own marker last.
+@Test(arguments: [
+    ("/usr/local/bin/claude", AgentProvider.claude, sessionA), ("/opt/homebrew/bin/codex", .codex, sessionB),
+])
+func nestedAgentWorkloadBelongsToTheNearestRuntime(inner: String, provider: AgentProvider, session: String)
+    throws
+{
+    let outer = sample(
+        5, executable: inner.hasSuffix("codex") ? "/usr/local/bin/claude" : "/opt/homebrew/bin/codex",
+        memory: 1)
+    let runtime = sample(10, parent: 5, executable: inner, terminal: "ttys010", memory: 1)
+    let worker = sample(20, parent: 10)
+    var monitor = Monitor()
+    monitor.ingest([outer, runtime, worker])
+    monitor.enrich(
+        ProcessArguments.parse(
+            argumentBuffer(environment: ["CLAUDE_CODE_SESSION_ID=\(sessionA)", "CODEX_THREAD_ID=\(sessionB)"])
+        ),
+        for: worker.identity)
+    let row = try #require(monitor.finding(for: worker.identity))
+    #expect(row.attribution.provider == provider)
+    #expect(row.attribution.threadID == session)
+    #expect(row.attribution.runtime == runtime.identity)
+    #expect(row.attribution.evidence == .marker)
+}
+
+@Test func detachedWorkloadWithNestedMarkersStaysAmbiguous() throws {
+    let worker = sample(20)
+    var monitor = Monitor()
+    monitor.ingest([worker])
+    monitor.enrich(
+        ProcessArguments.parse(
+            argumentBuffer(environment: ["CLAUDE_CODE_SESSION_ID=\(sessionA)", "CODEX_THREAD_ID=\(sessionB)"])
+        ),
+        for: worker.identity)
+    let row = try #require(monitor.finding(for: worker.identity))
+    #expect(row.attribution.evidence == .ambiguous)
+    #expect(row.attribution.threadID == nil)
+    #expect(row.attribution.provider == nil)
 }

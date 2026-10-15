@@ -41,20 +41,16 @@ public enum ProcessArguments {
             if let previous = markers[key], previous != normalized { return malformed }
             markers[key] = normalized
         }
-        if markers["CLAUDE_CODE_SESSION_ID"] != nil,
-            markers["CODEX_THREAD_ID"] != nil || markers["CODEX_SESSION_ID"] != nil
-        {
-            return malformed
-        }
-        let marker =
+        let found = [
+            markers["CODEX_THREAD_ID"].map {
+                SessionMarker(threadID: $0, rootSessionID: markers["CODEX_SESSION_ID"], provider: .codex)
+            },
             markers["CLAUDE_CODE_SESSION_ID"].map {
                 SessionMarker(threadID: $0, provider: .claude, inboxSocket: inbox(sockets))
-            }
-            ?? markers["CODEX_THREAD_ID"].map {
-                SessionMarker(threadID: $0, rootSessionID: markers["CODEX_SESSION_ID"], provider: .codex)
-            }
+            },
+        ].compactMap { $0 }
         return ProcessMetadata(
-            marker: marker, status: marker == nil ? .notObserved : .markerRead,
+            markers: found, status: found.isEmpty ? .notObserved : .markerRead,
             command: includeCommand ? arguments : nil
         )
     }

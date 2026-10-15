@@ -17,7 +17,7 @@ func argumentBuffer(arguments: [String] = ["worker", ""], environment: [String])
         argumentBuffer(environment: [
             "PRIVATE_TOKEN=never-output", "CODEX_THREAD_ID=\(sessionB)", "CODEX_SESSION_ID=\(sessionA)",
         ]), includeCommand: true)
-    #expect(result.marker == SessionMarker(threadID: sessionB, rootSessionID: sessionA, provider: .codex))
+    #expect(result.markers == [SessionMarker(threadID: sessionB, rootSessionID: sessionA, provider: .codex)])
     #expect(result.command == ["worker", ""])
     #expect(result.status == .markerRead)
 }
@@ -25,7 +25,7 @@ func argumentBuffer(arguments: [String] = ["worker", ""], environment: [String])
 @Test func argumentsAreNotRetainedByDefault() {
     let result = ProcessArguments.parse(argumentBuffer(environment: ["CODEX_THREAD_ID=\(sessionA)"]))
     #expect(result.command == nil)
-    #expect(result.marker?.threadID == sessionA)
+    #expect(result.markers.map(\.threadID) == [sessionA])
 }
 
 @Test func conflictingMarkersAreNotResolvedByOrder() {
@@ -33,7 +33,7 @@ func argumentBuffer(arguments: [String] = ["worker", ""], environment: [String])
         argumentBuffer(environment: [
             "CODEX_THREAD_ID=\(sessionA)", "CODEX_THREAD_ID=\(sessionB)",
         ]))
-    #expect(result.marker == nil)
+    #expect(result.markers.isEmpty)
     #expect(result.status == .malformed)
 }
 
@@ -44,17 +44,22 @@ func truncatedOrImpossibleBufferIsRejected(bytes: [UInt8]) {
 
 @Test func claudeSessionMarkerIsParsedWithoutReadingTranscripts() {
     let result = ProcessArguments.parse(argumentBuffer(environment: ["CLAUDE_CODE_SESSION_ID=\(sessionA)"]))
-    #expect(result.marker == SessionMarker(threadID: sessionA, provider: .claude))
+    #expect(result.markers == [SessionMarker(threadID: sessionA, provider: .claude)])
     #expect(result.status == .markerRead)
 }
 
-@Test func mixedProviderMarkersAreNotGuessed() {
+// One agent running inside the other passes both markers on; attribution picks by nearest runtime.
+@Test func nestedProviderMarkersAreBothKept() {
     let result = ProcessArguments.parse(
         argumentBuffer(environment: [
             "CLAUDE_CODE_SESSION_ID=\(sessionA)", "CODEX_THREAD_ID=\(sessionB)",
         ]))
-    #expect(result.marker == nil)
-    #expect(result.status == .malformed)
+    #expect(
+        result.markers == [
+            SessionMarker(threadID: sessionB, provider: .codex),
+            SessionMarker(threadID: sessionA, provider: .claude),
+        ])
+    #expect(result.status == .markerRead)
 }
 
 @Test func claudeInboxSocketIsKeptOnlyBesideItsOwnSessionMarker() {
@@ -64,10 +69,10 @@ func truncatedOrImpossibleBufferIsRejected(bytes: [UInt8]) {
             "CLAUDE_CODE_SESSION_ID=\(sessionA)", "CLAUDE_CODE_MESSAGING_SOCKET=\(socket)",
             "CLAUDE_CODE_MESSAGING_TOKEN=never-retained",
         ]))
-    #expect(claude.marker == SessionMarker(threadID: sessionA, provider: .claude, inboxSocket: socket))
+    #expect(claude.markers == [SessionMarker(threadID: sessionA, provider: .claude, inboxSocket: socket)])
     let orphan = ProcessArguments.parse(
         argumentBuffer(environment: ["CLAUDE_CODE_MESSAGING_SOCKET=\(socket)"]))
-    #expect(orphan.marker == nil)
+    #expect(orphan.markers.isEmpty)
     #expect(orphan.status == .notObserved)
 }
 
@@ -81,6 +86,6 @@ func unusableInboxPathKeepsTheSessionMarker(paths: [String]) {
         argumentBuffer(
             environment: ["CLAUDE_CODE_SESSION_ID=\(sessionA)"]
                 + paths.map { "CLAUDE_CODE_MESSAGING_SOCKET=\($0)" }))
-    #expect(result.marker == SessionMarker(threadID: sessionA, provider: .claude))
+    #expect(result.markers == [SessionMarker(threadID: sessionA, provider: .claude)])
     #expect(result.status == .markerRead)
 }
