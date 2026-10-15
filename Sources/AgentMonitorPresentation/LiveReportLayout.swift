@@ -193,10 +193,10 @@ public enum LiveReportLayout {
                     case .wide(let processWidth, let agentWidth):
                         let project = row.attribution.runtimeDirectory ?? row.cwd
                         description =
-                            "\(pad(row.name, to: processWidth)) \(pad("\(provider)/\(session)", to: agentWidth)) \(row.attribution.terminal ?? "no tty") / \(project.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "?")"
+                            "\(ReportTable.pad(row.name, to: processWidth)) \(ReportTable.pad("\(provider)/\(session)", to: agentWidth)) \(row.attribution.terminal ?? "no tty") / \(project.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "?")"
                     case .compact(let processWidth, let agentWidth):
                         description =
-                            pad(abbreviated(row.name, width: processWidth), to: processWidth)
+                            ReportTable.pad(abbreviated(row.name, width: processWidth), to: processWidth)
                             + " " + abbreviated("\(provider)/\(session)", width: agentWidth)
                     }
                 }
@@ -294,8 +294,5 @@ public enum LiveReportLayout {
         let components = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
         return String(
             format: "%02d:%02d:%02d", components.hour ?? 0, components.minute ?? 0, components.second ?? 0)
-    }
-    private static func pad(_ value: String, to width: Int) -> String {
-        String(value.prefix(width)).padding(toLength: width, withPad: " ", startingAt: 0)
     }
 }
