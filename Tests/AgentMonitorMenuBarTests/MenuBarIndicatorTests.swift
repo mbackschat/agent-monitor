@@ -24,7 +24,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     indicator.fail()
     #expect(indicator.level == nil)
     #expect(!indicator.highlighted)
-    #expect(indicator.tooltip.contains("unavailable"))
+    #expect(indicator.statusDescription.contains("unavailable"))
 }
 
 @Test func newHeavyLoadHighlightsForTwoSamplesWithoutRenewingSustainedLoad() throws {
@@ -78,7 +78,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(indicator.level == nil)
     indicator.receive(try loadSample(50))
     #expect(!indicator.highlighted)
-    #expect(indicator.tooltip.contains("50"))
+    #expect(indicator.statusDescription.contains("50"))
 }
 
 @Test @MainActor func newLoadBadgeInvertsTheBarsInsideAFilledBackground() throws {

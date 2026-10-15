@@ -17,6 +17,7 @@ enum MenuBarApp {
 final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var item: NSStatusItem?
     private let popover = NSPopover()
+    private lazy var statusMenu = MenuBarStatusMenu(model: model)
     private let model = MenuBarModel { thresholds, interval, receive in
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(
@@ -32,7 +33,8 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
         model.onIndicatorChange = { [weak self] in self?.updateIndicator() }
         updateIndicator()
         item.button?.target = self
-        item.button?.action = #selector(toggle)
+        item.button?.action = #selector(activateStatusItem)
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         popover.behavior = .transient
         popover.animates = false
         popover.delegate = self
@@ -49,7 +51,7 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
 
     private func updateIndicator() {
         guard let button = item?.button else { return }
-        let tooltip: String
+        let description: String
         if model.liveIcon {
             if let level = model.indicator.level {
                 button.image = MenuBarStatusImage.make(level: level, highlighted: model.indicator.highlighted)
@@ -62,18 +64,41 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
                 button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
             }
             button.contentTintColor = nil
-            tooltip = model.indicator.tooltip
+            description = model.indicator.statusDescription
         } else {
             button.image = NSImage(systemSymbolName: "terminal", accessibilityDescription: nil)
             button.contentTintColor = nil
-            tooltip = "Agent Monitor — static icon; updates only while open"
+            description = "Agent Monitor — static icon; updates only while open"
         }
         button.image?.isTemplate = true
-        button.toolTip = tooltip
-        button.setAccessibilityLabel(tooltip)
+        button.setAccessibilityLabel(description)
     }
 
-    @objc private func toggle() {
+    @objc private func activateStatusItem() {
+        let event = NSApplication.shared.currentEvent
+        switch MenuBarActivation(eventType: event?.type, modifiers: event?.modifierFlags ?? []) {
+        case .panel: toggle()
+        case .contextMenu: showStatusMenu()
+        }
+    }
+
+    private func showStatusMenu() {
+        guard let button = item?.button else { return }
+        if popover.isShown { popover.performClose(nil) }
+        let menu = statusMenu.makeMenu()
+        button.highlight(true)
+        let origin = NSPoint(
+            x: button.bounds.minX, y: button.isFlipped ? button.bounds.maxY : button.bounds.minY)
+        menu.popUp(positioning: nil, at: origin, in: button)
+        button.highlight(false)
+        switch statusMenu.selectedAction {
+        case .open: toggle()
+        case .quit: NSApplication.shared.terminate(nil)
+        case nil: break
+        }
+    }
+
+    private func toggle() {
         if popover.isShown {
             popover.performClose(nil)
         } else if let button = item?.button {

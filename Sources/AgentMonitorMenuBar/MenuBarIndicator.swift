@@ -54,11 +54,13 @@ struct MenuBarIndicator {
         availability = .unavailable
     }
 
-    var tooltip: String {
+    var statusDescription: String { statusLines.joined(separator: "\n") }
+
+    var statusLines: [String] {
         guard let load, let sampledAt else {
             switch availability {
-            case .waiting: return "Agent Monitor — waiting for a load sample"
-            case .unavailable, .current: return "Agent Monitor — load unavailable; open to inspect"
+            case .waiting: return ["Agent Monitor — waiting for a load sample"]
+            case .unavailable, .current: return ["Agent Monitor — load unavailable; open to inspect"]
             }
         }
         let cpu = load.cpuPercent.formatted(.number.precision(.fractionLength(1)))
@@ -68,12 +70,13 @@ struct MenuBarIndicator {
             "Agent Monitor — \(load.processCount) observed agent processes",
             "CPU \(load.missingCPUCount > 0 ? "≥ " : "")\(cpu)% (100% = one core)",
             "Footprint \(load.missingFootprintCount > 0 ? "≥ " : "")\(memory) GB",
-            "Bars: machine CPU share · 1: below 25%, 2: 25–50%, 3: 50% or more",
-            "\(load.heavyProcesses.count) heavy: CPU > 25% or footprint > 1 GB per process",
+            "Bars: share of all cores · boundaries at 25% and 50%",
+            "\(load.heavyProcesses.count) heavy agent processes",
+            "Heavy: CPU > 25% of one core or footprint > 1 GB",
             highlighted ? "New heavy load — temporary highlight" : nil,
             partial ? "Some resource measurements are unavailable" : nil,
             unreadableCount > 0 ? "\(unreadableCount) processes could not be read" : nil,
             "Sampled \(sampledAt.formatted(date: .omitted, time: .standard))",
-        ].compactMap { $0 }.joined(separator: "\n")
+        ].compactMap { $0 }
     }
 }

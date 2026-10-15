@@ -31,10 +31,16 @@ enum MenuBarOption: Equatable {
 }
 
 @MainActor final class MenuBarOptionsController: NSObject, NSMenuDelegate {
+    enum Placement { case pullDown, submenu }
+
     private let model: MenuBarModel
+    private let placement: Placement
     private var tracking = false
 
-    init(model: MenuBarModel) { self.model = model }
+    init(model: MenuBarModel, placement: Placement = .pullDown) {
+        self.model = model
+        self.placement = placement
+    }
 
     func makeButton() -> NSPopUpButton {
         let button = NSPopUpButton(frame: .zero, pullsDown: true)
@@ -44,12 +50,16 @@ enum MenuBarOption: Equatable {
         button.preferredEdge = .minY
         button.setAccessibilityLabel("View options")
         button.toolTip = "Grouping, sort direction, CPU and footprint thresholds, and sampling interval"
+        button.menu = makeMenu()
+        return button
+    }
+
+    func makeMenu() -> NSMenu {
         let menu = NSMenu(title: "View options")
         menu.autoenablesItems = false
         menu.delegate = self
         menuNeedsUpdate(menu)
-        button.menu = menu
-        return button
+        return menu
     }
 
     func menuWillOpen(_ menu: NSMenu) { tracking = true }
@@ -58,8 +68,12 @@ enum MenuBarOption: Equatable {
     func menuNeedsUpdate(_ menu: NSMenu) {
         guard !tracking else { return }
         menu.removeAllItems()
-        // NSPopUpButton uses the first pull-down item as its title, not as a selectable option.
-        menu.addItem(withTitle: "View options", action: nil, keyEquivalent: "")
+        switch placement {
+        case .pullDown:
+            // NSPopUpButton consumes its first item as the button title; a submenu does not.
+            menu.addItem(withTitle: "View options", action: nil, keyEquivalent: "")
+        case .submenu: break
+        }
         menu.addItem(.sectionHeader(title: "Show"))
         add("Sessions", .grouping(.session), checked: model.report.grouping == .session, to: menu)
         add("Processes", .grouping(.none), checked: model.report.grouping == .none, to: menu)
