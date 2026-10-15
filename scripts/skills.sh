@@ -76,5 +76,6 @@ for spec in "${specs[@]}"; do
 done
 
 if [ "$mode" != check ]; then
+    chmod 644 "$pending"
     mv "$pending" "$root/skills.lock"
 fi

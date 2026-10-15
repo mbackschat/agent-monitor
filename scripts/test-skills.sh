@@ -25,6 +25,11 @@ for spec in Swift-Concurrency-Agent-Skill:skills/swift-concurrency Swift-Testing
 done
 bash "$scratch/project/scripts/skills.sh" install
 bash "$scratch/project/scripts/skills.sh" check
+# The lock is a tracked, shared file; mktemp's private 0600 mode must not leak into it.
+if [ "$(stat -f %Lp "$scratch/project/skills.lock")" != 644 ]; then
+    echo 'FAIL: skills.lock is not world-readable (0644)' >&2
+    exit 1
+fi
 cp "$scratch/project/skills.lock" "$scratch/first.lock"
 printf 'new revision\n' >> "$scratch/upstream/Swift-Testing-Agent-Skill/swift-testing-expert/SKILL.md"
 git -C "$scratch/upstream/Swift-Testing-Agent-Skill" commit -qam 'test: update fixture'
