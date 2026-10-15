@@ -136,6 +136,8 @@ From a source checkout, run `bash scripts/menubar.sh run` and click the terminal
 
 **Terminate…** reviews one frozen process before sending SIGTERM. **Message…** verifies live recipients, defaults to the root agent where applicable, then shows the exact outgoing text including workload context before **Send message**. **Terminal** uses the existing terminal-focus adapters; macOS may ask to let Agent Monitor control the target terminal. Acceptance does not confirm termination or message delivery. No action automatically retries.
 
+An unsent message is kept in memory when you dismiss the panel. On reopening, use **Resume…** to recheck the original target and recipient, **Copy text** to recover it, or **Discard** to remove it. Resume returns to editing and requires review again. If verification fails, the text stays saved. Cancel in the composer discards the message; quitting the app clears saved drafts.
+
 Click outside the panel to dismiss it. Closing cancels sampling and pending actions; a send already handed off may still have been accepted, so check any retained outcome before retrying. Reopening starts a fresh baseline and waits one interval for measurements. The icon stays static while closed. **Quit** exits and drains owned tasks.
 
 Launch through the script so provider commands receive your shell's PATH. Finder-launched provider discovery, first-use Automation behavior, live message delivery and sustained energy use are not validated for the menu bar app. Quit an existing instance before rebuilding or changing PATH. See [development checks](development.md#menu-bar-app).

@@ -34,6 +34,27 @@ struct MenuBarView: View {
 
     private var report: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if let saved = model.savedMessage {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Unsent message to \(saved.process.name)").font(.subheadline.bold())
+                    Text(
+                        "PID \(String(saved.process.process.pid)) · \(saved.recipientID ?? "unavailable recipient")"
+                    )
+                    .font(.caption).foregroundStyle(.secondary)
+                    Text(saved.text).font(.caption).lineLimit(2).textSelection(.enabled)
+                        .help(saved.text)
+                    HStack {
+                        Button("Resume…") { model.resumeMessage() }
+                        Button("Copy text") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(saved.text, forType: .string)
+                        }
+                        Spacer()
+                        Button("Discard", role: .destructive) { model.discardMessage() }
+                    }.controlSize(.small)
+                }
+                Divider()
+            }
             HStack {
                 Text("Heavy processes").font(.subheadline.bold())
                 Spacer()
@@ -151,6 +172,7 @@ struct MenuBarView: View {
                     Button("Message…", systemImage: "bubble") {
                         model.begin(.message, row: .process(process.process))
                     }
+                    .disabled(model.savedMessage != nil)
                     Spacer(minLength: 0)
                     Button("Terminate…", role: .destructive) {
                         model.begin(.terminate, row: .process(process.process))

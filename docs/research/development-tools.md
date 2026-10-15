@@ -56,3 +56,9 @@ Applied `swiftui-view-refactor` and the code-first review path of `swiftui-perfo
 | Layout ownership | Both the host's `contentSize` and the root view's frame specify 420 × 560. | A concrete duplicated sizing contract, relevant to the existing content-fitting question. Neither skill supplies menu-specific sizing or accessibility validation. |
 
 Assessment: retain both as focused review aids. View Refactor helps reason about responsibility boundaries but its MV reference is opinionated and mostly illustrates iOS/SwiftData. Performance Audit provides a useful sequence from identifiable code paths to profiling and comparable measurements; its checklist is not proof that every listed pattern needs caching or refactoring. The trial supports their usefulness as prompts, not a quantified quality ranking.
+
+## Draft-recovery application — 2026-10-15
+
+Applied the view-refactor ownership guidance and Swift Testing's parameterized-test approach to the automatic-dismissal defect identified in the [interface review](native-menu-design.md). The original code failed for both composing and reviewing: reopening produced empty text and defaulted a previously selected child recipient back to root. The native model now retains inert draft data separately while reusing neutral preparation and the existing verified action service. Regression checks cover both phases, unavailable recipients, failed process validation, explicit cancellation and uncertain-send exclusion.
+
+Observation: retaining the entire action panel would also retain verified recipient data and review state, which would be inappropriate after closing. The useful skill contribution was the distinction between model-owned state and view rendering; moving ownership to view tasks was unnecessary. This exercise is not evidence that the skill alone caused a better outcome or that live provider behavior has been validated.

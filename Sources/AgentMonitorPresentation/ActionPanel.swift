@@ -259,12 +259,18 @@ extension LiveReportState {
             actionPanel = ActionPanel(process: row, phase: .confirmTermination)
             return nil
         case .message:
-            actionPanel = ActionPanel(process: row, phase: .loading)
-            return .prepare(row)
+            return beginMessage(for: row)
         case .focus:
             actionPanel = ActionPanel(process: row, phase: .focusing)
             return .focus(row)
         }
+    }
+
+    /// Starts fresh recipient verification for a frozen target, including a restored UI draft.
+    public mutating func beginMessage(for process: HeavyProcess) -> ActionEffect? {
+        guard actionPanel == nil else { return nil }
+        actionPanel = ActionPanel(process: process, phase: .loading)
+        return .prepare(process)
     }
 
     /// A launch group names one session, which is all focus needs: it targets the group's runtime

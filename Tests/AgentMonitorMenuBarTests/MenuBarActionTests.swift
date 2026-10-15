@@ -9,6 +9,10 @@ import Testing
 
 private final class FakeActions: ProcessActions, Sendable {
     let calls = Mutex<[String]>([])
+    let recipients = Mutex(
+        MessageRecipients(
+            root: AgentRecipient(id: "root", label: "Root agent"),
+            selected: AgentRecipient(id: "child", label: "Selected agent")))
     let sendFailure: ActionFailure?
     let prepare: (@Sendable () async throws -> Void)?
 
@@ -25,9 +29,7 @@ private final class FakeActions: ProcessActions, Sendable {
         try await prepare?()
         return MessageDraft(
             process: process,
-            recipients: MessageRecipients(
-                root: AgentRecipient(id: "root", label: "Root agent"),
-                selected: AgentRecipient(id: "child", label: "Selected agent")))
+            recipients: recipients.withLock { $0 })
     }
     func send(_ draft: MessageDraft, text: String, recipient: String) async throws {
         calls.withLock { $0.append("send \(recipient): \(draft.message(text))") }
@@ -109,6 +111,7 @@ func menuBarFixture(
         ])
     #expect(model.lastActionResult == .uncertain("Check delivery before retrying."))
     await model.stop()
+    #expect(model.savedMessage == nil)
 }
 
 @Test @MainActor func menuBarFocusUsesTheSelectedProcessAndClosedPanelCannotAct() async throws {
@@ -166,5 +169,106 @@ func menuBarFixture(
     model.input(.confirm)
     await model.waitForAction()
     #expect(actions.calls.withLock { $0 } == ["terminate 42002"])
+    await model.stop()
+}
+
+@Test(arguments: [false, true])
+@MainActor func dismissedMessageRestoresTextAndRecipientAfterFreshPreparation(reviewing: Bool) async throws {
+    let actions = FakeActions()
+    let model = try await readyModel(actions)
+    let row = try #require(model.report.rows.first)
+    model.begin(.message, row: .process(row.process))
+    await model.waitForAction()
+    model.setMessage("Please inspect this workload.\nKeep this draft.")
+    model.input(.recipient)
+    if reviewing { model.input(.review) }
+    model.close()
+    model.open()
+    await model.waitForCollection()
+    model.begin(.message, row: .process(row.process))
+    await model.waitForAction()
+    #expect(model.report.actionPanel?.phase == .compose)
+    #expect(model.report.actionPanel?.text == "Please inspect this workload.\nKeep this draft.")
+    #expect(model.report.actionPanel?.recipient?.id == "child")
+    model.input(.confirm)
+    #expect(actions.calls.withLock { $0 } == ["prepare", "prepare"])
+    await model.stop()
+}
+
+@Test @MainActor func explicitlyCancelledMessageDoesNotReturnAfterReopening() async throws {
+    let actions = FakeActions()
+    let model = try await readyModel(actions)
+    let row = try #require(model.report.rows.first)
+    model.begin(.message, row: .process(row.process))
+    await model.waitForAction()
+    model.setMessage("Discard this text.")
+    model.input(.escape)
+    model.close()
+    model.open()
+    await model.waitForCollection()
+    model.begin(.message, row: .process(row.process))
+    await model.waitForAction()
+    #expect(model.report.actionPanel?.text == "")
+    await model.stop()
+}
+
+@Test(arguments: [false, true])
+@MainActor func restoredDraftKeepsTextWhenTargetOrRecipientCannotBeVerified(targetFailure: Bool) async throws
+{
+    let fails = Mutex(false)
+    let actions = FakeActions(prepare: {
+        if fails.withLock({ $0 }) { throw ActionFailure("Process lifetime changed.") }
+    })
+    let model = try await readyModel(actions)
+    let row = try #require(model.report.rows.first)
+    model.begin(.message, row: .process(row.process))
+    await model.waitForAction()
+    model.setMessage("Recover this text.")
+    model.input(.recipient)
+    model.close()
+    if targetFailure {
+        fails.withLock { $0 = true }
+    } else {
+        actions.recipients.withLock {
+            $0 = MessageRecipients(
+                root: AgentRecipient(id: "root", label: "Root agent"),
+                selected: AgentRecipient(id: "replacement", label: "Replacement agent"))
+        }
+    }
+    model.open()
+    await model.waitForCollection()
+    model.resumeMessage()
+    await model.waitForAction()
+    #expect(model.report.actionPanel?.phase == .result)
+    #expect(model.savedMessage?.text == "Recover this text.")
+    #expect(model.savedMessage?.process == row)
+    model.input(.confirm)
+    #expect(actions.calls.withLock { $0 } == ["prepare", "prepare"])
+    model.input(.escape)
+    model.discardMessage()
+    #expect(model.savedMessage == nil)
+    await model.stop()
+}
+
+@Test @MainActor func savedMessageCannotBeOverwrittenByAnotherProcessOrAnEmptyComposer() async throws {
+    let actions = FakeActions()
+    let model = try await readyModel(actions)
+    let row = try #require(model.report.rows.first)
+    model.begin(.message, row: .process(row.process))
+    await model.waitForAction()
+    model.close()
+    #expect(model.savedMessage == nil)
+    model.open()
+    await model.waitForCollection()
+    model.begin(.message, row: .process(row.process))
+    await model.waitForAction()
+    model.setMessage("Retain original target.")
+    model.close()
+    model.open()
+    await model.waitForCollection()
+    model.begin(.message, row: .process(ProcessIdentity(pid: row.process.pid, startMicroseconds: 2)))
+    #expect(model.report.actionPanel == nil)
+    #expect(model.savedMessage?.process.process == row.process)
+    #expect(model.savedMessage?.text == "Retain original target.")
     await model.stop()
 }

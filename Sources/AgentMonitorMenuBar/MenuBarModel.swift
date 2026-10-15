@@ -13,6 +13,7 @@ final class MenuBarModel {
     private(set) var isOpen = false
     private(set) var error: String?
     private(set) var lastActionResult: ActionResult?
+    private(set) var savedMessage: SavedMessage?
     @ObservationIgnored private var collection: Task<Void, Never>?
     @ObservationIgnored private var action: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
@@ -52,6 +53,16 @@ final class MenuBarModel {
     }
 
     func close() {
+        if let panel = report.actionPanel {
+            switch panel.phase {
+            case .compose, .review:
+                if !panel.text.isEmpty {
+                    savedMessage = SavedMessage(
+                        process: panel.process, text: panel.text, recipientID: panel.recipient?.id)
+                }
+            default: break
+            }
+        }
         isOpen = false
         generation = UUID()
         collection?.cancel()
@@ -77,6 +88,10 @@ final class MenuBarModel {
 
     func begin(_ kind: ProcessActionKind, row: LiveReportRowID) {
         guard isOpen, report.actionPanel == nil else { return }
+        if case .message = kind, let savedMessage {
+            if row == .process(savedMessage.process.process) { resumeMessage() }
+            return
+        }
         if case .process(let identity) = row,
             let group = report.groups.first(where: {
                 $0.processes.count == 1 && $0.processes.first?.process == identity
@@ -90,6 +105,16 @@ final class MenuBarModel {
         guard report.visibleRows.contains(where: { $0.id == row }) else { return }
         report.select(row)
         perform(report.beginAction(kind))
+    }
+
+    func resumeMessage() {
+        guard isOpen, report.actionPanel == nil, let savedMessage else { return }
+        perform(report.beginMessage(for: savedMessage.process))
+    }
+
+    func discardMessage() {
+        guard isOpen, report.actionPanel == nil else { return }
+        savedMessage = nil
     }
 
     func input(_ input: ActionInput) {
@@ -116,6 +141,21 @@ final class MenuBarModel {
                     let draft = try await actions.prepareMessage(for: process)
                     try Task.checkCancellation()
                     guard isOpen, generation == token else { return }
+                    if let saved = savedMessage {
+                        guard saved.process == process,
+                            let index = draft.recipients.choices.firstIndex(where: {
+                                $0.id == saved.recipientID && $0.unavailableReason == nil
+                            })
+                        else {
+                            throw ActionFailure(
+                                "The original recipient is unavailable. Your draft is still saved.")
+                        }
+                        report.messagePrepared(draft)
+                        report.actionPanel?.text = saved.text
+                        report.actionPanel?.recipientIndex = index
+                        savedMessage = nil
+                        return
+                    }
                     report.messagePrepared(draft)
                     return
                 case .terminate(let process):
