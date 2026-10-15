@@ -1,0 +1,23 @@
+[
+  {
+    "doubleReadMedianMilliseconds" : 6.902166,
+    "groups" : 2,
+    "processes" : 10,
+    "repetitions" : 100,
+    "singleReadMedianMilliseconds" : 3.560625
+  },
+  {
+    "doubleReadMedianMilliseconds" : 98.753125,
+    "groups" : 20,
+    "processes" : 100,
+    "repetitions" : 100,
+    "singleReadMedianMilliseconds" : 50.327792
+  },
+  {
+    "doubleReadMedianMilliseconds" : 951.033959,
+    "groups" : 200,
+    "processes" : 1000,
+    "repetitions" : 100,
+    "singleReadMedianMilliseconds" : 472.094542
+  }
+]

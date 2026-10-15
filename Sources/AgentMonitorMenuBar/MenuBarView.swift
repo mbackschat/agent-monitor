@@ -33,7 +33,8 @@ struct MenuBarView: View {
     }
 
     private var report: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let groups = model.report.groups
+        return VStack(alignment: .leading, spacing: 12) {
             if let saved = model.savedMessage {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Unsent message to \(saved.process.name)").font(.subheadline.bold())
@@ -80,14 +81,14 @@ struct MenuBarView: View {
                     ProgressView().controlSize(.small)
                     Text("Measuring activity…").foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if model.report.groups.isEmpty {
+            } else if groups.isEmpty {
                 ContentUnavailableView(
                     "No heavy agent processes", systemImage: "checkmark.circle",
                     description: Text("Nothing exceeds the current thresholds."))
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 4) {
-                        ForEach(model.report.groups, id: \.id) { group in
+                        ForEach(groups, id: \.id) { group in
                             if group.processes.count == 1, let process = group.processes.first {
                                 processRow(process, session: group)
                             } else {
