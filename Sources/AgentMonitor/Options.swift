@@ -10,8 +10,12 @@ struct Options: ParsableArguments {
     @Option(name: .customLong("memory-gb"), help: "Show physical footprint above this many decimal GB.")
     var memoryGB: Double = 1
 
-    @Option(help: "Seconds to wait between samples, from 0.1 to 60.")
-    var interval: Double = 1
+    @Option(
+        name: .customLong("interval"),
+        help: "Seconds to wait between samples, from 0.1 to 60. Default: 5 with --tui, otherwise 1.")
+    var requestedInterval: Double?
+
+    var interval: Double { requestedInterval ?? (tui ? 5 : 1) }
 
     @Option(
         name: .customLong("samples"),

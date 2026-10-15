@@ -12,7 +12,7 @@ When several coding agents are running, a busy `node`, `java`, or `python` proce
 
 ## Features
 
-- **Live terminal view** — watch CPU and memory usage, sort processes, and open details without leaving your terminal. Stable order keeps existing rows in place and appends newcomers. Change the update interval or freeze the view while you look.
+- **Live terminal view** — refresh every 5 seconds by default; watch CPU and memory usage, sort processes, and open details without leaving your terminal. Stable order keeps existing rows in place and appends newcomers. Change the update interval or freeze the view while you look.
 - **Native menu bar app** — open a compact macOS panel for resource usage and session actions, with Pause/Resume for inspection; three bold load bars get a quick startup sample, then update every 15 seconds while the panel is closed. Available from a source build.
 - **Compact history** — one strip for agent CPU, memory or heavy-process count, covering the last 10 minutes or one hour in both live views, updated at most every 15 seconds.
 - **Pinned inspection** — keep a process or session at the top while its values update, in both native and terminal views. Missing targets stay marked until unpinned.
@@ -96,7 +96,7 @@ With no options, `agent-monitor` prints one text report after a one-second basel
 | --- | --- | --- |
 | `--cpu <percent>` | CPU threshold; 100% means one occupied core. Accepts nonnegative values. | `25` (%) |
 | `--memory-gb <gb>` | Physical memory footprint threshold in decimal GB. Accepts nonnegative values. | `1` (GB) |
-| `--interval <seconds>` | Wait between samples, from 0.1 to 60 seconds. | `1` (second) |
+| `--interval <seconds>` | Wait between samples, from 0.1 to 60 seconds. | `5` with `--tui`, otherwise `1` (seconds) |
 | `--samples <count>` | Number of reports; `0` runs until you quit. | `1`; `0` with `--tui` |
 | `--tui`, `-tui` | Open the live terminal UI in Stable order; requires interactive input and output. | Off; text reports |
 | `--group <mode>` | `none` shows individual processes; `session` groups by launch session and totals displayed heavy processes. | `none` |

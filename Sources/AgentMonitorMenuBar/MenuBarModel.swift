@@ -12,7 +12,7 @@ typealias MenuBarSource =
 
 @MainActor @Observable
 final class MenuBarModel {
-    var report = LiveReportState(grouping: .session)
+    var report = LiveReportState(grouping: .session, interval: 5)
     var panelSize: MenuBarPanelSize = .standard
     var showsKeyboardHelp = false
     private(set) var arrivals = MenuBarArrivals()

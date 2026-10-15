@@ -147,10 +147,10 @@ private let emptySnapshot = MonitoringSnapshot(
     var iterator = observations.makeAsyncIterator()
     let values = await iterator.next()
     #expect(values?.0 == 35)
-    #expect(values?.1 == 2)
+    #expect(values?.1 == 10)
     model.adjustInterval(.faster)
     trigger.yield(())
-    #expect(await iterator.next()?.1 == 1)
+    #expect(await iterator.next()?.1 == 5)
     model.setInterval(15)
     model.report.setThresholds(Thresholds(cpuPercent: 50, memoryBytes: 500_000_000))
     trigger.yield(())
@@ -188,4 +188,9 @@ private let emptySnapshot = MonitoringSnapshot(
     model.close()
     #expect(model.report.history.pointCount == 2)
     await model.stop()
+}
+
+@Test @MainActor func nativeTableDefaultsToFiveSeconds() {
+    let model = MenuBarModel { _, _, _ in }
+    #expect(model.report.interval == 5)
 }

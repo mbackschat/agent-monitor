@@ -25,7 +25,7 @@ extension Preview {
                 pid: 42005, name: "codex", cpu: 2.1, memory: 1_180_000_000, provider: "codex", session: nil,
                 project: "sample-tools", tty: nil, runtime: 42005, ambiguous: true),
         ]
-        var state = LiveReportState()
+        var state = LiveReportState(interval: 5)
         for tick in 0..<40 {
             let historyRows =
                 try [

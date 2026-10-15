@@ -157,11 +157,11 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(model.indicator.level == 0)
     model.open()
     input.yield(try loadSample(50))
-    #expect(await iterator.next() == 1)
+    #expect(await iterator.next() == 5)
     model.toggleFreeze()
     let held = model.report.snapshot
     input.yield(try loadSample(400, time: 2))
-    #expect(await iterator.next() == 1)
+    #expect(await iterator.next() == 5)
     #expect(model.report.snapshot == held)
     #expect(model.indicator.level != 0)
     model.close()

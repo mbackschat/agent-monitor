@@ -115,3 +115,10 @@ func colorFollowsTheFlagNoColorAndTheTerminal(
         ])
     #expect(TerminalReport.hostEnvironment(color: true, base: ["TERM": "xterm"]) == ["TERM": "xterm"])
 }
+
+@Test func liveTUIRefreshDefaultsToFiveSecondsWithoutChangingBatchOrExplicitIntervals() throws {
+    #expect(try Options.parse(["--tui"]).interval == 5)
+    #expect(try Options.parse(["--tui", "--interval", "1"]).interval == 1)
+    #expect(try Options.parse(["--json"]).interval == 1)
+    #expect(try Options.parse([]).interval == 1)
+}
