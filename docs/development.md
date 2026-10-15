@@ -22,6 +22,24 @@ The Swift Testing suite covers attribution, ambiguity, PID reuse, nested runtime
 
 The [doctor](../scripts/doctor.sh) checks macOS, Swift, the active macOS SDK, Git, the canonical instruction symlink, and any installed project skills. It does not install dependencies or change configuration. Missing optional skills do not fail the check; an incomplete or modified installed skill setup does. It is a prerequisite check, not a replacement for building and testing.
 
+## Validation coverage
+
+Release-specific checks belong in the [release notes](releases/0.2.2.md#license-and-verification); the commands above and [terminal checks](#terminal-and-machine-output-checks) reproduce automated coverage. The following live evidence was collected on Apple Silicon, macOS 27.0.1 and Swift 6.4 on 2026-10-14–15. It does not establish compatibility with other systems or provider versions.
+
+| Area | Evidence and remaining limits |
+|---|---|
+| Session attribution | A real heavy child of native Claude Code matched independent provider metadata, runtime lifetime and stdin TTY; see [retained measurements](research/README.md#retained-measurements). Real terminal Codex heavy workloads and npm-based Claude installations remain unvalidated. Shared nonterminal Codex workloads and synthetic terminal fixtures do not close that gap. |
+| Codex messaging | A read-only production-adapter probe verified recipient lookup against Codex CLI 0.162.1 using the app-server proxy's WebSocket transport, without requesting transcript turns. Live child-recipient routing and actual queue delivery remain untested; protocol and routing tests use fake providers. |
+| Claude messaging | The production action path delivered a peer message to one approved disposable Claude Code 2.1.300 session, which answered in a new turn. See the [transport check](research/claude-session-messaging.md#live-transport-check-2026-10-14) for the undocumented line format, receiver controls and platform-binary environment limitation. |
+| Terminal focus | The user confirmed Terminal.app tab selection on 2026-10-15. Other window/Space states and the first Automation prompt remain the open manual gate in [PLAN.md](../PLAN.md#open-follow-ups). Automated tests use fake adapters and do not drive real terminals. |
+| Sustained operation | A bounded ten-minute headless watch with process churn showed no sustained footprint growth. The [dated measurements](research/README.md#retained-measurements) are not an hours-long leak guarantee, larger-population benchmark or sustained TUI measurement. |
+
+Sampling can miss short-lived work, and CPU needs two observations. Missing readable markers can leave detached processes unknown; launch-origin attribution does not establish which client caused a shared daemon's current load.
+
+The report table's character-based sizing can misalign wide Unicode names; this is tracked in [PLAN.md](../PLAN.md#open-follow-ups).
+
+PTY screen checks have occasionally timed out in development; passing retries did not establish the cause. Retain failed-run evidence when investigating timing failures.
+
 ## README preview
 
 The [preview script](../scripts/preview.sh) builds the development-only `monitor-preview` target. Its [synthetic fixture](../Tools/Preview/Fixture.swift) feeds the production `LiveReportState` and `LiveReportLayout`; the [SVG generator](../Tools/Preview/Preview.swift) adds illustrative terminal decoration. It never samples processes or reads agent sessions. Fixed identities, measurements, time, update count, and a 120 × 19 viewport make the output reproducible.

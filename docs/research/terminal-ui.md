@@ -43,7 +43,7 @@ The final debug-only measurement used the standalone Python PTY check with ten s
 
 ## Decision and limits
 
-The public runtime host solves the sandbox compatibility problem for a single-screen PoC. Optimized compilation and the short release overhead check passed, supporting adoption for this PoC. Retain the terminal acceptance checks during integration. Keep the exact pin and the UI-independent monitoring boundary. Stable selection, real snapshot delivery, compact scrolling/disclosure, and the option contract are now implemented. Integrated terminal checks and sustained-use evidence belong in [PoC validation](../poc-validation.md); a synthetic probe alone cannot validate them.
+The public runtime host solves the sandbox compatibility problem for a single-screen PoC. Optimized compilation and the short release overhead check passed, supporting adoption for this PoC. Retain the terminal acceptance checks during integration. Keep the exact pin and the UI-independent monitoring boundary. Stable selection, real snapshot delivery, compact scrolling/disclosure, and the option contract are now implemented. Integrated [terminal checks](../development.md#terminal-and-machine-output-checks), [coverage limits](../development.md#validation-coverage) and [retained measurements](README.md#retained-measurements) are documented separately; a synthetic probe alone cannot validate them.
 
 ## Completed optimized evaluation and cleanup
 

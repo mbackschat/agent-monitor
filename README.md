@@ -130,8 +130,8 @@ Messaging is a separate capability. Additional session inspection and external p
 - [Usage guide](docs/usage.md) — controls, actions, measurements, grouping, and JSONL.
 - [Development guide](docs/development.md) — build, test, and verification commands.
 - [Architecture](docs/architecture.md) — how collection, attribution, and presentation fit together.
-- [Validation record](docs/poc-validation.md) — what has been tested and known coverage limits.
-- [Project plan](PLAN.md) — completed work and current scope.
+- [Validation coverage](docs/development.md#validation-coverage) — live checks and known coverage limits.
+- [Project plan](PLAN.md) — open follow-ups and scope decisions.
 
 Bug reports and focused contributions are welcome. Include your macOS version, agent installation type, command used, and expected versus observed behavior. Remove session IDs, project paths, and command arguments you do not want to share from any attached output. For code changes, start with the [development guide](docs/development.md).
 
