@@ -17,7 +17,7 @@ public enum TextReport {
             ReportLine(""),
             ReportLine(String(repeating: "=", count: 72), style: .muted),
             ReportLine(
-                "Agent Monitor | \(report.timestamp.ISO8601Format()) | CPU > \(number(report.cpuThresholdPercent))% OR footprint > \(number(Double(report.memoryThresholdBytes) / 1e9)) GB",
+                "Agent Monitor | \(report.timestamp.ISO8601Format()) | CPU > \(ReportNumber.text(report.cpuThresholdPercent))% OR footprint > \(ReportNumber.text(Double(report.memoryThresholdBytes) / 1e9)) GB",
                 style: .title),
             ReportLine(
                 "\(report.findings.count) heavy processes; \(report.sampledProcessCount) same-user processes sampled. CPU: 100% = one core.",
@@ -35,8 +35,8 @@ public enum TextReport {
                     "Grouped by launch session; heavy-process totals only, not complete session usage.",
                     style: .muted))
             for group in SessionGrouping.groups(report.findings) {
-                let cpu = group.cpuTotal.map { number($0) + "%" } ?? "unavailable"
-                let memory = group.memoryGBTotal.map { number($0) + " GB" } ?? "unavailable"
+                let cpu = group.cpuTotal.map { ReportNumber.text($0) + "%" } ?? "unavailable"
+                let memory = group.memoryGBTotal.map { ReportNumber.text($0) + " GB" } ?? "unavailable"
                 lines.append(ReportLine(""))
                 lines.append(
                     ReportLine(
@@ -61,8 +61,8 @@ public enum TextReport {
             case .claude: "Claude Code"
             case nil: "Agent"
             }
-        let cpu = row.cpuPercent.map { "\(number($0))%" } ?? "unavailable"
-        let memory = row.footprintBytes.map { "\(number(Double($0) / 1e9)) GB" } ?? "unavailable"
+        let cpu = row.cpuPercent.map { "\(ReportNumber.text($0))%" } ?? "unavailable"
+        let memory = row.footprintBytes.map { "\(ReportNumber.text(Double($0) / 1e9)) GB" } ?? "unavailable"
         lines.append(ReportLine(""))
         lines.append(
             ReportLine(
@@ -118,9 +118,5 @@ public enum TextReport {
         String(
             value.unicodeScalars.map { CharacterSet.controlCharacters.contains($0) ? "�" : String($0) }
                 .joined())
-    }
-
-    private static func number(_ value: Double) -> String {
-        String(format: "%.2f", locale: Locale(identifier: "en_US_POSIX"), value)
     }
 }

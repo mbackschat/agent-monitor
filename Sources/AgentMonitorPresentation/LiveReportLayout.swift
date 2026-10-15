@@ -69,7 +69,7 @@ public enum LiveReportLayout {
                     || $0.memoryThresholdBytes != state.thresholds.memoryBytes
             } ?? false
         let filters =
-            "CPU > \(number(state.thresholds.cpuPercent))% OR GB > \(number(Double(state.thresholds.memoryBytes) / 1e9))"
+            "CPU > \(ReportNumber.text(state.thresholds.cpuPercent))% OR GB > \(ReportNumber.text(Double(state.thresholds.memoryBytes) / 1e9))"
             + (pending ? " (pending)" : "")
         // Width-based row counts preserve pane geometry across changing status text; see docs/architecture.md.
         switch width {
@@ -288,8 +288,6 @@ public enum LiveReportLayout {
             return result
         }
     }
-
-    private static func number(_ value: Double) -> String { String(format: "%.2f", value) }
 
     /// Local wall-clock time of the frozen snapshot, so the user can judge how stale it is.
     private static func clockTime(_ date: Date) -> String {

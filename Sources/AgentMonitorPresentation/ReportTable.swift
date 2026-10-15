@@ -69,7 +69,7 @@ struct ReportTable {
     }
 
     static func number(_ value: Double?) -> String {
-        value.map { String(format: "%.2f", locale: Locale(identifier: "en_US_POSIX"), $0) } ?? "?"
+        value.map(ReportNumber.text) ?? "?"
     }
 
     static func pad(_ value: String, to width: Int) -> String {
