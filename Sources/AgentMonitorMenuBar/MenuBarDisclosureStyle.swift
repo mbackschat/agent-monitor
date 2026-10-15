@@ -52,20 +52,9 @@ private struct MenuBarRowHeader<Label: View>: View {
                 return .handled
             }
             .accessibilityValue(expanded ? "Expanded" : "Collapsed")
-            Button {
-                _ = onPin()
-            } label: {
-                Image(systemName: pinned ? "pin.fill" : "pin")
-                    .frame(width: 28, height: 28).contentShape(Rectangle())
-            }
-            .buttonStyle(.plain).foregroundStyle(pinned ? Color.accentColor : .secondary)
-            .opacity(pinned || hovered || pinFocused || focus.wrappedValue == id ? 1 : 0)
-            .focused($pinFocused)
-            .accessibilityLabel(pinned ? "Unpin" : "Pin")
-            .help(
-                pinned
-                    ? "Unpin this row (⌘P when focused)"
-                    : "Pin this row at the top; values stay live (⌘P when focused)")
+            MenuBarPinButton(pinned: pinned, action: onPin)
+                .opacity(pinned || hovered || pinFocused || focus.wrappedValue == id ? 1 : 0)
+                .focused($pinFocused)
         }
         .onHover { hovered = $0 }
         .pinShortcut(onPinShortcut)

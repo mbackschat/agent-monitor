@@ -7,6 +7,14 @@ import Testing
 
 @testable import AgentMonitorMenuBar
 
+@Test(arguments: [false, true])
+@MainActor func pinControlKeepsItsCompactFootprint(pinned: Bool) {
+    _ = NSApplication.shared
+    let host = NSHostingView(rootView: MenuBarPinButton(pinned: pinned) { true })
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize == NSSize(width: 28, height: 28))
+}
+
 @Test(
     .enabled(if: ProcessInfo.processInfo.environment["MENUBAR_PREVIEW_PATH"] != nil),
     arguments: [false, true])

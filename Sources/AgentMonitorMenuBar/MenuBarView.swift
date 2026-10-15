@@ -193,10 +193,9 @@ struct MenuBarView: View {
                     Text("Not in current results").foregroundStyle(.secondary)
                 }.font(.caption)
                 Spacer()
-                Button("Unpin", systemImage: "pin.slash") { model.togglePin(pin.id) }
+                MenuBarPinButton(pinned: true) { model.togglePin(pin.id) }
                     .focused($focusedRow, equals: pin.id)
                     .pinShortcut { togglePinFromKeyboard(pin.id) }
-                    .help("Unpin this row (⌘P when focused)")
             }.padding(6)
                 .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
         }
