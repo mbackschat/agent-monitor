@@ -20,6 +20,9 @@ public struct TerminalAppFocus: TerminalFocusAdapter {
     // being relaunched. Addressing by bundle id rather than PID assumes one Terminal instance.
     // The inner timeout answers before the outer process deadline, so a pending consent prompt
     // reports -1712 instead of a killed helper.
+    // `windows` also lists windows without tabs (one appeared as class `item`, 2026-10-15); reading
+    // their tabs fails with -1728, so skip them rather than abort the search, but keep the
+    // permission and timeout errors.
     static let script = """
         on run argv
             set target to item 1 of argv
@@ -28,7 +31,13 @@ public struct TerminalAppFocus: TerminalFocusAdapter {
                 with timeout of 20 seconds
                     tell application id "com.apple.Terminal"
                         repeat with w in windows
-                            repeat with t in tabs of w
+                            try
+                                set candidates to tabs of w
+                            on error number code
+                                if code is -1743 or code is -1712 then error number code
+                                set candidates to {}
+                            end try
+                            repeat with t in candidates
                                 if tty of t is target then
                                     set selected of t to true
                                     set miniaturized of w to false
