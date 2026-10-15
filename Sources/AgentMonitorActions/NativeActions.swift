@@ -52,14 +52,7 @@ public enum NativeActions {
     {
         var monitor = Monitor()
         monitor.ingest(samples)
-        // Same two passes as MonitoringSession, so a detached workload rejoins its runtime here too.
-        var enriched: Set<ProcessIdentity> = []
-        for _ in 1...2 {
-            for sample in monitor.enrichmentTargets(for: [identity])
-            where enriched.insert(sample.identity).inserted {
-                monitor.enrich(reader.metadata(for: sample), for: sample.identity)
-            }
-        }
+        monitor.enrich(for: [identity]) { reader.metadata(for: $0) }
         return monitor
     }
 

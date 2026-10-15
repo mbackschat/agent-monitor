@@ -58,6 +58,26 @@ public struct Monitor: Sendable {
         nodes[identity] = node
     }
 
+    /// Reads metadata for the processes, their ancestry and, in a second pass, the runtimes a
+    /// detached Claude marker points to, which are only known once the marker has been read.
+    /// Each process is read once.
+    public mutating func enrich(
+        for identities: [ProcessIdentity], using metadata: (ProcessSample) -> ProcessMetadata
+    ) {
+        var enriched: Set<ProcessIdentity> = []
+        for _ in 1...2 {
+            for sample in enrichmentTargets(for: identities) where enriched.insert(sample.identity).inserted {
+                enrich(metadata(sample), for: sample.identity)
+            }
+        }
+    }
+
+    public mutating func enrich(
+        thresholds: Thresholds, using metadata: (ProcessSample) -> ProcessMetadata
+    ) {
+        enrich(for: heavyIdentities(thresholds: thresholds), using: metadata)
+    }
+
     public func enrichmentTargets(thresholds: Thresholds = Thresholds()) -> [ProcessSample] {
         enrichmentTargets(for: heavyIdentities(thresholds: thresholds))
     }

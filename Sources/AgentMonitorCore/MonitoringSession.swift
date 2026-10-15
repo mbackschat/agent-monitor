@@ -127,14 +127,8 @@ public struct MonitoringSession: Sendable {
             try Task.checkCancellation()
             let snapshot = try reader.snapshot(excluding: excluded)
             monitor.ingest(snapshot.samples)
-            var enriched: Set<ProcessIdentity> = []
-            for _ in 1...2 {
-                for sample in monitor.enrichmentTargets(thresholds: thresholds)
-                where enriched.insert(sample.identity).inserted {
-                    monitor.enrich(
-                        reader.metadata(for: sample, includeCommand: configuration.includeCommands),
-                        for: sample.identity)
-                }
+            monitor.enrich(thresholds: thresholds) {
+                reader.metadata(for: $0, includeCommand: configuration.includeCommands)
             }
             try await receive(
                 MonitoringSnapshot(

@@ -362,3 +362,24 @@ func nestedAgentWorkloadBelongsToTheNearestRuntime(inner: String, provider: Agen
     #expect(row.attribution.threadID == nil)
     #expect(row.attribution.provider == nil)
 }
+
+// One call reads the workload and then the runtimes its marker points to; sampling and actions
+// share it so they cannot attribute differently.
+@Test func enrichmentReadsDetachedInboxRuntimesInOneCall() throws {
+    let inbox = "/tmp/cc-socks/10.sock"
+    let runtime = sample(10, executable: "/usr/local/bin/claude", terminal: "ttys010", memory: 1)
+    let workload = sample(20)
+    var monitor = Monitor()
+    monitor.ingest([runtime, workload])
+    var reads: [Int32] = []
+    monitor.enrich(for: [workload.identity]) { target in
+        reads.append(target.identity.pid)
+        return target.identity == workload.identity
+            ? ProcessMetadata(markers: [
+                SessionMarker(threadID: sessionA, provider: .claude, inboxSocket: inbox)
+            ])
+            : ProcessMetadata(listeningSockets: [inbox])
+    }
+    #expect(reads == [20, 10])
+    #expect(monitor.finding(for: workload.identity)?.attribution.runtime == runtime.identity)
+}
