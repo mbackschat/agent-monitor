@@ -8,16 +8,19 @@
 
 Trace heavy CPU and memory usage to **Codex CLI and Claude Code sessions** on macOS.
 
-When several coding agents are running, a busy `node`, `java`, or `python` process tells you little on its own. Agent Monitor connects heavy processes to their agent session, terminal, and project, so you can see where the work started.
+When several coding agents are running, a busy `node`, `java`, or `python` process tells you little on its own. Agent Monitor connects heavy processes to their agent session, terminal, and project, so you can see where the work started. Then act on it: message the agent, jump to its terminal, or stop the process.
 
 ## Features
 
-- **Live terminal view** — watch CPU and memory usage, sort processes, and open details without leaving your terminal.
+- **Live terminal view** — watch CPU and memory usage, sort processes, and open details without leaving your terminal. Change the update interval or freeze the view while you look.
 - **Session grouping** — bring related heavy processes together and see their combined resource usage.
 - **Adjustable filters** — change CPU and memory thresholds while the monitor runs.
+- **Message the agent** — send a reviewed message to the process's verified Codex agent or Claude Code session; the process's PID and name are included automatically.
+- **Jump to the session's terminal** — bring the terminal running the agent to the front, selecting its tab in Terminal.app.
+- **Stop a runaway process** — review and send SIGTERM to one process only.
+- **Actions from scripts** — the same actions as `kill`, `message`, and `focus` commands, with confirmation or `--yes`.
 - **Responsive layout** — use narrow or wide terminals, resize the details pane, and copy text with normal terminal selection.
-- **Process actions** — confirm termination of one process, message its verified Codex or Claude Code session, or bring the session's terminal to the front, from the TUI or the command line.
-- **Scriptable output** — print a report or stream JSONL to other tools.
+- **Scriptable output** — print a colored report or stream JSONL to other tools.
 - **Explicit uncertainty** — unknown or ambiguous sessions stay visible instead of being guessed.
 
 ## Install
@@ -124,7 +127,7 @@ CPU and memory measurement stay in the shared monitoring core. A small, separate
 
 ## Documentation and contributing
 
-- [Usage guide](docs/usage.md) — controls, measurements, grouping, and JSONL.
+- [Usage guide](docs/usage.md) — controls, actions, measurements, grouping, and JSONL.
 - [Development guide](docs/development.md) — build, test, and verification commands.
 - [Architecture](docs/architecture.md) — how collection, attribution, and presentation fit together.
 - [Validation record](docs/poc-validation.md) — what has been tested and known coverage limits.
