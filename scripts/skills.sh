@@ -10,11 +10,12 @@ esac
 
 fail() { echo "$*" >&2; exit 1; }
 specs=(
-    'swift-concurrency:Swift-Concurrency-Agent-Skill:skills/swift-concurrency'
-    'swift-testing-expert:Swift-Testing-Agent-Skill:swift-testing-expert'
+    'swift-concurrency:AvdLee/Swift-Concurrency-Agent-Skill:skills/swift-concurrency'
+    'swift-testing-expert:AvdLee/Swift-Testing-Agent-Skill:swift-testing-expert'
+    'agent-scripts:steipete/agent-scripts:skills/swiftui-view-refactor,skills/swiftui-performance-audit'
 )
 
-# Preflight both repositories before an upgrade so local skill edits are never discarded.
+# Preflight all sources before changing any checkout so local skill edits are preserved.
 for spec in "${specs[@]}"; do
     name=${spec%%:*}
     source="$root/.skill-sources/$name"
@@ -34,9 +35,9 @@ for spec in "${specs[@]}"; do
     name=${spec%%:*}
     remainder=${spec#*:}
     repo=${remainder%%:*}
-    path=${remainder#*:}
+    IFS=, read -r -a paths <<< "${remainder#*:}"
     source="$root/.skill-sources/$name"
-    url="https://github.com/AvdLee/$repo.git"
+    url="https://github.com/$repo.git"
     revision=''
     if [ -f "$root/skills.lock" ]; then
         revision=$(awk -v name="$name" '$1 == name {print $2}' "$root/skills.lock")
@@ -56,18 +57,22 @@ for spec in "${specs[@]}"; do
     fi
     [ -n "$revision" ] || fail "No locked revision for $name; run install."
     [ "$(git -C "$source" rev-parse HEAD)" = "$revision" ] || fail "Revision mismatch for $name"
-    [ -f "$source/$path/SKILL.md" ] || fail "Missing SKILL.md for $name"
-    for host in .agents .claude; do
-        link="$root/$host/skills/$name"
-        target="../../.skill-sources/$name/$path"
-        if [ -L "$link" ]; then
-            [ "$(readlink "$link")" = "$target" ] || fail "Unexpected symlink: $link"
-        elif [ -e "$link" ]; then
-            fail "Refusing to replace existing skill: $link"
-        elif [ "$mode" != check ]; then
-            ln -s "$target" "$link"
-        fi
-        [ "$link/SKILL.md" -ef "$source/$path/SKILL.md" ] || fail "Skill discovery failed: $link"
+    [ -f "$source/LICENSE" ] || fail "Missing license for $name"
+    for path in "${paths[@]}"; do
+        skill=${path##*/}
+        [ -f "$source/$path/SKILL.md" ] || fail "Missing SKILL.md for $skill"
+        for host in .agents .claude; do
+            link="$root/$host/skills/$skill"
+            target="../../.skill-sources/$name/$path"
+            if [ -L "$link" ]; then
+                [ "$(readlink "$link")" = "$target" ] || fail "Unexpected symlink: $link"
+            elif [ -e "$link" ]; then
+                fail "Refusing to replace existing skill: $link"
+            elif [ "$mode" != check ]; then
+                ln -s "$target" "$link"
+            fi
+            [ "$link/SKILL.md" -ef "$source/$path/SKILL.md" ] || fail "Skill discovery failed: $link"
+        done
     done
     if [ "$mode" != check ]; then
         printf '%s %s\n' "$name" "$revision" >> "$pending"

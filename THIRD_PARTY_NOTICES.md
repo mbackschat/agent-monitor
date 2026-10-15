@@ -34,6 +34,8 @@ The optional installer downloads these skills at the revisions in [skills.lock](
 |---|---|
 | [Swift Concurrency](https://github.com/AvdLee/Swift-Concurrency-Agent-Skill/tree/d5770817d2622e1585b1f7eaebc791a9cb0959c8) | [MIT](https://github.com/AvdLee/Swift-Concurrency-Agent-Skill/blob/d5770817d2622e1585b1f7eaebc791a9cb0959c8/LICENSE); Copyright (c) 2026 Antoine van der Lee |
 | [Swift Testing](https://github.com/AvdLee/Swift-Testing-Agent-Skill/tree/798e9b1a2bcac164d4f0c781908199e754f0bab6) | [MIT](https://github.com/AvdLee/Swift-Testing-Agent-Skill/blob/798e9b1a2bcac164d4f0c781908199e754f0bab6/LICENSE); Copyright (c) 2026 Antoine van der Lee |
+| [SwiftUI View Refactor](https://github.com/steipete/agent-scripts/tree/9989fe852a3f63f3933a1bdc20b4a25321240759/skills/swiftui-view-refactor) | [agent-scripts MIT](https://github.com/steipete/agent-scripts/blob/9989fe852a3f63f3933a1bdc20b4a25321240759/LICENSE); Copyright (c) 2026 Peter Steinberger. The skill credits Dimillian's `Dimillian/Skills` (2025-12-31); its MV reference credits Thomas Ricouard. These attributions and reference files are retained in the checkout. |
+| [SwiftUI Performance Audit](https://github.com/steipete/agent-scripts/tree/9989fe852a3f63f3933a1bdc20b4a25321240759/skills/swiftui-performance-audit) | [agent-scripts MIT](https://github.com/steipete/agent-scripts/blob/9989fe852a3f63f3933a1bdc20b4a25321240759/LICENSE); Copyright (c) 2026 Peter Steinberger. The skill credits Dimillian's `Dimillian/Skills` (2025-12-31) and retains Apple/WWDC reference material. |
 
 ## Redistribution
 

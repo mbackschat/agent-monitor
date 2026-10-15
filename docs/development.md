@@ -87,10 +87,14 @@ Treat a mismatch between code and documented ownership as part of the change bei
 
 **Every project skill must work with both hosts.** A canonical skill directory must include its `SKILL.md`, referenced resources, and license. Expose the same directory under both `.agents/skills/<name>` and `.claude/skills/<name>` through relative symlinks. Verify both paths resolve to the same file and that every relative reference exists. Do not duplicate the skill contents or silently rely on host-specific hooks, subagents, permission settings, or MCP tool names.
 
-The following upstream skills were read and applied during this PoC and installed project-locally on 2026-10-14. Both hosts' discovery paths resolve to the same skill files; referenced resources and licenses are present. Codex and Claude Code have each discovered both skills in a live session. Nothing was installed globally. Exact installed revisions are recorded in [skills.lock](../skills.lock).
+The skills below are installed project-locally. Both hosts' discovery paths resolve to the same skill files; referenced resources and upstream licenses are retained. The concurrency/testing skills were installed on 2026-10-14 and discovered by both hosts in live sessions. The SwiftUI skills were installed and tried in a code review on 2026-10-15; filesystem discovery was verified for both hosts, but a fresh Claude catalog was not observed. Nothing was installed globally. Exact source revisions are recorded in [skills.lock](../skills.lock).
 
 - [AvdLee Swift Concurrency](https://github.com/AvdLee/Swift-Concurrency-Agent-Skill): inspect actual language/isolation settings, prefer explicit ownership and structured lifetimes, and avoid blanket `@MainActor` or unchecked concurrency escapes. [Skill source](https://github.com/AvdLee/Swift-Concurrency-Agent-Skill/blob/main/skills/swift-concurrency/SKILL.md).
 - [AvdLee Swift Testing](https://github.com/AvdLee/Swift-Testing-Agent-Skill): use `@Test`, `#expect`, prerequisite `#require`, parameterized cases, and parallel-safe fixtures. [Skill source](https://github.com/AvdLee/Swift-Testing-Agent-Skill/blob/main/swift-testing-expert/SKILL.md).
+- [SwiftUI View Refactor](https://github.com/steipete/agent-scripts/blob/9989fe852a3f63f3933a1bdc20b4a25321240759/skills/swiftui-view-refactor/SKILL.md): use for native view structure, explicit dependencies and Observation review. Preserve our AppKit-owned model and shared service boundaries; its preference for view-owned orchestration is guidance, not a replacement architecture.
+- [SwiftUI Performance Audit](https://github.com/steipete/agent-scripts/blob/9989fe852a3f63f3933a1bdc20b4a25321240759/skills/swiftui-performance-audit/SKILL.md): use for refresh/scrolling overhead, broad invalidation, identity and layout investigations. Start with code evidence and use traces before claiming a measured bottleneck or improvement. Both SwiftUI skills are distributed by Peter Steinberger's `agent-scripts` and credit Dimillian's collection.
+
+Explicit requests can name the skill: “Use swiftui-view-refactor to review the menu bar views while preserving lifecycle ownership,” or “Use swiftui-performance-audit to investigate refresh overhead.” Agents should also select them when the task fits. Apple interface guidance remains the design baseline; these skills do not replace macOS interaction/accessibility checks. The [first trial](research/development-tools.md#first-project-trial--2026-10-15) records their practical usefulness and limits.
 
 To reproduce the installation on another computer, run the following from this repository in a network-enabled terminal:
 
@@ -99,7 +103,7 @@ bash scripts/skills.sh install
 bash scripts/skills.sh check
 ```
 
-[The setup script](../scripts/skills.sh) clones complete upstream repositories, including references and licenses, into ignored `.skill-sources/swift-concurrency/` and `.skill-sources/swift-testing-expert/`. Relative links under `.agents/skills/` and `.claude/skills/` expose exactly the same skill files to Codex CLI and Claude Code. It does not change global skill directories or install host-specific plugins or hooks. Skills become available to newly discovered sessions; restart an existing CLI if it does not refresh its catalog.
+[The setup script](../scripts/skills.sh) clones complete upstream repositories, including references and licenses, into ignored `.skill-sources/swift-concurrency/`, `.skill-sources/swift-testing-expert/` and `.skill-sources/agent-scripts/`. Both SwiftUI skills share the single `agent-scripts` checkout and lock entry. Only the selected skill directories are exposed through relative links under `.agents/skills/` and `.claude/skills/`, with identical files for both hosts. The installer does not apply upstream repository instructions, run upstream setup scripts, change global skill directories or install host-specific plugins/hooks. Skills become available to newly discovered sessions; restart an existing CLI if it does not refresh its catalog.
 
 The first installation records exact commit IDs in `skills.lock`; subsequent installs reuse those revisions. Keep that lock file and both hosts' symlinks in version control. On another computer, run the install command again to populate the ignored source checkouts. To upgrade deliberately:
 
@@ -108,7 +112,7 @@ bash scripts/skills.sh update
 bash scripts/skills.sh check
 ```
 
-Updates fetch each upstream `main`, select its current commit, and refresh the lock. The script refuses dirty source checkouts or conflicting discovery paths. Review the lock changes and upstream instructions before continuing agent work. `bash scripts/test-skills.sh` checks discovery, pinned reinstalls, upgrades, and edit protection against disposable local Git repositories without contacting GitHub. SwiftUI and app-packaging skills remain unnecessary for the headless PoC.
+Updates fetch each upstream `main`, select its current commit, and refresh the lock. The script refuses dirty source checkouts, missing root licenses or conflicting discovery paths. Review the lock changes and upstream instructions before continuing agent work. `bash scripts/test-skills.sh` checks dual-host discovery, retained references/licenses, pinned reinstalls, shared-source upgrades and edit protection against disposable local Git repositories without contacting GitHub. Additional profiling helpers and app-release skills are not installed; distribution remains deferred.
 
 ## Restricted agent environments
 
