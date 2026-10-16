@@ -32,8 +32,10 @@ public enum ProcessArguments {
         guard nextRange() != nil else { return malformed }
         while cursor < bytes.count, bytes[cursor] == 0 { cursor += 1 }
         var arguments: [String] = []
-        for _ in 0..<argc {
+        var invocation: String?
+        for index in 0..<argc {
             guard let range = nextRange() else { return malformed }
+            if index == 0, !range.isEmpty { invocation = String(decoding: bytes[range], as: UTF8.self) }
             if includeCommand { arguments.append(String(decoding: bytes[range], as: UTF8.self)) }
         }
 
@@ -51,10 +53,12 @@ public enum ProcessArguments {
             environment[key.name, default: []].insert(
                 String(decoding: bytes[(separator + 1)..<range.upperBound], as: UTF8.self))
         }
-        guard let found = try? adapters.markers(in: environment) else { return malformed }
+        guard let found = try? adapters.markers(in: environment) else {
+            return ProcessMetadata(status: .malformed, invocation: invocation)
+        }
         return ProcessMetadata(
             markers: found, status: found.isEmpty ? .notObserved : .markerRead,
-            command: includeCommand ? arguments : nil
+            command: includeCommand ? arguments : nil, invocation: invocation
         )
     }
 

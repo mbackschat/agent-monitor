@@ -73,6 +73,9 @@ public struct ProcessMetadata: Sendable {
     public var status: MetadataStatus
     public var cwd: String?
     public var command: [String]?
+    /// `argv[0]`, kept without the remaining arguments: multi-call executables select their
+    /// behavior by it, so it can withdraw a runtime claim made from the executable path.
+    public var invocation: String?
     public var terminal: String?
     public var writerThreadIDs: [String]
     /// Unix socket paths a Claude runtime listens on; links detached workloads to their inbox owner.
@@ -80,13 +83,14 @@ public struct ProcessMetadata: Sendable {
 
     public init(
         markers: [SessionMarker] = [], status: MetadataStatus = .notObserved,
-        cwd: String? = nil, command: [String]? = nil, terminal: String? = nil, writerThreadIDs: [String] = [],
-        listeningSockets: [String] = []
+        cwd: String? = nil, command: [String]? = nil, invocation: String? = nil, terminal: String? = nil,
+        writerThreadIDs: [String] = [], listeningSockets: [String] = []
     ) {
         self.markers = markers
         self.status = status
         self.cwd = cwd
         self.command = command
+        self.invocation = invocation
         self.terminal = terminal
         self.writerThreadIDs = writerThreadIDs
         self.listeningSockets = listeningSockets

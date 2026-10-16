@@ -66,10 +66,13 @@ public struct NativeProcessReader: Sendable {
         guard matches(sample) else { return ProcessMetadata(status: .unavailable) }
         var metadata = arguments(sample.identity.pid, includeCommand: includeCommand)
         metadata.cwd = currentDirectory(sample.identity.pid)
-        if let device = sample.terminalDevice, !adapters.runtimeProviders(for: sample.executable).isEmpty {
+        let invocation = metadata.invocation
+        if let device = sample.terminalDevice,
+            !adapters.runtimeProviders(for: sample.executable, invokedAs: invocation).isEmpty
+        {
             metadata.terminal = terminalName(device)
         }
-        let evidence = adapters.runtimeEvidence(for: sample.executable) { requests in
+        let evidence = adapters.runtimeEvidence(for: sample.executable, invokedAs: invocation) { requests in
             var observations = RuntimeObservations()
             for request in requests {
                 switch request {

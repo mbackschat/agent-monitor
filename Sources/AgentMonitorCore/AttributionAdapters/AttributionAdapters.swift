@@ -17,8 +17,28 @@ struct AttributionAdapters: Sendable {
 
     var environmentKeys: Set<String> { Set(adapters.flatMap(\.environmentKeys)) }
 
-    func runtimeProviders(for executable: String) -> Set<AgentProvider> {
-        Set(adapters.filter { $0.recognizesRuntime(executable) }.map(\.provider))
+    func runtimeProviders(for executable: String, invokedAs invocation: String? = nil) -> Set<AgentProvider> {
+        Set(recognizing(executable, invokedAs: invocation).map(\.provider))
+    }
+
+    /// Narrows existing executable claims by `argv[0]` without repeating path recognition.
+    func runtimeProviders(
+        _ claims: Set<AgentProvider>, invokedAs invocation: String, executable: String
+    ) -> Set<AgentProvider> {
+        claims.filter { provider in
+            adapters.first { $0.provider == provider }?.acceptsRuntimeInvocation(
+                invocation, executable: executable)
+                == true
+        }
+    }
+
+    private func recognizing(_ executable: String, invokedAs invocation: String?)
+        -> [any AgentAttributionAdapter]
+    {
+        adapters.filter { adapter in
+            adapter.recognizesRuntime(executable)
+                && invocation.map { adapter.acceptsRuntimeInvocation($0, executable: executable) } != false
+        }
     }
 
     func runtimeProvider(for executable: String) -> AgentProvider? {
@@ -38,9 +58,10 @@ struct AttributionAdapters: Sendable {
     }
 
     func runtimeEvidence(
-        for executable: String, read: (Set<RuntimeObservation>) -> RuntimeObservations
+        for executable: String, invokedAs invocation: String? = nil,
+        read: (Set<RuntimeObservation>) -> RuntimeObservations
     ) -> RuntimeEvidence {
-        let recognized = adapters.filter { $0.recognizesRuntime(executable) }
+        let recognized = recognizing(executable, invokedAs: invocation)
         guard !recognized.isEmpty else { return RuntimeEvidence() }
         let observations = read(Set(recognized.flatMap(\.runtimeObservations)))
         var writers: Set<String> = []

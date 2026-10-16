@@ -13,6 +13,15 @@ struct ClaudeAttributionAdapter: AgentAttributionAdapter {
             && directory.deletingLastPathComponent().lastPathComponent == "claude"
     }
 
+    /// The native executable also runs embedded tools selected by `argv[0]` (observed: `ugrep` in
+    /// Bash-tool pipelines); only invocation as itself or through the `claude` launcher is a runtime.
+    /// See docs/research/claude-runtime-attribution.md.
+    func acceptsRuntimeInvocation(_ invocation: String, executable: String) -> Bool {
+        let name = URL(filePath: invocation, directoryHint: .notDirectory).lastPathComponent
+        return name == "claude"
+            || name == URL(filePath: executable, directoryHint: .notDirectory).lastPathComponent
+    }
+
     func marker(in environment: [String: Set<String>]) throws -> SessionMarker? {
         try MarkerEnvironment.uuid("CLAUDE_CODE_SESSION_ID", in: environment).map {
             SessionMarker(

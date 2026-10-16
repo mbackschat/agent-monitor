@@ -4,7 +4,16 @@ public struct Monitor: Sendable {
         var parent: ProcessIdentity?
         var metadata = ProcessMetadata(status: .unavailable)
         var cpuPercent: Double?
+        /// Claims from the executable path, kept for the lifetime; `runtimeProviders` may narrow
+        /// them once `argv[0]` has been read.
+        var recognizedProviders: Set<AgentProvider>
         var runtimeProviders: Set<AgentProvider>
+
+        init(sample: ProcessSample, recognizedProviders: Set<AgentProvider>) {
+            self.sample = sample
+            self.recognizedProviders = recognizedProviders
+            runtimeProviders = recognizedProviders
+        }
     }
 
     private var nodes: [ProcessIdentity: Node] = [:]
@@ -23,7 +32,8 @@ public struct Monitor: Sendable {
         for sample in samples {
             var node =
                 nodes[sample.identity]
-                ?? Node(sample: sample, runtimeProviders: adapters.runtimeProviders(for: sample.executable))
+                ?? Node(
+                    sample: sample, recognizedProviders: adapters.runtimeProviders(for: sample.executable))
             let previous = nodes[sample.identity]?.sample
             node.cpuPercent = nil
             if let previous, let oldCPU = previous.cpuSeconds, let newCPU = sample.cpuSeconds,
@@ -33,7 +43,8 @@ public struct Monitor: Sendable {
             }
             if node.sample.executable != sample.executable {
                 node.metadata = ProcessMetadata(status: .unavailable)
-                node.runtimeProviders = adapters.runtimeProviders(for: sample.executable)
+                node.recognizedProviders = adapters.runtimeProviders(for: sample.executable)
+                node.runtimeProviders = node.recognizedProviders
             }
             if let parent = byPID[sample.parentPID], parent != sample.identity,
                 parent.startMicroseconds <= sample.identity.startMicroseconds
@@ -44,12 +55,7 @@ public struct Monitor: Sendable {
             nodes[sample.identity] = node
         }
         runtimes = [:]
-        for identity in live {
-            guard let providers = nodes[identity]?.runtimeProviders, providers.count == 1,
-                let provider = providers.first
-            else { continue }
-            runtimes[provider, default: []].insert(identity)
-        }
+        for identity in live { indexRuntime(identity) }
 
         // Retain departed ancestors only while a live descendant needs them; see
         // docs/research/macos-process-attribution.md for reparenting and PID reuse.
@@ -69,8 +75,29 @@ public struct Monitor: Sendable {
         case .markerRead, .malformed:
             break
         }
+        updated.invocation = updated.invocation ?? node.metadata.invocation
         node.metadata = updated
+        let providers =
+            updated.invocation.map {
+                adapters.runtimeProviders(
+                    node.recognizedProviders, invokedAs: $0, executable: node.sample.executable)
+            } ?? node.recognizedProviders
+        let changed = providers != node.runtimeProviders
+        node.runtimeProviders = providers
         nodes[identity] = node
+        if changed {
+            for provider in runtimes.keys { runtimes[provider]?.remove(identity) }
+            indexRuntime(identity)
+        }
+    }
+
+    /// Only live processes claimed by exactly one provider can be detached-runtime candidates.
+    private mutating func indexRuntime(_ identity: ProcessIdentity) {
+        guard live.contains(identity), let providers = nodes[identity]?.runtimeProviders,
+            providers.count == 1,
+            let provider = providers.first
+        else { return }
+        runtimes[provider, default: []].insert(identity)
     }
 
     /// Reads metadata for the processes, their ancestry and, in a second pass, the runtimes a

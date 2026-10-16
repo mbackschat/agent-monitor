@@ -131,3 +131,14 @@ func measureAllowlistedArgumentParsing() throws {
     let data = ["repetitions": 100.0, "bufferBytes": Double(bytes.count), "milliseconds": milliseconds]
     try JSONEncoder().encode(data).write(to: URL(fileURLWithPath: path))
 }
+
+@Test func invocationNameIsKeptWithoutRetainingArguments() {
+    let hidden = ProcessArguments.parse(argumentBuffer(arguments: ["ugrep", "-G"], environment: []))
+    #expect(hidden.invocation == "ugrep")
+    #expect(hidden.command == nil)
+    #expect(hidden.status == .notObserved)
+    let malformed = ProcessArguments.parse(
+        argumentBuffer(arguments: ["ugrep"], environment: ["CLAUDE_CODE_SESSION_ID=invalid"]))
+    #expect(malformed.status == .malformed)
+    #expect(malformed.invocation == "ugrep")
+}

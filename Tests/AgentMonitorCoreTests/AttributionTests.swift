@@ -477,3 +477,52 @@ func detachedCodexWorkloadRequiresOneExistingExactThreadWriter(mismatch: Detache
     #expect(reads == Set([runtime, other, workload].map(\.identity)))
     #expect(monitor.finding(for: workload.identity)?.attribution.runtime == nil)
 }
+
+private let claudeVersion = "/Users/test/.local/share/claude/versions/2.1.299"
+
+private func claudeTree(tool invocation: String, toolMetadata: ProcessMetadata? = nil) throws -> (
+    Monitor, runtime: ProcessSample, tool: ProcessSample
+) {
+    let runtime = sample(10, executable: claudeVersion, terminal: "ttys010", memory: 1)
+    let shell = sample(15, parent: 10, executable: "/bin/zsh", memory: 1)
+    let tool = sample(20, parent: 15, executable: claudeVersion)
+    let metadata = [
+        runtime.identity: ProcessArguments.parse(argumentBuffer(arguments: ["claude"], environment: [])),
+        shell.identity: ProcessArguments.parse(
+            argumentBuffer(arguments: ["/bin/zsh", "-c"], environment: [])),
+        tool.identity: toolMetadata
+            ?? ProcessArguments.parse(
+                argumentBuffer(
+                    arguments: [invocation, "-G"], environment: ["CLAUDE_CODE_SESSION_ID=\(sessionA)"])),
+    ]
+    var monitor = Monitor()
+    monitor.ingest([runtime, shell, tool])
+    monitor.enrich(for: [tool.identity]) { metadata[$0.identity] ?? ProcessMetadata(status: .unavailable) }
+    return (monitor, runtime, tool)
+}
+
+// The native executable runs embedded tools selected by argv[0]; a Bash-tool grep must keep its
+// session instead of becoming a runtime (docs/research/claude-runtime-attribution.md).
+@Test func claudeEmbeddedToolKeepsItsSessionInsteadOfBecomingARuntime() throws {
+    var (monitor, runtime, tool) = try claudeTree(tool: "ugrep")
+    let row = try #require(monitor.finding(for: tool.identity))
+    #expect(row.attribution.evidence == .marker)
+    #expect(row.attribution.threadID == sessionA)
+    #expect(row.attribution.runtime == runtime.identity)
+    monitor.enrich(ProcessMetadata(status: .unavailable), for: tool.identity)
+    #expect(monitor.finding(for: tool.identity)?.attribution.runtime == runtime.identity)
+}
+
+@Test(arguments: ["claude", "/Users/test/.local/bin/claude", claudeVersion])
+func claudeInvokedAsItselfRemainsARuntime(invocation: String) throws {
+    let (monitor, _, tool) = try claudeTree(tool: invocation)
+    let row = try #require(monitor.finding(for: tool.identity))
+    #expect(row.attribution.runtime == tool.identity)
+    #expect(row.attribution.evidence == .runtimeOnly)
+}
+
+@Test func unreadableInvocationKeepsExecutableRecognition() throws {
+    let (monitor, _, tool) = try claudeTree(
+        tool: "ugrep", toolMetadata: ProcessMetadata(status: .unavailable))
+    #expect(monitor.finding(for: tool.identity)?.attribution.runtime == tool.identity)
+}

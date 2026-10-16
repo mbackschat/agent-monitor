@@ -7,10 +7,17 @@ protocol AgentAttributionAdapter: Sendable {
     var environmentKeys: Set<String> { get }
     var runtimeObservations: Set<RuntimeObservation> { get }
     func recognizesRuntime(_ executable: String) -> Bool
+    /// Whether a process recognized from `executable` is still a runtime when invoked as
+    /// `invocation` (`argv[0]`). Consulted only for recognized executables whose arguments were read.
+    func acceptsRuntimeInvocation(_ invocation: String, executable: String) -> Bool
     func marker(in environment: [String: Set<String>]) throws -> SessionMarker?
     func runtimeEvidence(from observations: RuntimeObservations) -> RuntimeEvidence
     func runtimeLink(for marker: SessionMarker) -> RuntimeLink?
     func isSharedRuntime(_ attribution: Attribution) -> Bool
+}
+
+extension AgentAttributionAdapter {
+    func acceptsRuntimeInvocation(_ invocation: String, executable: String) -> Bool { true }
 }
 
 enum RuntimeObservation: Hashable, Sendable {

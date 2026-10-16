@@ -18,6 +18,7 @@ Read-only: one `agent-monitor --json --cpu 0 --memory-gb 0 --commands` sample, `
 
 - A process recognized as a Claude runtime was the versioned Claude executable started with `argv[0]` `ugrep`, as a child of a Bash-tool `/bin/zsh`, in a `tail -f <file> | grep …` pipeline. Its arguments began `-G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn …`. The kernel process name (`pbi_comm`) was the version file name, as for genuine runtimes, so only `argv[0]` distinguished it.
 - Genuine runtimes showed `argv[0]` `claude`, matching the `~/.local/bin/claude` launcher name.
+- In this session's Bash tool, `grep` was a shell function defined by Claude's shell snapshot. A disposable `tail -f /dev/null | grep <pattern>` started a process with `argv[0]` `ugrep` whose parent was the tool shell.
 - Inference: the native executable dispatches on `argv[0]` like a multi-call binary, so the same file acts as a different program when invoked under another name. Only `ugrep` was observed; other embedded names were not looked for.
 - Because the ancestry walk stops at the first recognized runtime before reading markers, such a process received no session even though its environment was readable and inherited from the Bash tool.
 
