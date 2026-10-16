@@ -23,7 +23,8 @@ Accepted deferral: [Codex registry integration](docs/proposals/codex-session-reg
 
 Pending ideas, not yet approved for implementation:
 
-- [Agent-friendly CLI](docs/proposals/agent-friendly-cli.md): review the proposed built-in guidance and bounded read-only CPU diagnosis, including current-user coverage and partial-result semantics; no additional skill or implementation is approved.
+- [CPU accounting](docs/proposals/cpu-accounting.md): review first-interval CPU for newborn lifetimes, exited-descendant CPU from reaped-children counters and host/current-user context, based on [CPU accounting research](docs/research/cpu-accounting.md). Decide its four review decisions before implementation; next action after approval is red/green `Monitor` tests for R1.
+- [Agent-friendly CLI](docs/proposals/agent-friendly-cli.md): on hold until CPU accounting is decided; then revise its diagnosis window and ranking onto that accounting and review the remaining built-in guidance contract. No additional skill or implementation is approved.
 - A compact provider column with sorting and a command-line-only provider filter. Provider recognition must come from attribution adapters; this is separate from the completed extraction.
 - Author credit in `--help`.
 
