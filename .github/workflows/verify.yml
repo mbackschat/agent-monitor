@@ -47,6 +47,8 @@ jobs:
       - name: Build and verify menu bar app
         run: |
           bash scripts/menubar.sh build
+          cmp LICENSE '.build/Agent Monitor.app/Contents/Resources/LICENSE'
+          cmp THIRD_PARTY_NOTICES.md '.build/Agent Monitor.app/Contents/Resources/THIRD_PARTY_NOTICES.md'
           plutil -lint '.build/Agent Monitor.app/Contents/Info.plist'
           codesign --verify --deep --strict '.build/Agent Monitor.app'
       - name: Check README preview
