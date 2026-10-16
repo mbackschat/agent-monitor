@@ -325,6 +325,41 @@ import Testing
     #expect(host.fittingSize == NSSize(width: 392, height: 28))
 }
 
+@Test(arguments: [false, true], HistoryMetric.allCases)
+@MainActor func emptyHistoryHasAVisibleSubtleBaseline(dark: Bool, metric: HistoryMetric) throws {
+    _ = NSApplication.shared
+    let model = MenuBarModel { _, _, _ in }
+    model.report.historyMetric = metric
+    let host = NSHostingView(
+        rootView: MenuBarHistoryStrip(model: model).frame(width: 392)
+            .background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+    host.frame = NSRect(x: 0, y: 0, width: 392, height: 28)
+    host.layoutSubtreeIfNeeded()
+    let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    let scale = Double(bitmap.pixelsWide) / 392
+    for x in stride(from: 145, through: 265, by: 20) {
+        let background = try #require(
+            bitmap.colorAt(x: Int(Double(x) * scale), y: Int(10 * scale))?.usingColorSpace(.deviceRGB))
+        let contrast =
+            try (20...24).map { y in
+                let color = try #require(
+                    bitmap.colorAt(x: Int(Double(x) * scale), y: Int(Double(y) * scale))?
+                        .usingColorSpace(.deviceRGB))
+                return dark
+                    ? color.redComponent - background.redComponent
+                    : background.redComponent - color.redComponent
+            }.max() ?? 0
+        #expect(contrast > 0.02)
+        #expect(contrast < 0.3)
+    }
+    if let base = ProcessInfo.processInfo.environment["MENUBAR_HISTORY_PREVIEW_PATH"] {
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: base + "-\(metric.rawValue)-\(dark ? "dark" : "light").png"))
+    }
+}
+
 @Test(
     .enabled(if: ProcessInfo.processInfo.environment["MENUBAR_MESSAGE_PREVIEW_PATH"] != nil),
     arguments: [false, true], [false, true])
