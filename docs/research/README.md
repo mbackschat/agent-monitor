@@ -26,6 +26,7 @@ Current behavior and accepted contracts belong in the [README](../../README.md) 
 - [Swift terminal UI findings](terminal-ui.md): library observations, discovery-socket failure, direct runtime behavior and bounded probe measurements.
 - [Local process observations](terminal-process-observations.md): anonymized process topology, marker readability and synthetic orphan experiments.
 - [macOS measurement and attribution](macos-process-attribution.md): native APIs, counter units, process identity, permissions and event-collection limits.
+- [CPU accounting coverage](cpu-accounting.md): first-interval, exited and short-lived lifetimes, reaped-descendant counters, unprivileged host CPU ticks and the 2026-10-16 disposable probes.
 - [Existing tools and reusable mechanisms](existing-solutions.md): inspected source, license files, maintenance observations and untested compatibility; the [2026-10-16 CLI investigation](existing-solutions.md#agent-oriented-cli-investigation--2026-10-16) adds agent-oriented guidance, finite diagnostics, discovery/schema comparisons and a constrained helper experiment.
 - [Development tools](development-tools.md): skill contents, Peter Steinberger's SwiftUI/profiling candidates, host discovery differences and audit/benchmark gaps.
 

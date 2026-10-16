@@ -19,7 +19,7 @@ This platform review preceded targeted local inspection. The [terminal observati
 
 ### Inferences
 
-Consistent time units permit `100 × Δ(userCPU + systemCPU) / Δelapsed`, with one occupied core represented by 100%. A first observation supplies no delta. Physical footprint and RSS measure different things; summing process footprint is not necessarily unique physical RAM or reclaimable memory.
+Consistent time units permit `100 × Δ(userCPU + systemCPU) / Δelapsed`, with one occupied core represented by 100%. A first observation supplies no delta. [CPU accounting coverage](cpu-accounting.md) examines newborn baselines, reaped-descendant counters and host load. Physical footprint and RSS measure different things; summing process footprint is not necessarily unique physical RAM or reclaimable memory.
 
 PID reuse and multi-call sampling can combine observations from different lifetimes. An executable UUID identifies an image, not a process lifetime ([resource initialization](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_resource.c)). Read failures and vanished processes do not establish zero resource use.
 
