@@ -19,7 +19,7 @@ Real terminal Codex workload attribution and live Codex child-recipient routing/
 
 The shipped scope includes text/TUI/JSONL reports, session grouping in text and TUI, built-in Codex/Claude attribution, confirmed single-process termination, verified session messaging and terminal focus through both TUI and CLI actions. Preserve the [architecture boundaries](docs/architecture.md) when extending it.
 
-Accepted deferral: [Codex registry integration](docs/decisions/codex-session-registry.md) waits for a verifiable native process relation; the current methods do not resolve marker-less children of shared runtimes.
+Accepted deferral (2026-10-16): [Codex registry integration](docs/decisions/codex-session-registry.md) waits for a verifiable native process relation; the current methods do not resolve marker-less children of shared runtimes.
 
 Pending ideas, not yet approved for implementation:
 

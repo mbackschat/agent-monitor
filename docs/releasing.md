@@ -21,7 +21,7 @@ Artifacts are written under ignored `dist/`: a versioned `.tar.gz` and its SHA-2
 
 ## Publish
 
-Commit the validated source and release documentation, tag that commit with `v` followed by the CLI version, and push the branch and tag. Check the Git author email against the target remote before pushing. Create the GitHub release from that existing tag and upload both generated assets. Use [release notes](releases/0.1.0.md) as the initial format, updating capabilities and verification for each version.
+Commit the validated source and release documentation, tag that commit with `v` followed by the CLI version, and push the branch and tag. Check the Git author email against the target remote before pushing. Create the GitHub release from that existing tag and upload both generated assets. Use [release notes](releases/0.1.0.md) as the initial format, updating capabilities and verification for each version. Put `Released YYYY-MM-DD.` (the UTC GitHub publication date) directly below the title and add a dated row to the [release index](releases/README.md); `python3 scripts/docs.py check` enforces both.
 
 After publication, download the assets from GitHub into a fresh directory, check the checksum, and repeat version/schema checks against the extracted executable. Confirm the repository visibility, tag commit, and README download link.
 

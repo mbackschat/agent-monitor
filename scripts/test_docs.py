@@ -20,12 +20,17 @@ class DocsTests(unittest.TestCase):
         self.write("README.md", "# Project\n\nSee [docs](docs/README.md).\n")
         self.write(
             "docs/README.md",
-            "# Docs\n\n- [Usage](usage.md)\n- [Proposals](proposals/README.md)\n- [Decisions](decisions/README.md)\n",
+            "# Docs\n\n- [Usage](usage.md)\n- [Proposals](proposals/README.md)\n- [Decisions](decisions/README.md)\n"
+            "- [Releases](releases/README.md)\n- [Research](research/README.md)\n",
         )
         self.write("docs/usage.md", "# Usage\n\n## Filters and measurements\n\nText.\n")
         self.write("docs/proposals/cpu.md", PROPOSAL)
         self.write("docs/proposals/README.md", "# Proposals\n\n<!-- status-table:begin -->\n<!-- status-table:end -->\n")
         self.write("docs/decisions/README.md", "# Decisions\n\n<!-- status-table:begin -->\n<!-- status-table:end -->\n")
+        self.write("docs/releases/0.1.0.md", "# Agent Monitor 0.1.0\n\nReleased 2026-10-14.\n\nFirst release.\n")
+        self.write("docs/releases/README.md", "# Releases\n\n| Release | Released |\n| --- | --- |\n| [0.1.0](0.1.0.md) | 2026-10-14 |\n")
+        self.write("docs/research/cpu.md", "# CPU\n\nChecked 2026-10-16.\n")
+        self.write("docs/research/README.md", "# Research\n\n| Note | Checked |\n| --- | --- |\n| [CPU](cpu.md) | 2026-10-16 |\n")
         docs.sync(self.root)
 
     def tearDown(self):
@@ -75,6 +80,18 @@ class DocsTests(unittest.TestCase):
     def test_missing_status_line_is_reported(self):
         self.write("docs/proposals/cpu.md", "# Count newborn CPU\n\nNo status here.\n")
         self.assertTrue(any("Status:" in error for error in docs.check(self.root)))
+
+    def test_release_note_needs_released_line(self):
+        self.write("docs/releases/0.1.0.md", "# Agent Monitor 0.1.0\n\nFirst release.\n")
+        self.assertTrue(any("Released" in error for error in docs.check(self.root)))
+
+    def test_release_index_date_must_match_note(self):
+        self.write("docs/releases/README.md", "# Releases\n\n| [0.1.0](0.1.0.md) | 2026-10-15 |\n")
+        self.assertTrue(any("2026-10-14" in error for error in docs.check(self.root)))
+
+    def test_dated_index_entry_needs_date(self):
+        self.write("docs/research/README.md", "# Research\n\n- [CPU](cpu.md): counters.\n")
+        self.assertTrue(any("date" in error for error in docs.check(self.root)))
 
     def test_status_command_updates_document_and_table(self):
         docs.set_status(self.root, self.root / "docs/proposals/cpu.md", "on hold", "2026-10-17")

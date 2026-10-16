@@ -8,20 +8,24 @@ Current behavior and accepted contracts belong in the [README](../../README.md) 
 
 ## Findings by topic
 
-- [Codex process and session identities](codex-terminal-attribution.md): pinned marker injection, logical thread/root semantics, writer descriptors and tool-call correlation limits; the 2026-10-16 follow-up checks 0.163.0 listing scope, null OS PIDs, connection effects and one live call.
-- [Claude session metadata and messaging](claude-session-messaging.md): marker lifecycle, session lookup, inbox protocol evidence and the disposable-session transport check.
-- [Claude runtime and workload attribution signals](claude-runtime-attribution.md): runtime-to-session binding sources, embedded tools invoked under another name, workload environment variables and directories within one session.
-- [Process signaling and messaging interfaces](session-actions.md): signal races, queue/resume interfaces, recipient identity and acceptance versus delivery.
-- [Terminal focus mechanisms](terminal-focus.md): host identifiers, per-terminal APIs, macOS permission/activation behavior and untested desktop states.
-- [Menu bar feasibility](menubar-app.md): UI/lifecycle APIs, launch environment, process access, signing and Homebrew evidence, with unverified inferences identified.
-- [Menu bar load collection cost](menu-bar-load-cost.md): native sampling breakdown, runtime-recognition and argument-buffer hotspots, bounded measurements and energy limits.
-- [Native menu design](native-menu-design.md): Apple interface guidance, pinned CodexBar/RepoBar/Trimmy source and screenshots, content-sizing API observations and unresolved live interaction questions.
-- [Swift terminal UI findings](terminal-ui.md): library observations, discovery-socket failure, direct runtime behavior and bounded probe measurements.
-- [Local process observations](terminal-process-observations.md): anonymized process topology, marker readability and synthetic orphan experiments.
-- [macOS measurement and attribution](macos-process-attribution.md): native APIs, counter units, process identity, permissions and event-collection limits.
-- [CPU accounting coverage](cpu-accounting.md): first-interval, exited and short-lived lifetimes, reaped-descendant counters, unprivileged host CPU ticks and the 2026-10-16 disposable probes.
-- [Existing tools and reusable mechanisms](existing-solutions.md): inspected source, license files, maintenance observations and untested compatibility; the [2026-10-16 CLI investigation](existing-solutions.md#agent-oriented-cli-investigation--2026-10-16) adds agent-oriented guidance, finite diagnostics, discovery/schema comparisons and a constrained helper experiment.
-- [Development tools](development-tools.md): skill contents, Peter Steinberger's SwiftUI/profiling candidates, host discovery differences and audit/benchmark gaps.
+Checked dates are when the evidence was gathered; later editorial edits do not revalidate it.
+
+| Note | Checked | Covers |
+| --- | --- | --- |
+| [Codex process and session identities](codex-terminal-attribution.md) | 2026-10-14; follow-ups to 2026-10-16 | Pinned marker injection, logical thread/root semantics, writer descriptors and tool-call correlation limits; the 2026-10-16 follow-up checks 0.163.0 listing scope, null OS PIDs, connection effects and one live call. |
+| [Claude session metadata and messaging](claude-session-messaging.md) | 2026-10-14 | Marker lifecycle, session lookup, inbox protocol evidence and the disposable-session transport check. |
+| [Claude runtime and workload attribution signals](claude-runtime-attribution.md) | 2026-10-16 | Runtime-to-session binding sources, embedded tools invoked under another name, workload environment variables and directories within one session. |
+| [Process signaling and messaging interfaces](session-actions.md) | 2026-10-14 | Signal races, queue/resume interfaces, recipient identity and acceptance versus delivery. |
+| [Terminal focus mechanisms](terminal-focus.md) | 2026-10-14; follow-up 2026-10-15 | Host identifiers, per-terminal APIs, macOS permission/activation behavior and untested desktop states. |
+| [Menu bar feasibility](menubar-app.md) | 2026-10-15 | UI/lifecycle APIs, launch environment, process access, signing and Homebrew evidence, with unverified inferences identified. |
+| [Menu bar load collection cost](menu-bar-load-cost.md) | 2026-10-15 | Native sampling breakdown, runtime-recognition and argument-buffer hotspots, bounded measurements and energy limits. |
+| [Native menu design](native-menu-design.md) | 2026-10-15 | Apple interface guidance, pinned CodexBar/RepoBar/Trimmy source and screenshots, content-sizing API observations and unresolved live interaction questions. |
+| [Swift terminal UI findings](terminal-ui.md) | 2026-10-14 | Library observations, discovery-socket failure, direct runtime behavior and bounded probe measurements. |
+| [Local process observations](terminal-process-observations.md) | 2026-10-14 | Anonymized process topology, marker readability and synthetic orphan experiments. |
+| [macOS measurement and attribution](macos-process-attribution.md) | 2026-10-14 | Native APIs, counter units, process identity, permissions and event-collection limits. |
+| [CPU accounting coverage](cpu-accounting.md) | 2026-10-16 | First-interval, exited and short-lived lifetimes, reaped-descendant counters, unprivileged host CPU ticks and the 2026-10-16 disposable probes. |
+| [Existing tools and reusable mechanisms](existing-solutions.md) | 2026-10-14; follow-up 2026-10-16 | Inspected source, license files, maintenance observations and untested compatibility; the [2026-10-16 CLI investigation](existing-solutions.md#agent-oriented-cli-investigation--2026-10-16) adds agent-oriented guidance, finite diagnostics, discovery/schema comparisons and a constrained helper experiment. |
+| [Development tools](development-tools.md) | 2026-10-14 to 2026-10-15 | Skill contents, Peter Steinberger's SwiftUI/profiling candidates, host discovery differences and audit/benchmark gaps. |
 
 ## Retained measurements
 

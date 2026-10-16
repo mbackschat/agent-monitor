@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check and maintain documentation links, folder indices and status tables.
 
-check   report broken relative links/anchors, unindexed docs and status drift
+check   report broken relative links/anchors, unindexed or undated docs and status drift
 sync    regenerate the status tables in status folders from each document's Status line
 status  set a document's status keyword and date, then sync
 """
@@ -20,6 +20,12 @@ STATUS_FOLDERS = {
     "docs/proposals": ("Proposal", ["approved", "unapproved", "on hold"]),
     "docs/decisions": ("Decision", ["deferred", "rejected", "superseded"]),
 }
+# Index entries that must carry the date explaining them: when evidence was gathered or a version
+# was published. Release notes also state their own publication date.
+DATED_INDEXES = {"docs/research", "docs/releases"}
+RELEASE_FOLDER = "docs/releases"
+RELEASED_LINE = re.compile(r"^Released (\d{4}-\d{2}-\d{2})\.$")
+DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 # Folders whose files are referenced by documents rather than navigated as documents.
 UNINDEXED_FOLDERS = {"docs/assets"}
 TABLE_BEGIN = "<!-- status-table:begin -->"
@@ -188,12 +194,41 @@ def check_status(root):
     return errors
 
 
+def released_date(path):
+    lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    match = RELEASED_LINE.match(lines[1]) if len(lines) > 1 else None
+    return match.group(1) if match else None
+
+
+def check_dates(root):
+    errors = []
+    for folder in sorted(DATED_INDEXES):
+        readme = root / folder / "README.md"
+        if not readme.exists():
+            continue
+        for number, line in prose_lines(readme.read_text(encoding="utf-8")):
+            for target in LINK.findall(line):
+                path = (readme.parent / urllib.parse.unquote(target).partition("#")[0]).resolve()
+                if path.parent != readme.parent.resolve() or not path.is_file() or path == readme.resolve():
+                    continue
+                location = f"{folder}/README.md:{number}"
+                if folder == RELEASE_FOLDER and path.suffix == ".md":
+                    date = released_date(path)
+                    if date is None:
+                        errors.append(f"{folder}/{path.name}: needs 'Released YYYY-MM-DD.' after its title")
+                    elif date not in line:
+                        errors.append(f"{location}: entry for {path.name} must show its release date {date}")
+                elif not DATE.search(line):
+                    errors.append(f"{location}: entry for {path.name} needs the date of its evidence")
+    return errors
+
+
 def check(root):
     root = pathlib.Path(root).resolve()
     errors, cache = [], {}
     for path in markdown_files(root):
         errors += check_links(root, path, cache)
-    return errors + check_indices(root) + check_status(root)
+    return errors + check_indices(root) + check_status(root) + check_dates(root)
 
 
 def sync(root):
