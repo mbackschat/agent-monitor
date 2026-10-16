@@ -1,6 +1,6 @@
 # Let agents diagnose CPU load directly
 
-Status: **unapproved proposal, revised for review**, 2026-10-16. This revision incorporates the implemented [CPU accounting contract](../architecture.md#cpu-accounting). It proposes built-in guidance and finite CPU diagnosis; it does not authorize implementation. Current commands remain defined by [usage](../usage.md). The dated comparisons and limited agent experiment remain in [research](../research/existing-solutions.md#agent-oriented-cli-investigation--2026-10-16); this revision does not revalidate upstream sources or establish token savings.
+Status: **unapproved**, 2026-10-16. Revised for review; this revision incorporates the implemented [CPU accounting contract](../architecture.md#cpu-accounting). It proposes built-in guidance and finite CPU diagnosis; it does not authorize implementation. Current commands remain defined by [usage](../usage.md). The dated comparisons and limited agent experiment remain in [research](../research/existing-solutions.md#agent-oriented-cli-investigation--2026-10-16); this revision does not revalidate upstream sources or establish token savings.
 
 Recommend `agent-monitor guide` for learning the workflow and `agent-monitor diagnose cpu --json` for one finite answer: measured CPU contributors, their session evidence, host context and observation limits. Existing report JSONL **version 3**, streaming, thresholds, actions and interactive views remain unchanged. Diagnosis has its own versioned response.
 

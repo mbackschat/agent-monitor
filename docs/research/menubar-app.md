@@ -1,6 +1,6 @@
 # Menu bar app feasibility findings
 
-Checked 2026-10-15 on Apple Silicon, macOS 27.0.1, Xcode 27 and Swift 6.4. The investigation inspected repository code, SDK headers, installed Homebrew 7.0.9-110 source and the linked documentation. No GUI prototype was built or launched, no signing identity was created, and no permission was changed. These are dated findings, not a distribution guarantee. The user's energy constraint and pending product choices are retained in the [separate proposal](../proposals/menubar-app.md).
+Checked 2026-10-15 on Apple Silicon, macOS 27.0.1, Xcode 27 and Swift 6.4. The investigation inspected repository code, SDK headers, installed Homebrew 7.0.9-110 source and the linked documentation. No GUI prototype was built or launched, no signing identity was created, and no permission was changed. These are dated findings, not a distribution guarantee. Pending product choices are recorded in the [menu bar scope decision](../decisions/menubar-product-scope.md); the current energy behavior is in [architecture](../architecture.md#native-menu-bar-app).
 
 **Local** means a read-only code, header or command observation; **documented** means the cited upstream material; **third-party** means a report not independently reproduced; **inference** identifies a conclusion beyond those observations.
 

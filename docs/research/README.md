@@ -4,15 +4,7 @@ These notes record dated observations, cited source behavior, labeled inferences
 
 Check this index before investigating a topic, and extend the matching note rather than starting a parallel one. Every new note or retained measurement gets an entry here in the same commit.
 
-Current behavior and accepted contracts belong in the [README](../../README.md) and [architecture](../architecture.md). Repeatable checks and live coverage belong in [development](../development.md#validation-coverage); unfinished work and scope decisions belong in [PLAN.md](../../PLAN.md). Design proposals and investigation briefs:
-
-- [Menu bar](../proposals/menubar-app.md): retained native-app proposal and deferred decisions.
-- [Contributor model](../proposals/agent-working-model.md): unapproved working-model proposal.
-- [CPU accounting](../proposals/cpu-accounting.md): implemented newborn first-interval CPU and host occupancy context now live in [architecture](../architecture.md#cpu-accounting); retained proposal covers deferred exited-descendant recovery.
-- [Agent-friendly CLI](../proposals/agent-friendly-cli.md): unapproved built-in guidance and bounded CPU-diagnosis proposal; revised against implemented CPU accounting, ready for review.
-- [Claude runtime binding](../proposals/claude-runtime-binding.md): implemented registry binding and deferred detached-workload link.
-- [Codex session listing brief](../proposals/codex-session-registry-research.md): investigated questions and limits.
-- [Codex registry assessment](../proposals/codex-session-registry.md): accepted deferral, its consequences and native identity conditions for reconsideration.
+Current behavior and accepted contracts belong in the [README](../../README.md) and [architecture](../architecture.md). Repeatable checks and live coverage belong in [development](../development.md#validation-coverage); unfinished work and scope decisions belong in [PLAN.md](../../PLAN.md). Designs built on this evidence are indexed in [proposals](../proposals/README.md) and [decisions](../decisions/README.md).
 
 ## Findings by topic
 
@@ -33,6 +25,9 @@ Current behavior and accepted contracts belong in the [README](../../README.md) 
 
 ## Retained measurements
 
+- [Native menu bar load cost on 2026-10-15](menu-bar-load-cost-2026-10-15.json): raw sampling breakdown behind the [menu bar load cost](menu-bar-load-cost.md) note.
+- [History collection cost on 2026-10-15](history-collection-cost-2026-10-15.json): all-agent summary cost at one-second and 15-second cadences; method and limits in [menu bar load cost](menu-bar-load-cost.md).
+- [Native grouping getter benchmark on 2026-10-15](native-grouping-2026-10-15.json): synthetic microbenchmark from the [development tools trial](development-tools.md).
 - [Codex session listing on 2026-10-16](codex-session-listing-2026-10-16.json): one connection to an existing 0.163.0 server on macOS 27.0.1 returned ten loaded threads and one background terminal with null OS PID. Total wall time was 61.277 ms; proxy-only CPU was 22.798 ms. Server CPU, network and filesystem effects were not measured. See [method and limits](codex-terminal-attribution.md#cost-and-side-effects).
 
 ### Earlier process measurements

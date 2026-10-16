@@ -1,6 +1,6 @@
 # Proposed agent working model
 
-Status: **unapproved proposal**, 2026-10-15. It does not authorize delegation.
+Status: **unapproved**, 2026-10-15. It does not authorize delegation.
 
 ## Status and ownership
 

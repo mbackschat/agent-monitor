@@ -1,6 +1,6 @@
-# Codex session registry assessment
+# Codex session registry integration
 
-Status: deferral accepted 2026-10-16; no integration authorized. The contract below identifies conditions for reconsideration, not an approved implementation design. Based on the completed [ATTR-02 investigation](../research/codex-terminal-attribution.md#session-listing-investigation--2026-10-16).
+Status: **deferred**, 2026-10-16. No integration is authorized; the contract below states conditions for reconsideration, not an approved design. Based on the completed [ATTR-02 investigation](../research/codex-terminal-attribution.md#session-listing-investigation--2026-10-16).
 
 ## Decision
 
@@ -12,7 +12,7 @@ Marker-less workloads below shared Codex runtimes remain ambiguous: their CPU an
 
 Existing marker, ancestry and writer-descriptor attribution continues unchanged. The visibility gap remains until upstream exposes a sufficient native process relation or another independently verified signal establishes ownership. Revisit runtime membership alone only if a concrete case gains an exact binding beyond the current evidence.
 
-## Required contract for reconsideration
+## Reconsider when
 
 Two relations must remain distinct:
 
@@ -29,4 +29,4 @@ Provider command/method declarations and response interpretation belong to the C
 
 Runtime membership alone could be useful only if a concrete supported case gains an exact single-thread binding beyond writer descriptors; this investigation established no such case. It is not a prerequisite for a future workload relation.
 
-Excluded from this proposal: implementation, new polling, generic adapter frameworks, transcript inspection, command/cwd/time heuristics, changes to messaging eligibility, and an Agent Monitor JSONL schema change. Any future evidence value or public contract change needs a separate approved design. Disposable sessions and further live initialization experiments require explicit authorization; source and generated-schema inspection can establish whether upstream has first supplied the missing relation.
+Excluded from reconsideration: implementation, new polling, generic adapter frameworks, transcript inspection, command/cwd/time heuristics, changes to messaging eligibility, and an Agent Monitor JSONL schema change. Any future evidence value or public contract change needs a separate approved design. Disposable sessions and further live initialization experiments require explicit authorization; source and generated-schema inspection can establish whether upstream has first supplied the missing relation.
