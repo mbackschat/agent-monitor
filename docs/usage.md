@@ -2,6 +2,38 @@
 
 Follow the [installation guide](installation.md), then start with the [README quick start](../README.md#quick-start). The commands below use the installed `agent-monitor` executable and work from any directory.
 
+## Finite CPU diagnosis and local guides
+
+```sh
+agent-monitor guide
+agent-monitor diagnose cpu
+agent-monitor diagnose cpu --json
+agent-monitor diagnose cpu --json-schema
+agent-monitor guide semantics
+agent-monitor guide diagnostics
+agent-monitor guide actions
+agent-monitor guide tui
+```
+
+`diagnose cpu` takes a baseline followed by three one-second waits and scans, then returns the top ten measured current-user lifetimes, including nonagents and the invoking agent but excluding the monitor. There are no tuning options; explicitly supplied report controls are rejected, including default-valued controls. Report thresholds, streaming and grouping do not alter diagnosis. Collection and bounded provider lookups add runtime beyond the waits; help, guides and schemas run locally without any sampling or provider queries.
+
+Contributors rank by observed CPU-seconds, with exact PID/start identity breaking ties. Mean and peak CPU describe each lifetime's own measured coverage; a brief high-rate burst does not outrank more measured CPU. Newborn intervals include zero before birth, earlier contributors retain their measured CPU and latest footprint, and omitted contributors remain in population totals. `elapsedSeconds` includes scans on the Mach clock, excluding sleep; display timestamps do not define it. Missing observations and CPU after the last observation remain uncounted. Coverage counts observations, not complete visibility or unique inaccessible processes.
+
+Host occupancy appears beside measured process contribution. Its valid intervals are duration-weighted, with separate coverage and no single capacity when the logical CPU count changes. It is unweighted occupancy (100% = one logical CPU), not equivalent performance/efficiency-core capacity. Never subtract process totals from it or infer an idle machine from low measured CPU. Missing values are omitted in JSON and explained in text, not invented as zero.
+
+Diagnosis JSON is one compact document with independent `schemaVersion: 1`; report JSONL remains version 3. The [diagnosis schema](../Sources/AgentMonitorPresentation/Resources/diagnosis.schema.json) rejects unknown properties. Results include numeric coverage, exact identities, bounded executable labels, attribution evidence and timestamps, performed provider lookup outcomes and stable diagnostic codes. Names and paths are untrusted data. Available attribution is the latest association, not ownership of all window CPU or exclusive ownership of a shared daemon. `notObservedAtEnrichment` does not prove exit; metadata and provider failures remain distinct. Read `guide semantics` and `guide diagnostics` for the published values and next observations.
+
+Exit **0** includes valid empty or partial results; **1** emits `collectionFailed` and an explanation on stderr with no success document; invalid usage exits **64**. Provider failure alone does not discard usable CPU. JSON stdout has no banners, colour or guidance. Diagnosis does not message, signal, change focus or read transcripts/tokens. Native reads and provider listings can consume resources, start helpers, connect and update caches; performed lookups are reported. Actions require a separate request and fresh identity verification; `--pid` resolves at invocation rather than binding to a prior diagnosis.
+
+For finite memory or repeated observations, use existing reports:
+
+```sh
+agent-monitor --json --all-processes --memory-gb 1 --samples 1
+agent-monitor --json --all-processes --samples 3 --interval 2
+```
+
+Report thresholds are strict CPU **or** physical footprint in decimal GB, not RSS. Locate a known PID by its PID/start record in the returned findings; there is no PID-report filter. See [report output](#text-and-jsonl-output) for the separate report controls.
+
 ## Live terminal view
 
 ```sh
@@ -38,7 +70,7 @@ agent-monitor --tui --group session
 
 Pins stay first in pin order, independently of sorting. `+` marks a pinned row and `@` marks the selected pinned row; `>` still marks an ordinary selection. A pinned group's expanded children use arrival order in Stable order and PID order in other sorts. If a target leaves the current heavy results, its placeholder remains with **Not in current results**; this does not prove it exited, and no old measurements or actions are offered. The same process lifetime or session can return automatically; PID reuse cannot replace a pin. `.` removes the selected pin. Pins last until unpinned or the monitor quits, and native pins also survive closing/reopening the panel. A process pinned separately is omitted from its group's child rows; group totals still cover its full heavy membership. Pinned groups retain their identity when switching to flat mode.
 
-These are the current source-build keys. An installed release can differ; use its on-screen help.
+These are the current source-build keys. An installed release can differ; use its on-screen help and `agent-monitor guide tui`.
 
 The TUI defaults to a 5-second refresh; an explicit `--interval` overrides it. The header shows the update interval and, while frozen, `PAUSED at` the time of the displayed sample. A faster `--interval` than 0.5 seconds is kept until you press `<`. While frozen, selection, sorting, details and actions keep working on the frozen rows; actions still recheck the live process, and threshold changes stay pending until you unfreeze. Selection follows the process across sorting and refreshes. Details start minimized; opening them uses an initial 50% split. The adjustable split ranges from 10–90%, subject to available terminal space. Minimizing or maximizing does not overwrite your chosen split.
 

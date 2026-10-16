@@ -45,7 +45,11 @@ func diagnosisScan(
         #expect(window.contributors.map(\.sample.identity.pid) == Array(1...10).map(Int32.init))
         #expect(window.omittedContributorCount == 3)
         #expect(window.cpuSeconds == 12.2)
-        #expect(window.rankedContributors.map(\.cpuSeconds).reduce(0, +) == window.cpuSeconds)
+        let returnedCPU = window.contributors.map(\.cpuSeconds).reduce(0, +)
+        let omittedCPU = window.rankedContributors.dropFirst(10).map(\.cpuSeconds).reduce(0, +)
+        #expect(returnedCPU == 10)
+        #expect(omittedCPU == 2.2)
+        #expect(returnedCPU + omittedCPU == window.cpuSeconds)
         #expect(window.observedLifetimeCount == 13)
         #expect(window.unreadableObservationCount == 3)
         #expect(window.unmeasuredObservationCount == 0)
@@ -56,6 +60,7 @@ func diagnosisScan(
         #expect(earlier.meanCPUPercent == 50)
         #expect(earlier.peakCPUPercent == 50)
         #expect(earlier.validIntervals == 1)
+        #expect(try #require(window.rankedContributors.last).meanCPUPercent > earlier.meanCPUPercent)
     }
 
     @Test func gapsAndInvalidCountersNeverBridgeAndZeroRemainsMeasured() {

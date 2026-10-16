@@ -71,6 +71,8 @@ The core exposes each accepted R1 interval as `CPUContribution` (CPU-seconds and
 
 Presentation projects diagnosis into an independent version-1 [schema](../Sources/AgentMonitorPresentation/Resources/diagnosis.schema.json) and text view. Unknown properties are rejected, unavailable optional fields are omitted, and identity/attribution definitions remain identical to the report schema. Contributor labels use the executable basename or BSD name, capped at 120 Unicode scalars with an explicit flag; text quotes untrusted labels and paths. `AgentGuide` owns workflow, semantics, diagnostic, action and TUI guidance; diagnostic-code explanations are shared with diagnosis text. Report JSONL v3 remains unchanged.
 
+The CLI exposes `guide` and its `semantics`, `diagnostics`, `actions` and `tui` topics locally, and `diagnose cpu` as text, `--json` or `--json-schema`. Diagnosis has no tuning flags and rejects explicitly supplied report controls, including their default values. Shared typed output options preserve flags consumed during Argument Parser descent; report thresholds and streaming remain separate. Top-level help leads with diagnosis and points to the guide for exhaustive TUI keys. JSON stdout is one compact document; a collection failure writes only `collectionFailed` and an explanation to stderr and exits 1. Valid empty/partial results exit 0; invalid usage remains 64 and messaging's uncertain status remains 2. Help, guides and schema discovery perform no collection or provider lookup.
+
 ## Boundary for multiple presentations
 
 ```mermaid

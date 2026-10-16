@@ -11,23 +11,21 @@ struct AgentMonitorCommand: AsyncParsableCommand {
         commandName: "agent-monitor",
         abstract: "Trace heavy CPU and memory usage to coding-agent sessions on macOS.",
         discussion: """
-            CPU OR memory must exceed the threshold. Only the current user's processes
-            are inspected. CPU is averaged between snapshots; memory is a snapshot.
-            Headers show host occupancy beside your measured processes, with missing CPU data counted.
-            Without options, one report follows a one-second baseline interval.
-            Only agent-associated heavy consumers appear by default; --all-processes includes others.
-            Unresolved agent sessions stay visible; nonterminal origins are labeled separately.
-            Session markers show launch origin, not who currently uses a shared daemon.
+            CPU question: agent-monitor diagnose cpu --json
+            A finite answer: baseline, three one-second waits, top ten by observed CPU-seconds.
+            Learn the workflow and limits: agent-monitor guide
 
-            Examples:
-              agent-monitor --json --samples 0 --interval 2
-              agent-monitor --json-schema
-              agent-monitor --tui --group session
-              agent-monitor --all-processes --cpu 40 --memory-gb 0.5
-              agent-monitor message --pid 42001 --text "Why is this so busy?"
+            Without a subcommand, print one report after a one-second baseline interval.
+            Reports show agent-associated processes above strict CPU OR footprint thresholds.
+            CPU is averaged between snapshots; memory is physical footprint in decimal GB.
+            Headers show host occupancy beside your measured processes.
+            Use --tui for a live view, --json for report JSONL, or guide tui for all keys.
+            kill, message and focus are separate verified actions; see guide actions.
             """,
         version: AgentMonitorVersion.current,
-        subcommands: [KillCommand.self, MessageCommand.self, FocusCommand.self]
+        subcommands: [
+            GuideCommand.self, DiagnoseCommand.self, KillCommand.self, MessageCommand.self, FocusCommand.self,
+        ]
     )
 
     @OptionGroup var options: Options

@@ -1,4 +1,5 @@
 import AgentMonitorCore
+import AgentMonitorPresentation
 import AgentMonitorTUI
 import ArgumentParser
 import Testing
@@ -33,7 +34,7 @@ import Testing
     #expect(normalized.contains("CPU is averaged between snapshots"))
     #expect(normalized.contains("JSONL schema version 3"))
     #expect(normalized.contains("host occupancy beside your measured processes"))
-    #expect(normalized.contains("0 minimize; 9 maximize; = restore the chosen split"))
+    #expect(AgentGuide.render(.tui).contains("0 minimizes; 9 maximizes; = restores the chosen split"))
 }
 
 @Test func optionsAcceptEqualsSyntaxAndPreserveDefaults() throws {
@@ -82,7 +83,7 @@ func invalidOptionsThrow(arguments: [String]) {
 }
 
 @Test func helpDocumentsLiveThresholdSteps() {
-    let help = AgentMonitorCommand.helpMessage().split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    let help = AgentGuide.render(.tui)
     #expect(help.contains("1/2 lower/raise CPU by 10 percentage points"))
     #expect(help.contains("3/4 lower/raise footprint by 1 GB"))
 }

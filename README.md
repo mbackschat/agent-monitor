@@ -42,6 +42,8 @@ Prefer a direct download or a source build? See the [installation guide](docs/in
 
 ## Quick start
 
+For a finite CPU answer, use `agent-monitor diagnose cpu --json` (or omit `--json` for text). It takes a baseline and three one-second waits, then ranks the top ten current-user lifetimes by measured CPU-seconds, with independent host context and explicit coverage limits. Scans and session lookup add time. Start with `agent-monitor guide` for interpretation; [finite diagnosis](docs/usage.md#finite-cpu-diagnosis-and-local-guides) describes the output and exit codes.
+
 The **TUI (terminal user interface)** is a live, full-window dashboard that runs inside your terminal. It refreshes in place and is controlled with the keyboard. Launch it grouped by session from any directory:
 
 ```sh
@@ -112,6 +114,8 @@ The maintained, source-built native menu bar app runs with `bash scripts/menubar
 
 With no options, `agent-monitor` prints one text report after a one-second baseline interval. A process appears when **CPU OR memory exceeds its threshold**; only your user's agent-associated processes are included by default.
 
+The following options control reports; diagnosis has fixed defaults and its own output flags.
+
 | Option | Description | Default |
 | --- | --- | --- |
 | `--cpu <percent>` | CPU threshold; 100% means one occupied core. Accepts nonnegative values. | `25` (%) |
@@ -130,11 +134,14 @@ With no options, `agent-monitor` prints one text report after a one-second basel
 
 | Command | Description |
 | --- | --- |
+| `guide [semantics\|diagnostics\|actions\|tui]` | Show local guidance without sampling or provider queries. |
+| `diagnose cpu [--json]` | Baseline plus three one-second waits; top ten by CPU-seconds. Text by default; JSON is one diagnosis v1 document. |
+| `diagnose cpu --json-schema` | Print the separate diagnosis schema without collection. |
 | `kill --pid <pid> [--yes] [--no-color]` | Review and send SIGTERM to one process. |
 | `message --pid <pid> --text <text> [--to root\|selected] [--yes] [--no-color]` | Review and message the process's Codex or Claude Code session. |
 | `focus --pid <pid> [--no-color]` | Bring the terminal hosting the process's agent session to the front. |
 
-The commands ask for confirmation in a terminal and need `--yes` in scripts; see [actions from the command line](docs/usage.md#actions-from-the-command-line) for exit statuses.
+The `kill` and `message` commands ask for confirmation in a terminal and need `--yes` in scripts; see [actions from the command line](docs/usage.md#actions-from-the-command-line) for exit statuses.
 
 Choose only one of `--tui`, `--json`, or `--json-schema`. Session grouping is available for text and TUI output; `--group session` cannot be combined with `--json` or `--json-schema`.
 
