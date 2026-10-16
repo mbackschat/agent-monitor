@@ -65,6 +65,8 @@ Presentation owns one shared context string, for example `CPU: host 211% of 800%
 
 JSONL schema version 3 requires a report-level `cpuAccounting` object with these five typed fields; unavailable `hostBusyPercent` and `previousScanSeconds` are omitted. The report and object reject additional properties. Findings stay flat with their existing shape; there is no version 2 compatibility output. The schema bump is required because version 2 rejected unknown report fields. [Schema discovery](../Sources/AgentMonitorPresentation/Resources/report.schema.json) remains available through `--json-schema` without sampling.
 
+The core exposes each accepted R1 interval as `CPUContribution` (CPU-seconds and covered seconds); the existing percentage is derived from that same pair. `CPUDiagnosisWindow` aggregates these intervals without changing report snapshots or history: exact lifetimes retain earlier contributions and their latest measured footprint, totals include every measured lifetime before the top-ten cutoff, and ranking uses CPU-seconds followed by PID/start. Baseline-only and unavailable observations never invent zero contributions. Host means weight valid occupancy by positive consecutive listing deltas, omit a capacity when the count changes, and never bridge failed readings. Window duration runs from baseline listing through final scan end; maximum scan duration bounds sampling skew. The [approved finite diagnosis proposal](proposals/agent-friendly-cli.md) owns the remaining collection and command contract until implementation is complete.
+
 ## Boundary for multiple presentations
 
 ```mermaid

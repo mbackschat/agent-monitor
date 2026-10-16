@@ -5,7 +5,8 @@ public struct Monitor: Sendable {
         var sample: ProcessSample
         var parent: ProcessIdentity?
         var metadata = ProcessMetadata(status: .unavailable)
-        var cpuPercent: Double?
+        var cpuContribution: CPUContribution?
+        var cpuPercent: Double? { cpuContribution?.cpuPercent }
         /// Claims from the executable path, kept for the lifetime; `runtimeProviders` may narrow
         /// them once `argv[0]` has been read.
         var recognizedProviders: Set<AgentProvider>
@@ -58,16 +59,18 @@ public struct Monitor: Sendable {
                 ?? Node(
                     sample: sample, recognizedProviders: adapters.runtimeProviders(for: sample.executable))
             let previous = previouslyLive.contains(sample.identity) ? nodes[sample.identity]?.sample : nil
-            node.cpuPercent = nil
+            node.cpuContribution = nil
             if let previous, let oldCPU = previous.cpuSeconds, let newCPU = sample.cpuSeconds,
                 sample.sampledAt > previous.sampledAt, newCPU >= oldCPU
             {
-                node.cpuPercent = 100 * (newCPU - oldCPU) / (sample.sampledAt - previous.sampledAt)
+                node.cpuContribution = CPUContribution(
+                    cpuSeconds: newCPU - oldCPU, observedSeconds: sample.sampledAt - previous.sampledAt)
             } else if previous == nil, let previousListing, let birth = sample.startedAt,
                 birth > previousListing, birth <= sample.sampledAt,
                 sample.sampledAt > previousListing, let cpu = sample.cpuSeconds, cpu >= 0
             {
-                node.cpuPercent = 100 * cpu / (sample.sampledAt - previousListing)
+                node.cpuContribution = CPUContribution(
+                    cpuSeconds: cpu, observedSeconds: sample.sampledAt - previousListing)
             }
             if node.sample.executable != sample.executable {
                 node.metadata = ProcessMetadata(status: .unavailable)
@@ -220,6 +223,13 @@ public struct Monitor: Sendable {
             }
             return $0.process.pid < $1.process.pid
         }
+    }
+
+    /// The accepted interval's numerator and measured duration, before percentage rounding.
+    /// Absent lifetimes cannot expose counters retained solely for ancestry.
+    public func cpuContribution(for identity: ProcessIdentity) -> CPUContribution? {
+        guard live.contains(identity) else { return nil }
+        return nodes[identity]?.cpuContribution
     }
 
     public func agentLoad() -> AgentLoadSummary {
