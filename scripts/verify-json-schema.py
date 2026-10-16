@@ -15,7 +15,70 @@ from jsonschema import Draft202012Validator, FormatChecker
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("binary")
 parser.add_argument("--records", help="Validate encoded synthetic JSONL instead of collecting live processes")
+parser.add_argument("--diagnosis", action="store_true", help="Validate finite CPU diagnosis fixtures")
+parser.add_argument("--schema", help="Use a schema file instead of command discovery (diagnosis only)")
 args = parser.parse_args()
+if args.diagnosis:
+    if not args.records:
+        parser.error("--diagnosis requires --records so validation never lists real sessions")
+    if args.schema:
+        with open(args.schema, encoding="utf-8") as source:
+            schema = json.load(source)
+    else:
+        result = subprocess.run([args.binary, "diagnose", "cpu", "--json-schema"],
+                                capture_output=True, text=True, check=True, timeout=5)
+        assert not result.stderr
+        schema = json.loads(result.stdout)
+    Draft202012Validator.check_schema(schema)
+    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    with open(args.records, encoding="utf-8") as source:
+        records = [json.loads(line) for line in source if line.strip()]
+    assert records
+    with open("Tests/Fixtures/Diagnosis/example.json", encoding="utf-8") as source:
+        validator.validate(json.load(source))
+    rejected = 0
+
+    def object_paths(value, path=()):
+        if isinstance(value, dict):
+            yield path
+            for key, item in value.items():
+                yield from object_paths(item, path + (key,))
+        elif isinstance(value, list):
+            for key, item in enumerate(value):
+                yield from object_paths(item, path + (key,))
+
+    for record in records:
+        validator.validate(record)
+        for path in object_paths(record):
+            invalid = copy.deepcopy(record)
+            node = invalid
+            for key in path:
+                node = node[key]
+            node["unknownField"] = 1
+            assert not validator.is_valid(invalid), f"Unknown property accepted at {path}"
+            rejected += 1
+        for key, bad in [("schemaVersion", 2), ("measurementIntervals", 4),
+                         ("requestedIntervalSeconds", 2), ("elapsedSeconds", -1),
+                         ("diagnostics", ["guessed"]), ("diagnostics", ["unmeasuredCPU"] * 2)]:
+            invalid = copy.deepcopy(record)
+            invalid[key] = bad
+            assert not validator.is_valid(invalid), f"Invalid {key} accepted"
+            rejected += 1
+        for parent, key in [("host", "meanBusyPercent"), ("host", "logicalCPUCount"),
+                            ("measured", "cpuSeconds"), ("measured", "windowCPUPercent")]:
+            invalid = copy.deepcopy(record)
+            invalid[parent][key] = None
+            assert not validator.is_valid(invalid), f"Null {key} accepted"
+            rejected += 1
+        for key in schema["required"]:
+            invalid = copy.deepcopy(record)
+            del invalid[key]
+            assert not validator.is_valid(invalid), f"Missing {key} accepted"
+            rejected += 1
+    print(f"PASS diagnosis schema, approved example, {len(records)} encoded results and {rejected} rejection checks")
+    raise SystemExit(0)
+if args.schema:
+    parser.error("--schema is only supported with --diagnosis")
 binary = args.binary
 schema_result = subprocess.run(
     [binary, "--json-schema", "--interval", "60"], capture_output=True, text=True, check=True, timeout=5

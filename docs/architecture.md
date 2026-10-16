@@ -69,6 +69,8 @@ The core exposes each accepted R1 interval as `CPUContribution` (CPU-seconds and
 
 `CPUDiagnosisSession` collects a baseline and three one-second waits/scans using injected reading, clock and registry boundaries. It enriches returned contributors and their live ancestry once after collection, without per-scan provider work. Declared listings run once per needed provider; parsing success/failure is recorded separately from usable CPU measurements, and runtime lifetime checks after the listing prevent PID reuse from supplying a new session. Earlier contributors retain CPU and their latest footprint but receive `notObservedAtEnrichment`; observed metadata failures and provider failures remain distinct. Missing counters produce a valid partial result, while a failed required scan throws `collectionFailed`. Native metadata checks distinguish a missing lifetime from a readable lifetime with unavailable metadata, without changing ordinary report output.
 
+Presentation projects diagnosis into an independent version-1 [schema](../Sources/AgentMonitorPresentation/Resources/diagnosis.schema.json) and text view. Unknown properties are rejected, unavailable optional fields are omitted, and identity/attribution definitions remain identical to the report schema. Contributor labels use the executable basename or BSD name, capped at 120 Unicode scalars with an explicit flag; text quotes untrusted labels and paths. `AgentGuide` owns workflow, semantics, diagnostic, action and TUI guidance; diagnostic-code explanations are shared with diagnosis text. Report JSONL v3 remains unchanged.
+
 ## Boundary for multiple presentations
 
 ```mermaid

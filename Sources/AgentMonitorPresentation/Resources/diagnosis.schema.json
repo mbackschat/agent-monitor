@@ -1,0 +1,420 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:agent-monitor:diagnosis:cpu:1",
+  "title": "Agent Monitor CPU diagnosis v1",
+  "description": "A finite current-user CPU observation. Optional unavailable fields are omitted; host occupancy is independent context, never a causal remainder.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "endedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "elapsedSeconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "requestedIntervalSeconds": {
+      "const": 1
+    },
+    "measurementIntervals": {
+      "const": 3
+    },
+    "maximumScanSeconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "scope": {
+      "const": "currentUserExcludingMonitor"
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "meanBusyPercent": {
+          "type": "number",
+          "minimum": 0
+        },
+        "logicalCPUCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "observedSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "validIntervals": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        }
+      },
+      "required": [
+        "observedSeconds",
+        "validIntervals"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "validIntervals": {
+                "const": 0
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "meanBusyPercent"
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "meanBusyPercent"
+            ]
+          }
+        }
+      ]
+    },
+    "measured": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cpuSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "windowCPUPercent": {
+          "type": "number",
+          "minimum": 0
+        },
+        "observedLifetimeCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "measuredLifetimeCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmeasuredObservationCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unreadableObservationCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omittedContributorCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "observedLifetimeCount",
+        "measuredLifetimeCount",
+        "unmeasuredObservationCount",
+        "unreadableObservationCount",
+        "omittedContributorCount"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "measuredLifetimeCount": {
+                "const": 0
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "cpuSeconds"
+                  ]
+                },
+                {
+                  "required": [
+                    "windowCPUPercent"
+                  ]
+                }
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "cpuSeconds",
+              "windowCPUPercent"
+            ]
+          }
+        }
+      ]
+    },
+    "contributors": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "process": {
+            "$ref": "#/$defs/processIdentity"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "labelTruncated": {
+            "type": "boolean"
+          },
+          "cpuSeconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observedSeconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "validIntervals": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "meanCPUPercent": {
+            "type": "number",
+            "minimum": 0
+          },
+          "peakCPUPercent": {
+            "type": "number",
+            "minimum": 0
+          },
+          "footprint": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sampledAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "bytes",
+              "sampledAt"
+            ]
+          },
+          "attribution": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "status": {
+                    "const": "available"
+                  },
+                  "observedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "value": {
+                    "$ref": "#/$defs/attribution"
+                  }
+                },
+                "required": [
+                  "status",
+                  "observedAt",
+                  "value"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "status": {
+                    "const": "unavailable"
+                  },
+                  "reason": {
+                    "enum": [
+                      "notObservedAtEnrichment",
+                      "metadataUnavailable",
+                      "providerLookupFailed"
+                    ]
+                  }
+                },
+                "required": [
+                  "status",
+                  "reason"
+                ]
+              }
+            ]
+          }
+        },
+        "required": [
+          "process",
+          "label",
+          "labelTruncated",
+          "cpuSeconds",
+          "observedSeconds",
+          "validIntervals",
+          "meanCPUPercent",
+          "peakCPUPercent",
+          "attribution"
+        ]
+      }
+    },
+    "providerLookups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "enum": [
+              "codex",
+              "claude"
+            ]
+          },
+          "status": {
+            "enum": [
+              "succeeded",
+              "failed"
+            ]
+          }
+        },
+        "required": [
+          "provider",
+          "status"
+        ]
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "unmeasuredCPU",
+          "unreadableObservations",
+          "hostCoverageIncomplete",
+          "hostCapacityChanged",
+          "attributionUnavailable",
+          "providerLookupFailed",
+          "noMeasuredLifetimes"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "startedAt",
+    "endedAt",
+    "elapsedSeconds",
+    "requestedIntervalSeconds",
+    "measurementIntervals",
+    "maximumScanSeconds",
+    "scope",
+    "host",
+    "measured",
+    "contributors",
+    "providerLookups",
+    "diagnostics"
+  ],
+  "$defs": {
+    "processIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pid": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "startMicroseconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Unix process start time in microseconds; PID plus start time identifies a lifetime."
+        }
+      },
+      "required": [
+        "pid",
+        "startMicroseconds"
+      ]
+    },
+    "attribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "enum": [
+            "codex",
+            "claude"
+          ]
+        },
+        "evidence": {
+          "enum": [
+            "marker",
+            "inheritedMarker",
+            "writerLock",
+            "sessionRegistry",
+            "runtimeOnly",
+            "ambiguous",
+            "unknown"
+          ]
+        },
+        "context": {
+          "enum": [
+            "terminal",
+            "nonterminal",
+            "unverified"
+          ]
+        },
+        "threadID": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "rootSessionID": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "runtime": {
+          "$ref": "#/$defs/processIdentity"
+        },
+        "terminal": {
+          "type": "string"
+        },
+        "runtimeDirectory": {
+          "type": "string"
+        },
+        "candidateThreadIDs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "ancestry": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/processIdentity"
+          }
+        }
+      },
+      "required": [
+        "evidence",
+        "context",
+        "candidateThreadIDs",
+        "ancestry"
+      ]
+    }
+  }
+}

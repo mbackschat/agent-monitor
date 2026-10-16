@@ -176,6 +176,15 @@ JSON_REPORT_FIXTURE_PATH=/tmp/agent-monitor-reports.jsonl swift test --filter js
 uv run scripts/verify-json-schema.py .build/debug/agent-monitor --records /tmp/agent-monitor-reports.jsonl
 ```
 
+Diagnosis fixtures use the independent schema and the same pinned validator without provider queries:
+
+```sh
+CPU_DIAGNOSIS_FIXTURE_PATH=/tmp/agent-monitor-diagnosis.jsonl swift test --filter DiagnosisPresentationTests
+uv run scripts/verify-json-schema.py .build/debug/agent-monitor --diagnosis --records /tmp/agent-monitor-diagnosis.jsonl --schema /tmp/agent-monitor-diagnosis.jsonl.schema.json
+```
+
+The validator also checks the [approved diagnosis example](../Tests/Fixtures/Diagnosis/example.json), rejects unknown properties in every encoded object, and checks omitted/null fields and fixed-window constants. `--schema` supports resource validation independently of CLI wiring; omit it to verify diagnosis schema discovery once the command is available. Diagnosis validation requires synthetic `--records` and never starts a live session listing.
+
 Run `uv run scripts/verify-json-schema.py .build/release/agent-monitor` to validate real JSONL records using the pinned development-only JSON Schema validator. Run `python3 scripts/verify-sustained.py .build/release/agent-monitor --output /tmp/agent-monitor-sustained.json` for a ten-minute watch with native footprint/CPU observations and controlled process churn. The latter records launch-origin findings only for heavy terminal Codex candidates; it does not read transcripts or generate agent work.
 
 ## Menu bar app

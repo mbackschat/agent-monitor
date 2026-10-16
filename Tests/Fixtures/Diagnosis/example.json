@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-10-16T12:00:00Z",
+  "endedAt": "2026-10-16T12:00:03.200Z",
+  "elapsedSeconds": 3.2,
+  "requestedIntervalSeconds": 1,
+  "measurementIntervals": 3,
+  "maximumScanSeconds": 0.05,
+  "scope": "currentUserExcludingMonitor",
+  "host": {"meanBusyPercent": 210, "logicalCPUCount": 8, "observedSeconds": 3.15, "validIntervals": 3},
+  "measured": {"cpuSeconds": 3.9, "windowCPUPercent": 121.875, "observedLifetimeCount": 3, "measuredLifetimeCount": 2, "unmeasuredObservationCount": 2, "unreadableObservationCount": 1, "omittedContributorCount": 0},
+  "contributors": [
+    {"process": {"pid": 42001, "startMicroseconds": 1792151999000000}, "label": "compiler", "labelTruncated": false, "cpuSeconds": 2.4, "observedSeconds": 3, "validIntervals": 3, "meanCPUPercent": 80, "peakCPUPercent": 100, "attribution": {"status": "unavailable", "reason": "metadataUnavailable"}},
+    {"process": {"pid": 42002, "startMicroseconds": 1792152000100000}, "label": "worker", "labelTruncated": false, "cpuSeconds": 1.5, "observedSeconds": 2, "validIntervals": 2, "meanCPUPercent": 75, "peakCPUPercent": 100, "attribution": {"status": "unavailable", "reason": "notObservedAtEnrichment"}}
+  ],
+  "providerLookups": [],
+  "diagnostics": ["unmeasuredCPU", "unreadableObservations", "attributionUnavailable"]
+}
