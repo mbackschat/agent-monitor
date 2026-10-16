@@ -24,7 +24,7 @@ public struct ProcessSnapshot: Sendable {
     }
 }
 
-public struct NativeProcessReader: Sendable {
+public struct NativeProcessReader: DiagnosisReading {
     private let numerator: UInt32
     private let denominator: UInt32
     private let adapters: AttributionAdapters
@@ -95,7 +95,18 @@ public struct NativeProcessReader: Sendable {
     }
 
     public func metadata(for sample: ProcessSample, includeCommand: Bool = false) -> ProcessMetadata {
-        guard matches(sample) else { return ProcessMetadata(status: .unavailable) }
+        switch observation(for: sample, includeCommand: includeCommand) {
+        case .observed(let metadata): metadata
+        case .notObserved: ProcessMetadata(status: .unavailable)
+        }
+    }
+
+    public func observation(for sample: ProcessSample) -> DiagnosisObservation {
+        observation(for: sample, includeCommand: false)
+    }
+
+    private func observation(for sample: ProcessSample, includeCommand: Bool) -> DiagnosisObservation {
+        guard isCurrent(sample) else { return .notObserved }
         var metadata = arguments(sample.identity.pid, includeCommand: includeCommand)
         metadata.cwd = currentDirectory(sample.identity.pid)
         let invocation = metadata.invocation
@@ -116,12 +127,14 @@ public struct NativeProcessReader: Sendable {
         }
         metadata.writerThreadIDs = evidence.writerThreadIDs
         metadata.listeningSockets = evidence.listeningSockets
-        guard matches(sample) else { return ProcessMetadata(status: .unavailable) }
-        return metadata
+        guard isCurrent(sample) else { return .notObserved }
+        return .observed(metadata)
     }
 
-    private func matches(_ sample: ProcessSample) -> Bool {
-        guard let info = bsdInfo(sample.identity.pid), identity(info) == sample.identity else { return false }
+    public func isCurrent(_ sample: ProcessSample) -> Bool {
+        guard let info = bsdInfo(sample.identity.pid), info.pbi_uid == getuid(),
+            identity(info) == sample.identity
+        else { return false }
         return executablePath(sample.identity.pid) == sample.executable
     }
 

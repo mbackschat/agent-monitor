@@ -151,17 +151,23 @@ public struct Monitor: Sendable {
 
     /// Replaces the provider's bindings with its listing; nil (a failed listing) or an unparsable
     /// one removes them. Each live runtime binds only to the single active entry naming its PID.
-    package mutating func bindSessions(_ output: Data?, provider: AgentProvider) {
-        let sessions = output.flatMap { try? adapters.runtimeSessions(provider, fromRegistry: $0) } ?? []
+    @discardableResult package mutating func bindSessions(
+        _ output: Data?, provider: AgentProvider, restrictingTo verified: Set<ProcessIdentity>? = nil
+    ) -> Bool {
+        let parsed = output.flatMap { try? adapters.runtimeSessions(provider, fromRegistry: $0) }
+        let sessions = parsed ?? []
         let byPID = Dictionary(grouping: sessions, by: \.runtimePID)
         for runtime in runtimes[provider] ?? [] {
             let listed = byPID[runtime.pid] ?? []
-            if listed.count == 1, let session = listed.first, session.active, let id = session.sessionID {
+            if verified?.contains(runtime) != false,
+                listed.count == 1, let session = listed.first, session.active, let id = session.sessionID
+            {
                 listedSessions[runtime] = id
             } else {
                 listedSessions[runtime] = nil
             }
         }
+        return parsed != nil
     }
 
     /// Only live processes claimed by exactly one provider can be detached-runtime candidates.
@@ -195,6 +201,10 @@ public struct Monitor: Sendable {
 
     public func enrichmentTargets(thresholds: Thresholds = Thresholds()) -> [ProcessSample] {
         enrichmentTargets(for: heavyIdentities(thresholds: thresholds))
+    }
+
+    package func ancestryTargets(for identities: some Sequence<ProcessIdentity>) -> [ProcessSample] {
+        Set(identities.flatMap { chain(from: $0) }).intersection(live).compactMap { nodes[$0]?.sample }
     }
 
     /// Ancestry chains, plus the runtimes a detached session marker may point to. Those candidates
