@@ -83,24 +83,26 @@ public enum LiveReportLayout {
         let filters =
             "CPU > \(ReportNumber.text(state.thresholds.cpuPercent))% OR GB > \(ReportNumber.text(Double(state.thresholds.memoryBytes) / 1e9))"
             + (pending ? " (pending)" : "")
+        let context = ReportLine(CPUContext.text(state.snapshot?.cpuAccounting), style: .muted)
         // Width-based row counts preserve pane geometry across changing status text; see docs/architecture.md.
         switch width {
         case 120...:
             return [
                 ReportLine(
                     title + " | " + abbreviated(status, width: width - title.count - filters.count - 6)
-                        + " | " + filters, style: .title)
+                        + " | " + filters, style: .title),
+                context,
             ]
         case 85..<120:
             return [
                 ReportLine(
                     title + " | " + abbreviated(status, width: width - title.count - 3), style: .title),
-                ReportLine(filters, style: .muted),
+                ReportLine(filters, style: .muted), context,
             ]
         default:
             return [
                 ReportLine(title, style: .title), ReportLine(status, style: .title),
-                ReportLine(filters, style: .muted),
+                ReportLine(filters, style: .muted), context,
             ]
         }
     }

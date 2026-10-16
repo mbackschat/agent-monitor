@@ -44,7 +44,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
             && dividerRow($0) == 12
     }
     for (width, headerRows, footerRows, divider) in [
-        (120, 2, 2, 12), (200, 2, 2, 12), (80, 4, 4, 12), (100, 3, 3, 12),
+        (120, 3, 2, 12), (200, 3, 2, 12), (80, 5, 4, 12), (100, 4, 3, 12),
     ] {
         var resized = winsize(ws_row: 24, ws_col: UInt16(width), ws_xpixel: 0, ws_ypixel: 0)
         try #require(ioctl(terminal.slave, TIOCSWINSZ, &resized) == 0)
@@ -81,8 +81,8 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
         $0.contains("PID descending") && $0.contains("PID 42 |")
     }
     for (key, label, divider) in [
-        ("+", "Details 55%", 11), ("9", "Details max", 3), ("0", "Details min", 20),
-        ("=", "Details 55%", 11), ("-", "Details 50%", 12),
+        ("+", "Details 55%", 12), ("9", "Details max", 4), ("0", "Details min", 20),
+        ("=", "Details 55%", 12), ("-", "Details 50%", 12),
     ] {
         try writeAllBytes(Array(key.utf8), to: terminal.master)
         _ = try await waitForANSIVisibleScreen(

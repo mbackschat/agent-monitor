@@ -25,7 +25,7 @@ This README describes the current source build. For the published CLI release, s
 - **Stop a runaway process** — review and send SIGTERM to one process only.
 - **Actions from scripts** — the same actions as `kill`, `message`, and `focus` commands, with confirmation or `--yes`.
 - **Responsive layout** — use narrow or wide terminals, resize the details pane, and copy text with normal terminal selection.
-- **Scriptable output** — print a colored report or stream JSONL to other tools.
+- **Scriptable output** — print a colored report or stream JSONL schema version 3 to other tools.
 - **Explicit uncertainty** — unknown or ambiguous sessions stay visible instead of being guessed.
 
 ## Install
@@ -100,6 +100,8 @@ See the [usage guide](docs/usage.md) for all keyboard controls, filters, session
 
 ## Menu bar app
 
+Text, TUI and native headers show host occupancy beside measured CPU from your listed processes, including a count without CPU data. Newborn processes contribute their first observed interval; work never observed or after the last observation remains uncounted. “No data” means host occupancy is unavailable. See [measurement semantics](docs/usage.md#filters-and-measurements).
+
 The maintained, source-built native menu bar app runs with `bash scripts/menubar.sh run`. Click its load icon for session groups, resource usage and process details; keyboard focus starts on the table so arrow keys navigate rows immediately; expand a process to focus its terminal, review a termination request or compose a message. It uses the same monitoring and verified action services as the TUI, with a native popover that can be detached by dragging. The app follows the system light/dark appearance. The live icon’s bars and count match the filtered table, including Pause. Its small monochrome process-count badge sits above shorter bars, keeping the menu-bar item’s width fixed. New rows and their parent session headers briefly receive a gray background highlight, including collapsed parents. Stable order is the default in both GUI and TUI; CPU, footprint and PID sorting remain available. Row context menus offer pinning, Copy PID, terminal focus, messaging and termination, with unavailable actions dimmed. Right-click the icon for load details, View options and Quit. Choose a static icon in View options to stop closed-panel sampling. See [menu bar usage](docs/usage.md#menu-bar-app) and [build and validation limits](docs/development.md#menu-bar-app).
 
 <p><img src="docs/assets/menubar-preview.webp" width="420" height="560" alt="Light appearance: Agent Monitor panel paused with an expanded pinned Claude session, a shared Codex runtime, process totals, history, and resource usage."></p>
@@ -118,7 +120,7 @@ With no options, `agent-monitor` prints one text report after a one-second basel
 | `--samples <count>` | Number of reports; `0` runs until you quit. | `1`; `0` with `--tui` |
 | `--tui`, `-tui` | Open the live terminal UI in Stable order; requires interactive input and output. | Off; text reports |
 | `--group <mode>` | `none` shows individual processes; `session` groups by launch session and totals displayed heavy processes. | `none` |
-| `--json` | Emit JSONL: one complete JSON object per report. | Off |
+| `--json` | Emit JSONL schema version 3: one complete JSON object per report, including CPU context. | Off |
 | `--json-schema` | Print the report's JSON Schema and exit without sampling. | Off |
 | `--all-processes` | Include unrelated and unattributed processes; same-user scope and heavy thresholds still apply. | Off |
 | `--commands` | Include command arguments in reports and details; arguments can contain secrets. | Off |

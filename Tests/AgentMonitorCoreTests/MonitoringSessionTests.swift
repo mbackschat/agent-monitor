@@ -32,7 +32,8 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
         if index > 0 && failCollection { throw SessionFixtureError.collection }
         return ProcessSnapshot(
             samples: [sample(42, at: 1 + Double(index) * 2, cpu: Double(index), memory: 1)],
-            enumeratedCount: 3, unreadableCount: 2, listedAt: 1 + Double(index) * 2, scanSeconds: 0)
+            enumeratedCount: 3, unreadableCount: 2, listedAt: 1 + Double(index) * 2, scanSeconds: 0,
+            hostCounters: nil, logicalCPUCount: 8)
     }
 
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
@@ -79,6 +80,9 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
     #expect(first.sampledProcessCount == 1)
     #expect(first.unreadableProcessCount == 2)
     #expect(first.findings.first?.cpuPercent == 50)
+    #expect(first.cpuAccounting.measuredUserPercent == 50)
+    #expect(first.cpuAccounting.unmeasuredLifetimeCount == 0)
+    #expect(first.agentLoad == nil)
     #expect(first.findings.first?.command == ["worker"])
     #expect(first.findings.first?.attribution.threadID == sessionA)
 }

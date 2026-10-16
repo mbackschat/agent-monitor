@@ -21,6 +21,9 @@ func statusItemRoutesSecondaryClicksToTheContextMenu(
     _ = NSApplication.shared
     let fixture = try menuBarFixture(cpu: 50, memoryBytes: 2_000_000_000)
     let snapshot = MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+            unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
         timestamp: fixture.timestamp, intervalSeconds: 15, cpuThresholdPercent: 999,
         memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 1, unreadableProcessCount: 0,
         findings: fixture.findings, agentLoad: AgentLoadSummary(processes: fixture.findings))
@@ -70,6 +73,9 @@ func statusItemRoutesSecondaryClicksToTheContextMenu(
     let fixture = try menuBarFixture(cpu: 80)
     input.yield(
         MonitoringSnapshot(
+            cpuAccounting: CPUAccounting(
+                hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+                unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
             timestamp: fixture.timestamp, intervalSeconds: 15, cpuThresholdPercent: 25,
             memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 1, unreadableProcessCount: 0,
             findings: fixture.findings, agentLoad: AgentLoadSummary(processes: fixture.findings)))

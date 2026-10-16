@@ -18,6 +18,9 @@ enum TUIFixture {
                 }
                 try await receive(
                     MonitoringSnapshot(
+                        cpuAccounting: CPUAccounting(
+                            hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+                            unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
                         timestamp: Date(), intervalSeconds: 1,
                         cpuThresholdPercent: thresholds.cpuPercent,
                         memoryThresholdBytes: thresholds.memoryBytes,

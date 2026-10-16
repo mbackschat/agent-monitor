@@ -110,6 +110,10 @@ agent-monitor --all-processes --cpu 10
 
 In the TUI, both thresholds clamp at zero. New settings apply at the next sample and show as pending until applied. Lowering a threshold can reveal previously omitted processes without restarting the monitor. An empty list means no matching heavy processes were found in that sample; try lowering the thresholds.
 
+Text, TUI and native panel headers show `CPU: host 211% of 800% · your measured processes 169% (3 without data)`. The status menu and accessibility text reuse the same context. Host occupancy uses unweighted logical CPUs (100% = one core), not performance/efficiency-core computing capacity. “No data” means no valid consecutive host-counter interval; a measured idle interval shows 0%. Your measured total covers listed current-user lifetimes with CPU data, excludes the monitor itself and includes processes below the table thresholds or outside agent scope. The count without data covers listed lifetimes only. No difference between the figures is presented as an explanation of load.
+
+CPU uses each lifetime's consecutive sample-time delta. A newly observed lifetime born after the previous listing uses cumulative CPU divided by the measured time since that listing; its window can be longer by up to the previous scan duration (`previousScanSeconds` in JSONL). A lifetime first seen after a read gap needs another valid sample if it predates the previous listing. Work never observed and CPU after the final observation stay uncounted. History, icon and session totals retain their existing populations and rules.
+
 ## Session grouping
 
 `--group session` groups text or TUI output by launch session. In the TUI, press `g` to switch modes. → expands a group or opens process details, and ← collapses it. New groups start collapsed; previously expanded session/root groups reopen when the same identity returns after filtering. Explicit collapse stays collapsed. The monitor remembers up to 256 absent expanded groups, evicting the oldest expansion choices first; visible or pinned groups are not evicted.
@@ -145,7 +149,7 @@ agent-monitor --json --samples 3
 agent-monitor --json-schema
 ```
 
-JSONL contains one complete, compact JSON object per line/report. It retains the flat process list and full attribution evidence, including ambiguous candidate IDs. Schema version 2 added the `sessionRegistry` evidence value. `--group session` is incompatible with `--json` and `--json-schema`.
+JSONL contains one complete, compact JSON object per line/report. It retains the flat process list and full attribution evidence, including ambiguous candidate IDs. Schema version 3 adds the required report-level `cpuAccounting` object: optional `hostBusyPercent`, `logicalCPUCount`, `measuredUserPercent`, `unmeasuredLifetimeCount` and optional `previousScanSeconds`. Unavailable optional fields are omitted. Report and nested objects reject unknown fields. Findings remain flat; `sessionRegistry` evidence is retained. `--group session` is incompatible with `--json` and `--json-schema`.
 
 `--commands` includes command arguments in reports and process details. Arguments can contain credentials or other sensitive values and are omitted by default. Session IDs and project paths can still appear without this option.
 

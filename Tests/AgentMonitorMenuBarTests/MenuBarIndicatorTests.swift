@@ -1,4 +1,5 @@
 import AgentMonitorCore
+import AgentMonitorPresentation
 import AppKit
 import Foundation
 import Synchronization
@@ -9,6 +10,9 @@ import Testing
 private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) throws -> MonitoringSnapshot {
     let sample = try menuBarFixture(pids: [pid], cpu: cpu, memoryBytes: 10)
     return MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+            unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
         timestamp: Date(timeIntervalSince1970: time), intervalSeconds: 15,
         cpuThresholdPercent: 0, memoryThresholdBytes: 999, sampledProcessCount: 1,
         unreadableProcessCount: 0, findings: cpu > 0 ? sample.findings : [], agentLoad: nil)
@@ -48,6 +52,9 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     var indicator = MenuBarIndicator()
     indicator.receive(
         MonitoringSnapshot(
+            cpuAccounting: CPUAccounting(
+                hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+                unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
             timestamp: fixture.timestamp, intervalSeconds: 15, cpuThresholdPercent: 999,
             memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 2, unreadableProcessCount: 0,
             findings: fixture.findings + fixture.findings, agentLoad: nil))
@@ -242,6 +249,9 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     let fixture = try menuBarFixture(pids: [42001, 42002], cpu: 10, memoryBytes: 10)
     indicator.receive(
         MonitoringSnapshot(
+            cpuAccounting: CPUAccounting(
+                hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+                unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
             timestamp: Date(timeIntervalSince1970: 2), intervalSeconds: 5,
             cpuThresholdPercent: 5, memoryThresholdBytes: 500_000_000,
             sampledProcessCount: 3, unreadableProcessCount: 0, findings: fixture.findings,
@@ -260,6 +270,9 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     let grouped = try menuBarFixture(pids: [42001, 42002])
     let singleton = try menuBarFixture(pids: [42003], sessionID: "22222222-2222-4222-8222-222222222222")
     let snapshot = MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+            unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
         timestamp: grouped.timestamp, intervalSeconds: 5,
         cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
         sampledProcessCount: 3, unreadableProcessCount: 0, findings: grouped.findings + singleton.findings)
@@ -291,4 +304,20 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(model.displayedProcessCount == 0)
     #expect(model.indicator.heavyCount == 0)
     await model.stop()
+}
+
+@Test func statusAndAccessibilityIncludeContextWithoutChangingIconTotals() {
+    let context = CPUAccounting(
+        hostBusyPercent: 700, logicalCPUCount: 8, measuredUserPercent: 600,
+        unmeasuredLifetimeCount: 3, previousScanSeconds: 0.01)
+    let snapshot = MonitoringSnapshot(
+        cpuAccounting: context,
+        timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1, cpuThresholdPercent: 25,
+        memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 20, unreadableProcessCount: 0, findings: [])
+    var indicator = MenuBarIndicator(processorCount: 8)
+    indicator.receive(snapshot)
+    #expect(indicator.level == 0)
+    #expect(indicator.heavyCount == 0)
+    #expect(indicator.statusLines.contains(CPUContext.text(context)))
+    #expect(indicator.statusDescription.contains(CPUContext.text(context)))
 }

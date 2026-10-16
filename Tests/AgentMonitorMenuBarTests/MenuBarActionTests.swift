@@ -61,6 +61,9 @@ func menuBarFixture(
                 """.utf8))
     }
     return MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+            unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
         timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1,
         cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
         sampledProcessCount: 42, unreadableProcessCount: 0, findings: rows)
@@ -82,6 +85,9 @@ func menuBarFixture(
     #expect(actions.calls.withLock { $0.isEmpty })
     model.report.receive(
         MonitoringSnapshot(
+            cpuAccounting: CPUAccounting(
+                hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+                unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
             timestamp: Date(), intervalSeconds: 1,
             cpuThresholdPercent: 25, memoryThresholdBytes: 1, sampledProcessCount: 0,
             unreadableProcessCount: 0, findings: []))
@@ -344,6 +350,9 @@ func menuBarFixture(
     await model.waitForCollection()
     model.report.receive(
         MonitoringSnapshot(
+            cpuAccounting: CPUAccounting(
+                hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+                unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
             timestamp: Date(timeIntervalSince1970: 60), intervalSeconds: 1,
             cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
             sampledProcessCount: 1, unreadableProcessCount: 0, findings: [row]))

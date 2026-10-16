@@ -13,6 +13,7 @@ struct AgentMonitorCommand: AsyncParsableCommand {
         discussion: """
             CPU OR memory must exceed the threshold. Only the current user's processes
             are inspected. CPU is averaged between snapshots; memory is a snapshot.
+            Headers show host occupancy beside your measured processes, with missing CPU data counted.
             Without options, one report follows a one-second baseline interval.
             Only agent-associated heavy consumers appear by default; --all-processes includes others.
             Unresolved agent sessions stay visible; nonterminal origins are labeled separately.

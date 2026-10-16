@@ -74,6 +74,9 @@ private func historySnapshot(at time: Double, cpu: Double?) -> MonitoringSnapsho
             rootSessionID: nil, runtime: nil, terminal: nil, runtimeDirectory: nil,
             candidateThreadIDs: [], ancestry: [id]))
     return MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+            unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
         timestamp: Date(timeIntervalSince1970: time), intervalSeconds: 1,
         cpuThresholdPercent: 999, memoryThresholdBytes: 9_000_000_000,
         sampledProcessCount: 1, unreadableProcessCount: 0, findings: [],
@@ -98,6 +101,9 @@ func historyUsesOneTerminalRowWithDiscoverableControls(width: Int, metric: Histo
     let held = history
     history.receive(
         MonitoringSnapshot(
+            cpuAccounting: CPUAccounting(
+                hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+                unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
             timestamp: Date(timeIntervalSince1970: 2), intervalSeconds: 1,
             cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
             sampledProcessCount: 0, unreadableProcessCount: 0, findings: []))

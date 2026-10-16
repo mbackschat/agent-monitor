@@ -2,7 +2,8 @@ import AgentMonitorCore
 import Foundation
 
 public struct JSONReport: Encodable {
-    public let schemaVersion = 2
+    public let schemaVersion = 3
+    public let cpuAccounting: CPUAccountingFields
     public let attributionMeaning = "launchOrigin"
     public let timestamp: Date
     public let intervalSeconds: Double
@@ -13,6 +14,7 @@ public struct JSONReport: Encodable {
     public let findings: [HeavyProcess]
 
     public init(_ snapshot: MonitoringSnapshot) {
+        cpuAccounting = CPUAccountingFields(snapshot.cpuAccounting)
         timestamp = snapshot.timestamp
         intervalSeconds = snapshot.intervalSeconds
         cpuThresholdPercent = snapshot.cpuThresholdPercent
@@ -36,5 +38,21 @@ public struct JSONReport: Encodable {
             throw CocoaError(.fileNoSuchFile)
         }
         return try Data(contentsOf: url)
+    }
+}
+
+public struct CPUAccountingFields: Encodable {
+    public let hostBusyPercent: Double?
+    public let logicalCPUCount: Int
+    public let measuredUserPercent: Double
+    public let unmeasuredLifetimeCount: Int
+    public let previousScanSeconds: Double?
+
+    init(_ value: CPUAccounting) {
+        hostBusyPercent = value.hostBusyPercent
+        logicalCPUCount = value.logicalCPUCount
+        measuredUserPercent = value.measuredUserPercent
+        unmeasuredLifetimeCount = value.unmeasuredLifetimeCount
+        previousScanSeconds = value.previousScanSeconds
     }
 }

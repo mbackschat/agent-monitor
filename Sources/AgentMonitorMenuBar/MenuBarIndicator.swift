@@ -1,4 +1,5 @@
 import AgentMonitorCore
+import AgentMonitorPresentation
 import Foundation
 
 struct MenuBarIndicator {
@@ -6,6 +7,7 @@ struct MenuBarIndicator {
 
     private let processorCount: Int
     private var load: AgentLoadSummary?
+    private var cpuAccounting: CPUAccounting?
     private var sampledAt: Date?
     private var unreadableCount = 0
     private var thresholds = Thresholds()
@@ -31,6 +33,7 @@ struct MenuBarIndicator {
 
     mutating func receive(_ snapshot: MonitoringSnapshot, paused: Bool = false) {
         load = AgentLoadSummary(processes: snapshot.findings)
+        cpuAccounting = snapshot.cpuAccounting
         thresholds = Thresholds(
             cpuPercent: snapshot.cpuThresholdPercent, memoryBytes: snapshot.memoryThresholdBytes)
         self.paused = paused
@@ -41,6 +44,7 @@ struct MenuBarIndicator {
 
     mutating func fail() {
         load = nil
+        cpuAccounting = nil
         sampledAt = nil
         availability = .unavailable
     }
@@ -61,6 +65,7 @@ struct MenuBarIndicator {
             "Agent Monitor — \(load.processCount) heavy processes in view",
             paused ? "Paused — matching the displayed table" : nil,
             "CPU \(load.missingCPUCount > 0 ? "≥ " : "")\(cpu)% (100% = one core)",
+            CPUContext.text(cpuAccounting),
             "Footprint \(load.missingFootprintCount > 0 ? "≥ " : "")\(memory) GB",
             "Bars: share of all cores · boundaries at 25% and 50%",
             "Filter: CPU > \(thresholds.cpuPercent.formatted())% of one core or footprint > \((Double(thresholds.memoryBytes) / 1e9).formatted()) GB",

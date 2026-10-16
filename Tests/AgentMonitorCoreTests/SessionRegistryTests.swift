@@ -136,7 +136,8 @@ private final class FakeRegistry: SessionRegistryReading, SamplingClock, Process
             count > 0 && runtimes.count > 1 ? [sample(11, executable: claudeExecutable, at: at, cpu: at)] : []
         return ProcessSnapshot(
             samples: [sample(10, executable: claudeExecutable, at: at, cpu: at)] + extra,
-            enumeratedCount: 2, unreadableCount: 0, listedAt: at, scanSeconds: 0)
+            enumeratedCount: 2, unreadableCount: 0, listedAt: at, scanSeconds: 0, hostCounters: nil,
+            logicalCPUCount: 8)
     }
 
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {

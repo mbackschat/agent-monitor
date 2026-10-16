@@ -1,6 +1,6 @@
 # CPU accounting coverage
 
-Research checked on 2026-10-16. This note asks which CPU consumption periodic same-user sampling counts, misses or attributes elsewhere, and which unprivileged macOS counters can close or quantify those gaps. Counter units, process identity and permission evidence remain in [macOS measurement and attribution](macos-process-attribution.md#what-can-a-headless-collector-measure-accurately). Design consequences belong in the [unapproved CPU accounting proposal](../proposals/cpu-accounting.md), not here.
+Research checked on 2026-10-16. This note asks which CPU consumption periodic same-user sampling counts, misses or attributes elsewhere, and which unprivileged macOS counters can close or quantify those gaps. Counter units, process identity and permission evidence remain in [macOS measurement and attribution](macos-process-attribution.md#what-can-a-headless-collector-measure-accurately). Accepted semantics belong in [architecture](../architecture.md#cpu-accounting), with deferred work in the [retained CPU accounting proposal](../proposals/cpu-accounting.md).
 
 Local observations used a Mac mini (`Macmini9,1`, 8 logical CPUs), macOS 27.0.1 (26A434), Agent Monitor commit `59969b7`, and disposable owned processes only. No agent workload, other user's process or provider session was measured. The probe script was not retained; its results below are single runs, not benchmarks.
 

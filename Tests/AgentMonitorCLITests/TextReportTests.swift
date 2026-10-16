@@ -16,6 +16,9 @@ import Testing
             rootSessionID: nil, runtime: identity, terminal: nil, runtimeDirectory: nil,
             candidateThreadIDs: candidates, ancestry: [identity]))
     let report = MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+            unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
         timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1, cpuThresholdPercent: 25,
         memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 1, unreadableProcessCount: 0,
         findings: [row])
@@ -45,6 +48,9 @@ func textReportNamesTheProvider(provider: AgentProvider?, label: String) {
             threadID: "11111111-1111-4111-8111-111111111111", rootSessionID: nil, runtime: nil, terminal: nil,
             runtimeDirectory: nil, candidateThreadIDs: [], ancestry: [identity]))
     let report = MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+            unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
         timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1, cpuThresholdPercent: 25,
         memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 1, unreadableProcessCount: 0,
         findings: [row])
@@ -60,6 +66,9 @@ private func unresolvedReport() -> MonitoringSnapshot {
             provider: .codex, evidence: .ambiguous, context: .terminal, threadID: nil, rootSessionID: nil,
             runtime: nil, terminal: nil, runtimeDirectory: nil, candidateThreadIDs: [], ancestry: [identity]))
     return MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+            unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
         timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1, cpuThresholdPercent: 25,
         memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 1, unreadableProcessCount: 0,
         findings: [row])

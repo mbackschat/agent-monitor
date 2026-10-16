@@ -30,6 +30,8 @@ import Testing
     }
     let normalized = help.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     #expect(normalized.contains("CPU is averaged between snapshots"))
+    #expect(normalized.contains("JSONL schema version 3"))
+    #expect(normalized.contains("host occupancy beside your measured processes"))
     #expect(normalized.contains("0 minimize; 9 maximize; = restore the chosen split"))
 }
 

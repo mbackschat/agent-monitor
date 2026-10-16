@@ -6,6 +6,9 @@ import Testing
 @testable import AgentMonitorMenuBar
 
 private let emptySnapshot = MonitoringSnapshot(
+    cpuAccounting: CPUAccounting(
+        hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+        unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
     timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1,
     cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
     sampledProcessCount: 4, unreadableProcessCount: 1, findings: [])
@@ -175,6 +178,9 @@ private let emptySnapshot = MonitoringSnapshot(
         for second in [1.0, 16.0] {
             try await receive(
                 MonitoringSnapshot(
+                    cpuAccounting: CPUAccounting(
+                        hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+                        unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
                     timestamp: Date(timeIntervalSince1970: second), intervalSeconds: 15,
                     cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
                     sampledProcessCount: 1, unreadableProcessCount: 0, findings: fixture.findings,

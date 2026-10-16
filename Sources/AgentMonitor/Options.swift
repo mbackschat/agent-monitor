@@ -39,7 +39,8 @@ struct Options: ParsableArguments {
 
     var grouping: ReportGrouping { group == .session ? .session : .none }
 
-    @Flag(help: "Emit JSONL: one complete JSON object per line/report, suitable for streaming.")
+    @Flag(
+        help: "Emit JSONL schema version 3: one complete JSON object per line/report, including CPU context.")
     var json = false
 
     @Flag(help: "Print the JSON Schema for one report and exit without sampling.")

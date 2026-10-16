@@ -25,6 +25,9 @@ private func runtimeRow(
 
 private func runtimeSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
     MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+            unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
         timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1, cpuThresholdPercent: 25,
         memoryThresholdBytes: 1_000_000_000, sampledProcessCount: rows.count, unreadableProcessCount: 0,
         findings: rows)

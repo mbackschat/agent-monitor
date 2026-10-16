@@ -20,6 +20,8 @@ public struct Monitor: Sendable {
 
     private var nodes: [ProcessIdentity: Node] = [:]
     private var previousListing: Double?
+    private var previousHostCounters: HostCPUCounters?
+    private var previousScanSeconds: Double?
     private var live: Set<ProcessIdentity> = []
     private var runtimes: [AgentProvider: Set<ProcessIdentity>] = [:]
     /// Sessions that runtime lifetimes host according to their harness's latest listing.
@@ -30,8 +32,18 @@ public struct Monitor: Sendable {
 
     init(adapters: AttributionAdapters) { self.adapters = adapters }
 
-    public mutating func ingest(_ snapshot: ProcessSnapshot) {
+    @discardableResult public mutating func ingest(_ snapshot: ProcessSnapshot) -> CPUAccounting {
         ingest(snapshot.samples, listedAt: snapshot.listedAt)
+        let measured = live.compactMap { nodes[$0]?.cpuPercent }
+        defer {
+            previousHostCounters = snapshot.hostCounters
+            previousScanSeconds = snapshot.scanSeconds
+        }
+        return CPUAccounting(
+            hostBusyPercent: snapshot.hostCounters?.busyPercent(since: previousHostCounters),
+            logicalCPUCount: snapshot.logicalCPUCount,
+            measuredUserPercent: measured.reduce(0, +), unmeasuredLifetimeCount: live.count - measured.count,
+            previousScanSeconds: previousScanSeconds)
     }
 
     public mutating func ingest(_ samples: [ProcessSample], listedAt: Double? = nil) {

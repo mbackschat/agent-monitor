@@ -165,6 +165,13 @@ SwiftTUI’s 0.14.0 scene launcher attempts to bind a Unix discovery socket, rej
 
 After `swift build -c release`, run `python3 scripts/verify-tui-terminal.py .build/release/agent-monitor` for live color, NO_COLOR and `--no-color`, signal cleanup, and short CPU measurements. Use `--fixture` with `.build/release/monitor-tui-fixture` to isolate rendering overhead from collection. SwiftPM compiles official dependency sources normally; no fork or manual SwiftTUI installation is required.
 
+For headless schema validation without collecting live workloads, export synthetic records from the production encoder and pass them to the same validator:
+
+```sh
+JSON_REPORT_FIXTURE_PATH=/tmp/agent-monitor-reports.jsonl swift test --filter jsonlV3CarriesTypedCPUAccountingAndOmitsUnavailableValues
+uv run scripts/verify-json-schema.py .build/debug/agent-monitor --records /tmp/agent-monitor-reports.jsonl
+```
+
 Run `uv run scripts/verify-json-schema.py .build/release/agent-monitor` to validate real JSONL records using the pinned development-only JSON Schema validator. Run `python3 scripts/verify-sustained.py .build/release/agent-monitor --output /tmp/agent-monitor-sustained.json` for a ten-minute watch with native footprint/CPU observations and controlled process churn. The latter records launch-origin findings only for heavy terminal Codex candidates; it does not read transcripts or generate agent work.
 
 ## Menu bar app

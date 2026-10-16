@@ -7,16 +7,20 @@ public struct ProcessSnapshot: Sendable {
     public let unreadableCount: Int
     public let listedAt: Double
     public let scanSeconds: Double
+    public let hostCounters: HostCPUCounters?
+    public let logicalCPUCount: Int
 
     public init(
         samples: [ProcessSample], enumeratedCount: Int, unreadableCount: Int,
-        listedAt: Double, scanSeconds: Double
+        listedAt: Double, scanSeconds: Double, hostCounters: HostCPUCounters?, logicalCPUCount: Int
     ) {
         self.samples = samples
         self.enumeratedCount = enumeratedCount
         self.unreadableCount = unreadableCount
         self.listedAt = listedAt
         self.scanSeconds = scanSeconds
+        self.hostCounters = hostCounters
+        self.logicalCPUCount = logicalCPUCount
     }
 }
 
@@ -24,12 +28,13 @@ public struct NativeProcessReader: Sendable {
     private let numerator: UInt32
     private let denominator: UInt32
     private let adapters: AttributionAdapters
+    private let hostSource: any HostCPUReading
 
-    public init() throws {
-        try self.init(adapters: .builtIn)
+    public init(hostSource: any HostCPUReading = NativeHostCPUReader()) throws {
+        try self.init(adapters: .builtIn, hostSource: hostSource)
     }
 
-    init(adapters: AttributionAdapters) throws {
+    init(adapters: AttributionAdapters, hostSource: any HostCPUReading = NativeHostCPUReader()) throws {
         var timebase = mach_timebase_info_data_t()
         guard mach_timebase_info(&timebase) == KERN_SUCCESS, timebase.denom > 0 else {
             throw NativeReadError.timebase
@@ -37,6 +42,7 @@ public struct NativeProcessReader: Sendable {
         numerator = timebase.numer
         denominator = timebase.denom
         self.adapters = adapters
+        self.hostSource = hostSource
     }
 
     public func snapshot(excluding excluded: Set<Int32> = []) throws -> ProcessSnapshot {
@@ -46,6 +52,7 @@ public struct NativeProcessReader: Sendable {
     func snapshot(processIDs: () throws -> [Int32], excluding excluded: Set<Int32> = []) throws
         -> ProcessSnapshot
     {
+        let hostCounters = hostSource.read()
         let listedAt = seconds(mach_absolute_time())
         let pids = try processIDs()
         var samples: [ProcessSample] = []
@@ -82,7 +89,9 @@ public struct NativeProcessReader: Sendable {
         }
         return ProcessSnapshot(
             samples: samples, enumeratedCount: pids.count, unreadableCount: unreadable,
-            listedAt: listedAt, scanSeconds: seconds(mach_absolute_time()) - listedAt)
+            listedAt: listedAt, scanSeconds: seconds(mach_absolute_time()) - listedAt,
+            hostCounters: hostCounters,
+            logicalCPUCount: hostCounters?.processors.count ?? ProcessInfo.processInfo.activeProcessorCount)
     }
 
     public func metadata(for sample: ProcessSample, includeCommand: Bool = false) -> ProcessMetadata {

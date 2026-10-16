@@ -52,6 +52,9 @@ import Testing
             sharedRuntime: true),
     ].flatMap(\.findings)
     let snapshot = MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: 410.9, logicalCPUCount: 8, measuredUserPercent: 369.1,
+            unmeasuredLifetimeCount: 3, previousScanSeconds: 0.041),
         timestamp: Date(timeIntervalSince1970: 52_496), intervalSeconds: 1,
         cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
         sampledProcessCount: 42, unreadableProcessCount: 0, findings: findings,
@@ -61,6 +64,9 @@ import Testing
             let historyFindings = Array(findings.prefix(1 + tick % findings.count))
             try await receive(
                 MonitoringSnapshot(
+                    cpuAccounting: CPUAccounting(
+                        hostBusyPercent: 410.9, logicalCPUCount: 8, measuredUserPercent: 369.1,
+                        unmeasuredLifetimeCount: 3, previousScanSeconds: 0.041),
                     timestamp: snapshot.timestamp.addingTimeInterval(Double(tick - 40) * 15),
                     intervalSeconds: 15, cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
                     sampledProcessCount: 42, unreadableProcessCount: 0, findings: findings,

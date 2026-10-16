@@ -102,7 +102,8 @@ private final class NativeCollectionFixture: ProcessReading, SamplingClock, Sess
                 footprintBytes: 2_000_000_000),
         ].filter { !excluding.contains($0.identity.pid) }
         return ProcessSnapshot(
-            samples: samples, enumeratedCount: samples.count, unreadableCount: 0, listedAt: at, scanSeconds: 0
+            samples: samples, enumeratedCount: samples.count, unreadableCount: 0, listedAt: at,
+            scanSeconds: 0, hostCounters: nil, logicalCPUCount: 8
         )
     }
 

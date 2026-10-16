@@ -23,6 +23,7 @@ public enum TextReport {
                 "\(report.findings.count) heavy processes; \(report.sampledProcessCount) same-user processes sampled. CPU: 100% = one core.",
                 style: .muted),
         ]
+        lines.append(ReportLine(CPUContext.text(report.cpuAccounting), style: .muted))
         if report.findings.isEmpty {
             lines.append(ReportLine("No processes exceeded either threshold in this interval."))
         }

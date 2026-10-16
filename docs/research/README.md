@@ -8,8 +8,8 @@ Current behavior and accepted contracts belong in the [README](../../README.md) 
 
 - [Menu bar](../proposals/menubar-app.md): retained native-app proposal and deferred decisions.
 - [Contributor model](../proposals/agent-working-model.md): unapproved working-model proposal.
-- [CPU accounting](../proposals/cpu-accounting.md): approved, not yet implemented, newborn first-interval CPU and host occupancy context; exited-descendant recovery deferred.
-- [Agent-friendly CLI](../proposals/agent-friendly-cli.md): unapproved built-in guidance and bounded CPU-diagnosis proposal, waiting on CPU accounting.
+- [CPU accounting](../proposals/cpu-accounting.md): implemented newborn first-interval CPU and host occupancy context now live in [architecture](../architecture.md#cpu-accounting); retained proposal covers deferred exited-descendant recovery.
+- [Agent-friendly CLI](../proposals/agent-friendly-cli.md): unapproved built-in guidance and bounded CPU-diagnosis proposal; CPU accounting dependency met, ready for revision.
 - [Claude runtime binding](../proposals/claude-runtime-binding.md): implemented registry binding and deferred detached-workload link.
 - [Codex session listing brief](../proposals/codex-session-registry-research.md): investigated questions and limits.
 - [Codex registry assessment](../proposals/codex-session-registry.md): accepted deferral, its consequences and native identity conditions for reconsideration.

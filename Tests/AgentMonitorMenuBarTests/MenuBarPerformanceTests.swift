@@ -27,6 +27,9 @@ func measureNativeGroupingProjection() throws {
         var state = LiveReportState(grouping: .session)
         state.receive(
             MonitoringSnapshot(
+                cpuAccounting: CPUAccounting(
+                    hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+                    unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
                 timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1,
                 cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
                 sampledProcessCount: count, unreadableProcessCount: 0, findings: findings))

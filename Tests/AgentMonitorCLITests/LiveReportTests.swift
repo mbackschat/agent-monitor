@@ -101,6 +101,9 @@ private func liveRow(
 
 private func liveSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
     MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+            unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
         timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1,
         cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
         sampledProcessCount: rows.count, unreadableProcessCount: 0, findings: rows)
@@ -196,7 +199,7 @@ func detailsSplitStaysFixedAcrossRefreshSelectionAndDisappearance(width: Int) th
     state.maximizeDetails()
     #expect(state.detailsMode == .maximized)
     let maximized = LiveReportLayout.lines(state: state, width: 100, height: 24)
-    #expect(maximized.firstIndex { $0.style == .separator } == 3)
+    #expect(maximized.firstIndex { $0.style == .separator } == 4)
     #expect(maximized.contains { $0.text.contains("PID 42 |") })
     state.minimizeDetails()
     let minimized = LiveReportLayout.lines(state: state, width: 100, height: 24)
@@ -218,7 +221,7 @@ func detailsSplitStaysFixedAcrossRefreshSelectionAndDisappearance(width: Int) th
     state.adjustDetails(by: 10)
     let tall = LiveReportLayout.lines(state: state, width: 100, height: 24)
     let short = LiveReportLayout.lines(state: state, width: 40, height: 8)
-    #expect(tall.firstIndex { $0.style == .separator } == 10)
+    #expect(tall.firstIndex { $0.style == .separator } == 11)
     #expect(short.count == 8)
     #expect(short.allSatisfy { $0.text.count <= 40 })
     #expect(short.last?.text.contains("q/Ctrl-C") == true)
@@ -302,7 +305,7 @@ func keyboardHelpSeparatesControlsWithoutClipping(width: Int) {
     #expect(!applied.contains { $0.text.contains("pending") })
 }
 
-@Test(arguments: [(100, 3, 3), (120, 2, 2), (160, 2, 2), (200, 2, 2)])
+@Test(arguments: [(100, 4, 3), (120, 3, 2), (160, 3, 2), (200, 3, 2)])
 func responsiveChromeReturnsSpareRowsToProcesses(size: (width: Int, header: Int, footer: Int)) throws {
     var state = LiveReportState()
     state.receive(liveSnapshot((1...40).map { liveRow(Int32($0)) }))

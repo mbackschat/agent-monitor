@@ -39,6 +39,10 @@ struct MenuBarView: View {
                 .help("Hold the displayed sample and row order. Resume shows the latest sample (p).")
             }
             .padding()
+            Text(CPUContext.text(model.report.snapshot?.cpuAccounting))
+                .font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal).padding(.bottom, 12)
             Divider()
             ScrollViewReader { proxy in
                 ScrollView {

@@ -92,6 +92,7 @@ public struct MonitoringConfiguration: Sendable {
 }
 
 public struct MonitoringSnapshot: Equatable, Sendable {
+    public let cpuAccounting: CPUAccounting
     public let timestamp: Date
     public let intervalSeconds: Double
     public let cpuThresholdPercent: Double
@@ -102,10 +103,11 @@ public struct MonitoringSnapshot: Equatable, Sendable {
     public let agentLoad: AgentLoadSummary?
 
     public init(
-        timestamp: Date, intervalSeconds: Double, cpuThresholdPercent: Double,
+        cpuAccounting: CPUAccounting, timestamp: Date, intervalSeconds: Double, cpuThresholdPercent: Double,
         memoryThresholdBytes: UInt64, sampledProcessCount: Int, unreadableProcessCount: Int,
         findings: [HeavyProcess], agentLoad: AgentLoadSummary? = nil
     ) {
+        self.cpuAccounting = cpuAccounting
         self.timestamp = timestamp
         self.intervalSeconds = intervalSeconds
         self.cpuThresholdPercent = cpuThresholdPercent
@@ -230,7 +232,7 @@ public struct MonitoringSession: Sendable {
             }
             try Task.checkCancellation()
             let snapshot = try reader.snapshot(excluding: excluded)
-            monitor.ingest(snapshot)
+            let cpuAccounting = monitor.ingest(snapshot)
             let sampledAt = clock.now()
             // Full-population metadata reads dominate history cost; see docs/research/menu-bar-load-cost.md.
             let collectAgentLoad =
@@ -257,6 +259,7 @@ public struct MonitoringSession: Sendable {
             }
             try await receive(
                 MonitoringSnapshot(
+                    cpuAccounting: cpuAccounting,
                     timestamp: sampledAt, intervalSeconds: interval,
                     cpuThresholdPercent: thresholds.cpuPercent,
                     memoryThresholdBytes: thresholds.memoryBytes,
