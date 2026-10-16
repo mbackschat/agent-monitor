@@ -41,6 +41,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## Development schema validation
+
+[verify-json-schema.py](scripts/verify-json-schema.py) pins these development-only Python dependencies. uv retains their distribution license files in its isolated environment; they are not linked into the app or included in executable release archives.
+
+| Component | Version and use | License |
+| --- | --- | --- |
+| [jsonschema](https://pypi.org/project/jsonschema/4.26.0/) | 4.26.0; independent JSON Schema validation | MIT; distribution `licenses/COPYING` |
+| [rfc3339-validator](https://pypi.org/project/rfc3339-validator/0.1.4/) | 0.1.4; JSON Schema date-time validation | MIT; Copyright (c) 2019, Nicolas Aimetti; distribution `LICENSE` |
+
 ## Components vendored by SwiftTUI
 
 These copies are part of the pinned SwiftTUI revision, not separate entries in the SwiftPM lock file. The release packager preserves the notices for all of SwiftTUI's vendored components, including swift-gif, whose animated-image target is not used by Agent Monitor's executable.

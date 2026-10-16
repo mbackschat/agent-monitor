@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["jsonschema==4.26.0"]
+# dependencies = ["jsonschema==4.26.0", "rfc3339-validator==0.1.4"]
 # ///
 """Validate schema discovery and encoded JSONL output with an independent validator."""
 
@@ -11,6 +11,38 @@ import json
 import subprocess
 
 from jsonschema import Draft202012Validator, FormatChecker
+
+format_checker = FormatChecker()
+assert "date-time" in format_checker.checkers, "RFC 3339 date-time validation is unavailable"
+
+
+def object_paths(value, path=()):
+    if isinstance(value, dict):
+        yield path
+        for key, item in value.items():
+            yield from object_paths(item, path + (key,))
+    elif isinstance(value, list):
+        for key, item in enumerate(value):
+            yield from object_paths(item, path + (key,))
+
+
+def reject_invalid_timestamps(validator, record):
+    rejected = 0
+    for path in object_paths(record):
+        original = record
+        for key in path:
+            original = original[key]
+        for field in {"timestamp", "startedAt", "endedAt", "observedAt", "sampledAt"} & original.keys():
+            for bad in ["not-a-date", "2026-02-30T12:00:00Z", "2026-10-17T12:00:00"]:
+                invalid = copy.deepcopy(record)
+                node = invalid
+                for key in path:
+                    node = node[key]
+                node[field] = bad
+                assert not validator.is_valid(invalid), f"Invalid timestamp accepted at {path + (field,)}"
+                rejected += 1
+    return rejected
+
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("binary")
@@ -30,7 +62,7 @@ if args.diagnosis:
         assert not result.stderr
         schema = json.loads(result.stdout)
     Draft202012Validator.check_schema(schema)
-    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    validator = Draft202012Validator(schema, format_checker=format_checker)
     with open(args.records, encoding="utf-8") as source:
         records = [json.loads(line) for line in source if line.strip()]
     assert records
@@ -38,17 +70,9 @@ if args.diagnosis:
         validator.validate(json.load(source))
     rejected = 0
 
-    def object_paths(value, path=()):
-        if isinstance(value, dict):
-            yield path
-            for key, item in value.items():
-                yield from object_paths(item, path + (key,))
-        elif isinstance(value, list):
-            for key, item in enumerate(value):
-                yield from object_paths(item, path + (key,))
-
     for record in records:
         validator.validate(record)
+        rejected += reject_invalid_timestamps(validator, record)
         for path in object_paths(record):
             invalid = copy.deepcopy(record)
             node = invalid
@@ -85,7 +109,7 @@ schema_result = subprocess.run(
 )
 schema = json.loads(schema_result.stdout)
 Draft202012Validator.check_schema(schema)
-validator = Draft202012Validator(schema, format_checker=FormatChecker())
+validator = Draft202012Validator(schema, format_checker=format_checker)
 if args.records:
     with open(args.records, encoding="utf-8") as source:
         records = [json.loads(line) for line in source if line.strip()]
@@ -98,8 +122,10 @@ else:
     assert len(records) == 2
     assert all(record["findings"] for record in records), "Live validation must include process records"
 assert records
+timestamp_rejections = 0
 for record in records:
     validator.validate(record)
+    timestamp_rejections += reject_invalid_timestamps(validator, record)
 
 invalid_records = []
 for field, value in [("hostBusyPercent", -1), ("hostBusyPercent", None), ("logicalCPUCount", 0),
@@ -131,4 +157,4 @@ if with_findings:
     invalid_records.append(invalid)
 for invalid in invalid_records:
     assert not validator.is_valid(invalid), "Schema accepted a malformed report"
-print(f"PASS schema discovery, {len(records)} JSONL reports, and {len(invalid_records)} rejection checks")
+print(f"PASS schema discovery, {len(records)} JSONL reports, and {len(invalid_records) + timestamp_rejections} rejection checks")
