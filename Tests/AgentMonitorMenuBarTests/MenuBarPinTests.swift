@@ -132,3 +132,23 @@ import Testing
     #expect(state.pinnedRows.first?.id == .group(group.id))
     #expect(state.visibleRows.count == 3)
 }
+
+@Test @MainActor func nativeGroupAndProcessDisclosureReturnAfterFiltering() async throws {
+    let snapshot = try menuBarFixture(pids: [42001, 42002])
+    let model = MenuBarModel { _, _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let group = try #require(model.report.groups.first)
+    let process = try #require(group.processes.first).process
+    model.report.setDisclosure(expanded: true)
+    model.setDetails(for: process, expanded: true)
+    model.report.receive(try menuBarFixture(pids: []))
+    #expect(model.visibleRowIDs.isEmpty)
+    #expect(model.report.expanded == nil)
+    model.report.receive(snapshot)
+    #expect(model.report.openGroups.contains(group.id))
+    #expect(model.visibleRowIDs.contains(.process(process)))
+    #expect(model.report.expanded == process)
+    #expect(model.report.detailsMode == .split)
+    await model.stop()
+}

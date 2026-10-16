@@ -111,7 +111,9 @@ In the TUI, both thresholds clamp at zero. New settings apply at the next sample
 
 ## Session grouping
 
-`--group session` groups text or TUI output by launch session. In the TUI, press `g` to switch modes. Groups start collapsed; → expands a group or opens process details, and ← collapses it.
+`--group session` groups text or TUI output by launch session. In the TUI, press `g` to switch modes. → expands a group or opens process details, and ← collapses it. New groups start collapsed; previously expanded session/root groups reopen when the same identity returns after filtering. Explicit collapse stays collapsed. The monitor remembers up to 256 absent expanded groups, evicting the oldest expansion choices first; visible or pinned groups are not evicted.
+
+Both interactive views also restore the inspected process's details when that exact PID/start lifetime returns. While it is missing, no stale details are shown. Selecting another row, changing disclosure/grouping or pane mode, or opening an action panel cancels that pending restoration, so a returning process cannot override a new inspection choice. One process is inspected at a time: inline in the Mac app and in the TUI's details pane. Expansion memory lasts for the current collection/view; closing the native panel or restarting the TUI clears it.
 
 Groups show the project, session, process count, and CPU/memory totals of **displayed heavy processes only**. They do not represent the entire session's resource use. `~` marks a partial total when measurements are missing. CPU/memory sorting orders groups by their totals; PID sorting uses each group's lowest displayed PID.
 

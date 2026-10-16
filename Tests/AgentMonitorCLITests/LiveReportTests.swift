@@ -573,3 +573,70 @@ func pausedStatusAndResumeKeyRemainVisible(width: Int) {
     state.sort(by: .cpu)
     #expect(state.rows.map(\.process.pid) == [5, 10, 20])
 }
+
+@Test(arguments: [ReportGrouping.none, .session])
+func processDetailsReturnAfterFilteringWithoutShowingStaleData(grouping: ReportGrouping) throws {
+    let row = liveRow(20)
+    var state = LiveReportState(grouping: grouping)
+    state.receive(liveSnapshot([row]))
+    if grouping == .session { state.setDisclosure(expanded: true) }
+    state.select(.process(row.process))
+    state.setDisclosure(expanded: true)
+    state.receive(liveSnapshot([liveRow(30)]))
+    #expect(state.expanded == nil)
+    #expect(
+        !LiveReportLayout.lines(state: state, width: 100, height: 24).contains {
+            $0.text.contains("PID 20 |")
+        })
+    state.receive(liveSnapshot([row, liveRow(30)]))
+    #expect(state.expanded == row.process)
+    #expect(state.selected == row.process)
+    #expect(state.detailsMode == .split)
+    #expect(
+        LiveReportLayout.lines(state: state, width: 100, height: 24).contains { $0.text.contains("PID 20 |") }
+    )
+}
+
+private enum InspectionChange: CaseIterable { case select, collapse, minimize, maximize, grouping, action }
+
+@Test(arguments: InspectionChange.allCases)
+private func explicitInspectionChangesCancelReturningDetails(change: InspectionChange) {
+    let row = liveRow(20)
+    let other = liveRow(30)
+    var state = LiveReportState()
+    state.receive(liveSnapshot([row, other]))
+    state.setDisclosure(expanded: true)
+    state.receive(liveSnapshot([other]))
+    switch change {
+    case .select: state.select(.process(other.process))
+    case .collapse: state.setDisclosure(expanded: false)
+    case .minimize: state.minimizeDetails()
+    case .maximize: state.maximizeDetails()
+    case .grouping: state.toggleGrouping()
+    case .action: _ = state.beginAction(.terminate)
+    }
+    state.receive(liveSnapshot([row, other]))
+    #expect(state.expanded != row.process)
+    if change != .grouping { #expect(state.selected == other.process) }
+}
+
+@Test func reusedPIDCannotRestoreMissingProcessDetails() {
+    var state = LiveReportState()
+    state.receive(liveSnapshot([liveRow(20)]))
+    state.setDisclosure(expanded: true)
+    state.receive(liveSnapshot([]))
+    state.receive(liveSnapshot([liveRow(20, start: 2)]))
+    #expect(state.expanded == nil)
+}
+
+@Test func explicitlyCollapsedProcessStaysCollapsedAfterFiltering() {
+    let row = liveRow(20)
+    var state = LiveReportState()
+    state.receive(liveSnapshot([row]))
+    state.setDisclosure(expanded: true)
+    state.setDisclosure(expanded: false)
+    state.receive(liveSnapshot([]))
+    state.receive(liveSnapshot([row]))
+    #expect(state.expanded == nil)
+    #expect(state.detailsMode == .minimized)
+}

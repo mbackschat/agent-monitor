@@ -14,7 +14,11 @@ public enum DetailsPaneMode: Sendable { case minimized, split, maximized }
 public enum IntervalAdjustment: Sendable { case faster, slower }
 
 public struct LiveReportState: Equatable, Sendable {
-    public var actionPanel: ActionPanel?
+    public var actionPanel: ActionPanel? {
+        didSet {
+            if actionPanel != nil { returningDetails = nil }
+        }
+    }
     mutating func setActionNotice(_ text: String) { notice = text }
 
     public var historyMetric: HistoryMetric = .cpu
@@ -34,6 +38,8 @@ public struct LiveReportState: Equatable, Sendable {
     public private(set) var selection: LiveReportRowID?
     public private(set) var grouping: ReportGrouping
     public private(set) var openGroups: Set<SessionGroupID> = []
+    private var rememberedOpenGroups: [SessionGroupID] = []
+    private var returningDetails: ProcessIdentity?
     public var selected: ProcessIdentity? {
         if case .process(let identity) = selection { return identity }
         return nil
@@ -219,21 +225,27 @@ public struct LiveReportState: Equatable, Sendable {
         if sortKey == .stable { rememberOrder() }
         updates += 1
         if let selected, !snapshot.findings.contains(where: { $0.process == selected }) {
+            if expanded == selected, detailsMode != .minimized { returningDetails = selected }
             notice = "PID \(selected.pid) left the heavy findings; details cleared."
             if !isPinned(.process(selected)) { selection = nil }
             expanded = nil
             detailOffset = 0
         }
-        openGroups.formIntersection(
-            Set(groups.map(\.id)).union(
-                pins.compactMap {
-                    if case .group(let id) = $0.id { return id }
-                    return nil
-                }))
+        reconcileOpenGroups()
+        if let returning = returningDetails {
+            if snapshot.findings.contains(where: { $0.process == returning }), actionPanel == nil {
+                selection = .process(returning)
+                expanded = returning
+                returningDetails = nil
+                notice = nil
+            } else if snapshot.findings.contains(where: { $0.process.pid == returning.pid }) {
+                returningDetails = nil
+            }
+        }
         if let selected, grouping == .session,
             let group = groups.first(where: { $0.processes.contains { $0.process == selected } })
         {
-            openGroups.insert(group.id)
+            rememberOpenGroup(group.id)
         }
         if !visibleRows.contains(where: { $0.id == selection }) {
             selection = visibleRows.first?.id
@@ -276,6 +288,7 @@ public struct LiveReportState: Equatable, Sendable {
 
     public mutating func select(_ id: LiveReportRowID) {
         guard visibleRows.contains(where: { $0.id == id }) else { return }
+        returningDetails = nil
         selection = id
         if expanded != nil || detailsMode != .minimized { expanded = selected }
         detailOffset = 0
@@ -283,6 +296,7 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func setDisclosure(expanded: Bool) {
+        returningDetails = nil
         let isExpanded: Bool
         if let group = selectedGroup {
             isExpanded = openGroups.contains(group)
@@ -294,8 +308,14 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func toggleDisclosure() {
+        returningDetails = nil
         if let group = selectedGroup {
-            if !openGroups.insert(group).inserted { openGroups.remove(group) }
+            if openGroups.contains(group) {
+                openGroups.remove(group)
+                rememberedOpenGroups.removeAll { $0 == group }
+            } else {
+                rememberOpenGroup(group)
+            }
             expanded = nil
             detailOffset = 0
             return
@@ -310,6 +330,7 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func toggleGrouping() {
+        returningDetails = nil
         let pinnedSelection = selection.flatMap { isPinned($0) ? $0 : nil }
         switch grouping {
         case .none:
@@ -330,14 +351,19 @@ public struct LiveReportState: Equatable, Sendable {
         notice = nil
     }
 
-    public mutating func minimizeDetails() { detailsMode = .minimized }
+    public mutating func minimizeDetails() {
+        returningDetails = nil
+        detailsMode = .minimized
+    }
 
     public mutating func maximizeDetails() {
+        returningDetails = nil
         expanded = selected
         detailsMode = .maximized
     }
 
     public mutating func restoreDetails() {
+        returningDetails = nil
         expanded = selected
         detailsMode = .split
     }
@@ -350,6 +376,31 @@ public struct LiveReportState: Equatable, Sendable {
     public mutating func scrollDetails(by delta: Int, maximum: Int) {
         let limit = max(0, maximum)
         detailOffset = min(limit, max(0, min(detailOffset, limit) + delta))
+    }
+
+    private mutating func rememberOpenGroup(_ id: SessionGroupID) {
+        if openGroups.insert(id).inserted {
+            rememberedOpenGroups.removeAll { $0 == id }
+            rememberedOpenGroups.append(id)
+        }
+    }
+
+    private mutating func reconcileOpenGroups() {
+        let available = Set(groups.map(\.id)).union(
+            pins.compactMap {
+                if case .group(let id) = $0.id { return id }
+                return nil
+            })
+        // Samples contain only heavy findings, so absence cannot establish that a session ended.
+        // Bound absent identities without evicting visible expansion (docs/architecture.md).
+        var remainingAbsent = 256
+        rememberedOpenGroups = rememberedOpenGroups.reversed().filter { id in
+            if available.contains(id) { return true }
+            guard remainingAbsent > 0 else { return false }
+            remainingAbsent -= 1
+            return true
+        }.reversed()
+        openGroups = Set(rememberedOpenGroups).intersection(available)
     }
 
     private func compare<T: Comparable>(_ left: T?, _ right: T?) -> Bool {

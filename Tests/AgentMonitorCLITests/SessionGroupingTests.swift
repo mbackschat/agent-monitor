@@ -221,3 +221,42 @@ func directoryLabelsDoNotClaimProjectsOrChangeSessionMembership(
     #expect(text.contains("current session: same [sessionRegistry"))
     #expect(!text.contains("launch session: same"))
 }
+
+@Test func rootExpansionReturnsAfterFilteringAndExplicitCollapseWins() throws {
+    let root = groupedRow(10, thread: "root", root: "root")
+    let child = groupedRow(20, thread: "child", root: "root")
+    var state = LiveReportState(grouping: .session)
+    state.receive(groupedSnapshot([root, child]))
+    let id = try #require(state.selectedGroup)
+    state.setDisclosure(expanded: true)
+    state.receive(groupedSnapshot([child]))
+    #expect(!state.openGroups.contains(id))
+    #expect(state.visibleRows.count == 1)
+    state.receive(groupedSnapshot([root, child]))
+    #expect(state.openGroups.contains(id))
+    #expect(state.visibleRows.count == 3)
+    state.select(.group(id))
+    state.setDisclosure(expanded: false)
+    state.receive(groupedSnapshot([]))
+    state.receive(groupedSnapshot([root, child]))
+    #expect(!state.openGroups.contains(id))
+}
+
+@Test func missingGroupExpansionMemoryIsBoundedWithoutCollapsingPresentGroups() throws {
+    var state = LiveReportState(grouping: .session)
+    let rows = (1...258).map { groupedRow(Int32($0), thread: "session-\($0)") }
+    state.receive(groupedSnapshot(rows))
+    let groups = state.groups
+    for group in groups {
+        state.select(.group(group.id))
+        state.setDisclosure(expanded: true)
+    }
+    state.receive(groupedSnapshot(rows))
+    #expect(state.openGroups.count == 258)
+    state.receive(groupedSnapshot([]))
+    #expect(state.openGroups.isEmpty)
+    state.receive(groupedSnapshot(rows))
+    #expect(state.openGroups.count == 256)
+    #expect(!state.openGroups.contains(try #require(groups.first).id))
+    #expect(state.openGroups.contains(try #require(groups.last).id))
+}

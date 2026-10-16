@@ -58,6 +58,22 @@ Use **↑ / ↓** to select, **← / →** to collapse/expand a session or proce
 
 By default, the monitor shows agent-associated processes exceeding **25% CPU or 1 GB memory footprint**. If the list is empty, press **1** to lower the CPU threshold or **3** to lower the memory threshold. CPU at 100% means one fully occupied core.
 
+## Choose what to show
+
+In the Mac app, open **View options** and choose **Processes** or **Sessions** under **Show**. In the TUI, press **g** to switch; `--group none` starts in Processes and `--group session` starts in Sessions. The Mac app starts in Sessions; the CLI/TUI defaults to Processes unless you specify grouping.
+
+| Setting | What it changes |
+|---|---|
+| **Processes** | A flat list of individual heavy processes, each with its own CPU and memory values and session attribution. Use it to find the specific command consuming resources. Pinned session groups remain grouped at the top. |
+| **Sessions** | Groups heavy processes by attributed agent session or corroborated root session. Expand a group to inspect its processes. Counts and CPU/memory totals cover only the heavy processes currently shown, not the whole session. The Mac app shows an unpinned one-process session directly as a process row. |
+| **Sort** | Stable order keeps surviving rows in place and appends newcomers. CPU/Footprint/PID order ranks individual processes, or session groups by their totals/minimum PID. It does not change which processes qualify. |
+| **CPU / Footprint thresholds** | A process qualifies when it exceeds either threshold. Lower them to reveal lighter workloads; switching between Processes and Sessions does not change these filters. |
+| **Interval** | How often the open panel or TUI samples, normally every 5 seconds. This controls refresh frequency, not filtering. |
+
+Sessions are not projects: two sessions in the same directory remain separate, and one session can contain workloads in multiple directories. Unknown or ambiguous ownership stays separate rather than being guessed.
+
+Expansion survives temporary filtering in both live views. Missing processes show no old measurements; a process's details reopen on return unless you explicitly change inspection. **Pin** keeps an identity at the top, including an unavailable placeholder when missing; **Pause** freezes the displayed measurements. See [grouping and expansion](docs/usage.md#session-grouping) for retention limits and [all controls](docs/usage.md#live-terminal-view) for details.
+
 ## Process actions
 
 Select a process and press **k** to review a termination request or **s** to compose a message to its Codex or Claude Code session, or **f** to bring the session's terminal to the front. **Ctrl-Y** confirms the reviewed action; **Esc** cancels or returns to editing. Termination sends SIGTERM to that process only.
