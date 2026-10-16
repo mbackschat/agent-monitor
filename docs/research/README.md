@@ -2,12 +2,15 @@
 
 These notes record dated observations, cited source behavior, labeled inferences and unresolved empirical questions. Dates and versions apply to each investigation; editorial cleanup does not revalidate upstream sources. Raw measurements retain their original scope and limitations.
 
-Current behavior and accepted contracts belong in the [README](../../README.md) and [architecture](../architecture.md). Repeatable checks and live coverage belong in [development](../development.md#validation-coverage); unfinished work and scope decisions belong in [PLAN.md](../../PLAN.md). Unapproved designs are separate [menu bar](../proposals/menubar-app.md) and [contributor-model](../proposals/agent-working-model.md) proposals.
+Check this index before investigating a topic, and extend the matching note rather than starting a parallel one. Every new note or retained measurement gets an entry here in the same commit.
+
+Current behavior and accepted contracts belong in the [README](../../README.md) and [architecture](../architecture.md). Repeatable checks and live coverage belong in [development](../development.md#validation-coverage); unfinished work and scope decisions belong in [PLAN.md](../../PLAN.md). Unapproved designs are separate [menu bar](../proposals/menubar-app.md), [contributor-model](../proposals/agent-working-model.md) and [Claude runtime binding](../proposals/claude-runtime-binding.md) proposals.
 
 ## Findings by topic
 
 - [Codex process and session identities](codex-terminal-attribution.md): pinned marker injection, logical thread/root semantics, writer descriptors and tool-call correlation limits.
 - [Claude session metadata and messaging](claude-session-messaging.md): marker lifecycle, session lookup, inbox protocol evidence and the disposable-session transport check.
+- [Claude runtime and workload attribution signals](claude-runtime-attribution.md): runtime-to-session binding sources, embedded tools invoked under another name, workload environment variables and directories within one session.
 - [Process signaling and messaging interfaces](session-actions.md): signal races, queue/resume interfaces, recipient identity and acceptance versus delivery.
 - [Terminal focus mechanisms](terminal-focus.md): host identifiers, per-terminal APIs, macOS permission/activation behavior and untested desktop states.
 - [Menu bar feasibility](menubar-app.md): UI/lifecycle APIs, launch environment, process access, signing and Homebrew evidence, with unverified inferences identified.
