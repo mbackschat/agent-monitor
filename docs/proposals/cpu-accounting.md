@@ -1,10 +1,10 @@
 # Count newborn CPU and show host load
 
-Status: **unapproved proposal**, 2026-10-16, narrowed after external review the same day. It does not authorize implementation or change current behavior, which remains defined by the [architecture](../architecture.md) and [usage guide](../usage.md). Evidence and probe limits are in [CPU accounting coverage](../research/cpu-accounting.md), including the [review follow-up](../research/cpu-accounting.md#review-follow-up--2026-10-16). The [agent-friendly CLI proposal](agent-friendly-cli.md) waits on this decision and should reuse its accounting.
+Status: **approved for implementation**, 2026-10-16, after external review narrowed it the same day; not yet implemented. Current behavior remains defined by the [architecture](../architecture.md) and [usage guide](../usage.md). Evidence and probe limits are in [CPU accounting coverage](../research/cpu-accounting.md), including the [review follow-up](../research/cpu-accounting.md#review-follow-up--2026-10-16). The [agent-friendly CLI proposal](agent-friendly-cli.md) waits on this decision and should reuse its accounting.
 
 Today CPU is reported only for a lifetime observed in two consecutive samples. A process born between samples therefore has no CPU value for the interval it was born in, even though all of its CPU fell inside that interval. Agent work often spawns short-lived children such as compilers and test runners; how much CPU this omission hides on real workloads is unmeasured. Separately, no view shows how busy the whole machine is beside the processes it measures.
 
-Contract after this change: **a readable current-user lifetime has a CPU value for every interval in which it was observed, including the interval it was born in. CPU of lifetimes never observed, or consumed after their last observation, remains uncounted and is not implied by any total. Host occupancy is reported beside measured process CPU and is never decomposed into causes.**
+Contract after this change: **CPU uses consecutive valid observations of a readable current-user lifetime, or a zero baseline for a lifetime born after the previous listing. CPU of lifetimes never observed, or consumed after their last observation, remains uncounted and is not implied by any total. Host occupancy is reported beside measured process CPU and is never decomposed into causes.**
 
 ## Required
 
@@ -56,7 +56,7 @@ The two figures are shown side by side. Their difference is not presented, becau
 | Process rows, sorting, thresholds | R1 values; departed processes still have no rows. |
 | Text report, TUI and native panel headers; native status menu and accessibility text | `CPU: host 211% of 800% · your measured processes 169% (3 without data)` |
 | JSONL | Schema version 3 adds a report-level `cpuAccounting` object; findings keep their flat shape. |
-| History, native status icon, session-group totals | Unchanged. |
+| History, native status icon, session-group totals | Aggregation and display rules unchanged; values incorporate R1. |
 
 Illustrative fragment of a version 3 report; the existing required envelope fields are omitted here:
 
@@ -64,11 +64,11 @@ Illustrative fragment of a version 3 report; the existing required envelope fiel
 {"schemaVersion":3,"cpuAccounting":{"hostBusyPercent":210.9,"logicalCPUCount":8,"measuredUserPercent":169.1,"unmeasuredLifetimeCount":3,"previousScanSeconds":0.041}}
 ```
 
-## Decisions for review
+## Approved decisions
 
 1. **Normalize newborn CPU by the measured interval since the previous listing.** Normalizing by process age would rank brief processes higher than their contribution to the interval; normalizing by the configured wait would overstate newborns whenever collection runs late. Values stay comparable within the stated scan skew; a sufficiently parallel burst can still legitimately outrank sustained work.
 2. **Limit visible changes to R1 values in existing rows and one host-context line.** History, the icon and session totals keep their documented contracts, which follow sampled findings and the all-agent summary.
-3. **Bump JSONL to version 3.** The version 2 schema sets `additionalProperties: false` at report level, so the new object would break strict validators. R1 alone stays valid under version 2, because unavailable CPU is omitted rather than emitted as null.
+3. **Bump JSONL to version 3.** The version 2 schema sets `additionalProperties: false` at report level, so the new object would break strict validators. R1 alone stays valid under version 2, because unavailable CPU is omitted rather than emitted as null. No JSONL consumers were known on 2026-10-16.
 
 ## Deferred: CPU of exited descendants
 
@@ -94,7 +94,7 @@ Any recovered CPU must stay distinct from live measurements and be labeled by wh
 ## Risks and acceptance
 
 - Lifetimes born and exited between listings, and every lifetime's final partial interval, stay uncounted; the contract states this instead of implying completeness.
-- A newborn missed at its first listing because of a read failure gets no value later, which is preferable to a value spanning an unknown window.
+- A lifetime missed at its first listing because of a read failure gets no value on its first successful observation; subsequent valid observations use normal deltas. This is preferable to a value spanning an unknown window.
 - Sleep/wake behavior of birth times, sample times and host ticks together is [unresolved](../research/cpu-accounting.md#unresolved-empirical-questions); host occupancy must become unavailable rather than wrong when counters are inconsistent.
 
 Acceptance requires deterministic `Monitor` tests with synthetic samples for each R1 case: newborn after the previous listing, birth before it but unobserved, first snapshot, `exec` continuity and PID reuse. Host-counter tests with a fake source must cover failure, zero delta, decrease, wrap and CPU-count change. A reader integration test with disposable owned processes that burn fixed CPU must report a newborn's first interval within a stated tolerance. JSONL version 3 schema tests, updated help/usage/architecture and a regenerated README preview complete the change.
