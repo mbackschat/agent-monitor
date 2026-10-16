@@ -24,7 +24,7 @@ When changing dependency or optional skill pins, update [third-party notices](TH
 
 Before extending a feature, check its documented ownership boundary. If the current code bypasses that boundary, make the smallest authorized extraction as part of the change; surface a material scope conflict before building on the bypass. Do not silently leave an accepted architecture as a proposal while expanding the old path. In the same commit, keep architecture status, source ownership, contributor guidance and completion evidence aligned, and clearly separate implemented contracts from deferred capabilities.
 
-Session grouping belongs to presentation and totals only displayed heavy processes. Project labels use workloads’ working directories, never a shared runtime’s launch directory; shared runtimes claim no project. Preserve provider/session identities and attribution uncertainty; never merge by directory or shared runtime alone. Keep JSONL's flat snapshot contract independent of grouping.
+Session grouping belongs to presentation and totals only displayed heavy processes. Project labels use workloads’ working directories, never a shared runtime’s launch directory; shared runtimes claim no project. Different workload directories display “Multiple directories”; nesting does not establish a shared project root. Preserve provider/session identities and attribution uncertainty; never merge by directory or shared runtime alone. Keep JSONL's flat snapshot contract independent of grouping.
 
 ## Build, Test, and Development Commands
 

@@ -119,7 +119,7 @@ Unresolved or ambiguous processes stay separate even when they share a project o
 
 **Shared runtime** identifies a Codex runtime process with multiple distinct thread writer descriptors and no exact attributed thread. This describes shared runtime usage, rather than a failed workload lookup. It appears consistently in process rows, session groups, details, text output and action targets. Its singleton group remains separate from exact sessions and unresolved workloads. JSONL retains the original ambiguous evidence and candidate thread IDs. A runtime without a terminal still cannot be focused; the label does not establish a terminal-client mapping.
 
-Project names describe the displayed workloads’ working directories, not session ownership. A session spanning different directories shows **Multiple projects**; missing directory evidence shows **Unknown project**. A **shared runtime** has no project subtitle because its launch directory may belong to another session. Expanded details retain both the work directory and runtime directory. This labeling does not change attribution or grouping identities.
+Project names describe the displayed workloads’ working directories, not session ownership. A session with more than one distinct readable working directory shows **Multiple directories**, including when one directory is nested inside another. This does not establish separate projects or repository roots. Otherwise, missing directory evidence shows **Unknown project**. A **shared runtime** has no project subtitle because its launch directory may belong to another session. Expanded details retain both the work directory and runtime directory. This labeling does not change attribution or grouping identities.
 
 ## Text and JSONL output
 

@@ -178,7 +178,7 @@ private func groupedSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
     #expect(group.id == .session(provider: "codex", id: "same"))
     #expect(
         SessionGrouping.groups([first, groupedRow(3, thread: "same", cwd: "/work/another-project")]).first?
-            .project == "Multiple projects")
+            .project == "Multiple directories")
     #expect(
         SessionGrouping.groups([groupedRow(4, thread: "same", cwd: nil)]).first?.project == "Unknown project")
     var state = LiveReportState()
@@ -187,4 +187,27 @@ private func groupedSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
         separator: "\n")
     #expect(text.contains("actual-project"))
     #expect(!text.contains("old-project"))
+}
+
+@Test(
+    arguments: [AgentProvider.claude, .codex],
+    ["/work/repo/packages/app", "/work/repo/.claude/worktrees/task", "/work/repo-2"])
+func directoryLabelsDoNotClaimProjectsOrChangeSessionMembership(
+    provider: AgentProvider, otherDirectory: String
+) throws {
+    let rows = [
+        groupedRow(101, thread: "first", provider: provider, cwd: "/work/repo"),
+        groupedRow(102, thread: "first", provider: provider, cwd: otherDirectory),
+        groupedRow(103, thread: "second", provider: provider, cwd: "/work/repo"),
+    ]
+    let groups = SessionGrouping.groups(rows)
+    #expect(groups.count == 2)
+    let first = try #require(groups.first { $0.sessionID == "first" })
+    #expect(first.id == .session(provider: provider.rawValue, id: "first"))
+    #expect(first.processes.map(\.process.pid) == [101, 102])
+    #expect(first.project == "Multiple directories")
+    #expect(first.label.contains("Multiple directories"))
+    let second = try #require(groups.first { $0.sessionID == "second" })
+    #expect(second.processes.map(\.process.pid) == [103])
+    #expect(second.project == "repo")
 }

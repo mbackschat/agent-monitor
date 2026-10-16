@@ -25,7 +25,7 @@ public struct SessionGroup: Equatable, Sendable {
         let workloads = processes.filter { $0.process != $0.attribution.runtime }
         let members = workloads.isEmpty ? processes : workloads
         let directories = Set(members.compactMap(\.cwd))
-        if directories.count > 1 { return "Multiple projects" }
+        if directories.count > 1 { return "Multiple directories" }
         guard members.allSatisfy({ $0.cwd != nil }), let directory = directories.first else {
             return "Unknown project"
         }

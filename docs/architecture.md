@@ -62,7 +62,7 @@ Lines carry display roles rather than colors (`ReportLine.Style`): the status li
 
 Text, TUI, and GUI share measurement and attribution results. Their rendering and interaction code remain specific to each interface. A SwiftUI-like terminal library does not itself guarantee reusable native SwiftUI views. Any reusable presentation state must remain free of terminal control codes and UI framework types.
 
-Session-group project labels use displayed workload working directories, excluding the runtime’s own directory when workload rows exist. A shared runtime is labeled without a project claim; multiple or missing workload directories remain explicit. Native subtitles and wide TUI rows do not substitute a shared runtime’s launch directory for workload evidence. Runtime directories remain available in details. Directory labels are presentation only and never alter provider/session identities or attribution confidence.
+Session-group project labels use displayed workload working directories, excluding the runtime’s own directory when workload rows exist. A shared runtime is labeled without a project claim. More than one distinct readable workload directory produces “Multiple directories”, including nested paths; no project-root inference is made. Otherwise, missing workload directories produce “Unknown project”. Native subtitles and wide TUI rows do not substitute a shared runtime’s launch directory for workload evidence. Runtime directories remain available in details. Directory labels are presentation only and never alter provider/session identities or attribution confidence.
 
 ## TUI contract
 
