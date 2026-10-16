@@ -1,3 +1,4 @@
+import AgentMonitorCore
 import Foundation
 
 /// Terminal.app exposes each tab's `tty` and a writable `selected` through its scripting

@@ -1,8 +1,9 @@
 import Darwin
 import Foundation
 
-/// Confined to one action task; deadlines and output limits also bound a broken provider CLI.
-final class BoundedCommand {
+/// A provider CLI run confined to one task; deadlines and output limits also bound a broken one.
+/// Shared by verified actions and harness session listings.
+package final class BoundedCommand {
     private let process = Process()
     private let input = Pipe()
     private let output = Pipe()
@@ -12,16 +13,23 @@ final class BoundedCommand {
     private var closed = false
     private let tool: String
 
-    init(executable: URL, arguments: [String], timeout: TimeInterval, tool: String) throws {
+    /// `environment` overlays the inherited environment.
+    package init(
+        executable: URL, arguments: [String], environment: [String: String] = [:], timeout: TimeInterval,
+        tool: String
+    ) throws {
         deadline = .now.advanced(by: .seconds(timeout))
         self.tool = tool
         process.executableURL = executable
         process.arguments = arguments
+        if !environment.isEmpty {
+            process.environment = ProcessInfo.processInfo.environment.merging(environment) { _, new in new }
+        }
         process.standardInput = input
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
         do { try process.run() } catch {
-            throw ActionFailure("Cannot start \(tool). Ensure its CLI is on PATH.")
+            throw BoundedCommandFailure("Cannot start \(tool). Ensure its CLI is on PATH.")
         }
         try? output.fileHandleForWriting.close()
         try? input.fileHandleForReading.close()
@@ -30,35 +38,37 @@ final class BoundedCommand {
         _ = fcntl(descriptor, F_SETFL, fcntl(descriptor, F_GETFL) | O_NONBLOCK)
     }
 
-    func receive(count: Int) throws -> Data {
+    package func receive(count: Int) throws -> Data {
         while pending.count < count {
-            guard try read() else { throw ActionFailure("\(tool) connection closed.") }
+            guard try read() else { throw BoundedCommandFailure("\(tool) connection closed.") }
         }
         let data = Data(pending.prefix(count))
         pending.removeFirst(count)
         return data
     }
 
-    func receive(until delimiter: Data, limit: Int) throws -> Data {
+    package func receive(until delimiter: Data, limit: Int) throws -> Data {
         while true {
             if let range = pending.range(of: delimiter) {
                 let size = pending.distance(from: pending.startIndex, to: range.upperBound)
-                guard size <= limit else { throw ActionFailure("\(tool) handshake exceeded the size limit.") }
+                guard size <= limit else {
+                    throw BoundedCommandFailure("\(tool) handshake exceeded the size limit.")
+                }
                 return try receive(count: size)
             }
             guard pending.count < limit else {
-                throw ActionFailure("\(tool) handshake exceeded the size limit.")
+                throw BoundedCommandFailure("\(tool) handshake exceeded the size limit.")
             }
-            guard try read() else { throw ActionFailure("\(tool) connection closed.") }
+            guard try read() else { throw BoundedCommandFailure("\(tool) connection closed.") }
         }
     }
 
-    func finish() throws {
+    package func finish() throws {
         _ = try readOutput()
     }
 
     /// Standard output after successful exit, within the same deadline and size bound.
-    func readOutput() throws -> Data {
+    package func readOutput() throws -> Data {
         try? input.fileHandleForWriting.close()
         while try read() {}
         while process.isRunning {
@@ -66,19 +76,21 @@ final class BoundedCommand {
             Thread.sleep(forTimeInterval: 0.01)
         }
         process.waitUntilExit()
-        guard process.terminationStatus == 0 else { throw ActionFailure("\(tool) command failed.") }
+        guard process.terminationStatus == 0 else { throw BoundedCommandFailure("\(tool) command failed.") }
         defer { pending.removeAll() }
         return pending
     }
 
-    func write(_ data: Data) throws {
+    package func write(_ data: Data) throws {
         try checkDeadline()
         try input.fileHandleForWriting.write(contentsOf: data)
     }
 
     private func checkDeadline() throws {
         try Task.checkCancellation()
-        guard ContinuousClock.now < deadline else { throw ActionFailure("\(tool) request timed out.") }
+        guard ContinuousClock.now < deadline else {
+            throw BoundedCommandFailure("\(tool) request timed out.")
+        }
     }
 
     private func read() throws -> Bool {
@@ -88,7 +100,7 @@ final class BoundedCommand {
         let ready = poll(&descriptor, 1, 50)
         if ready < 0 {
             if errno == EINTR { return true }
-            throw ActionFailure("Cannot read \(tool) response.")
+            throw BoundedCommandFailure("Cannot read \(tool) response.")
         }
         guard ready > 0 else { return true }
         var buffer = [UInt8](repeating: 0, count: 8192)
@@ -96,15 +108,17 @@ final class BoundedCommand {
         if count == 0 { return false }
         if count < 0 {
             if errno == EAGAIN || errno == EINTR { return true }
-            throw ActionFailure("Cannot read \(tool) response.")
+            throw BoundedCommandFailure("Cannot read \(tool) response.")
         }
         bytesRead += count
-        guard bytesRead <= 1_048_576 else { throw ActionFailure("\(tool) response exceeded the size limit.") }
+        guard bytesRead <= 1_048_576 else {
+            throw BoundedCommandFailure("\(tool) response exceeded the size limit.")
+        }
         pending.append(contentsOf: buffer.prefix(count))
         return true
     }
 
-    func close() {
+    package func close() {
         guard !closed else { return }
         closed = true
         try? input.fileHandleForWriting.close()
@@ -117,4 +131,10 @@ final class BoundedCommand {
         process.waitUntilExit()
         try? output.fileHandleForReading.close()
     }
+}
+
+package struct BoundedCommandFailure: Error, LocalizedError, Sendable {
+    package let message: String
+    package init(_ message: String) { self.message = message }
+    package var errorDescription: String? { message }
 }
