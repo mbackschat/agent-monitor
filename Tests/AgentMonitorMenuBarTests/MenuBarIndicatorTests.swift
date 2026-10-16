@@ -321,3 +321,19 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(indicator.statusLines.contains(CPUContext.text(context)))
     #expect(indicator.statusDescription.contains(CPUContext.text(context)))
 }
+
+@Test func statusMenuLabelsAgentCPUApartFromHostContext() {
+    let snapshot = MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: 700, logicalCPUCount: 8, measuredUserPercent: 600,
+            unmeasuredLifetimeCount: 0, previousScanSeconds: 0.01),
+        timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1, cpuThresholdPercent: 25,
+        memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 20, unreadableProcessCount: 0, findings: [])
+    var indicator = MenuBarIndicator(processorCount: 8)
+    indicator.receive(snapshot)
+    #expect(
+        indicator.statusLines.contains {
+            $0.hasPrefix("Agents in view: CPU ") && $0.hasSuffix("% (100% = one core)")
+        })
+    #expect(indicator.statusLines.filter { $0.hasPrefix("CPU") } == [CPUContext.text(snapshot.cpuAccounting)])
+}

@@ -64,7 +64,7 @@ struct MenuBarIndicator {
         return [
             "Agent Monitor — \(load.processCount) heavy processes in view",
             paused ? "Paused — matching the displayed table" : nil,
-            "CPU \(load.missingCPUCount > 0 ? "≥ " : "")\(cpu)% (100% = one core)",
+            "Agents in view: CPU \(load.missingCPUCount > 0 ? "≥ " : "")\(cpu)% (100% = one core)",
             CPUContext.text(cpuAccounting),
             "Footprint \(load.missingFootprintCount > 0 ? "≥ " : "")\(memory) GB",
             "Bars: share of all cores · boundaries at 25% and 50%",
