@@ -25,8 +25,21 @@ jobs:
         run: bash scripts/doctor.sh
       - name: Check Swift formatting
         run: swift format lint --strict --recursive Sources Tests Tools Package.swift
-      - name: Run tests
-        run: swift test
+      - name: Run headless tests and synthetic native renders
+        run: |
+          mkdir -p .build/menubar-validation
+          MENUBAR_PREVIEW_PATH="$PWD/.build/menubar-validation/panel.png" \
+          MENUBAR_ICON_PREVIEW_PATH="$PWD/.build/menubar-validation/icons.png" \
+          MENUBAR_MESSAGE_PREVIEW_PATH="$PWD/.build/menubar-validation/message.png" \
+          swift test
+      - name: Retain synthetic native renders
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: menubar-validation
+          path: .build/menubar-validation/*.png
+          if-no-files-found: warn
+          include-hidden-files: true
       - name: Build and verify menu bar app
         run: |
           bash scripts/menubar.sh build

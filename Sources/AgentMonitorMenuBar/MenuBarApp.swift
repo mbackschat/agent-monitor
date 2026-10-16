@@ -1,4 +1,3 @@
-import AgentMonitorCore
 import AppKit
 import SwiftUI
 
@@ -18,15 +17,7 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
     private var item: NSStatusItem?
     private let popover = NSPopover()
     private lazy var statusMenu = MenuBarStatusMenu(model: model)
-    private let model = MenuBarModel { thresholds, interval, resolveSessions, receive in
-        let session = MonitoringSession(
-            configuration: try MonitoringConfiguration(
-                thresholds: await thresholds(), intervalSeconds: interval.seconds, samples: 0,
-                collectAgentLoad: true),
-            reader: try NativeProcessReader(), excluding: [ProcessInfo.processInfo.processIdentifier])
-        try await session.run(
-            thresholds: thresholds, interval: interval, resolveSessions: resolveSessions, receive)
-    }
+    private let model = MenuBarModel(source: MenuBarCollection.source())
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
