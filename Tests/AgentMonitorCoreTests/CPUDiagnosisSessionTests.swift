@@ -65,6 +65,67 @@ final class DiagnosisFixture: DiagnosisReading, SamplingClock, SessionRegistryRe
         }
     }
 
+    enum DetachedMatch: CaseIterable { case exact, duplicate, unreadable }
+
+    @Test(arguments: [AgentProvider.claude, .codex], DetachedMatch.allCases)
+    func detachedAttributionMatchesReportWithoutBroadeningListings(
+        provider: AgentProvider, match: DetachedMatch
+    ) async throws {
+        let executable = provider == .claude ? runtimePath : "/bin/codex"
+        let otherProvider = provider == .claude ? "/bin/codex" : runtimePath
+        let values = scans { index in
+            let at = 10 + Double(index) * 2
+            return [
+                sample(10, executable: executable, terminal: "ttys010", at: at, cpu: nil),
+                sample(11, executable: otherProvider, at: at, cpu: nil),
+                sample(15, executable: executable, at: at, cpu: nil),
+                sample(20, at: at, cpu: Double(index)),
+                sample(30, executable: executable, at: at, cpu: nil),
+            ]
+        }
+        let inbox = "/tmp/owned-fixture/10.sock"
+        let runtime = values[3].samples[0]
+        let candidate = values[3].samples[2]
+        let worker = values[3].samples[3]
+        let evidence =
+            provider == .claude
+            ? ProcessMetadata(listeningSockets: [inbox]) : ProcessMetadata(writerThreadIDs: [sessionA])
+        let observations: [ProcessIdentity: DiagnosisObservation] = [
+            runtime.identity: match == .unreadable ? .notObserved : .observed(evidence),
+            candidate.identity: .observed(match == .duplicate ? evidence : ProcessMetadata()),
+            worker.identity: .observed(
+                ProcessMetadata(markers: [
+                    SessionMarker(threadID: sessionA, provider: provider, inboxSocket: inbox)
+                ])),
+        ]
+        let fake = DiagnosisFixture(values, metadata: observations)
+        let result = try await CPUDiagnosisSession(reader: fake, clock: fake, registry: fake).run()
+        guard
+            case .available(let observedAt, let attribution) = try #require(result.contributors.first)
+                .attribution
+        else {
+            Issue.record("Expected the worker's exact marker evidence")
+            return
+        }
+        var report = Monitor()
+        report.ingest(values[3])
+        report.enrich(for: [worker.identity]) { sample in
+            guard case .observed(let value) = observations[sample.identity] else {
+                return ProcessMetadata(status: .unavailable)
+            }
+            return value
+        }
+        #expect(attribution == report.finding(for: worker.identity)?.attribution)
+        #expect(attribution.runtime == (match == .exact ? runtime.identity : nil))
+        #expect(attribution.terminal == (match == .exact ? "ttys010" : nil))
+        #expect(attribution.context == (match == .exact ? .terminal : .unverified))
+        #expect(attribution.threadID == sessionA)
+        #expect(observedAt == Date(timeIntervalSince1970: 400))
+        #expect(fake.state.withLock { $0.metadata.map(\.pid).sorted() } == [10, 15, 20])
+        #expect(result.providerLookups.isEmpty)
+        #expect(fake.state.withLock { $0.lookups } == 0)
+    }
+
     @Test func collectsFixedWindowWithIndependentClocksAndExactSessionEvidence() async throws {
         let values = scans { index in
             [

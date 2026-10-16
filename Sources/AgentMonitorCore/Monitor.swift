@@ -183,12 +183,12 @@ public struct Monitor: Sendable {
     /// detached session marker points to, which are only known once the marker has been read.
     /// Each process is read once.
     public mutating func enrich(
-        for identities: [ProcessIdentity], using metadata: (ProcessSample) -> ProcessMetadata
-    ) {
+        for identities: [ProcessIdentity], using metadata: (ProcessSample) throws -> ProcessMetadata
+    ) rethrows {
         var enriched: Set<ProcessIdentity> = []
         for _ in 1...2 {
             for sample in enrichmentTargets(for: identities) where enriched.insert(sample.identity).inserted {
-                enrich(metadata(sample), for: sample.identity)
+                enrich(try metadata(sample), for: sample.identity)
             }
         }
     }
@@ -201,10 +201,6 @@ public struct Monitor: Sendable {
 
     public func enrichmentTargets(thresholds: Thresholds = Thresholds()) -> [ProcessSample] {
         enrichmentTargets(for: heavyIdentities(thresholds: thresholds))
-    }
-
-    package func ancestryTargets(for identities: some Sequence<ProcessIdentity>) -> [ProcessSample] {
-        Set(identities.flatMap { chain(from: $0) }).intersection(live).compactMap { nodes[$0]?.sample }
     }
 
     /// Ancestry chains, plus the runtimes a detached session marker may point to. Those candidates

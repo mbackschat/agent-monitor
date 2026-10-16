@@ -129,15 +129,17 @@ public struct CPUDiagnosisSession: Sendable {
         let identities = selected.map(\.sample.identity)
         var observations: [ProcessIdentity: DiagnosisObservation] = [:]
         var observedAt: [ProcessIdentity: Date] = [:]
-        let targets = monitor.ancestryTargets(for: identities)
-        for sample in targets {
+        var targets: [ProcessIdentity: ProcessSample] = [:]
+        try monitor.enrich(for: identities) { sample in
             try Task.checkCancellation()
+            targets[sample.identity] = sample
             let observation = reader.observation(for: sample)
             observations[sample.identity] = observation
             observedAt[sample.identity] = clock.now()
             if case .observed(let metadata) = observation {
-                monitor.enrich(metadata, for: sample.identity)
+                return metadata
             }
+            return ProcessMetadata(status: .unavailable)
         }
         let findings = identities.compactMap { identity -> HeavyProcess? in
             guard case .observed = observations[identity] else { return nil }
@@ -159,7 +161,7 @@ public struct CPUDiagnosisSession: Sendable {
             // Listings name PIDs, so recheck the observed runtime after the bounded command.
             // A reused PID cannot supply a session for its predecessor's measured CPU.
             let verified = Set(
-                targets.filter { sample in
+                targets.values.filter { sample in
                     guard needed[provider]?.contains(sample.identity) == true,
                         case .observed = observations[sample.identity]
                     else { return false }
