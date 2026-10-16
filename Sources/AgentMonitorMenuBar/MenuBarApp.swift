@@ -18,13 +18,14 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
     private var item: NSStatusItem?
     private let popover = NSPopover()
     private lazy var statusMenu = MenuBarStatusMenu(model: model)
-    private let model = MenuBarModel { thresholds, interval, receive in
+    private let model = MenuBarModel { thresholds, interval, resolveSessions, receive in
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(
                 thresholds: await thresholds(), intervalSeconds: interval.seconds, samples: 0,
                 collectAgentLoad: true),
             reader: try NativeProcessReader(), excluding: [ProcessInfo.processInfo.processIdentifier])
-        try await session.run(thresholds: thresholds, interval: interval, receive)
+        try await session.run(
+            thresholds: thresholds, interval: interval, resolveSessions: resolveSessions, receive)
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {

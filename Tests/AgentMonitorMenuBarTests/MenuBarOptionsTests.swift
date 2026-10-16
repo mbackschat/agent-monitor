@@ -8,7 +8,7 @@ import Testing
 
 @Test @MainActor func viewOptionsIsReadyOnFirstLayoutWithFlatCheckedDisplayChoices() throws {
     _ = NSApplication.shared
-    let model = MenuBarModel { _, _, _ in }
+    let model = MenuBarModel { _, _, _, _ in }
     let host = NSHostingView(rootView: MenuBarViewOptions(model: model))
     host.frame = NSRect(x: 0, y: 0, width: 150, height: 30)
     host.layoutSubtreeIfNeeded()
@@ -34,7 +34,7 @@ import Testing
 
 @Test @MainActor func reportRefreshKeepsTheSameOptionsControlAndTrackingSubmenus() throws {
     _ = NSApplication.shared
-    let model = MenuBarModel { _, _, _ in }
+    let model = MenuBarModel { _, _, _, _ in }
     let host = NSHostingView(rootView: MenuBarView(model: model))
     host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
     host.layoutSubtreeIfNeeded()
@@ -54,7 +54,7 @@ import Testing
 }
 
 @Test @MainActor func samplingMenusContainValuesAndExactlyOneCurrentCheckmark() throws {
-    let model = MenuBarModel { _, _, _ in }
+    let model = MenuBarModel { _, _, _, _ in }
     model.report = LiveReportState(
         thresholds: Thresholds(cpuPercent: 35, memoryBytes: 750_000_000), interval: 3)
     let controller = MenuBarOptionsController(model: model)
@@ -86,7 +86,7 @@ import Testing
 }
 
 @Test @MainActor func flatOptionsDispatchAndReopenWithTheCurrentSelection() throws {
-    let model = MenuBarModel { _, _, _ in }
+    let model = MenuBarModel { _, _, _, _ in }
     let controller = MenuBarOptionsController(model: model)
     let button = controller.makeButton()
     let menu = try #require(button.menu)
@@ -120,7 +120,7 @@ func selectedThresholdRejectsNegativeOrNonFiniteCPU(value: Double) {
 }
 
 @Test @MainActor func trackingRetainsMenuItemsAcrossSamplesAndRefreshesOnlyOnReopening() throws {
-    let model = MenuBarModel { _, _, _ in }
+    let model = MenuBarModel { _, _, _, _ in }
     let controller = MenuBarOptionsController(model: model)
     let button = controller.makeButton()
     let menu = try #require(button.menu)
@@ -145,7 +145,7 @@ func selectedThresholdRejectsNegativeOrNonFiniteCPU(value: Double) {
 }
 
 @Test @MainActor func historySelectorRetainsTrackingAndChecksMetricAndRange() throws {
-    let model = MenuBarModel { _, _, _ in }
+    let model = MenuBarModel { _, _, _, _ in }
     let controller = MenuBarOptionsController(model: model, placement: .history)
     let button = controller.makeButton()
     let menu = try #require(button.menu)
@@ -172,7 +172,7 @@ func selectedThresholdRejectsNegativeOrNonFiniteCPU(value: Double) {
 
 @Test(arguments: HistoryMetric.allCases, HistoryWindow.allCases)
 @MainActor func historyMenuTitleFitsItsCompactSlot(metric: HistoryMetric, window: HistoryWindow) {
-    let model = MenuBarModel { _, _, _ in }
+    let model = MenuBarModel { _, _, _, _ in }
     model.report.historyMetric = metric
     model.report.historyWindow = window
     let controller = MenuBarOptionsController(model: model, placement: .history)
@@ -184,7 +184,7 @@ func selectedThresholdRejectsNegativeOrNonFiniteCPU(value: Double) {
 @MainActor func historySelectionUpdatesTitleWhenTrackingEndsWithoutAnotherSample(
     itemTitle: String, expectedTitle: String
 ) throws {
-    let model = MenuBarModel { _, _, _ in }
+    let model = MenuBarModel { _, _, _, _ in }
     let controller = MenuBarOptionsController(model: model, placement: .history)
     let button = controller.makeButton()
     let menu = try #require(button.menu)

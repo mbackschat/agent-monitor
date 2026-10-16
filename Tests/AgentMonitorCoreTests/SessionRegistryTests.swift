@@ -181,3 +181,22 @@ private final class FakeRegistry: SessionRegistryReading, SamplingClock, Process
     #expect(fake.calls.withLock { $0 } == 1)
     #expect(evidence.withLock { $0 }.allSatisfy { $0 == .runtimeOnly })
 }
+
+@Test func listingWaitsWhileTheConsumerDoesNotResolveSessions() async throws {
+    let fake = FakeRegistry()
+    let wanted = Mutex(false)
+    let session = MonitoringSession(
+        configuration: try MonitoringConfiguration(samples: 3), reader: fake, clock: fake, registry: fake)
+    let evidence = Mutex<[AttributionEvidence?]>([])
+    let receive: @Sendable (MonitoringSnapshot) async throws -> Void = { snapshot in
+        let count = evidence.withLock { values in
+            values.append(snapshot.findings.first?.attribution.evidence)
+            return values.count
+        }
+        // A closed panel opens after the second sample.
+        if count == 2 { wanted.withLock { $0 = true } }
+    }
+    try await session.run(resolveSessions: { wanted.withLock { $0 } }, receive)
+    #expect(fake.calls.withLock { $0 } == 1)
+    #expect(evidence.withLock { $0 } == [.runtimeOnly, .runtimeOnly, .sessionRegistry])
+}

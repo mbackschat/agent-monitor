@@ -181,11 +181,38 @@ public struct MonitoringSession: Sendable {
         }
     }
 
+    /// Runs the harness listings due for `findings` and reports whether any ran.
+    /// A failed listing clears its provider's bindings; cancellation still ends the session.
+    private func listSessions(
+        for findings: [HeavyProcess], in monitor: inout Monitor, cadence: inout SessionRegistryCadence,
+        at now: Date
+    ) throws -> Bool {
+        var listed = false
+        for (provider, runtimes) in monitor.sessionRegistryRuntimes(in: findings)
+        where cadence.due(provider, runtimes: runtimes, at: now) {
+            guard let query = monitor.sessionRegistry(for: provider) else { continue }
+            let output: Data?
+            do {
+                output = try registry.output(of: query)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                output = nil
+            }
+            monitor.bindSessions(output, provider: provider)
+            listed = true
+        }
+        return listed
+    }
+
     /// Delivers snapshots sequentially, awaiting each consumer without buffering reports.
-    /// Reads updated thresholds once per sample, preserving the CPU baseline.
+    /// Reads updated thresholds once per sample, preserving the CPU baseline. `resolveSessions`
+    /// lets a consumer that currently shows no session identities, such as a closed menu bar
+    /// panel, skip harness listings while keeping existing bindings; nil always resolves.
     @concurrent public func run(
         thresholds currentThresholds: (@Sendable () async -> Thresholds)? = nil,
         interval live: LiveInterval? = nil,
+        resolveSessions: (@Sendable () async -> Bool)? = nil,
         _ receive: @Sendable (MonitoringSnapshot) async throws -> Void
     ) async throws {
         try Task.checkCancellation()
@@ -223,22 +250,11 @@ public struct MonitoringSession: Sendable {
                 }
             }
             var findings = monitor.findings(thresholds: thresholds, scope: configuration.scope)
-            var listed = false
-            for (provider, runtimes) in monitor.sessionRegistryRuntimes(in: findings)
-            where cadence.due(provider, runtimes: runtimes, at: sampledAt) {
-                guard let query = monitor.sessionRegistry(for: provider) else { continue }
-                let output: Data?
-                do {
-                    output = try registry.output(of: query)
-                } catch is CancellationError {
-                    throw CancellationError()
-                } catch {
-                    output = nil
-                }
-                monitor.bindSessions(output, provider: provider)
-                listed = true
+            if await resolveSessions?() ?? true,
+                try listSessions(for: findings, in: &monitor, cadence: &cadence, at: sampledAt)
+            {
+                findings = monitor.findings(thresholds: thresholds, scope: configuration.scope)
             }
-            if listed { findings = monitor.findings(thresholds: thresholds, scope: configuration.scope) }
             try await receive(
                 MonitoringSnapshot(
                     timestamp: sampledAt, intervalSeconds: interval,

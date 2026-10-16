@@ -24,7 +24,7 @@ func statusItemRoutesSecondaryClicksToTheContextMenu(
         timestamp: fixture.timestamp, intervalSeconds: 15, cpuThresholdPercent: 999,
         memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 1, unreadableProcessCount: 0,
         findings: fixture.findings, agentLoad: AgentLoadSummary(processes: fixture.findings))
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    let model = MenuBarModel { _, _, _, receive in try await receive(snapshot) }
     model.start()
     await model.waitForCollection()
     let controller = MenuBarStatusMenu(model: model)
@@ -56,7 +56,7 @@ func statusItemRoutesSecondaryClicksToTheContextMenu(
 @Test @MainActor func statusMenuKeepsDisplayedSummaryWhileSamplingContinues() async throws {
     let (samples, input) = AsyncStream<MonitoringSnapshot>.makeStream()
     let (received, output) = AsyncStream<Void>.makeStream()
-    let model = MenuBarModel { _, _, receive in
+    let model = MenuBarModel { _, _, _, receive in
         for await sample in samples {
             try await receive(sample)
             output.yield(())
@@ -82,7 +82,7 @@ func statusItemRoutesSecondaryClicksToTheContextMenu(
 }
 
 @Test @MainActor func statusMenuDistinguishesWaitingFailureAndStaticMode() async {
-    let model = MenuBarModel { _, _, _ in throw NSError(domain: "fixture", code: 1) }
+    let model = MenuBarModel { _, _, _, _ in throw NSError(domain: "fixture", code: 1) }
     let controller = MenuBarStatusMenu(model: model)
     #expect(controller.makeMenu().items.contains { $0.title.contains("waiting") })
     model.start()

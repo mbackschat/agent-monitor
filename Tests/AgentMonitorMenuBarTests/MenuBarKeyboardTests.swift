@@ -7,7 +7,7 @@ import Testing
 
 @Test @MainActor func copyPIDUsesOnlyTheExactVisibleProcessAndPlainDigits() async throws {
     let snapshot = try menuBarFixture(pids: [42001, 42002])
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    let model = MenuBarModel { _, _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     let group = try #require(model.report.groups.first)
@@ -38,7 +38,7 @@ import Testing
 
 @Test @MainActor func nativeSingleKeysMatchTUIAndDoNotActInsideActionPanels() async throws {
     let snapshot = try menuBarFixture()
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    let model = MenuBarModel { _, _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     let row = try #require(model.visibleRowIDs.first)

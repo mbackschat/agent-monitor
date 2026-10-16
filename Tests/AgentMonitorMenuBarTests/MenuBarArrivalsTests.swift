@@ -45,7 +45,7 @@ import Testing
 
 @Test @MainActor func rowActionsRespectAvailableTargetsAndReviewState() async throws {
     let sample = try menuBarFixture(pids: [42001, 42002])
-    let model = MenuBarModel { _, _, receive in try await receive(sample) }
+    let model = MenuBarModel { _, _, _, receive in try await receive(sample) }
     model.open()
     await model.waitForCollection()
     let group = LiveReportRowID.group(try #require(model.report.groups.first).id)
@@ -72,7 +72,7 @@ import Testing
 
 @Test @MainActor func unresolvedSessionCannotOfferMessaging() async throws {
     let sample = try menuBarFixture(sessionID: "unresolved")
-    let model = MenuBarModel { _, _, receive in try await receive(sample) }
+    let model = MenuBarModel { _, _, _, receive in try await receive(sample) }
     model.open()
     await model.waitForCollection()
     let row = LiveReportRowID.process(sample.findings[0].process)

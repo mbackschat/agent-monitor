@@ -56,7 +56,7 @@ import Testing
         cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
         sampledProcessCount: 42, unreadableProcessCount: 0, findings: findings,
         agentLoad: AgentLoadSummary(processes: findings))
-    let model = MenuBarModel { _, _, receive in
+    let model = MenuBarModel { _, _, _, receive in
         for tick in 0..<40 {
             let historyFindings = Array(findings.prefix(1 + tick % findings.count))
             try await receive(
@@ -138,7 +138,7 @@ import Testing
 
 @Test @MainActor func nativePanelInheritsChangingSystemAppearance() throws {
     _ = NSApplication.shared
-    let model = MenuBarModel { _, _, _ in }
+    let model = MenuBarModel { _, _, _, _ in }
     let container = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 560))
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
@@ -175,7 +175,7 @@ import Testing
 
 @Test @MainActor func sparseNativePanelKeepsStandardHeight() async throws {
     let snapshot = try menuBarFixture()
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    let model = MenuBarModel { _, _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     _ = NSApplication.shared
@@ -188,7 +188,7 @@ import Testing
 
 @Test @MainActor func nativePanelKeepsHeightAcrossDisclosureAndOverflow() async throws {
     let snapshot = try menuBarFixture(pids: Array(42001...42030))
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    let model = MenuBarModel { _, _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     _ = NSApplication.shared
@@ -209,7 +209,7 @@ import Testing
 
 @Test @MainActor func popoverKeepsHeightWhenOpeningActionReview() async throws {
     let snapshot = try menuBarFixture()
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    let model = MenuBarModel { _, _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     _ = NSApplication.shared
@@ -240,7 +240,7 @@ import Testing
 @Test(arguments: MenuBarPanelSize.allCases)
 @MainActor func userChoosesPanelHeightWithAScreenLimit(size: MenuBarPanelSize) async throws {
     let snapshot = try menuBarFixture()
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    let model = MenuBarModel { _, _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     _ = NSApplication.shared
@@ -257,7 +257,7 @@ import Testing
 }
 
 @Test @MainActor func keyboardHelpFitsInsideTheFixedPanelAndSurvivesDismissal() async throws {
-    let model = MenuBarModel { _, _, _ in }
+    let model = MenuBarModel { _, _, _, _ in }
     model.showsKeyboardHelp = true
     _ = NSApplication.shared
     let host = NSHostingView(rootView: MenuBarView(model: model))
@@ -317,7 +317,7 @@ import Testing
 @Test(arguments: HistoryMetric.allCases, HistoryWindow.allCases)
 @MainActor func historyStripFitsOneSlimRow(metric: HistoryMetric, window: HistoryWindow) {
     _ = NSApplication.shared
-    let model = MenuBarModel { _, _, _ in }
+    let model = MenuBarModel { _, _, _, _ in }
     model.report.historyMetric = metric
     model.report.historyWindow = window
     let host = NSHostingView(rootView: MenuBarHistoryStrip(model: model).frame(width: 392))
@@ -328,7 +328,7 @@ import Testing
 @Test(arguments: [false, true], HistoryMetric.allCases)
 @MainActor func emptyHistoryHasAVisibleSubtleBaseline(dark: Bool, metric: HistoryMetric) throws {
     _ = NSApplication.shared
-    let model = MenuBarModel { _, _, _ in }
+    let model = MenuBarModel { _, _, _, _ in }
     model.report.historyMetric = metric
     let host = NSHostingView(
         rootView: MenuBarHistoryStrip(model: model).frame(width: 392)
@@ -366,7 +366,7 @@ import Testing
 @MainActor func messageContextAndCopyRenderInsideFixedPanel(dark: Bool, review: Bool) async throws {
     let output = try #require(ProcessInfo.processInfo.environment["MENUBAR_MESSAGE_PREVIEW_PATH"])
     let snapshot = try menuBarFixture()
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    let model = MenuBarModel { _, _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     let process = try #require(snapshot.findings.first)

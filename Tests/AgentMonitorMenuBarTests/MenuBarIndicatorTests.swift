@@ -142,7 +142,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     let (requests, input) = AsyncStream<MonitoringSnapshot>.makeStream()
     let (events, output) = AsyncStream<Double>.makeStream()
     let calls = Mutex(0)
-    let model = MenuBarModel { _, interval, receive in
+    let model = MenuBarModel { _, interval, _, receive in
         calls.withLock { $0 += 1 }
         for await sample in requests {
             try await receive(sample)
@@ -184,7 +184,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
 
 @Test @MainActor func staticIconCancelsClosedSamplingAndCanEnableItAgain() async throws {
     let (events, output) = AsyncStream<String>.makeStream()
-    let model = MenuBarModel { _, _, receive in
+    let model = MenuBarModel { _, _, _, receive in
         output.yield("start")
         do { try await Task.sleep(for: .seconds(3600)) } catch {}
         output.yield("end")
@@ -210,7 +210,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
 @Test @MainActor func startupUsesOneFastSampleThenReturnsToNormalCadence() async throws {
     let (requests, input) = AsyncStream<Void>.makeStream()
     let (events, output) = AsyncStream<Double>.makeStream()
-    let model = MenuBarModel { _, interval, receive in
+    let model = MenuBarModel { _, interval, _, receive in
         output.yield(interval.seconds)
         for await _ in requests {
             try await receive(loadSample(100))
@@ -265,7 +265,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
         sampledProcessCount: 3, unreadableProcessCount: 0, findings: grouped.findings + singleton.findings)
     let (samples, input) = AsyncStream<MonitoringSnapshot>.makeStream()
     let (received, output) = AsyncStream<Void>.makeStream()
-    let model = MenuBarModel { _, _, receive in
+    let model = MenuBarModel { _, _, _, receive in
         for await sample in samples {
             try await receive(sample)
             output.yield(())
