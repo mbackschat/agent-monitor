@@ -4,7 +4,7 @@ Agent Monitor maps heavy macOS processes to coding-agent sessions through text, 
 
 ## Start and scope
 
-Read [PLAN.md](PLAN.md) when resuming; it owns unfinished work and scope decisions. Process termination, Codex/Claude messaging and adapter-based terminal focus are shipped capabilities, not permission to act on live workloads. Proposals do not authorize implementation or delegation. Keep unrelated product expansion outside the current task.
+Read [PLAN.md](PLAN.md) when resuming; it owns unfinished work and scope decisions. Process termination, Codex/Claude messaging and adapter-based terminal focus are shipped capabilities, not permission to act on live workloads. Proposals do not authorize implementation. Read-only search and review subagents are allowed; the tier-based delegation of the [working-model proposal](docs/proposals/agent-working-model.md) is not adopted. Keep unrelated product expansion outside the current task.
 
 Before changing a subsystem, read its relevant contract below; do not reread unrelated guides or material already current in this session. If code bypasses its documented ownership, make the smallest authorized extraction before extending it. Surface a material scope conflict rather than building on the bypass. Keep implementation, architecture status and contributor guidance aligned in the same commit.
 
@@ -23,7 +23,7 @@ Harness-specific recognition, marker validation, descriptor/inbox interpretation
 
 Use exact process lifetimes, not PID alone. Never infer ownership from cwd or treat a protocol process handle as an OS PID. Session totals cover displayed heavy processes only; grouping preserves provider/session identity and leaves JSONL flat. Project labels use workload directories, never a shared runtime's launch directory. Shared presentation owns sticky disclosure without stale measurements or overriding explicit inspection changes.
 
-Actions require frozen identity, fresh same-user/recipient verification and explicit confirmation where applicable. Acceptance is not delivery or completion; never automatically retry uncertain actions. Never read transcripts or a Claude messaging token. Tests use fake providers and disposable owned processes, never real harness listings, live messages or signals to user workloads.
+Actions require frozen identity, fresh same-user/recipient verification and explicit confirmation where applicable. Acceptance is not delivery or completion; never automatically retry uncertain actions. Never read transcripts or a Claude messaging token. Tests and research probes use fake providers and disposable owned processes, never real harness listings, live messages or signals to user workloads; keep a probe script only when its measurement is retained.
 
 ## Read only the contracts relevant to the change
 
@@ -35,6 +35,7 @@ Actions require frozen identity, fresh same-user/recipient verification and expl
 | Native UI, input or lifecycle | [Native contract](docs/architecture.md#native-menu-bar-app), [headless checks and user smoke test](docs/development.md#menu-bar-app). |
 | TUI or resource history | [TUI contract](docs/architecture.md#tui-contract), [history contract](docs/architecture.md#resource-history), [terminal checks](docs/development.md#terminal-and-machine-output-checks). |
 | CLI options or JSONL | [Wire/presentation boundary](docs/architecture.md#boundary-for-multiple-presentations), [usage](docs/usage.md). Verify defaults, units and combinations against `Options.swift` and generated `--help`; update the README option table/examples and affected usage, including TUI's different sample default. |
+| Research note, proposal or decision record | [Research index](docs/research/README.md), [proposal lifecycle and folder indices](docs/development.md#documentation-and-instruction-maintenance); change statuses with `python3 scripts/docs.py status`. |
 | Rendered documentation | [Preview maintenance](docs/development.md#readme-preview), [native image generation](docs/development.md#build-and-coverage-details). |
 | Dependencies, skills or packaging | [Dual-host skills](docs/development.md#skills-shared-by-codex-cli-and-claude-code), [release packaging](docs/releasing.md). Pin changes require [third-party notices](THIRD_PARTY_NOTICES.md) from locked sources, including vendored components/fonts; retain notices and licenses in archives. |
 
@@ -48,7 +49,8 @@ Select checks using the [validation matrix](docs/development.md#choose-checks-fo
 
 Common commands from the repository root:
 
-- `swift build` and `swift test`: build and run the Swift suite.
+- `swift build` and `swift test`: build and run the Swift suite; use `swift test --filter <Suite>` for red/green loops and the full suite before committing shared-contract changes.
+- `python3 scripts/docs.py check`: documentation links, anchors, folder indices and status tables; required for documentation-only commits.
 - `swift format lint --strict --recursive Sources Tests Tools Package.swift`: formatting.
 - `bash scripts/doctor.sh`: read-only prerequisites and instruction/skill checks.
 - `bash scripts/preview.sh check`: generated TUI preview drift.
@@ -58,7 +60,7 @@ Specialized native/terminal probes and restricted-environment workarounds are in
 
 ## Documentation and durable instructions
 
-Write one paragraph per physical Markdown line and regular links to other documents. The [README](README.md) serves users; [usage](docs/usage.md) owns controls, [architecture](docs/architecture.md) owns accepted contracts, [development](docs/development.md) owns repeatable checks/limits, and [PLAN.md](PLAN.md) owns unfinished work. Consult the [research index](docs/research/README.md) before investigating; extend the matching dated note and index new notes or retained measurements in the same commit. Keep evidence separate from unapproved designs in [proposals](docs/proposals/). Follow [documentation maintenance](docs/development.md#documentation-and-instruction-maintenance) for provenance and completion records.
+Write one paragraph per physical Markdown line and regular links to other documents. The [README](README.md) serves users; [usage](docs/usage.md) owns controls, [architecture](docs/architecture.md) owns accepted contracts, [development](docs/development.md) owns repeatable checks/limits, and [PLAN.md](PLAN.md) owns unfinished work. Consult the [research index](docs/research/README.md) before investigating; extend the matching dated note and index new notes or retained measurements in the same commit. Keep evidence separate from open designs in [proposals](docs/proposals/README.md) and settled outcomes in [decisions](docs/decisions/README.md); every docs folder has a README index. Follow [documentation maintenance](docs/development.md#documentation-and-instruction-maintenance) for provenance and completion records.
 
 Add root instructions only for recurring agent decisions or essential invariants. Put detailed feature contracts in their owning guide and link the task trigger here; do not accumulate a second feature specification in this file.
 
