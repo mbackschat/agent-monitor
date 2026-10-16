@@ -6,6 +6,10 @@ enum MenuBarKeyboard {
         (ReportShortcut.allCases.map(\.rawValue) + ["k", "s", "f", "y", "q"])
             .map { KeyEquivalent(Character($0)) })
 
+    static func isBulkDisclosure(modifiers: EventModifiers) -> Bool {
+        modifiers.intersection([.command, .control, .option, .shift]) == .shift
+    }
+
     static func accepts(_ key: String, modifiers: EventModifiers) -> Bool {
         // AppKit marks arrow keys as numericPad; Caps Lock also is not a shortcut chord.
         // https://developer.apple.com/documentation/appkit/nsevent/modifierflags-swift.struct/numericpad

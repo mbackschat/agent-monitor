@@ -260,3 +260,98 @@ func directoryLabelsDoNotClaimProjectsOrChangeSessionMembership(
     #expect(!state.openGroups.contains(try #require(groups.first).id))
     #expect(state.openGroups.contains(try #require(groups.last).id))
 }
+
+@Test func bulkSessionDisclosureUsesTheSelectedLevelAndKeepsExplicitState() throws {
+    let findings = [groupedRow(1, thread: "a"), groupedRow(2, thread: "a"), groupedRow(3, thread: "b")]
+    var state = LiveReportState(grouping: .session)
+    state.receive(groupedSnapshot(findings))
+    let first = try #require(state.groups.first)
+    let second = try #require(state.groups.last)
+    let selection = state.selection
+    let expandedAll = state.setSessionDisclosure(expanded: true, from: selection)
+    #expect(expandedAll)
+    #expect(state.openGroups == [first.id, second.id])
+    #expect(state.selection == selection)
+    #expect(state.expanded == nil)
+    let opened = state
+    let repeatedExpansion = state.setSessionDisclosure(expanded: true, from: selection)
+    #expect(repeatedExpansion)
+    #expect(state == opened)
+    state.select(.process(findings[0].process))
+    state.setDisclosure(expanded: true)
+    let collapsedParent = state.setSessionDisclosure(expanded: false, from: state.selection)
+    #expect(collapsedParent)
+    #expect(state.openGroups == [second.id])
+    #expect(state.selection == .group(first.id))
+    #expect(state.expanded == nil)
+    state.receive(groupedSnapshot(findings))
+    #expect(!state.openGroups.contains(first.id))
+    let collapsedAll = state.setSessionDisclosure(expanded: false, from: nil)
+    #expect(collapsedAll)
+    #expect(state.openGroups.isEmpty)
+    state.receive(groupedSnapshot([]))
+    state.receive(groupedSnapshot(findings))
+    #expect(state.openGroups.isEmpty)
+}
+
+@Test func bulkSessionDisclosureDistinguishesNativeSingletonsAndPinnedChildren() throws {
+    let findings = [groupedRow(1, thread: "a"), groupedRow(2, thread: "b"), groupedRow(3, thread: "b")]
+    var state = LiveReportState(grouping: .session)
+    state.receive(groupedSnapshot(findings))
+    let singleton = try #require(state.groups.first { $0.sessionID == "a" })
+    let multi = try #require(state.groups.first { $0.sessionID == "b" })
+    let expandedFromSingleton = state.setSessionDisclosure(
+        expanded: true, from: .process(findings[0].process), flattenSingletons: true)
+    #expect(expandedFromSingleton)
+    #expect(state.openGroups == [multi.id])
+    state.togglePin(.process(findings[1].process))
+    let collapsedFromPin = state.setSessionDisclosure(
+        expanded: false, from: .process(findings[1].process), flattenSingletons: true)
+    #expect(collapsedFromPin)
+    #expect(state.openGroups.isEmpty)
+    state.togglePin(.group(singleton.id))
+    let expandedPinnedGroups = state.setSessionDisclosure(expanded: true, from: nil, flattenSingletons: true)
+    #expect(expandedPinnedGroups)
+    #expect(state.openGroups == [singleton.id, multi.id])
+}
+
+@Test func bulkDisclosureRejectsHiddenTargetsAndActionPanels() throws {
+    let findings = [groupedRow(1, thread: "a"), groupedRow(2, thread: "a")]
+    var state = LiveReportState(grouping: .session)
+    state.receive(groupedSnapshot(findings))
+    let hiddenChild = state.setSessionDisclosure(expanded: true, from: .process(findings[0].process))
+    #expect(!hiddenChild)
+    let reusedPID = state.setSessionDisclosure(
+        expanded: true, from: .process(ProcessIdentity(pid: 1, startMicroseconds: 99)))
+    #expect(!reusedPID)
+    state.setDisclosure(expanded: true)
+    state.select(.process(findings[0].process))
+    _ = state.beginAction(.terminate)
+    let held = state
+    let blockedByAction = state.setSessionDisclosure(expanded: false, from: state.selection)
+    #expect(!blockedByAction)
+    #expect(state == held)
+}
+
+@Test func bulkCollapseReconcilesASelectionThatDiffersFromNativeFocus() throws {
+    let findings = [groupedRow(1, thread: "a"), groupedRow(2, thread: "b")]
+    var state = LiveReportState(grouping: .session)
+    state.receive(groupedSnapshot(findings))
+    let other = try #require(state.groups.last)
+    state.setSessionDisclosure(expanded: true, from: nil)
+    state.select(.process(findings[0].process))
+    state.setSessionDisclosure(expanded: false, from: .group(other.id))
+    #expect(state.selectedGroup == other.id)
+    state.receive(groupedSnapshot(findings))
+    #expect(state.openGroups.isEmpty)
+}
+
+@Test func bulkSessionDisclosureLeavesFlatProcessInspectionUnchanged() {
+    var state = LiveReportState()
+    state.receive(groupedSnapshot([groupedRow(1, thread: "a")]))
+    state.setDisclosure(expanded: true)
+    let held = state
+    let handled = state.setSessionDisclosure(expanded: false, from: state.selection)
+    #expect(!handled)
+    #expect(state == held)
+}

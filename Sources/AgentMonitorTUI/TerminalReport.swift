@@ -62,6 +62,16 @@ public enum TerminalReport {
                     }
                     return .handled
                 }
+                if key.modifiers == .shift {
+                    let expanded: Bool
+                    switch key.key {
+                    case .arrowLeft: expanded = false
+                    case .arrowRight: expanded = true
+                    default: return .ignored
+                    }
+                    state.mutate { $0.setSessionDisclosure(expanded: expanded, from: $0.selection) }
+                    return .handled
+                }
                 guard key.modifiers.isEmpty else { return .ignored }
                 @MainActor func begin(_ kind: ProcessActionKind) {
                     var effect: ActionEffect?

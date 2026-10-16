@@ -117,3 +117,36 @@ func nativeRowArrowsAcceptNonShortcutFlags(modifiers: EventModifiers) {
     #expect(MenuBarKeyboard.accepts(".", modifiers: .capsLock))
     #expect(!MenuBarKeyboard.accepts(".", modifiers: [.capsLock, .command]))
 }
+
+@Test func initialNativeFocusWaitsForRowsOnlyWhileTheTableRetainsFocus() {
+    let row = LiveReportRowID.process(ProcessIdentity(pid: 42, startMicroseconds: 1))
+    var focus = MenuBarInitialFocus()
+    let loading = focus.open(rows: [])
+    #expect(loading == .table)
+    let empty = focus.rowsChanged([], focus: .table)
+    #expect(empty == nil)
+    let arrived = focus.rowsChanged([row], focus: .table)
+    #expect(arrived == row)
+    let refresh = focus.rowsChanged([row], focus: nil)
+    #expect(refresh == nil)
+    let reopened = focus.open(rows: [])
+    #expect(reopened == .table)
+    let departed = focus.rowsChanged([row], focus: nil)
+    #expect(departed == nil)
+    let laterRefresh = focus.rowsChanged([row], focus: .table)
+    #expect(laterRefresh == nil)
+    let populated = focus.open(rows: [row])
+    #expect(populated == .row(row))
+    let alreadyFocused = focus.rowsChanged([row], focus: .table)
+    #expect(alreadyFocused == nil)
+}
+
+@Test func nativeBulkDisclosureAcceptsOnlyShiftArrowsAndKeyStateFlags() {
+    #expect(MenuBarKeyboard.isBulkDisclosure(modifiers: .shift))
+    #expect(MenuBarKeyboard.isBulkDisclosure(modifiers: [.shift, .numericPad, .capsLock]))
+    for modifiers in [
+        EventModifiers(), .numericPad, [.shift, .command], [.shift, .option], [.shift, .control],
+    ] {
+        #expect(!MenuBarKeyboard.isBulkDisclosure(modifiers: modifiers))
+    }
+}

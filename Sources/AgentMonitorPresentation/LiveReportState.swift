@@ -307,15 +307,55 @@ public struct LiveReportState: Equatable, Sendable {
         if isExpanded != expanded { toggleDisclosure() }
     }
 
+    @discardableResult
+    public mutating func setSessionDisclosure(
+        expanded: Bool, from row: LiveReportRowID?, flattenSingletons: Bool = false
+    ) -> Bool {
+        guard actionPanel == nil else { return false }
+        let projection = projection
+        let topLevel = projection.pinnedRows + projection.unpinnedRows
+        let groups = topLevel.compactMap { row -> SessionGroup? in
+            if case .group(let group) = row { return group }
+            return nil
+        }
+        func flattened(_ group: SessionGroup) -> Bool {
+            flattenSingletons && group.processes.count == 1 && !isPinned(.group(group.id))
+        }
+        var targets = groups.filter { !flattened($0) }
+        if let row, !topLevel.contains(where: { $0.id == row }) {
+            guard case .process(let process) = row,
+                let parent = groups.first(where: { children(of: $0).contains { $0.process == process } }),
+                openGroups.contains(parent.id) || flattened(parent)
+            else { return false }
+            if !flattened(parent) { targets = [parent] }
+        }
+        guard !targets.isEmpty else { return false }
+        returningDetails = nil
+        for group in targets { setGroupDisclosure(group.id, expanded: expanded) }
+        if !expanded {
+            let hidden = targets.flatMap { children(of: $0).map(\.process) }
+            let hiddenSelection = [row, selection].compactMap { value -> ProcessIdentity? in
+                guard case .process(let process) = value, hidden.contains(process) else { return nil }
+                return process
+            }.first
+            if let process = hiddenSelection,
+                let parent = targets.first(where: { $0.processes.contains { $0.process == process } })
+            {
+                selection =
+                    row.flatMap { candidate in
+                        visibleRows.contains { $0.id == candidate } ? candidate : nil
+                    } ?? .group(parent.id)
+                detailOffset = 0
+            }
+            if let inspected = self.expanded, hidden.contains(inspected) { self.expanded = nil }
+        }
+        return true
+    }
+
     public mutating func toggleDisclosure() {
         returningDetails = nil
         if let group = selectedGroup {
-            if openGroups.contains(group) {
-                openGroups.remove(group)
-                rememberedOpenGroups.removeAll { $0 == group }
-            } else {
-                rememberOpenGroup(group)
-            }
+            setGroupDisclosure(group, expanded: !openGroups.contains(group))
             expanded = nil
             detailOffset = 0
             return
@@ -376,6 +416,15 @@ public struct LiveReportState: Equatable, Sendable {
     public mutating func scrollDetails(by delta: Int, maximum: Int) {
         let limit = max(0, maximum)
         detailOffset = min(limit, max(0, min(detailOffset, limit) + delta))
+    }
+
+    private mutating func setGroupDisclosure(_ id: SessionGroupID, expanded: Bool) {
+        if expanded {
+            rememberOpenGroup(id)
+        } else {
+            openGroups.remove(id)
+            rememberedOpenGroups.removeAll { $0 == id }
+        }
     }
 
     private mutating func rememberOpenGroup(_ id: SessionGroupID) {

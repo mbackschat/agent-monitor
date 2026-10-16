@@ -42,7 +42,7 @@ struct MenuBarDisclosureStyle: DisclosureGroupStyle {
     let disclosure: MenuBarRowDisclosure
     let pinned: Bool
     let arrived: Bool
-    let focus: FocusState<LiveReportRowID?>.Binding
+    let focus: FocusState<MenuBarFocus?>.Binding
     let onPin: () -> Bool
     let onPinShortcut: () -> Bool
 
@@ -68,13 +68,12 @@ private struct MenuBarRowHeader<Label: View>: View {
     let disclosure: MenuBarRowDisclosure
     let pinned: Bool
     let expanded: Bool
-    let focus: FocusState<LiveReportRowID?>.Binding
+    let focus: FocusState<MenuBarFocus?>.Binding
     let onSetExpanded: (Bool) -> Void
     let onPin: () -> Bool
     let onPinShortcut: () -> Bool
     let label: Label
     @State private var hovered = false
-    @FocusState private var pinFocused: Bool
 
     var body: some View {
         HStack(spacing: 2) {
@@ -96,7 +95,7 @@ private struct MenuBarRowHeader<Label: View>: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 4).contentShape(Rectangle())
             }
-            .buttonStyle(.plain).focused(focus, equals: id)
+            .buttonStyle(.plain).focused(focus, equals: .row(id))
             .pinShortcut(onPinShortcut)
             .onKeyPress(keys: [.leftArrow, .rightArrow], phases: .down) { key in
                 guard MenuBarKeyboard.accepts(key.characters, modifiers: key.modifiers) else {
@@ -107,8 +106,8 @@ private struct MenuBarRowHeader<Label: View>: View {
             }
             .accessibilityValue(disclosure.accessibilityValue(expanded: expanded))
             MenuBarPinButton(pinned: pinned, action: onPin)
-                .opacity(pinned || hovered || pinFocused || focus.wrappedValue == id ? 1 : 0)
-                .focused($pinFocused)
+                .opacity(pinned || hovered || focus.wrappedValue?.rowID == id ? 1 : 0)
+                .focused(focus, equals: .pin(id))
                 .pinShortcut(onPinShortcut)
         }
         .onHover { hovered = $0 }

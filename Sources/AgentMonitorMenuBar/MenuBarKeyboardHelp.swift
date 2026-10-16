@@ -14,6 +14,7 @@ struct MenuBarKeyboardHelp: View {
                 shortcut("Tab / ⇧Tab", "Next / previous control")
                 shortcut("↑ / ↓", "Previous / next row")
                 shortcut("← / →", "Collapse / expand row")
+                shortcut("⇧← / ⇧→", "Collapse / expand session groups")
                 shortcut(".", "Pin / unpin row")
                 shortcut("p", "Pause / resume")
                 shortcut("c / m / n / o", "Sort CPU / memory / PID / stable")

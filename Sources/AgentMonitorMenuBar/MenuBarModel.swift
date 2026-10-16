@@ -289,11 +289,14 @@ final class MenuBarModel {
         }
     }
 
-    func moveFocus(from row: LiveReportRowID, by delta: Int) -> LiveReportRowID? {
+    func moveFocus(from row: LiveReportRowID?, by delta: Int) -> LiveReportRowID? {
         let rows = visibleRowIDs
         guard !rows.isEmpty else { return nil }
-        let index = rows.firstIndex(of: row) ?? 0
-        let next = rows[min(max(index + delta, 0), rows.count - 1)]
+        let next: LiveReportRowID
+        switch row.flatMap({ rows.firstIndex(of: $0) }) {
+        case .some(let index): next = rows[min(max(index + delta, 0), rows.count - 1)]
+        case nil: next = rows[0]
+        }
         selectRow(next)
         return next
     }

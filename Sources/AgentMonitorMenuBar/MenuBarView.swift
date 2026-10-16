@@ -6,10 +6,16 @@ import SwiftUI
 
 struct MenuBarView: View {
     @Bindable var model: MenuBarModel
-    @FocusState private var focusedRow: LiveReportRowID?
+    @FocusState private var focus: MenuBarFocus?
+    @State private var initialFocus = MenuBarInitialFocus()
     @State private var pendingPinFocus: LiveReportRowID?
     var maximumHeight: CGFloat = .infinity
     var onSizeChange: (CGSize) -> Void = { _ in }
+
+    private var focusedRow: LiveReportRowID? {
+        get { focus?.rowID }
+        nonmutating set { focus = newValue.map(MenuBarFocus.row) }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -72,6 +78,33 @@ struct MenuBarView: View {
             .padding(12)
         }
         .frame(width: MenuBarLayout.width, height: min(model.panelSize.height, maximumHeight))
+        .task(id: model.isOpen) {
+            guard model.isOpen else {
+                focus = nil
+                return
+            }
+            guard model.report.actionPanel == nil else { return }
+            focus = initialFocus.open(rows: model.visibleRowIDs)
+            if let focusedRow { model.selectRow(focusedRow) }
+        }
+        .onChange(of: model.visibleRowIDs) { _, rows in
+            guard model.isOpen, model.report.actionPanel == nil,
+                let row = initialFocus.rowsChanged(rows, focus: focus)
+            else { return }
+            model.selectRow(row)
+            focus = .row(row)
+        }
+        .onKeyPress(keys: [.leftArrow, .rightArrow], phases: .down) { key in
+            guard model.isOpen, model.report.actionPanel == nil,
+                focus != nil, MenuBarKeyboard.isBulkDisclosure(modifiers: key.modifiers),
+                model.report.setSessionDisclosure(
+                    expanded: key.key == .rightArrow, from: focusedRow, flattenSingletons: true)
+            else { return .ignored }
+            if let row = focusedRow, !model.visibleRowIDs.contains(row) {
+                focusedRow = model.report.selection
+            }
+            return .handled
+        }
         .onKeyPress(.downArrow) { moveFocus(by: 1) }
         .onKeyPress(.upArrow) { moveFocus(by: -1) }
         .onKeyPress(keys: MenuBarKeyboard.keys, phases: .down) { key in
@@ -144,30 +177,36 @@ struct MenuBarView: View {
                 Text("Filter changes pending next displayed sample").font(.caption).foregroundStyle(
                     .secondary)
             }
-            if let error = model.error {
-                ContentUnavailableView(
-                    "Unable to sample", systemImage: "exclamationmark.triangle", description: Text(error))
-            } else if model.report.snapshot == nil {
-                VStack(spacing: 10) {
-                    ProgressView().controlSize(.small)
-                    Text("Measuring activity…").foregroundStyle(.secondary)
-                }.frame(maxWidth: .infinity).padding(.vertical, 20)
-            } else if pinned.isEmpty && unpinned.isEmpty {
-                ContentUnavailableView(
-                    "No heavy agent processes", systemImage: "checkmark.circle",
-                    description: Text("Nothing exceeds the current thresholds."))
-            } else {
-                if !pinned.isEmpty {
-                    Label("Pinned", systemImage: "pin.fill").font(.caption.bold()).foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(pinned, id: \.id) { nativeRow($0, sessions: sessions) }
+            VStack(alignment: .leading, spacing: 12) {
+                if let error = model.error {
+                    ContentUnavailableView(
+                        "Unable to sample", systemImage: "exclamationmark.triangle", description: Text(error))
+                } else if model.report.snapshot == nil {
+                    VStack(spacing: 10) {
+                        ProgressView().controlSize(.small)
+                        Text("Measuring activity…").foregroundStyle(.secondary)
+                    }.frame(maxWidth: .infinity).padding(.vertical, 20)
+                } else if pinned.isEmpty && unpinned.isEmpty {
+                    ContentUnavailableView(
+                        "No heavy agent processes", systemImage: "checkmark.circle",
+                        description: Text("Nothing exceeds the current thresholds."))
+                } else {
+                    if !pinned.isEmpty {
+                        Label("Pinned", systemImage: "pin.fill").font(.caption.bold()).foregroundStyle(
+                            .secondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(pinned, id: \.id) { nativeRow($0, sessions: sessions) }
+                        }
+                        if !unpinned.isEmpty { Divider() }
                     }
-                    if !unpinned.isEmpty { Divider() }
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(unpinned, id: \.id) { nativeRow($0, sessions: sessions) }
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(unpinned, id: \.id) { nativeRow($0, sessions: sessions) }
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .focusable()
+            .focused($focus, equals: .table)
             if let notice = model.report.notice {
                 Text(notice).font(.caption).foregroundStyle(.secondary)
             }
@@ -205,7 +244,7 @@ struct MenuBarView: View {
                 }.font(.caption)
                 Spacer()
                 MenuBarPinButton(pinned: true) { model.togglePin(pin.id) }
-                    .focused($focusedRow, equals: pin.id)
+                    .focused($focus, equals: .row(pin.id))
                     .pinShortcut { togglePinFromKeyboard(pin.id) }
             }.padding(6)
                 .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
@@ -219,7 +258,7 @@ struct MenuBarView: View {
         MenuBarDisclosureStyle(
             id: id, disclosure: disclosure, pinned: model.report.isPinned(id),
             arrived: model.arrivals.deadlines[id] != nil,
-            focus: $focusedRow,
+            focus: $focus,
             onPin: { model.togglePin(id) }, onPinShortcut: { togglePinFromKeyboard(id) })
     }
 
@@ -250,8 +289,8 @@ struct MenuBarView: View {
     }
 
     private func moveFocus(by delta: Int) -> KeyPress.Result {
-        guard let focusedRow, model.report.actionPanel == nil else { return .ignored }
-        self.focusedRow = model.moveFocus(from: focusedRow, by: delta)
+        guard focus != nil, model.report.actionPanel == nil else { return .ignored }
+        focusedRow = model.moveFocus(from: focusedRow, by: delta)
         return .handled
     }
 

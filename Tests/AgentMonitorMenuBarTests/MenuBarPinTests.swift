@@ -86,6 +86,7 @@ import Testing
     let first = group.processes[0].process
     let second = group.processes[1].process
     #expect(model.visibleRowIDs == [.group(group.id)])
+    #expect(model.moveFocus(from: nil, by: 1) == .group(group.id))
     model.report.toggleDisclosure()
     #expect(model.moveFocus(from: .group(group.id), by: 1) == .process(first))
     model.setDetails(for: first, expanded: true)
