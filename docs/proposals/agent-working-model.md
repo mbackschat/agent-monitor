@@ -1,5 +1,7 @@
 # Proposed agent working model
 
+Status: **unapproved proposal**, 2026-10-15. It does not authorize delegation.
+
 ## Status and ownership
 
 This is a proposed allocation of work, not authorization to delegate future tasks. The user's global instructions own the HIGH, MEDIUM, and LOW model selectors and effort settings; resolve the active CLI's mapping there rather than duplicating it here. Unsupported configurations must be reported, not silently substituted.
