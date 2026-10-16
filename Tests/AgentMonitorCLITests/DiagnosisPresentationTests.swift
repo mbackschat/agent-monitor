@@ -6,7 +6,7 @@ import Testing
 
 func diagnosisPresentationFixture(
     empty: Bool = false, label: String = "/bin/compiler", available: Bool = false,
-    terminal: String = "ttys001", directory: String = "/same"
+    terminal: String = "ttys001", directory: String = "/same", populationCPU: Double = 3.9
 ) -> CPUDiagnosis {
     let start = Date(timeIntervalSince1970: 1_792_152_000)
     let first = ProcessSample(
@@ -22,7 +22,7 @@ func diagnosisPresentationFixture(
         host: CPUWindowHost(
             meanBusyPercent: empty ? nil : 210, logicalCPUCount: 8, observedSeconds: empty ? 0 : 3.15,
             validIntervals: empty ? 0 : 3),
-        cpuSeconds: empty ? nil : 3.9, windowCPUPercent: empty ? nil : 121.875,
+        cpuSeconds: empty ? nil : populationCPU, windowCPUPercent: empty ? nil : 121.875,
         observedLifetimeCount: empty ? 0 : 3, measuredLifetimeCount: empty ? 0 : 2,
         unmeasuredObservationCount: empty ? 0 : 2, unreadableObservationCount: empty ? 0 : 1,
         omittedContributorCount: 0,

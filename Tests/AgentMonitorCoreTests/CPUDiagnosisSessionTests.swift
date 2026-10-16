@@ -5,6 +5,7 @@ import Testing
 @testable import AgentMonitorCore
 
 final class DiagnosisFixture: DiagnosisReading, SamplingClock, SessionRegistryReading, Sendable {
+    enum CancellationPoint: CaseIterable { case finalScan, enrichment, lookup }
     struct State {
         var scans = 0
         var waits: [Double] = []
@@ -18,17 +19,19 @@ final class DiagnosisFixture: DiagnosisReading, SamplingClock, SessionRegistryRe
     let missing: Set<ProcessIdentity>
     let failingScan: Int?
     let registryOutput: Data?
+    let cancellation: CancellationPoint?
 
     init(
         _ snapshots: [ProcessSnapshot], metadata: [ProcessIdentity: DiagnosisObservation] = [:],
         missing: Set<ProcessIdentity> = [], failingScan: Int? = nil,
-        registryOutput: Data? = Data("[]".utf8)
+        registryOutput: Data? = Data("[]".utf8), cancellation: CancellationPoint? = nil
     ) {
         self.snapshots = snapshots
         self.metadata = metadata
         self.missing = missing
         self.failingScan = failingScan
         self.registryOutput = registryOutput
+        self.cancellation = cancellation
     }
 
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
@@ -38,11 +41,13 @@ final class DiagnosisFixture: DiagnosisReading, SamplingClock, SessionRegistryRe
             return $0.scans
         }
         if index == failingScan { throw NativeReadError.enumeration(1) }
+        if index == 3, cancellation == .finalScan { withUnsafeCurrentTask { $0?.cancel() } }
         return snapshots[index]
     }
     func observation(for sample: ProcessSample) -> DiagnosisObservation {
         state.withLock { $0.metadata.append(sample.identity) }
         #expect(state.withLock { $0.scans } == 4)
+        if cancellation == .enrichment { withUnsafeCurrentTask { $0?.cancel() } }
         return metadata[sample.identity] ?? .observed(ProcessMetadata())
     }
     func isCurrent(_ sample: ProcessSample) -> Bool { !missing.contains(sample.identity) }
@@ -51,6 +56,7 @@ final class DiagnosisFixture: DiagnosisReading, SamplingClock, SessionRegistryRe
     func output(of query: SessionRegistryQuery) throws -> Data {
         state.withLock { $0.lookups += 1 }
         #expect(query.command == ["claude", "agents", "--json"])
+        if cancellation == .lookup { withUnsafeCurrentTask { $0?.cancel() } }
         guard let registryOutput else { throw BoundedCommandFailure("private provider error") }
         return registryOutput
     }
@@ -63,6 +69,23 @@ final class DiagnosisFixture: DiagnosisReading, SamplingClock, SessionRegistryRe
         (0...3).map { index in
             diagnosisScan(processes(index), at: 10 + Double(index) * 2, scan: 0.5)
         }
+    }
+
+    @Test(arguments: DiagnosisFixture.CancellationPoint.allCases)
+    func cancellationDuringSynchronousWorkNeverPublishesAResult(
+        point: DiagnosisFixture.CancellationPoint
+    ) async {
+        let fake = DiagnosisFixture(
+            scans { index in
+                [sample(10, executable: runtimePath, at: 10 + Double(index) * 2, cpu: Double(index))]
+            }, cancellation: point)
+        // The fake cancels its current task; isolate that from the Swift Testing task.
+        let task = Task { @concurrent in
+            try await CPUDiagnosisSession(reader: fake, clock: fake, registry: fake).run()
+        }
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(!Task.isCancelled)
+        if point != .lookup { #expect(fake.state.withLock { $0.lookups } == 0) }
     }
 
     enum DetachedMatch: CaseIterable { case exact, duplicate, unreadable }

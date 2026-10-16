@@ -117,6 +117,7 @@ public struct CPUDiagnosisSession: Sendable {
             do { snapshot = try reader.snapshot(excluding: excluded) } catch is CancellationError {
                 throw CancellationError()
             } catch { throw CPUDiagnosisError.collectionFailed }
+            try Task.checkCancellation()
             endedAt = clock.now()
             window.ingest(snapshot)
             for sample in snapshot.samples where sample.footprintBytes != nil {
@@ -134,6 +135,7 @@ public struct CPUDiagnosisSession: Sendable {
             try Task.checkCancellation()
             targets[sample.identity] = sample
             let observation = reader.observation(for: sample)
+            try Task.checkCancellation()
             observations[sample.identity] = observation
             observedAt[sample.identity] = clock.now()
             if case .observed(let metadata) = observation {
@@ -158,6 +160,7 @@ public struct CPUDiagnosisSession: Sendable {
             do { output = try registry.output(of: query) } catch is CancellationError {
                 throw CancellationError()
             } catch { output = nil }
+            try Task.checkCancellation()
             // Listings name PIDs, so recheck the observed runtime after the bounded command.
             // A reused PID cannot supply a session for its predecessor's measured CPU.
             let verified = Set(
@@ -202,6 +205,7 @@ public struct CPUDiagnosisSession: Sendable {
                 validIntervals: value.validIntervals, meanCPUPercent: value.meanCPUPercent,
                 peakCPUPercent: value.peakCPUPercent, footprint: footprint, attribution: attribution)
         }
+        try Task.checkCancellation()
         return CPUDiagnosis(
             startedAt: startedAt, endedAt: endedAt, elapsedSeconds: window.elapsedSeconds,
             maximumScanSeconds: window.maximumScanSeconds, host: window.host,

@@ -8,6 +8,28 @@ import Testing
 @testable import AgentMonitor
 
 @Suite struct DiagnosisCommandTests {
+    @Test func cancellationAndEncodingErrorsAreNotReportedAsCollectionFailures() async {
+        for encodingFailure in [false, true] {
+            let stdout = Mutex(Data())
+            let stderr = Mutex(Data())
+            do {
+                try await DiagnoseCPUCommand.execute(
+                    json: true,
+                    collect: {
+                        if !encodingFailure { throw CancellationError() }
+                        return diagnosisPresentationFixture(populationCPU: .nan)
+                    },
+                    output: { data in stdout.withLock { $0.append(data) } },
+                    error: { data in stderr.withLock { $0.append(data) } })
+                Issue.record("Expected the original error")
+            } catch {
+                #expect(encodingFailure ? error is EncodingError : error is CancellationError)
+            }
+            #expect(stdout.withLock { $0.isEmpty })
+            #expect(stderr.withLock { $0.isEmpty })
+        }
+    }
+
     @Test func parserExposesOnlyApprovedDiagnosisFormsAndLocalGuides() throws {
         for arguments in [
             ["diagnose", "cpu"], ["diagnose", "cpu", "--json"], ["diagnose", "cpu", "--json-schema"],

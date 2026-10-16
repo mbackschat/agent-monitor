@@ -65,7 +65,11 @@ struct DiagnoseCPUCommand: AsyncParsableCommand {
         try await Self.execute(
             json: json,
             collect: {
-                try await CPUDiagnosisSession(reader: NativeProcessReader(), excluding: [getpid()]).run()
+                let reader: NativeProcessReader
+                do { reader = try NativeProcessReader() } catch NativeReadError.timebase {
+                    throw CPUDiagnosisError.collectionFailed
+                }
+                return try await CPUDiagnosisSession(reader: reader, excluding: [getpid()]).run()
             },
             output: { try FileHandle.standardOutput.write(contentsOf: $0) },
             error: { try FileHandle.standardError.write(contentsOf: $0) })
@@ -79,7 +83,7 @@ struct DiagnoseCPUCommand: AsyncParsableCommand {
         do {
             let result = try await collect()
             data = try json ? JSONDiagnosis.encode(result) : Data(DiagnosisText.render(result).utf8)
-        } catch {
+        } catch CPUDiagnosisError.collectionFailed {
             try writeError(Data((DiagnosisText.collectionFailure + "\n").utf8))
             throw ExitCode.failure
         }
