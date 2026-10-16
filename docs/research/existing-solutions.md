@@ -92,7 +92,7 @@ Current README claims and implementation behavior can diverge, and default branc
 
 ## Agent-oriented CLI investigation — 2026-10-16
 
-This follow-up examines how a coding agent can learn and consume a local resource-diagnostic CLI. It does not revalidate the 2026-10-14 license, release or compatibility findings above. Public primary documentation/source was inspected without installing or running comparison binaries. No live process diagnosis, messaging or termination was tested. Design judgments are separate in the [unapproved CLI proposal](../proposals/agent-friendly-cli.md).
+This follow-up examines how a coding agent can learn and consume a local resource-diagnostic CLI. It does not revalidate the 2026-10-14 license, release or compatibility findings above. Public primary documentation/source was inspected without installing or running comparison binaries. No live process diagnosis, messaging or termination was tested. The resulting [finite CPU diagnosis contract](../architecture.md#finite-cpu-diagnosis) was implemented on 2026-10-17; that later outcome does not revalidate this dated investigation.
 
 ### Source observations and provenance
 

@@ -7,6 +7,5 @@ The table is generated from each proposal's `Status:` line; do not edit it by ha
 <!-- status-table:begin -->
 | Proposal | Status | Since |
 | --- | --- | --- |
-| [Let agents diagnose CPU load directly](agent-friendly-cli.md) | approved | 2026-10-17 |
 | [Proposed agent working model](agent-working-model.md) | unapproved | 2026-10-15 |
 <!-- status-table:end -->
