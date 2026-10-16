@@ -8,6 +8,7 @@ Current behavior and accepted contracts belong in the [README](../../README.md) 
 
 - [Menu bar](../proposals/menubar-app.md): retained native-app proposal and deferred decisions.
 - [Contributor model](../proposals/agent-working-model.md): unapproved working-model proposal.
+- [Agent-friendly CLI](../proposals/agent-friendly-cli.md): unapproved built-in guidance and bounded CPU-diagnosis proposal.
 - [Claude runtime binding](../proposals/claude-runtime-binding.md): implemented registry binding and deferred detached-workload link.
 - [Codex session listing brief](../proposals/codex-session-registry-research.md): investigated questions and limits.
 - [Codex registry assessment](../proposals/codex-session-registry.md): accepted deferral, its consequences and native identity conditions for reconsideration.
@@ -25,7 +26,7 @@ Current behavior and accepted contracts belong in the [README](../../README.md) 
 - [Swift terminal UI findings](terminal-ui.md): library observations, discovery-socket failure, direct runtime behavior and bounded probe measurements.
 - [Local process observations](terminal-process-observations.md): anonymized process topology, marker readability and synthetic orphan experiments.
 - [macOS measurement and attribution](macos-process-attribution.md): native APIs, counter units, process identity, permissions and event-collection limits.
-- [Existing tools and reusable mechanisms](existing-solutions.md): inspected source, license files, maintenance observations and untested compatibility.
+- [Existing tools and reusable mechanisms](existing-solutions.md): inspected source, license files, maintenance observations and untested compatibility; the [2026-10-16 CLI investigation](existing-solutions.md#agent-oriented-cli-investigation--2026-10-16) adds agent-oriented guidance, finite diagnostics, discovery/schema comparisons and a constrained helper experiment.
 - [Development tools](development-tools.md): skill contents, Peter Steinberger's SwiftUI/profiling candidates, host discovery differences and audit/benchmark gaps.
 
 ## Retained measurements

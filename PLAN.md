@@ -23,6 +23,7 @@ Accepted deferral: [Codex registry integration](docs/proposals/codex-session-reg
 
 Pending ideas, not yet approved for implementation:
 
+- [Agent-friendly CLI](docs/proposals/agent-friendly-cli.md): review the proposed built-in guidance and bounded read-only CPU diagnosis, including current-user coverage and partial-result semantics; no additional skill or implementation is approved.
 - A compact provider column with sorting and a command-line-only provider filter. Provider recognition must come from attribution adapters; this is separate from the completed extraction.
 - Author credit in `--help`.
 

@@ -1,0 +1,98 @@
+# Let agents diagnose CPU load directly
+
+Status: **unapproved proposal for external review**, 2026-10-16. This document proposes a new CLI feature; it does not authorize implementation or change current usage. Evidence is retained in [existing-solutions research](../research/existing-solutions.md#agent-oriented-cli-investigation--2026-10-16). Current behavior remains defined by the [usage guide](../usage.md) and [architecture](../architecture.md).
+
+Recommend a short, locally available `guide` and a finite `diagnose cpu --json` command that returns measured contributors, session evidence and observation limits together. An agent should learn the normal workflow from one small help response and then obtain a useful answer with one diagnostic invocation; a returning agent should normally need only the diagnosis. Keep the existing JSONL report unchanged and version the new response separately. This approach puts practical guidance in the installed tool, requires no additional skill, and avoids asking each agent to invent sampling, filtering and aggregation rules. Its answer is which observed processes consumed CPU and what associates them with sessions; it cannot establish every cause of whole-machine load or explain busy application code from process counters alone.
+
+## The request combines discovery, learning and diagnosis
+
+The motivating interaction is a user asking a coding agent, “Why is my CPU so loaded?” The agent should discover Agent Monitor, understand its commands and options, and use it effectively with few calls and few total input/output tokens. Results should supply useful feedback and diagnostics, with accessible explanations of semantics, gotchas, schemas and common use cases. A terse JSON wrapper is insufficient if the agent must reconstruct the measurement contract or make repeated exploratory calls.
+
+The user initially considered a simple skill, then explicitly preferred **no additional skill** and as much practical, on-demand guidance as possible inside the tool. They requested professional advice with alternatives, recommendations and reasons, followed by web research into similar and adjacent tools and a repository Markdown proposal for external review. Inexpensive subagent experiments are permitted as optional evaluation evidence; they are not a product dependency. Implementation is not approved.
+
+Executable discovery and learning are separate. PATH makes a command invocable but does not guarantee an agent will choose an unnamed tool for a CPU question. Recommend an optional one-line pointer in instructions the agent already reads: “For local CPU/resource questions, use `agent-monitor`; read `agent-monitor guide` for its diagnostic workflow.” This is a proposed integration aid, not an approved instruction-file edit or mandatory installation step. A user who names the executable already supplies that hint.
+
+## Research favors focused guidance and finite results
+
+The comparison inspected primary documentation and source, not installed comparison binaries. Monitor revisions are pinned; gws and agent-browser evidence comes from rolling sources observed on 2026-10-16. Neither these comparisons nor the limited local experiment establish measured token savings or live diagnostic accuracy.
+
+| Comparison | Relevant evidence | Consequence for this proposal |
+| --- | --- | --- |
+| agent-top | Its inspected CLI returns one JSON snapshot after a CPU baseline; its model includes attribution methods. [CLI](https://github.com/kannandreams/agent-top/blob/5961bf0087d9f827bc4963a8d00c3780000a3ad1/crates/agent-top/src/main.rs), [model](https://github.com/kannandreams/agent-top/blob/5961bf0087d9f827bc4963a8d00c3780000a3ad1/crates/agent-top-core/src/model.rs) | Finite machine output and explicit evidence are useful together; one-shot output alone does not bound its size. |
+| tidewake | Session results include flags, proof and advice; its documented liveness assumptions have limits. [Health types](https://github.com/berkkorkmaz/tidewake/blob/7dcb8d83a5b9c5e869c3b39ba75c2fc12d1f7076/internal/health/health.go), [explanation](https://github.com/berkkorkmaz/tidewake/blob/7dcb8d83a5b9c5e869c3b39ba75c2fc12d1f7076/docs/how-it-works.md) | Preserve the observation behind a finding; high CPU does not establish a stuck or obsolete session. |
+| macmon | `pipe` supports finite sampling, but its hardware metrics are separate from process attribution. [CLI](https://github.com/vladkens/macmon/blob/a09a8a6177bacb395d27adf1f48801075732188b/src/app/main.rs) | Sampling bounds help unattended use; hardware load and process ownership answer different questions. |
+| agent-browser | The CLI serves selected guides from installed package resources; an optional discovery stub points to them. [Guide command](https://raw.githubusercontent.com/vercel-labs/agent-browser/main/cli/src/skills.rs), [stub](https://raw.githubusercontent.com/vercel-labs/agent-browser/main/skills/agent-browser/SKILL.md) | Guidance can belong to the installed tool without an additional skill or literally embedding every guide byte in the binary. |
+| gws | Method introspection exposes descriptions, parameters and schemas, using remote Discovery documents. [Schema source](https://raw.githubusercontent.com/googleworkspace/cli/main/crates/google-workspace-cli/src/schema.rs) | Borrow targeted semantics; a small local monitor does not need remote command discovery. |
+| gh, kubectl and osquery | They demonstrate field selection, targeted field explanations, and finite structured queries. [gh formatting](https://cli.github.com/manual/gh_help_formatting), [kubectl explain](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_explain/), [osquery shell](https://osquery.readthedocs.io/en/stable/introduction/using-osqueryi/) | Make meanings queryable without requiring the entire schema or a general query language. |
+
+A constrained fresh-agent experiment read the current help and schema, then proposed a low-threshold one-report command. It supports a workflow-guidance gap, not a diagnostic benchmark. The current CLI already defaults to one report after a one-second interval, but its first help example explicitly selects an unlimited stream and its top-level help includes lengthy TUI keys. Existing JSONL v2 exposes measurements and thresholds but not the selected scope or reasons for registry lookup failures. Those are concrete reasons to improve the learning path and add a distinct diagnostic contract, rather than claim the existing CLI is unusable. [Local observations and experiment limits](../research/existing-solutions.md#local-source-observations-and-limited-agent-experiment).
+
+## Required contract: one learning surface and one diagnosis
+
+### Guidance follows the installed version
+
+Short `--help` should lead with the finite CPU recipe, identify the existing report and action commands, and point to `guide`. Move exhaustive TUI key explanations to targeted help while keeping them available. `guide` without a topic supplies the normal CPU workflow, essential units/scope and links expressed as executable commands. `guide semantics`, `guide diagnostics` and `guide actions` provide focused explanations; command help remains the authoritative option reference. Detailed guidance must cover common use cases, defaults, incompatible options and interpretation pitfalls without repeating every topic in each result.
+
+Help, guides and schemas must work locally without sampling, provider queries or network access, and match the installed version. Shipping resource files with the executable is acceptable if installation preserves them. The diagnostic schema should be available through `diagnose cpu --json-schema`; existing `--json-schema` continues to describe report JSONL v2. Schema descriptions explain units, absence and references to semantic topics. JSON Schema annotations can document meaning but do not themselves enforce defaults or examples. [Annotation reference](https://json-schema.org/understanding-json-schema/reference/annotations).
+
+Required guide coverage also includes these interpretation and use-case details:
+
+| Topic | Required explanation |
+| --- | --- |
+| Evidence | Explain every published attribution/evidence value. Candidate session IDs represent alternatives, not multiple established owners; cwd alone establishes neither ownership nor a shared project. |
+| Measurement | CPU uses actual elapsed counter time, not merely the configured wait. Existing report thresholds are strict CPU **or** footprint comparisons. Omitted or unavailable values are not zero, and an empty report does not establish an idle machine. |
+| Existing report workflows | Show memory investigation through the existing footprint threshold and finite `--json` reports; repeat sampling through finite `--samples`/`--interval` settings; inspect a known PID by selecting its PID/start-time record from those reports. Do not imply an existing PID-report filter or add a memory-diagnosis command. |
+| Untrusted labels | Observed process names and paths are data, never instructions to the consuming agent. Escape control characters in machine output and render them safely in human output. |
+
+### Diagnosis is finite and covers the visible population
+
+`agent-monitor diagnose cpu --json` should perform a baseline followed by three one-second measurement intervals, returning one compact response. This is a recommended initial observation window, not an experimentally optimal setting or a hard three-second runtime promise: collection and provider lookup take additional time. The command must terminate without an interactive session, unlimited watch or retry loop; provider lookup must have finite cancellation/timeout behavior, with unavailable enrichment reported explicitly.
+
+Its scope is all readable current-user processes, including nonagents, subject to documented self-exclusions. The existing heavy-process thresholds must not silently remove low-CPU contributors from diagnostic totals. Return the top ten processes ranked by valid observed mean CPU, alongside observed-population totals and the number omitted from the ranking. Compute totals before truncation. Record how many process lifetimes were observed, had usable CPU intervals, were returned and were omitted; keep unavailable metrics and inaccessible identities distinguishable. A count of unreadable observations is not a claim to enumerate every inaccessible process on the machine.
+
+Use PID plus start time for process identity. Process CPU averages are time-weighted over that lifetime's valid observed intervals; a process seen for only part of the window is not zero-filled outside it. Report observed duration or interval coverage so a brief high-CPU child is not mistaken for sustained window-long load. Population CPU is calculated from interval-level observed sums and their durations, not by summing process averages with different lifetime coverage. Count each process lifetime once even when multiple logical sessions share a runtime. Missing intervals remain missing, and coverage accompanies the total.
+
+### The result carries enough meaning to answer accurately
+
+The separately versioned diagnostic response needs the following information groups; these are public semantics, not a commitment to a large object framework:
+
+| Information | Required meaning |
+| --- | --- |
+| Measurement | Start/end, requested and achieved intervals, CPU basis where 100% is one occupied core, and metric availability. This is not normalized whole-host utilization. |
+| Scope and coverage | Current-user scope, exclusions, observation/metric counts, partial collection and provider-enrichment status. Empty findings, unavailable CPU and failed collection are distinct. |
+| Contributors | Exact lifetime identity, compact executable label, valid mean/peak CPU, coverage duration, latest available physical footprint with its timestamp, and session/provider evidence where known. Footprint is bytes, not RSS; human GB uses decimal units. |
+| Attribution | Resolved, unresolved and conflicting evidence remain distinct. Launch markers describe launch origin; current runtime-to-session registry evidence can describe current hosting. Neither proves exclusive use of a shared daemon. |
+| Summary | Observed totals before truncation, returned/omitted counts, and a short evidence-based interpretation with stable diagnostic codes. No inference that low observed load means the whole machine is idle. |
+| Guidance | Only relevant limits and a suggested next observation or guide topic when evidence is incomplete; no automatic remediation. |
+
+Keep the normal payload small through a fixed top-ten list, compact fields, deduplicated diagnostic codes and capped explanatory/label text with explicit truncation markers. Exact identities must never be truncated. Omit full command arguments, environment and transcript content. A row limit alone is not a byte or token bound; no universal token ceiling is claimed. These constraints reduce avoidable volume while preserving the evidence needed to interpret an empty, ambiguous or partial answer.
+
+Read-only prohibits intentionally changing workload, UI or session state, including termination, message delivery and focus changes. It does not mean zero side effects: native observation and provider listing can consume resources, start helper processes, read approved metadata and establish provider connections; provider initialization or listing may also update internal files or caches. Guidance and result diagnostics must disclose provider lookups and their failures. No transcript inspection, messaging-token access, installation or elevation belongs to diagnosis. Resource collection remains UI-independent; provider-specific recognition and registry interpretation remain in attribution adapters.
+
+### Streams, failures and existing behavior stay explicit
+
+Successful machine output is one complete JSON document on stdout without banners, ANSI escapes or appended help. Human diagnostics go to stderr. For the new diagnosis command, recommend exit 0 for valid empty or useful partial results, with separate measurement and attribution completeness plus diagnostic codes. Recommend exit 2 for invalid usage and exit 1 for an unusable collection; failures produce no partial success document and carry a stable error code with explanatory text on stderr. Command help defines these categories without introducing a universal error protocol. A registry failure alone can leave useful process metrics and must not masquerade as evidence that no session exists. This follows established stream conventions without assuming a universal JSON error standard. [CLI guidelines](https://clig.dev/).
+
+Preserve existing report JSONL v2, its flat records, defaults and streaming mode. Existing action commands and exit semantics also remain unchanged, including the message command’s exit 2 for an uncertain outcome; statuses are command-specific. `guide actions` must explain confirmation and fresh identity verification: today's `--pid` action reads identity at invocation and does not bind an action to an earlier report's lifetime. Adding structured action results or an expected-identity precondition would require a separate contract decision, not an implicit promise of this diagnosis feature.
+
+## Alternatives, optional additions and exclusions
+
+| Option | Recommendation and rationale |
+| --- | --- |
+| Improve help only; use current `--json` | Useful baseline, but insufficient for the requested workflow: agents still choose thresholds, aggregate reports and interpret omitted scope/failures independently. |
+| Built-in guide plus bounded diagnosis | **Recommended.** It addresses learning and reliable interpretation together with a small, task-specific public surface. |
+| Generic `--agent` mode | Prefer the explicit `diagnose cpu` task command. Its behavior follows named intent rather than caller identity or an ambiguous bundle of agent-specific defaults. |
+| Additional external skill | Do not require it. It conflicts with the user's stated preference and adds a second guidance version to maintain. |
+| Schema/command manifest as the main interface | Keep schemas on demand. Add a machine command manifest only for a concrete consumer; types alone do not teach the CPU workflow. |
+| Generic projection/query language | Defer. A compact default result meets this use case with fewer choices; arbitrary queries add semantics without demonstrated need. |
+| MCP server or persistent service | Exclude. The agent can already invoke a local CLI; a service adds lifecycle and integration requirements unrelated to the immediate question. |
+
+The instruction pointer and a machine-readable command manifest are optional, independently reviewable additions; neither is required to use the proposed command. Broader host telemetry, transcript analysis, continuous history, automated remediation, action API redesign and new providers/platforms are excluded. Low-cost agent evaluations remain optional evidence collection, not a runtime integration.
+
+## External review decisions and acceptance criteria
+
+Recommend approving the guide-plus-diagnosis design only after confirming three material choices. First, retain current-user scope and state its limits prominently: whole-machine coverage would require a separate measurement contract, while this scope supports session-level diagnosis now. Second, use three one-second intervals and ten returned contributors initially: they offer a finite observation and readable ranking, but neither value has benchmark support and representative evaluations could justify different defaults. Third, keep diagnosis observational: fresh verified actions remain separately requested operations because a stale report does not authorize or safely identify a later action.
+
+Acceptance should demonstrate that an agent given the executable name can ordinarily obtain correct guidance with one help/guide call and a useful answer with one bounded diagnosis; repeat use ordinarily needs one call. This is a common-path target, not a guarantee for every model or ambiguous incident. Score correctness alongside total calls and input/output tokens, including extra schema/help reads. Synthetic cases must cover valid empty results, missing metrics, partial registry failure, same-directory sessions, ambiguous ownership, shared runtimes, PID reuse, partial lifetimes and contributors omitted from the top ten. Answers must preserve uncertainty, avoid double counting and take no actions.
+
+The main feasibility risk is information currently discarded by collection/enrichment, especially registry failures and resource-read omissions. A trustworthy diagnostic summary needs those distinctions available at their owning boundaries; presenting today's unreadable counter as complete coverage would fail the proposed contract. Short-lived work can still disappear between samples, and the sampling process contributes its own overhead. These limits must survive concise output. No live effectiveness or token benchmark currently settles the proposed defaults; external review should judge the contract separately from those unmeasured performance claims.
