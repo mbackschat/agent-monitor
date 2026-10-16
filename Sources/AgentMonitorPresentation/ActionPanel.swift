@@ -223,24 +223,7 @@ public struct ActionPanel: Equatable, Sendable {
 
     private static func wrap(_ lines: [ReportLine], width: Int) -> [ReportLine] {
         lines.flatMap { line in
-            if line.text.isEmpty { return [line] }
-            var rows: [ReportLine] = []
-            var row = ""
-            var columns = 0
-            for character in line.text {
-                // Conservatively reserve two cells for non-ASCII text: the one-row
-                // terminal view clips CJK/emoji if wrapping only counts characters.
-                let cells = character.unicodeScalars.allSatisfy { $0.isASCII } ? 1 : 2
-                if columns + cells > width {
-                    rows.append(ReportLine(row, style: line.style))
-                    row = ""
-                    columns = 0
-                }
-                row.append(character)
-                columns += cells
-            }
-            if !row.isEmpty { rows.append(ReportLine(row, style: line.style)) }
-            return rows
+            TerminalCells.wrapped(line.text, to: width).map { ReportLine($0, style: line.style) }
         }
     }
 }

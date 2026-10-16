@@ -93,6 +93,23 @@ private func panelSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
     #expect(messageLines.allSatisfy { $0.count * 2 <= 40 })
 }
 
+@Test(arguments: ["é", "─", "→"])
+func messageReviewUsesRendererCellsForNarrowUnicode(glyph: String) throws {
+    var state = LiveReportState()
+    let row = try panelRow(42)
+    state.receive(panelSnapshot([row]))
+    _ = state.beginAction(.message)
+    let recipient = AgentRecipient(id: "root", label: "Root agent")
+    state.messagePrepared(
+        MessageDraft(process: row, recipients: MessageRecipients(root: recipient, selected: recipient)))
+    let message = String(repeating: glyph, count: 30)
+    _ = state.actionInput(.text(message))
+    _ = state.actionInput(.review)
+    let lines = LiveReportLayout.lines(state: state, width: 40, height: 24)
+    let messageLines = lines.map(\.text).filter { $0.hasPrefix(glyph) }
+    #expect(messageLines == [message])
+}
+
 // Codex queues a request; Claude's inbox may still hold or refuse a peer message.
 @Test(arguments: [
     (AgentProvider.codex, "Queued acceptance does not mean delivery", "Message queued for root."),
