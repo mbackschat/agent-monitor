@@ -1,6 +1,6 @@
 # Codex session listing: research brief
 
-Status: proposed 2026-10-16 as a research task for a Codex CLI session; no implementation is authorized. Record findings by extending [Codex process and session identities](../research/codex-terminal-attribution.md) and keep the [research index](../research/README.md) current.
+Status: investigated 2026-10-16 against Codex CLI and the live default app-server 0.163.0; no implementation is authorized. Findings and unresolved empirical limits are in [Codex process and session identities](../research/codex-terminal-attribution.md#session-listing-investigation--2026-10-16), indexed in the [research index](../research/README.md). The separate [registry assessment](codex-session-registry.md) recommends deferral because the available listings lack the required native process relation. The original questions and limits below retain the investigation scope.
 
 ## Why
 

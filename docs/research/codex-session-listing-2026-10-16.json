@@ -1,0 +1,33 @@
+{
+  "observed_on": "2026-10-16",
+  "platform": "macOS 27.0.1",
+  "cli_version": "0.163.0",
+  "server_version_from_initialize": "0.163.0",
+  "cli_sha256": "8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31",
+  "source_commit": "83086188ae0614bd882818ff1aa23f3194962012",
+  "transport": "codex app-server proxy; RFC 6455 over the existing default Unix socket",
+  "client_name": "agent_monitor_research",
+  "experimental_api": true,
+  "notification_opt_out": "all methods enumerated by the installed generated ServerNotification schema",
+  "deadline_seconds": 15,
+  "successful_runs": 1,
+  "loaded_threads": 10,
+  "background_terminals": 1,
+  "threads_with_background_terminals": 1,
+  "populated_os_pids": 0,
+  "terminal_field_names": ["command", "cpuPercent", "cwd", "itemId", "osPid", "processId", "rssKb"],
+  "received_notifications": 0,
+  "rpc_round_trip_ms": {
+    "initialize": [5.527],
+    "thread/loaded/list": [2.743],
+    "thread/backgroundTerminals/list": [1.770, 0.899, 0.622, 0.187, 0.155, 0.170, 0.170, 0.287, 0.286, 0.250]
+  },
+  "end_to_end_wall_ms": 61.277,
+  "proxy_user_cpu_ms": 10.067,
+  "proxy_system_cpu_ms": 12.731,
+  "proxy_exit_code": 0,
+  "proxy_stderr_bytes": 0,
+  "measurement": "Python monotonic clock; wait4 rusage for the owned proxy child; wall time includes launch, handshake, RPCs and cleanup with 10 ms exit polling",
+  "not_measured": ["server CPU", "Python-client CPU", "network traffic", "filesystem writes", "host-specific thread coverage"],
+  "privacy": "No thread IDs, command strings, working directories, histories or raw RPC payloads retained"
+}

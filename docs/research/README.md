@@ -4,11 +4,17 @@ These notes record dated observations, cited source behavior, labeled inferences
 
 Check this index before investigating a topic, and extend the matching note rather than starting a parallel one. Every new note or retained measurement gets an entry here in the same commit.
 
-Current behavior and accepted contracts belong in the [README](../../README.md) and [architecture](../architecture.md). Repeatable checks and live coverage belong in [development](../development.md#validation-coverage); unfinished work and scope decisions belong in [PLAN.md](../../PLAN.md). Unapproved designs are separate [menu bar](../proposals/menubar-app.md), [contributor-model](../proposals/agent-working-model.md) and [Claude runtime binding](../proposals/claude-runtime-binding.md) proposals, and the [Codex session listing](../proposals/codex-session-registry-research.md) research brief.
+Current behavior and accepted contracts belong in the [README](../../README.md) and [architecture](../architecture.md). Repeatable checks and live coverage belong in [development](../development.md#validation-coverage); unfinished work and scope decisions belong in [PLAN.md](../../PLAN.md). Design proposals and investigation briefs:
+
+- [Menu bar](../proposals/menubar-app.md): retained native-app proposal and deferred decisions.
+- [Contributor model](../proposals/agent-working-model.md): unapproved working-model proposal.
+- [Claude runtime binding](../proposals/claude-runtime-binding.md): implemented registry binding and deferred detached-workload link.
+- [Codex session listing brief](../proposals/codex-session-registry-research.md): investigated questions and limits.
+- [Codex registry assessment](../proposals/codex-session-registry.md): unapproved recommendation to defer integration; required native identity relations.
 
 ## Findings by topic
 
-- [Codex process and session identities](codex-terminal-attribution.md): pinned marker injection, logical thread/root semantics, writer descriptors and tool-call correlation limits.
+- [Codex process and session identities](codex-terminal-attribution.md): pinned marker injection, logical thread/root semantics, writer descriptors and tool-call correlation limits; the 2026-10-16 follow-up checks 0.163.0 listing scope, null OS PIDs, connection effects and one live call.
 - [Claude session metadata and messaging](claude-session-messaging.md): marker lifecycle, session lookup, inbox protocol evidence and the disposable-session transport check.
 - [Claude runtime and workload attribution signals](claude-runtime-attribution.md): runtime-to-session binding sources, embedded tools invoked under another name, workload environment variables and directories within one session.
 - [Process signaling and messaging interfaces](session-actions.md): signal races, queue/resume interfaces, recipient identity and acceptance versus delivery.
@@ -23,6 +29,10 @@ Current behavior and accepted contracts belong in the [README](../../README.md) 
 - [Development tools](development-tools.md): skill contents, Peter Steinberger's SwiftUI/profiling candidates, host discovery differences and audit/benchmark gaps.
 
 ## Retained measurements
+
+- [Codex session listing on 2026-10-16](codex-session-listing-2026-10-16.json): one connection to an existing 0.163.0 server on macOS 27.0.1 returned ten loaded threads and one background terminal with null OS PID. Total wall time was 61.277 ms; proxy-only CPU was 22.798 ms. Server CPU, network and filesystem effects were not measured. See [method and limits](codex-terminal-attribution.md#cost-and-side-effects).
+
+### Earlier process measurements
 
 These observations were collected on Apple Silicon, macOS 27.0.1, Xcode 27 and Swift 6.4 on 2026-10-14. Session IDs and project paths/names are anonymized replacements; measurements and process relationships are retained. They describe the measured binaries and sampling windows, not current performance guarantees.
 
