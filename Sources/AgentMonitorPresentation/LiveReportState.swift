@@ -282,6 +282,17 @@ public struct LiveReportState: Equatable, Sendable {
         notice = nil
     }
 
+    public mutating func setDisclosure(expanded: Bool) {
+        let isExpanded: Bool
+        if let group = selectedGroup {
+            isExpanded = openGroups.contains(group)
+        } else {
+            guard selected != nil else { return }
+            isExpanded = detailsMode != .minimized && self.expanded == selected
+        }
+        if isExpanded != expanded { toggleDisclosure() }
+    }
+
     public mutating func toggleDisclosure() {
         if let group = selectedGroup {
             if !openGroups.insert(group).inserted { openGroups.remove(group) }

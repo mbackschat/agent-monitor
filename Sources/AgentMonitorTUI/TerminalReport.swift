@@ -71,7 +71,6 @@ public enum TerminalReport {
                 let shortcut: ReportShortcut?
                 switch key.key {
                 case .character(let character): shortcut = ReportShortcut(rawValue: String(character))
-                case .space: shortcut = .pin
                 default: shortcut = nil
                 }
                 if let shortcut {
@@ -87,7 +86,8 @@ public enum TerminalReport {
                 case .character("f"): begin(.focus)
                 case .arrowUp: state.mutate { $0.moveSelection(by: -1) }
                 case .arrowDown: state.mutate { $0.moveSelection(by: 1) }
-                case .return: state.mutate { $0.toggleDisclosure() }
+                case .arrowLeft: state.mutate { $0.setDisclosure(expanded: false) }
+                case .arrowRight: state.mutate { $0.setDisclosure(expanded: true) }
                 case .character("-"): state.mutate { $0.adjustDetails(by: -5) }
                 case .character("+"): state.mutate { $0.adjustDetails(by: 5) }
                 case .character("0"): state.mutate { $0.minimizeDetails() }

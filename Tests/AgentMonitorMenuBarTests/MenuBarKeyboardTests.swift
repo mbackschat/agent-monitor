@@ -46,9 +46,11 @@ import Testing
     #expect(model.report.frozen)
     #expect(model.handleShortcut("p", row: row))
     #expect(!model.report.frozen)
-    #expect(model.handleShortcut(" ", row: row))
+    #expect(!model.handleShortcut(" ", row: row))
+    #expect(!model.handleShortcut("\r", row: row))
+    #expect(model.handleShortcut(".", row: row))
     #expect(model.report.isPinned(row))
-    #expect(model.handleShortcut(" ", row: row))
+    #expect(model.handleShortcut(".", row: row))
     #expect(!model.report.isPinned(row))
     for (key, sort) in [("c", ReportSort.cpu), ("m", .memory), ("n", .pid), ("o", .stable)] {
         #expect(model.handleShortcut(key, row: row))
@@ -74,7 +76,7 @@ import Testing
     #expect(model.handleShortcut("k", row: row))
     let held = model.report
     for key in [
-        "p", " ", "c", "m", "n", "o", "r", "g", "h", "t", "1", "2", "3", "4", "<", ">", "y", "k", "s", "f",
+        "p", ".", "c", "m", "n", "o", "r", "g", "h", "t", "1", "2", "3", "4", "<", ">", "y", "k", "s", "f",
     ] {
         #expect(!model.handleShortcut(key, row: row))
         #expect(model.report == held)
@@ -88,12 +90,15 @@ import Testing
 @Test(arguments: [EventModifiers.command, .control, .option, [.command, .shift]])
 func nativeBrowsingKeysRejectModifiedText(modifiers: EventModifiers) {
     #expect(!MenuBarKeyboard.accepts("p", modifiers: modifiers))
-    #expect(!MenuBarKeyboard.accepts(" ", modifiers: modifiers))
+    #expect(!MenuBarKeyboard.accepts(".", modifiers: modifiers))
 }
 
 @Test func nativeBrowsingKeysAllowOnlyUnmodifiedKeysAndShiftedAngleBrackets() {
+    #expect(MenuBarKeyboard.keys.contains("."))
+    #expect(!MenuBarKeyboard.keys.contains(.space))
+    #expect(!MenuBarKeyboard.keys.contains(.return))
     #expect(MenuBarKeyboard.accepts("p", modifiers: []))
-    #expect(MenuBarKeyboard.accepts(" ", modifiers: []))
+    #expect(MenuBarKeyboard.accepts(".", modifiers: []))
     #expect(MenuBarKeyboard.accepts("<", modifiers: .shift))
     #expect(!MenuBarKeyboard.accepts("P", modifiers: .shift))
 }

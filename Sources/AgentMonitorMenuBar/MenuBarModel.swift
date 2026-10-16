@@ -264,11 +264,10 @@ final class MenuBarModel {
         report.select(row)
     }
 
-    func toggleDetails(for process: ProcessIdentity) {
-        let wasExpanded = report.expanded == process && report.detailsMode != .minimized
+    func setDetails(for process: ProcessIdentity, expanded: Bool) {
         selectRow(.process(process))
         guard report.selected == process else { return }
-        if wasExpanded { report.minimizeDetails() } else { report.restoreDetails() }
+        report.setDisclosure(expanded: expanded)
     }
 
     var visibleRowIDs: [LiveReportRowID] {

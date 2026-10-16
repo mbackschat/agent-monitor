@@ -4,7 +4,7 @@ import SwiftUI
 enum MenuBarKeyboard {
     static let keys = Set(
         (ReportShortcut.allCases.map(\.rawValue) + ["k", "s", "f", "y", "q"])
-            .filter { $0 != " " }.map { KeyEquivalent(Character($0)) })
+            .map { KeyEquivalent(Character($0)) })
 
     static func accepts(_ key: String, modifiers: EventModifiers) -> Bool {
         modifiers.isEmpty || (modifiers == .shift && (key == "<" || key == ">"))

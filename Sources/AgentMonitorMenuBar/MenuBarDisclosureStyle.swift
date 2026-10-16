@@ -51,7 +51,7 @@ struct MenuBarDisclosureStyle: DisclosureGroupStyle {
             MenuBarRowHeader(
                 id: id, disclosure: disclosure, pinned: pinned, expanded: configuration.isExpanded,
                 focus: focus,
-                onToggle: { configuration.isExpanded.toggle() }, onPin: onPin, onPinShortcut: onPinShortcut,
+                onSetExpanded: { configuration.isExpanded = $0 }, onPin: onPin, onPinShortcut: onPinShortcut,
                 label: configuration.label
             )
             .background(MenuBarArrivalBackground(highlighted: arrived))
@@ -69,7 +69,7 @@ private struct MenuBarRowHeader<Label: View>: View {
     let pinned: Bool
     let expanded: Bool
     let focus: FocusState<LiveReportRowID?>.Binding
-    let onToggle: () -> Void
+    let onSetExpanded: (Bool) -> Void
     let onPin: () -> Bool
     let onPinShortcut: () -> Bool
     let label: Label
@@ -78,7 +78,7 @@ private struct MenuBarRowHeader<Label: View>: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            Button(action: onToggle) {
+            Button(action: { onSetExpanded(!expanded) }) {
                 HStack(spacing: 6) {
                     Group {
                         switch disclosure {
@@ -98,8 +98,9 @@ private struct MenuBarRowHeader<Label: View>: View {
             }
             .buttonStyle(.plain).focused(focus, equals: id)
             .pinShortcut(onPinShortcut)
-            .onKeyPress(.return) {
-                onToggle()
+            .onKeyPress(keys: [.leftArrow, .rightArrow], phases: .down) { key in
+                guard key.modifiers.isEmpty else { return .ignored }
+                onSetExpanded(key.key == .rightArrow)
                 return .handled
             }
             .accessibilityValue(disclosure.accessibilityValue(expanded: expanded))
@@ -114,7 +115,7 @@ private struct MenuBarRowHeader<Label: View>: View {
 
 extension View {
     func pinShortcut(_ action: @escaping () -> Bool) -> some View {
-        onKeyPress(keys: [.space], phases: .down) { key in
+        onKeyPress(keys: [KeyEquivalent(Character(ReportShortcut.pin.rawValue))], phases: .down) { key in
             guard key.modifiers.isEmpty else { return .ignored }
             return action() ? .handled : .ignored
         }

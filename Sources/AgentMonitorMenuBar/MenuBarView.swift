@@ -226,7 +226,7 @@ struct MenuBarView: View {
     private func togglePinFromKeyboard(_ row: LiveReportRowID) -> Bool {
         guard model.togglePin(row) else { return false }
         // Pinning moves rows between ForEach containers, replacing their focusable controls.
-        // Restore focus after the new row mounts so a second Space can undo the pin.
+        // Restore focus after the new row mounts so a second period can undo the pin.
         focusedRow = nil
         pendingPinFocus = row
         return true
@@ -259,9 +259,9 @@ struct MenuBarView: View {
         DisclosureGroup(
             isExpanded: Binding(
                 get: { model.report.openGroups.contains(group.id) },
-                set: { _ in
+                set: { expanded in
                     model.report.select(.group(group.id))
-                    model.report.toggleDisclosure()
+                    model.report.setDisclosure(expanded: expanded)
                 }
             )
         ) {
@@ -304,7 +304,7 @@ struct MenuBarView: View {
         DisclosureGroup(
             isExpanded: Binding(
                 get: { model.report.expanded == process.process && model.report.detailsMode != .minimized },
-                set: { _ in model.toggleDetails(for: process.process) }
+                set: { model.setDetails(for: process.process, expanded: $0) }
             )
         ) {
             VStack(alignment: .leading, spacing: 6) {

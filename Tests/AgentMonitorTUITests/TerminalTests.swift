@@ -35,7 +35,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) { $0.contains("CPU[h]") && $0.contains("10m[t]") }
-    try writeAllBytes([13], to: terminal.master)
+    try writeAllBytes(Array("\u{1b}[C\u{1b}[C".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
@@ -115,7 +115,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     ) {
         $0.contains("PID 42 |")
     }
-    try writeAllBytes([13], to: terminal.master)
+    try writeAllBytes(Array("\u{1b}[D\u{1b}[D".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
@@ -127,13 +127,13 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     ) {
         $0.contains("2 launch groups") && $0.contains("[+]") && !$0.contains("fixture-42")
     }
-    try writeAllBytes([13], to: terminal.master)
+    try writeAllBytes(Array("\u{1b}[C\u{1b}[C".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
         $0.contains("[-]") && $0.contains("fixture-42") && !$0.contains("fixture-84")
     }
-    try writeAllBytes(Array("\u{1b}[B\r".utf8), to: terminal.master)
+    try writeAllBytes(Array("\u{1b}[B\u{1b}[C".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
@@ -315,11 +315,11 @@ private func dividerRow(_ text: String) -> Int? {
     ) {
         $0.contains("Stable order") && !$0.contains("Action result")
     }
-    try writeAllBytes(Array(" ".utf8), to: terminal.master)
+    try writeAllBytes(Array(".".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) { $0.contains("@") && !$0.contains("PAUSED") }
-    try writeAllBytes(Array(" ".utf8), to: terminal.master)
+    try writeAllBytes(Array(".".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) { !$0.contains("@") && !$0.contains("PAUSED") }

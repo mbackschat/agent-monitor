@@ -108,8 +108,8 @@ public enum LiveReportLayout {
     private static func helpLines(width: Int, height: Int, headerHeight: Int, frozen: Bool) -> [String] {
         let groups = [
             [
-                "↑/↓ select", "Enter open", "g group", "c/m/n/o sort", "r reverse",
-                "Space pin",
+                "↑/↓ select", "←/→ fold", "g group", "c/m/n/o sort", "r reverse",
+                ". pin",
             ],
             [frozen ? "p resume" : "p pause", "k terminate", "s message", "f focus"],
             ["1/2 CPU -/+10%", "3/4 GB -/+1", "</> interval"],
@@ -140,7 +140,7 @@ public enum LiveReportLayout {
         return lines.count <= height - headerHeight - 3
             ? lines
             : [
-                "Space pin | Resize for all keys",
+                ". pin | Resize for all keys",
                 frozen ? "p resume | q/Ctrl-C quit" : "p pause | q/Ctrl-C quit",
             ]
     }
@@ -272,7 +272,7 @@ public enum LiveReportLayout {
         let offset = min(state.detailOffset, max(0, details.count - visible))
         let title: String
         switch state.detailsMode {
-        case .minimized: title = "Details min | Enter/= restore"
+        case .minimized: title = "Details min | →/= restore"
         case .maximized: title = "Details max | launch origin"
         case .split: title = "Details \(state.detailsPercent)% | launch origin"
         }
@@ -286,7 +286,7 @@ public enum LiveReportLayout {
             if details.isEmpty {
                 lines.append(
                     ReportLine(
-                        state.selected == nil ? "No process selected." : "Enter to show selected process.",
+                        state.selected == nil ? "No process selected." : "→ to show selected process.",
                         style: .muted))
             } else {
                 lines += details.dropFirst(offset).prefix(visible).map { ReportLine($0) }
@@ -307,7 +307,7 @@ public enum LiveReportLayout {
                     group.label,
                     "Heavy-process totals only; ~ marks partial totals with missing measurements.",
                     "Launch origin does not prove current use of shared daemons.",
-                    "Enter expands/collapses processes; arrows select a process, then Enter opens its details.",
+                    "←/→ collapses/expands processes; ↑/↓ selects a process, then → opens its details.",
                 ], width: width)
         }
         guard let row = state.rows.first(where: { $0.process == state.expanded }) else { return [] }

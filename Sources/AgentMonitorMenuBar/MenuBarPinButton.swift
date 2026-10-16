@@ -16,7 +16,7 @@ struct MenuBarPinButton: View {
         .accessibilityLabel(pinned ? "Unpin" : "Pin")
         .help(
             pinned
-                ? "Unpin this row (Space when focused)"
-                : "Pin this row at the top; values stay live (Space when focused)")
+                ? "Unpin this row (. when focused)"
+                : "Pin this row at the top; values stay live (. when focused)")
     }
 }

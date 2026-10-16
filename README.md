@@ -54,7 +54,7 @@ Switch between individual processes and session groups to see which agent launch
 
 *Illustrative process view with the selected process pinned (`@`) and details open. The text comes from the real layout renderer using entirely synthetic data; terminal colors and window decoration are illustrative. Press `g` to switch between this view and session groups.*
 
-Use **↑ / ↓** to select, **Enter** to expand a session or inspect a process, **g** to toggle grouping, **o** for Stable order, **h** to change the history metric, **t** for 10-minute/hour history, **< / >** to update less or more often, **Space** to pin/unpin the selected row, **p** to pause/resume the view, and **q** to quit. The controls and current filters are shown in the terminal.
+Use **↑ / ↓** to select, **← / →** to collapse/expand a session or process details, **g** to toggle grouping, **o** for Stable order, **h** to change the history metric, **t** for 10-minute/hour history, **< / >** to update less or more often, **.** to pin/unpin the selected row, **p** to pause/resume the view, and **q** to quit. The controls and current filters are shown in the terminal.
 
 By default, the monitor shows agent-associated processes exceeding **25% CPU or 1 GB memory footprint**. If the list is empty, press **1** to lower the CPU threshold or **3** to lower the memory threshold. CPU at 100% means one fully occupied core.
 
@@ -88,7 +88,7 @@ The maintained, source-built native menu bar app runs with `bash scripts/menubar
 
 <p><img src="docs/assets/menubar-preview.webp" width="420" height="560" alt="Light appearance: Agent Monitor panel paused with an expanded pinned Claude session, a shared Codex runtime, process totals, history, and resource usage."></p>
 
-*Native panel captured from the production view with synthetic data. The expanded session is pinned; its count badge distinguishes it from process rows with info controls. Pinning keeps values live; Pause holds the displayed sample. View options contains checked sampling values, display choices and optional keyboard help (Space to pin, p to pause, y to copy the focused process PID), and the size menu changes the fixed panel height. The capture excludes menu bar anchoring and desktop chrome.*
+*Native panel captured from the production view with synthetic data. The expanded session is pinned; its count badge distinguishes it from process rows with info controls. Pinning keeps values live; Pause holds the displayed sample. View options contains checked sampling values, display choices and optional keyboard help (`.` to pin, p to pause, y to copy the focused process PID), and the size menu changes the fixed panel height. The capture excludes menu bar anchoring and desktop chrome.*
 
 ## Options and defaults
 

@@ -1,7 +1,7 @@
 /// Browsing controls shared by native and terminal hosts; text entry and action confirmation stay local.
 public enum ReportShortcut: String, CaseIterable, Sendable {
     case pause = "p"
-    case pin = " "
+    case pin = "."
     case stable = "o"
     case cpu = "c"
     case memory = "m"

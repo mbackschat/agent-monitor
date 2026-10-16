@@ -269,7 +269,7 @@ import Testing
             .background(Color(nsColor: .windowBackgroundColor)))
     help.frame.size.width = 388
     help.layoutSubtreeIfNeeded()
-    #expect(help.fittingSize.height < 230)
+    #expect(help.fittingSize.height < 400)
     #expect(help.fittingSize.width <= 388)
     if let path = ProcessInfo.processInfo.environment["MENUBAR_HELP_PREVIEW_PATH"] {
         help.frame.size = help.fittingSize

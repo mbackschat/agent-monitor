@@ -14,7 +14,7 @@ agent-monitor --tui --group session
 | Key | Action |
 | --- | --- |
 | ↑ / ↓ | Select a row |
-| Enter | Expand/collapse a session or open/close process details |
+| ← / → | Collapse/expand a session or close/open process details |
 | `g` | Toggle session grouping |
 | `k` | Review SIGTERM for the selected process |
 | `s` | Compose a message to a verified Codex or Claude Code recipient |
@@ -27,7 +27,7 @@ agent-monitor --tui --group session
 | `1` / `2` | Lower/raise the CPU threshold by 10 percentage points |
 | `3` / `4` | Lower/raise the memory threshold by 1 decimal GB |
 | `<` / `>` | Update less/more often: 0.5, 1, 2, 5, 10, 30 or 60 seconds, applied at once |
-| Space | Pin/unpin the selected process or session; values keep updating |
+| `.` | Pin/unpin the selected process or session; values keep updating |
 | `p` | Pause/resume the view; sampling continues and resuming shows the latest data |
 | `[` / `]` | Scroll process details |
 | `-` / `+` | Shrink/grow the details pane by 5 percentage points |
@@ -35,7 +35,7 @@ agent-monitor --tui --group session
 | `=` | Restore the chosen details split |
 | `q` / Ctrl-C | Quit |
 
-Pins stay first in pin order, independently of sorting. `+` marks a pinned row and `@` marks the selected pinned row; `>` still marks an ordinary selection. A pinned group's expanded children use arrival order in Stable order and PID order in other sorts. If a target leaves the current heavy results, its placeholder remains with **Not in current results**; this does not prove it exited, and no old measurements or actions are offered. The same process lifetime or session can return automatically; PID reuse cannot replace a pin. Space removes the selected pin. Pins last until unpinned or the monitor quits, and native pins also survive closing/reopening the panel. A process pinned separately is omitted from its group's child rows; group totals still cover its full heavy membership. Pinned groups retain their identity when switching to flat mode.
+Pins stay first in pin order, independently of sorting. `+` marks a pinned row and `@` marks the selected pinned row; `>` still marks an ordinary selection. A pinned group's expanded children use arrival order in Stable order and PID order in other sorts. If a target leaves the current heavy results, its placeholder remains with **Not in current results**; this does not prove it exited, and no old measurements or actions are offered. The same process lifetime or session can return automatically; PID reuse cannot replace a pin. `.` removes the selected pin. Pins last until unpinned or the monitor quits, and native pins also survive closing/reopening the panel. A process pinned separately is omitted from its group's child rows; group totals still cover its full heavy membership. Pinned groups retain their identity when switching to flat mode.
 
 These are the current source-build keys. Release 0.2.2 uses Space for pause and `p` for PID sorting; use the on-screen help for an installed release.
 
@@ -111,7 +111,7 @@ In the TUI, both thresholds clamp at zero. New settings apply at the next sample
 
 ## Session grouping
 
-`--group session` groups text or TUI output by launch session. In the TUI, press `g` to switch modes. Groups start collapsed; Enter expands a group, and Enter on a process opens its details.
+`--group session` groups text or TUI output by launch session. In the TUI, press `g` to switch modes. Groups start collapsed; → expands a group or opens process details, and ← collapses it.
 
 Groups show the project, session, process count, and CPU/memory totals of **displayed heavy processes only**. They do not represent the entire session's resource use. `~` marks a partial total when measurements are missing. CPU/memory sorting orders groups by their totals; PID sorting uses each group's lowest displayed PID.
 
@@ -158,7 +158,7 @@ From a source checkout, run `bash scripts/menubar.sh run` and click the load ico
 
 Point at a row or focus it with the keyboard to reveal **Pin**. A pinned row keeps its pin button visible; click it again to unpin. The row context menu offers **Pin/Unpin**, **Copy PID**, **Focus terminal**, **Message…** and **Terminate…**. Unavailable actions remain visible but dimmed, including actions on missing pins, messaging without an exact verified session, and terminal focus without a known terminal runtime. Group rows support focus when their processes agree on one runtime; expand and choose a process for messaging or termination. Terminate still opens confirmation, and Message still opens composition and review. Pins appear in a highlighted section above the other results. Click the row itself to expand/collapse, as before. A pinned session stays a session header even when only one heavy process remains. If a pinned target is absent from the heavy results, its row says **Not in current results** and keeps the same filled pin icon for unpinning. The target may have fallen below the filters, exited or become unreadable; the placeholder does not distinguish these causes. Its live row returns when the same identity appears again.
 
-Open **View options → Keyboard shortcuts** for compact help inside the panel; **Hide** dismisses it without changing the panel height. Use Tab/Shift-Tab to reach native controls. With a row header focused, ↑/↓ moves between visible rows and scrolls the focused row into view; Enter toggles details. Space pins or unpins the focused row, including its Pin button or an unavailable pin’s Unpin button. On other controls, Space retains native button activation. Use the same browsing keys as the TUI: `p` pause, `c/m/n/o` CPU/memory/PID/stable sorting, `r` reverse, `g` grouping, `h/t` history metric/range, `1/2` CPU threshold, `3/4` memory threshold, `</>` slower/faster, `k/s/f` terminate/message/focus, and `q` quit. These keys do not operate inside action panels or the message editor. `y` copies the focused process’s numeric PID; **Copy PID** is also in its right-click menu and expanded details, where the PID is selectable text. Groups and missing pinned placeholders have no copyable PID. Shortcuts target the focused row, never a hovered or stale selection. A session's **Terminal** action is available in its details and context menu. Native details use the scroll area and panel size choices instead of the TUI's split-pane keys.
+Open **View options → Keyboard shortcuts** for compact help inside the panel; **Hide** dismisses it without changing the panel height. Use Tab/Shift-Tab to reach native controls. With a row header focused, ↑/↓ moves between visible rows and scrolls the focused row into view; ← collapses and → expands the focused row. Repeating either arrow leaves the row in that state. `.` pins or unpins the focused row, including its Pin button or an unavailable pin’s Unpin button. Return and Space retain native control activation. Use the same browsing keys as the TUI: `p` pause, `c/m/n/o` CPU/memory/PID/stable sorting, `r` reverse, `g` grouping, `h` cycles history through CPU/memory/heavy count, `t` switches its range between 10 minutes and one hour, `1/2` CPU threshold, `3/4` memory threshold, `</>` slower/faster, `k/s/f` terminate/message/focus, and `q` quit. These keys do not operate inside action panels or the message editor. `y` copies the focused process’s numeric PID; **Copy PID** is also in its right-click menu and expanded details, where the PID is selectable text. Groups and missing pinned placeholders have no copyable PID. Shortcuts target the focused row, never a hovered or stale selection. A session's **Terminal** action is available in its details and context menu. Native details use the scroll area and panel size choices instead of the TUI's split-pane keys.
 
 Click **Pause** (`p`) before targeting a moving row. It holds the displayed values and row order, with **Paused at** showing the sample time; **Resume** immediately shows the latest collected sample. Collection continues while paused, but the icon’s bars and count hold the same displayed sample. You can expand details and use actions against the held rows; actions still verify the live target. Pause is unavailable before the first sample or during action review. Reopening the panel starts live. For live values without resource-driven movement, use Stable order.
 

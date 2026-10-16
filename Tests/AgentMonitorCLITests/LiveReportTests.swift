@@ -4,6 +4,32 @@ import Testing
 
 @testable import AgentMonitorCore
 
+@Test(arguments: [ReportGrouping.none, .session])
+func directionalDisclosureIsIdempotent(grouping: ReportGrouping) throws {
+    var state = LiveReportState(grouping: grouping)
+    state.receive(liveSnapshot([liveRow(20)]))
+    let selection = try #require(state.selection)
+    state.setDisclosure(expanded: true)
+    switch selection {
+    case .group(let group): #expect(state.openGroups.contains(group))
+    case .process(let process):
+        #expect(state.expanded == process)
+        #expect(state.detailsMode == .split)
+        state.maximizeDetails()
+    }
+    let opened = state
+    state.setDisclosure(expanded: true)
+    #expect(state == opened)
+    state.setDisclosure(expanded: false)
+    switch selection {
+    case .group(let group): #expect(!state.openGroups.contains(group))
+    case .process: #expect(state.detailsMode == .minimized)
+    }
+    let closed = state
+    state.setDisclosure(expanded: false)
+    #expect(state == closed)
+}
+
 @Test func sortingKeepsSelectionAndDisclosureOnTheSameProcessLifetime() {
     var state = LiveReportState()
     let first = liveRow(20, cpu: 90, memory: 1)
@@ -209,7 +235,7 @@ func keyboardHelpSeparatesControlsWithoutClipping(width: Int) {
     let lines = LiveReportLayout.lines(state: LiveReportState(), width: width, height: 24)
     let text = lines.map(\.text).joined(separator: "\n")
     for control in [
-        "↑/↓ select", "Enter open", "g group", "c/m/n/o sort", "r reverse", "[/] scroll",
+        "↑/↓ select", "←/→ fold", "g group", "c/m/n/o sort", "r reverse", "[/] scroll",
         "-/+ size", "0 min",
         "9 max", "= restore", "q/Ctrl-C quit",
     ] {
