@@ -272,7 +272,7 @@ import Testing
     #expect(help.fittingSize.height < 400)
     #expect(help.fittingSize.width <= 388)
     if let path = ProcessInfo.processInfo.environment["MENUBAR_HELP_PREVIEW_PATH"] {
-        help.frame.size = help.fittingSize
+        help.frame.size.height = help.fittingSize.height
         help.layoutSubtreeIfNeeded()
         let bitmap = try #require(help.bitmapImageRepForCachingDisplay(in: help.bounds))
         help.cacheDisplay(in: help.bounds, to: bitmap)
