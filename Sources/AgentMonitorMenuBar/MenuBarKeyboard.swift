@@ -7,7 +7,10 @@ enum MenuBarKeyboard {
             .map { KeyEquivalent(Character($0)) })
 
     static func accepts(_ key: String, modifiers: EventModifiers) -> Bool {
-        modifiers.isEmpty || (modifiers == .shift && (key == "<" || key == ">"))
+        // AppKit marks arrow keys as numericPad; Caps Lock also is not a shortcut chord.
+        // https://developer.apple.com/documentation/appkit/nsevent/modifierflags-swift.struct/numericpad
+        let chord = modifiers.intersection([.command, .control, .option, .shift])
+        return chord.isEmpty || (chord == .shift && (key == "<" || key == ">"))
     }
 }
 

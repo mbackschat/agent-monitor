@@ -102,3 +102,18 @@ func nativeBrowsingKeysRejectModifiedText(modifiers: EventModifiers) {
     #expect(MenuBarKeyboard.accepts("<", modifiers: .shift))
     #expect(!MenuBarKeyboard.accepts("P", modifiers: .shift))
 }
+
+@Test(arguments: [EventModifiers(), .numericPad, .capsLock, [.numericPad, .capsLock]])
+func nativeRowArrowsAcceptNonShortcutFlags(modifiers: EventModifiers) {
+    for key in ["\u{F702}", "\u{F703}"] {
+        #expect(MenuBarKeyboard.accepts(key, modifiers: modifiers))
+        for chord in [EventModifiers.command, .control, .option, .shift] {
+            #expect(!MenuBarKeyboard.accepts(key, modifiers: modifiers.union(chord)))
+        }
+    }
+}
+
+@Test func nativePinShortcutIgnoresCapsLockState() {
+    #expect(MenuBarKeyboard.accepts(".", modifiers: .capsLock))
+    #expect(!MenuBarKeyboard.accepts(".", modifiers: [.capsLock, .command]))
+}

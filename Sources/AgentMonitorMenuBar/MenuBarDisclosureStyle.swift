@@ -99,7 +99,9 @@ private struct MenuBarRowHeader<Label: View>: View {
             .buttonStyle(.plain).focused(focus, equals: id)
             .pinShortcut(onPinShortcut)
             .onKeyPress(keys: [.leftArrow, .rightArrow], phases: .down) { key in
-                guard key.modifiers.isEmpty else { return .ignored }
+                guard MenuBarKeyboard.accepts(key.characters, modifiers: key.modifiers) else {
+                    return .ignored
+                }
                 onSetExpanded(key.key == .rightArrow)
                 return .handled
             }
@@ -116,7 +118,7 @@ private struct MenuBarRowHeader<Label: View>: View {
 extension View {
     func pinShortcut(_ action: @escaping () -> Bool) -> some View {
         onKeyPress(keys: [KeyEquivalent(Character(ReportShortcut.pin.rawValue))], phases: .down) { key in
-            guard key.modifiers.isEmpty else { return .ignored }
+            guard MenuBarKeyboard.accepts(key.characters, modifiers: key.modifiers) else { return .ignored }
             return action() ? .handled : .ignored
         }
     }
