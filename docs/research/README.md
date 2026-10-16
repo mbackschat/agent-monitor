@@ -10,7 +10,7 @@ Current behavior and accepted contracts belong in the [README](../../README.md) 
 - [Contributor model](../proposals/agent-working-model.md): unapproved working-model proposal.
 - [Claude runtime binding](../proposals/claude-runtime-binding.md): implemented registry binding and deferred detached-workload link.
 - [Codex session listing brief](../proposals/codex-session-registry-research.md): investigated questions and limits.
-- [Codex registry assessment](../proposals/codex-session-registry.md): unapproved recommendation to defer integration; required native identity relations.
+- [Codex registry assessment](../proposals/codex-session-registry.md): accepted deferral, its consequences and native identity conditions for reconsideration.
 
 ## Findings by topic
 

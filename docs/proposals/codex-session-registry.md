@@ -1,10 +1,16 @@
 # Codex session registry assessment
 
-Status: proposed 2026-10-16; no implementation authorized. Based on the completed [ATTR-02 investigation](../research/codex-terminal-attribution.md#session-listing-investigation--2026-10-16).
+Status: deferral accepted 2026-10-16; no integration authorized. The contract below identifies conditions for reconsideration, not an approved implementation design. Based on the completed [ATTR-02 investigation](../research/codex-terminal-attribution.md#session-listing-investigation--2026-10-16).
 
-## Recommendation
+## Decision
 
 Defer a Codex registry adapter. Codex 0.163.0 offers endpoint-scoped loaded-thread IDs, but no runtime PID in that response, and explicitly returns null OS PIDs for background terminals. Adding periodic listing would introduce connection effects without resolving marker-less workloads in a shared runtime. Keep the existing marker, ancestry and writer-descriptor evidence and its ambiguity semantics.
+
+## Consequences of deferral
+
+Marker-less workloads below shared Codex runtimes remain ambiguous: their CPU and memory are measured, but they cannot be grouped under an exact thread. Identifying the responsible task can require manual inspection in Codex. An unresolved workload cannot supply a verified messaging recipient; process-level inspection and verified termination remain available.
+
+Existing marker, ancestry and writer-descriptor attribution continues unchanged. The visibility gap remains until upstream exposes a sufficient native process relation or another independently verified signal establishes ownership. Revisit runtime membership alone only if a concrete case gains an exact binding beyond the current evidence.
 
 ## Required contract for reconsideration
 
