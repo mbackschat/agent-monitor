@@ -12,6 +12,10 @@ Read-only: one `agent-monitor --json --cpu 0 --memory-gb 0 --commands` sample, `
 - `lsof` on two runtimes found no open path containing the runtime's session ID. The inbox socket is named `/tmp/cc-socks/<pid>.sock`, which encodes the runtime PID, not the session.
 - `claude agents --json` returned six entries, each with `pid` and `sessionId`, plus `cwd`, `kind` (all `interactive`), `name`, `startedAt` and `status` (`idle` 4, `busy` 2). The entry for this session's runtime carried the same session ID as its Bash environment and the session's launch directory as `cwd`. The six entries matched the six genuine runtimes; the seventh recognized "runtime" was the embedded tool below.
 - One call took 0.68 s wall time, 0.23 s user and 0.13 s system CPU (single measurement, `/usr/bin/time -p`).
+- Three later calls took 0.29–0.35 s wall time and 0.25–0.31 s user plus system CPU. No `claude` daemon process existed before or after the calls, and the daemon log's modification time stayed at an earlier month.
+- While a call ran, `lsof` sampled about every 30 ms showed two Unix-domain socket peers, neither owned by any Claude runtime, and no path under `~/.claude/sessions`. Sampling cannot exclude connections shorter than the interval.
+- Network use was intermittent: two of six default calls held TCP connections to HTTPS endpoints, one in Anthropic's address range; none of four calls with `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` did, and those calls returned the same six entries. This suggests, but does not establish, that the listing's network traffic is nonessential.
+- `claude agents --help` describes the subcommand as managing background agents; `--json` prints "active sessions (interactive and background)", and `--all` adds completed background sessions.
 - `startedAt` was 2–38 s later than the owning process's start time for all six entries. None of these sessions is known to have been cleared or resumed, so whether `startedAt` changes on `/clear` or `/resume` remains open; for these entries it tracks process registration rather than a later session start.
 
 ## Embedded tools invoked under another name
