@@ -23,7 +23,7 @@ Accepted deferral: [Codex registry integration](docs/proposals/codex-session-reg
 
 Pending ideas, not yet approved for implementation:
 
-- [Agent-friendly CLI](docs/proposals/agent-friendly-cli.md): CPU accounting dependency met; revise its diagnosis window and ranking onto that accounting and review the remaining built-in guidance contract. No additional skill or implementation is approved.
+- [Agent-friendly CLI](docs/proposals/agent-friendly-cli.md): revised against implemented CPU accounting; next action is review of the guide, three-interval diagnosis, CPU-seconds ranking and typed coverage contract. No additional skill or implementation is approved.
 - A compact provider column with sorting and a command-line-only provider filter. Provider recognition must come from attribution adapters; this is separate from the completed extraction.
 - Author credit in `--help`.
 
