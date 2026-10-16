@@ -131,3 +131,19 @@ A fresh `gpt-6-luna` helper at medium reasoning received the user CPU question a
 ### Unresolved empirical questions
 
 No measured cold-use/repeat-use call or token distribution establishes optimal guide size, observation duration or row limit. Comparison binaries' latency, permission handling and partial-output behavior remain untested. Whether representative agents correctly interpret empty, ambiguous and partial observations remains unmeasured. The helper exercise cannot establish diagnostic accuracy because it never sampled. No reviewed source proves that all inaccessible processes or short-lived contributors can be accounted for by periodic same-user collection.
+
+## Interactive diagnosis assessment — 2026-10-17
+
+This assessment inspected Agent Monitor's implemented diagnosis at commit `f02fbcd` and its existing interactive contracts. It did not inspect live workloads or run a provider listing, and it does not revalidate the upstream comparisons above.
+
+### Local observations
+
+- [CPUDiagnosisWindow](../../Sources/AgentMonitorCore/CPUDiagnosisWindow.swift) retains per-lifetime CPU contributions across its finite run and ranks CPU-seconds before truncation. [CPUDiagnosisSession](../../Sources/AgentMonitorCore/CPUDiagnosis.swift) enriches returned contributors after the last scan; contributors missing from that scan retain CPU but have unavailable attribution. Neither type depends on a UI or Argument Parser.
+- [MonitoringSession](../../Sources/AgentMonitorCore/MonitoringSession.swift) publishes current findings; [LiveReportState](../../Sources/AgentMonitorPresentation/LiveReportState.swift) maintains selection and disclosure for the live table. [ReportHistory](../../Sources/AgentMonitorPresentation/ReportHistory.swift) retains scalar all-agent summaries, not per-process interval contributions. These are separate populations and retention contracts, as documented in [architecture](../architecture.md#resource-history).
+- Native and TUI tables default to five-second sampling, while diagnosis takes three one-second waits. A finite diagnosis launched later cannot reconstruct CPU from a process that disappeared before its baseline. Host/process coverage and missed exited work retain the limitations in [CPU accounting research](cpu-accounting.md).
+
+### Inferences and unresolved questions
+
+An explicitly requested finite result could make already-observed bursts easier to inspect in either UI, while keeping the live table's values familiar. A rolling view would need new retention and coverage semantics; existing report percentages and scalar history cannot correctly supply it. The [interactive proposal](../proposals/interactive-cpu-diagnosis.md) records the resulting design judgment, not a measured usability finding.
+
+No UI evaluation establishes whether users prefer a separate finite view, a rolling ranking or the existing table. Additional collection alongside ordinary monitoring would add work; its latency, responsiveness and sustained cost have not been measured. A fixed result is easier to retain than current action eligibility: historical identities must never gain actions merely because their PID is currently occupied.

@@ -73,7 +73,7 @@ Implemented on 2026-10-17. `agent-monitor guide` explains the workflow; `guide s
 
 ### Window measurements
 
-The window starts at the baseline listing and ends at the final process scan's end. `elapsedSeconds` uses achieved Mach-clock duration, including scans and excluding sleep; `startedAt`/`endedAt` are display timestamps, not its denominator. Collection and later enrichment can extend runtime beyond the three configured waits. `maximumScanSeconds` is the largest scan duration, including the baseline, and bounds newborn scan skew.
+The window starts at the baseline listing and ends at the final process scan's end. `elapsedSeconds` uses achieved Mach-clock duration, including scans and excluding system sleep; `startedAt`/`endedAt` are display timestamps, not its denominator. Collection and later enrichment can extend runtime beyond the three configured waits. `maximumScanSeconds` is the largest scan duration, including the baseline, and bounds newborn scan skew.
 
 `Monitor.cpuContribution(for:)` exposes the same accepted R1 numerator and duration from which live percentages are derived. `CPUDiagnosisWindow` aggregates them independently of report snapshots and history:
 

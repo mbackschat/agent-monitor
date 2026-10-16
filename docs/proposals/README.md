@@ -7,5 +7,6 @@ The table is generated from each proposal's `Status:` line; do not edit it by ha
 <!-- status-table:begin -->
 | Proposal | Status | Since |
 | --- | --- | --- |
+| [CPU diagnosis in the Mac app and TUI](interactive-cpu-diagnosis.md) | unapproved | 2026-10-17 |
 | [Proposed agent working model](agent-working-model.md) | unapproved | 2026-10-15 |
 <!-- status-table:end -->
