@@ -1,6 +1,6 @@
 # Let agents diagnose CPU load directly
 
-Status: **unapproved**, 2026-10-16. Revised for review; this revision incorporates the implemented [CPU accounting contract](../architecture.md#cpu-accounting). It proposes built-in guidance and finite CPU diagnosis; it does not authorize implementation. Current commands remain defined by [usage](../usage.md). The dated comparisons and limited agent experiment remain in [research](../research/existing-solutions.md#agent-oriented-cli-investigation--2026-10-16); this revision does not revalidate upstream sources or establish token savings.
+Status: **approved**, 2026-10-17. Approved for implementation with the decisions below; it builds on the implemented [CPU accounting contract](../architecture.md#cpu-accounting). Current commands remain defined by [usage](../usage.md). The dated comparisons and limited agent experiment remain in [research](../research/existing-solutions.md#agent-oriented-cli-investigation--2026-10-16); this revision does not revalidate upstream sources or establish token savings.
 
 Recommend `agent-monitor guide` for learning the workflow and `agent-monitor diagnose cpu --json` for one finite answer: measured CPU contributors, their session evidence, host context and observation limits. Existing report JSONL **version 3**, streaming, thresholds, actions and interactive views remain unchanged. Diagnosis has its own versioned response.
 
@@ -30,7 +30,7 @@ Executable discovery remains separate: PATH makes the command callable, not nece
 
 `diagnose cpu` takes a baseline followed by **three one-second waits and measurement scans**, then returns the **top ten measured lifetimes**. These are fixed initial defaults, not benchmark-derived optimums; configurable windows and limits are outside this revision. Existing report options must not silently filter or alter diagnosis. Scope is all readable current-user processes, including nonagents, excluding the monitor's own PID. Invoking-agent processes are not automatically excluded. Totals and coverage are calculated before truncation.
 
-The measurement window starts at the baseline listing and ends at the end of the final process scan. `elapsedSeconds` is the achieved Mach-clock duration, including scan time and excluding sleep, not the requested three seconds or wall-clock timestamp subtraction. Start/end timestamps are display metadata. Provider enrichment follows the measurement window and may extend command runtime; lookups retain finite timeout/cancellation behavior, with no unlimited watch or retry loop.
+The measurement window starts at the baseline listing and ends at the end of the final process scan. `elapsedSeconds` is the achieved Mach-clock duration, including scan time and excluding sleep, not the requested three seconds or wall-clock timestamp subtraction. Start/end timestamps are display metadata. Provider enrichment follows the measurement window and may extend command runtime. Session listings run only through adapters that declare one, and only for runtimes behind returned contributors whose attribution needs it; lookups retain finite timeout/cancellation behavior, with no unlimited watch or retry loop.
 
 For every lifetime and measurement scan, reuse the accepted core accounting:
 
@@ -52,7 +52,7 @@ Reuse the per-listing host occupancy readings and unavailable cases from the [im
 
 Show host occupancy beside measured process contribution. Never compute an “unattributed” remainder or infer that low measured CPU means an idle machine. Tick resolution, scan skew, monitor/lookup overhead and missed current-user work prevent causal subtraction. Unweighted logical-CPU occupancy does not measure equivalent performance/efficiency-core capacity. Lifetimes never observed and CPU after their last observation remain uncounted; deferred exited-descendant recovery and `ri_child_*` counters are excluded. Coverage counts refer to observations, not proof of complete host or current-user visibility.
 
-A contributor absent from the final scan retains its measured CPU, exact identity, latest measured footprint/timestamp and any previously obtained attribution. Absence alone does not establish exit. Enrichment must not inspect a reused PID or transfer its metadata to the earlier lifetime. If enrichment cannot observe that exact lifetime, return `notObservedAtEnrichment`; distinguish this from an observed but unresolved attribution or a failed provider lookup. Metadata cannot be invented from cwd or from another process using the same runtime. Available attribution includes its observation timestamp and retains the existing provider, evidence, candidate IDs and launch/current-session distinctions. It describes the latest available association, not a claim that one session owned all CPU accumulated during the window; it never establishes exclusive ownership of a shared daemon.
+Enrichment runs once, after the final scan, only for returned contributors and their ancestry; there is no per-scan enrichment. A contributor absent from the final scan retains its measured CPU, exact identity and latest measured footprint/timestamp, and its attribution is `notObservedAtEnrichment`. Absence alone does not establish exit. Enrichment must not inspect a reused PID or transfer its metadata to the earlier lifetime. If enrichment cannot observe that exact lifetime, return `notObservedAtEnrichment`; distinguish this from an observed but unresolved attribution or a failed provider lookup. Metadata cannot be invented from cwd or from another process using the same runtime. Available attribution includes its observation timestamp and retains the existing provider, evidence, candidate IDs and launch/current-session distinctions. It describes the latest available association, not a claim that one session owned all CPU accumulated during the window; it never establishes exclusive ownership of a shared daemon.
 
 ## Required: response and streams
 
@@ -86,7 +86,7 @@ type Diagnosis = {
     omittedContributorCount: number;
   };
   contributors: Contributor[];
-  providerLookups: { provider: "codex" | "claude"; status: "succeeded" | "failed" }[];
+  providerLookups: { provider: "codex" | "claude"; status: "succeeded" | "failed" }[]; // AgentProvider raw values
   diagnostics: DiagnosticCode[];
 };
 type Contributor = {
@@ -134,7 +134,7 @@ Illustrative complete response with two measured lifetimes and an explicit zero 
 }
 ```
 
-Keep labels to 120 Unicode scalars, marking truncation explicitly. Do not include full arguments, environment, transcripts or arbitrary provider error text. Emit each diagnostic code once; guides explain meanings and suggested next observations, and text output uses those same explanations. No free-form generated diagnosis or automatic remediation is required. Exact evidence can still be large, so a ten-row limit is not a universal byte/token bound.
+A label is the executable path's last component, falling back to the BSD process name; keep it to 120 Unicode scalars, marking truncation explicitly. Do not include full arguments, environment, transcripts or arbitrary provider error text. Emit each diagnostic code once; guides explain meanings and suggested next observations, and text output uses those same explanations. No free-form generated diagnosis or automatic remediation is required. Exact evidence can still be large, so a ten-row limit is not a universal byte/token bound.
 
 Exit 0 means a valid result, including empty or partial observations; counts and diagnostics distinguish those from measured zero. Exit 1 means no usable collection, such as failure to acquire the baseline or any required process scan; emit no partial success document and `collectionFailed` plus an explanation on stderr. A complete sequence of scans with missing counters remains a valid partial result. Argument Parser's invalid-usage exit 64 remains unchanged. Provider lookup failure alone does not invalidate usable CPU measurements. Warnings/errors use stderr; JSON stdout has no banners, color or appended guidance. Existing action statuses remain unchanged, including `message` exit 2 for an uncertain outcome.
 
@@ -144,7 +144,10 @@ Diagnosis does not intentionally change workload, UI or session state. Native re
 
 The instruction pointer is optional. A help-only change leaves callers aggregating and interpreting separate reports, so guide plus finite diagnosis remains recommended. Generic agent modes, query languages, command manifests, caller/session marking, external skills, MCP services, memory diagnosis, continuous history, new host telemetry, action API changes and new providers/platforms are excluded from this design. Agent evaluations are optional evidence collection, never a runtime dependency.
 
-## Decisions for review
+## Approved decisions
+
+Approved by the user on 2026-10-17.
+
 
 1. **Approve current-user contributors with independent host context.** This reuses shipped accounting and distinguishes visible consumers from host occupancy without inventing an outside-population remainder. Other-user process attribution remains excluded.
 2. **Approve three one-second waits, top ten by observed CPU-seconds.** CPU-seconds ranks contribution consistently across unequal lifetime coverage; mean, peak and coverage retain burst information. These finite defaults are a judgment, not a measured optimum. Keep tuning options out until evidence justifies them.
