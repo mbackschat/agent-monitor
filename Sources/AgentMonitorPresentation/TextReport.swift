@@ -117,8 +117,13 @@ public enum TextReport {
     }
 
     public static func safe(_ value: String) -> String {
-        String(
-            value.unicodeScalars.map { CharacterSet.controlCharacters.contains($0) ? "�" : String($0) }
-                .joined())
+        value.unicodeScalars.map { scalar in
+            switch scalar.value {
+            // Joiners shape emoji and scripts; other format controls remain neutralized.
+            // The production-path regressions are in TerminalCellLayoutTests.
+            case 0x200C, 0x200D: String(scalar)
+            default: CharacterSet.controlCharacters.contains(scalar) ? "�" : String(scalar)
+            }
+        }.joined()
     }
 }

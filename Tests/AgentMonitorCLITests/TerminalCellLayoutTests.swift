@@ -6,6 +6,19 @@ import Testing
 @testable import AgentMonitorPresentation
 
 @Suite struct TerminalCellLayoutTests {
+    @Test(arguments: ["👩‍💻", "می\u{200C}روم", "क्\u{200D}ष"])
+    func displaySanitizationPreservesShapingJoiners(text: String) {
+        let line = ReportLine(text)
+        #expect(line.text == text)
+        #expect(TerminalCells.width(line.text) == cells(text))
+        #expect(ReportTable.pad(text, to: 12).hasPrefix(text))
+    }
+
+    @Test(arguments: ["\u{202E}", "\u{2066}", "\u{200B}", "\u{009B}", "\u{001B}"])
+    func displaySanitizationStillNeutralizesOtherControls(control: String) {
+        #expect(ReportLine("a" + control + "b").text == "a�b")
+    }
+
     @Test(arguments: [
         "", "ASCII", "编译器", "ＡＢＣ", "e\u{301}", "\u{301}", "👍🏽", "👩‍💻", "🇩🇪", "1️⃣",
         "©", "©️", "©︎", "─…←", "\u{200D}", "\u{20000}",
@@ -59,17 +72,18 @@ import Testing
     private func cells(_ value: String) -> Int { layoutText(for: value, width: nil).size.width }
 
     private func snapshot() -> MonitoringSnapshot {
-        let rows = ["编译器", "worker", String(repeating: "🔧", count: 50)].enumerated().map { index, name in
-            let identity = ProcessIdentity(pid: Int32(40 + index), startMicroseconds: 1)
-            return HeavyProcess(
-                process: identity, executable: "/" + String(repeating: "编译", count: 35), name: name,
-                cpuPercent: 50, footprintBytes: 1, cwd: "/项目", command: nil,
-                metadataStatus: .notObserved,
-                attribution: Attribution(
-                    provider: .codex, evidence: .unknown, context: .unverified,
-                    threadID: nil, rootSessionID: nil, runtime: nil, terminal: nil,
-                    runtimeDirectory: nil, candidateThreadIDs: [], ancestry: [identity]))
-        }
+        let rows = ["编译器", "worker", "👩‍💻", "می\u{200C}روم", String(repeating: "🔧", count: 50)]
+            .enumerated().map { index, name in
+                let identity = ProcessIdentity(pid: Int32(40 + index), startMicroseconds: 1)
+                return HeavyProcess(
+                    process: identity, executable: "/" + String(repeating: "编译", count: 35), name: name,
+                    cpuPercent: 50, footprintBytes: 1, cwd: "/项目", command: nil,
+                    metadataStatus: .notObserved,
+                    attribution: Attribution(
+                        provider: .codex, evidence: .unknown, context: .unverified,
+                        threadID: nil, rootSessionID: nil, runtime: nil, terminal: nil,
+                        runtimeDirectory: nil, candidateThreadIDs: [], ancestry: [identity]))
+            }
         return MonitoringSnapshot(
             cpuAccounting: CPUAccounting(
                 hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 150,
