@@ -21,7 +21,7 @@ public enum DiagnosisText {
         ]
         for row in report.contributors {
             lines.append(
-                "\(row.process.pid)/\(row.process.startMicroseconds) \(String(reflecting: row.label))\(row.labelTruncated ? " [label truncated]" : ""): \(number(row.cpuSeconds)) CPU-s, mean \(number(row.meanCPUPercent))%, peak \(number(row.peakCPUPercent))%; \(number(row.observedSeconds))s across \(row.validIntervals) intervals."
+                "\(row.process.pid)/\(row.process.startMicroseconds) \(quoted(row.label))\(row.labelTruncated ? " [label truncated]" : ""): \(number(row.cpuSeconds)) CPU-s, mean \(number(row.meanCPUPercent))%, peak \(number(row.peakCPUPercent))%; \(number(row.observedSeconds))s across \(row.validIntervals) intervals."
             )
             if let footprint = row.footprint {
                 lines.append(
@@ -39,10 +39,10 @@ public enum DiagnosisText {
                     lines.append("  Runtime: \(runtime.pid)/\(runtime.startMicroseconds).")
                 }
                 if let terminal = owner.terminal {
-                    lines.append("  Terminal: \(String(reflecting: terminal)).")
+                    lines.append("  Terminal: \(quoted(terminal)).")
                 }
                 if let directory = owner.runtimeDirectory {
-                    lines.append("  Runtime directory: \(String(reflecting: directory)).")
+                    lines.append("  Runtime directory: \(quoted(directory)).")
                 }
                 if !owner.candidateThreadIDs.isEmpty {
                     lines.append(
@@ -61,6 +61,10 @@ public enum DiagnosisText {
                         separator: ", ")))
         lines += value.diagnostics.map { "\($0.rawValue): \($0.explanation)" }
         return lines.joined(separator: "\n")
+    }
+
+    private static func quoted(_ value: String) -> String {
+        String(reflecting: TextReport.safe(value))
     }
 
     private static func number(_ value: Double) -> String {

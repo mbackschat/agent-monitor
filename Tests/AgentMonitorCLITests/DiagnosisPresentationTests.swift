@@ -5,7 +5,8 @@ import Testing
 @testable import AgentMonitorCore
 
 func diagnosisPresentationFixture(
-    empty: Bool = false, label: String = "/bin/compiler", available: Bool = false
+    empty: Bool = false, label: String = "/bin/compiler", available: Bool = false,
+    terminal: String = "ttys001", directory: String = "/same"
 ) -> CPUDiagnosis {
     let start = Date(timeIntervalSince1970: 1_792_152_000)
     let first = ProcessSample(
@@ -38,7 +39,7 @@ func diagnosisPresentationFixture(
                             value: Attribution(
                                 provider: .codex, evidence: .ambiguous, context: .terminal,
                                 threadID: nil, rootSessionID: nil, runtime: first.identity,
-                                terminal: "ttys001", runtimeDirectory: "/same",
+                                terminal: terminal, runtimeDirectory: directory,
                                 candidateThreadIDs: [
                                     "11111111-1111-4111-8111-111111111111",
                                     "22222222-2222-4222-8222-222222222222",
@@ -52,6 +53,21 @@ func diagnosisPresentationFixture(
 }
 
 @Suite struct DiagnosisPresentationTests {
+    @Test(arguments: ["\u{202E}", "\u{200B}", "\u{009B}", "\u{001B}", "\n"])
+    func humanTextNeutralizesControlsWithoutChangingMachineData(control: String) throws {
+        let value = diagnosisPresentationFixture(
+            label: "/bin/a" + control + "b", available: true,
+            terminal: "tty" + control + "001", directory: "/a" + control + "b")
+        let text = DiagnosisText.render(value)
+        #expect(text.contains("\"a�b\""))
+        #expect(text.contains("\"tty�001\""))
+        #expect(text.contains("\"/a�b\""))
+        let object = try #require(
+            JSONSerialization.jsonObject(with: JSONDiagnosis.encode(value)) as? [String: Any])
+        let contributors = try #require(object["contributors"] as? [[String: Any]])
+        #expect(contributors[0]["label"] as? String == "a" + control + "b")
+    }
+
     @Test func encodedExampleMatchesApprovedShapeAndExportsIndependentValidatorFixtures() throws {
         let data = try JSONDiagnosis.encode(diagnosisPresentationFixture())
         let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])

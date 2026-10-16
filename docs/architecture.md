@@ -109,7 +109,7 @@ Presentation owns [diagnosis schema version 1](../Sources/AgentMonitorPresentati
 | `measured.unreadableObservationCount` | Reader failures summed over all four scans; neither deduplicated identities nor proof of their UID. |
 | `measured.omittedContributorCount` | Measured lifetime count minus `contributors.length`. Population totals still include them. |
 
-A contributor label is the executable path's last component, falling back to the BSD process name, capped at 120 Unicode scalars with `labelTruncated`. Text quotes untrusted labels and paths. Full arguments, environment, transcripts and arbitrary provider error text are excluded. Exact evidence can still be large, so ten rows are not a universal byte/token bound.
+A contributor label is the executable path's last component, falling back to the BSD process name, capped at 120 Unicode scalars with `labelTruncated`. Text sanitizes control characters before quoting untrusted labels and paths; JSON retains the original data. Full arguments, environment, transcripts and arbitrary provider error text are excluded. Exact evidence can still be large, so ten rows are not a universal byte/token bound.
 
 Each diagnostic code appears at most once. `unmeasuredCPU` and `unreadableObservations` flag nonzero missing counts; `hostCoverageIncomplete` flags fewer than three valid host intervals; `hostCapacityChanged` flags a changed count; `attributionUnavailable` flags unavailable returned attribution; `providerLookupFailed` flags a failed lookup; and `noMeasuredLifetimes` means no valid lifetime interval, not measured idle. One presentation explanation per code is shared between text output and `guide diagnostics`; there is no free-form generated diagnosis or automatic remediation.
 
