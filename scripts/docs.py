@@ -20,11 +20,8 @@ STATUS_FOLDERS = {
     "docs/proposals": ("Proposal", ["approved", "unapproved", "on hold"]),
     "docs/decisions": ("Decision", ["deferred", "rejected", "superseded"]),
 }
-# Index entries that must carry the date explaining them: when evidence was gathered or a version
-# was published. Release notes also state their own publication date.
-DATED_INDEXES = {"docs/research", "docs/releases"}
-RELEASE_FOLDER = "docs/releases"
-RELEASED_LINE = re.compile(r"^Released (\d{4}-\d{2}-\d{2})\.$")
+# Index entries that must carry the date their evidence was gathered.
+DATED_INDEXES = {"docs/research"}
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 # Folders whose files are referenced by documents rather than navigated as documents.
 UNINDEXED_FOLDERS = {"docs/assets"}
@@ -194,12 +191,6 @@ def check_status(root):
     return errors
 
 
-def released_date(path):
-    lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-    match = RELEASED_LINE.match(lines[1]) if len(lines) > 1 else None
-    return match.group(1) if match else None
-
-
 def check_dates(root):
     errors = []
     for folder in sorted(DATED_INDEXES):
@@ -211,15 +202,8 @@ def check_dates(root):
                 path = (readme.parent / urllib.parse.unquote(target).partition("#")[0]).resolve()
                 if path.parent != readme.parent.resolve() or not path.is_file() or path == readme.resolve():
                     continue
-                location = f"{folder}/README.md:{number}"
-                if folder == RELEASE_FOLDER and path.suffix == ".md":
-                    date = released_date(path)
-                    if date is None:
-                        errors.append(f"{folder}/{path.name}: needs 'Released YYYY-MM-DD.' after its title")
-                    elif date not in line:
-                        errors.append(f"{location}: entry for {path.name} must show its release date {date}")
-                elif not DATE.search(line):
-                    errors.append(f"{location}: entry for {path.name} needs the date of its evidence")
+                if not DATE.search(line):
+                    errors.append(f"{folder}/README.md:{number}: entry for {path.name} needs the date of its evidence")
     return errors
 
 

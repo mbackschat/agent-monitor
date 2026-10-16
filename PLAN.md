@@ -2,7 +2,7 @@
 
 ## Resume point
 
-[v0.2.2](https://github.com/mbackschat/agent-monitor/releases/tag/v0.2.2) is published, including the detached Codex job fix, shared-runtime label and built-in attribution adapters. The original PoC is complete. Release checks and changes are recorded in the [release notes](docs/releases/0.2.2.md); current behavior belongs in the [README](README.md), [usage guide](docs/usage.md) and [architecture](docs/architecture.md).
+[v0.2.2](https://github.com/mbackschat/agent-monitor/releases/tag/v0.2.2) is published, including the detached Codex job fix, shared-runtime label and built-in attribution adapters. The original PoC is complete. Its checks and changes are in that release's notes; publish the next version with [releasing](docs/releasing.md). Current behavior belongs in the [README](README.md), [usage guide](docs/usage.md) and [architecture](docs/architecture.md).
 
 Keep this file limited to unfinished work, scope decisions and the next action. Remove completed entries once their durable outcome is documented; Git history retains the implementation log. Validation commands and coverage limits belong in the [development guide](docs/development.md#validation-coverage).
 

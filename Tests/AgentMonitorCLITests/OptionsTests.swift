@@ -1,3 +1,4 @@
+import AgentMonitorCore
 import AgentMonitorTUI
 import ArgumentParser
 import Testing
@@ -10,7 +11,7 @@ import Testing
         Issue.record("Expected the version request to exit before monitoring")
     } catch {
         #expect(AgentMonitorCommand.exitCode(for: error) == .success)
-        #expect(AgentMonitorCommand.message(for: error) == "0.2.2")
+        #expect(AgentMonitorCommand.message(for: error) == AgentMonitorVersion.current)
     }
     #expect(AgentMonitorCommand.helpMessage().contains("--version"))
 }

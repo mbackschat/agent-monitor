@@ -10,7 +10,7 @@ Trace heavy CPU and memory usage to **Codex CLI and Claude Code sessions** on ma
 
 When several coding agents are running, a busy `node`, `java`, or `python` process tells you little on its own. Agent Monitor connects heavy processes to their agent session, terminal, and project, so you can see where the work started. Then act on it: message the agent, jump to its terminal, or stop the process.
 
-This README describes the current source build. For the published CLI release, see the [v0.2.2 release notes](docs/releases/0.2.2.md); newer controls, history and the menu bar app require a [source build](docs/installation.md#build-from-source).
+This README describes the current source build, which can be ahead of the [latest release](https://github.com/mbackschat/agent-monitor/releases/latest); newer controls, history and the menu bar app require a [source build](docs/installation.md#build-from-source).
 
 ## Features
 

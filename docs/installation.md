@@ -24,18 +24,18 @@ To remove it, run `brew uninstall agent-monitor`. If you previously installed a 
 
 ## Install the release
 
-Download `agent-monitor-0.2.2-macos-arm64.tar.gz` and its `.sha256` file from [release v0.2.2](https://github.com/mbackschat/agent-monitor/releases/tag/v0.2.2). In the download directory:
+Download the `agent-monitor-<version>-macos-arm64.tar.gz` archive and its `.sha256` file from the [latest release](https://github.com/mbackschat/agent-monitor/releases/latest). In the download directory, holding only that version:
 
 ```sh
-shasum -a 256 -c agent-monitor-0.2.2-macos-arm64.tar.gz.sha256
-tar -xzf agent-monitor-0.2.2-macos-arm64.tar.gz
-cd agent-monitor-0.2.2-macos-arm64
+shasum -a 256 -c agent-monitor-*-macos-arm64.tar.gz.sha256
+tar -xzf agent-monitor-*-macos-arm64.tar.gz
+cd agent-monitor-*-macos-arm64
 mkdir -p "$HOME/.local/bin"
 install -m 755 agent-monitor "$HOME/.local/bin/agent-monitor"
 cp -R AgentMonitor_AgentMonitorPresentation.bundle "$HOME/.local/bin/"
 ```
 
-The v0.2.2 binary is ad-hoc signed, not Developer ID signed or notarized. macOS may block a downloaded copy; building locally from source is an alternative. Intel Macs and older macOS versions are not covered by this release.
+Release binaries are ad-hoc signed, not Developer ID signed or notarized. macOS may block a downloaded copy; building locally from source is an alternative. Intel Macs and older macOS versions are not covered by releases.
 
 Keep the resource bundle beside the executable: it contains the schema used by `--json-schema`. The archive includes the project and dependency licenses; retain them when redistributing the package.
 
