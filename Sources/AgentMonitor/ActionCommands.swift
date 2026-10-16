@@ -134,11 +134,6 @@ private func finish(_ exit: ActionExit) throws {
     }
 }
 
-struct ColorOption: ParsableArguments {
-    @Flag(help: "Disable colors, like NO_COLOR.")
-    var noColor = false
-}
-
 struct KillCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "kill",

@@ -3,6 +3,12 @@ import ArgumentParser
 
 enum GroupOption: String, ExpressibleByArgument { case none, session }
 
+/// Reusing the same group preserves flags consumed by Argument Parser's root command.
+struct ColorOption: ParsableArguments {
+    @Flag(help: "Disable colors in text, TUI and action output, like NO_COLOR. JSON is never colored.")
+    var noColor = false
+}
+
 struct ReportOptions: ParsableArguments {
     @Option(
         name: .customLong("cpu"),
@@ -58,8 +64,9 @@ struct ReportOptions: ParsableArguments {
     @Flag(help: "Include command arguments; these can contain secrets.")
     var commands = false
 
-    @Flag(help: "Disable colors in text and TUI output, like NO_COLOR. JSONL is never colored.")
-    var noColor = false
+    @OptionGroup var color: ColorOption
+
+    var noColor: Bool { color.noColor }
 
     var isSpecified: Bool {
         requestedCPU != nil || requestedMemoryGB != nil || requestedInterval != nil || sampleLimit != nil
