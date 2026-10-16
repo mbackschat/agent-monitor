@@ -1,7 +1,9 @@
-struct AttributionAdapters: Sendable {
+import Foundation
+
+package struct AttributionAdapters: Sendable {
     private let adapters: [any AgentAttributionAdapter]
 
-    static let builtIn = Self(codex: CodexAttributionAdapter(), claude: ClaudeAttributionAdapter())
+    package static let builtIn = Self(codex: CodexAttributionAdapter(), claude: ClaudeAttributionAdapter())
 
     private init(codex: CodexAttributionAdapter, claude: ClaudeAttributionAdapter) {
         adapters = [codex, claude]
@@ -26,7 +28,7 @@ struct AttributionAdapters: Sendable {
         _ claims: Set<AgentProvider>, invokedAs invocation: String, executable: String
     ) -> Set<AgentProvider> {
         claims.filter { provider in
-            adapters.first { $0.provider == provider }?.acceptsRuntimeInvocation(
+            adapter(for: provider)?.acceptsRuntimeInvocation(
                 invocation, executable: executable)
                 == true
         }
@@ -79,13 +81,27 @@ struct AttributionAdapters: Sendable {
         return RuntimeEvidence(writerThreadIDs: writers.sorted(), listeningSockets: listeners.sorted())
     }
 
+    package func sessionRegistry(for provider: AgentProvider) -> SessionRegistryQuery? {
+        adapter(for: provider)?.sessionRegistry
+    }
+
+    package func runtimeSessions(_ provider: AgentProvider, fromRegistry output: Data) throws
+        -> [RuntimeSession]
+    {
+        try adapter(for: provider)?.runtimeSessions(fromRegistry: output) ?? []
+    }
+
+    private func adapter(for provider: AgentProvider) -> (any AgentAttributionAdapter)? {
+        adapters.first { $0.provider == provider }
+    }
+
     func runtimeLink(for marker: SessionMarker) -> RuntimeLink? {
-        adapters.first { $0.provider == marker.provider }?.runtimeLink(for: marker)
+        adapter(for: marker.provider)?.runtimeLink(for: marker)
     }
 
     func isSharedRuntime(_ process: HeavyProcess) -> Bool {
         guard process.attribution.runtime == process.process else { return false }
-        return adapters.first { $0.provider == process.attribution.provider }?
-            .isSharedRuntime(process.attribution) == true
+        guard let provider = process.attribution.provider else { return false }
+        return adapter(for: provider)?.isSharedRuntime(process.attribution) == true
     }
 }

@@ -117,6 +117,8 @@ Groups show the project, session, process count, and CPU/memory totals of **disp
 
 Unresolved or ambiguous processes stay separate even when they share a project or runtime. Session evidence identifies launch origin: a shared Gradle, Kotlin, or MCP daemon may later serve other sessions. See [attribution evidence](architecture.md#attribution-evidence-and-inspection-scope) for the exact interpretation and inspection scope.
 
+A Claude Code runtime carries no session marker of its own, and Bash-tool shells and other macOS system binaries expose no environment. When `claude` is on `PATH`, the monitor asks `claude agents --json` which session each displayed runtime hosts and shows the runtime and such children in that session with `sessionRegistry` evidence. This names the **current** session rather than the launch session, and cannot receive messages. The listing runs only when such rows are displayed, at most once a minute unless a new runtime appears.
+
 **Shared runtime** identifies a Codex runtime process with multiple distinct thread writer descriptors and no exact attributed thread. This describes shared runtime usage, rather than a failed workload lookup. It appears consistently in process rows, session groups, details, text output and action targets. Its singleton group remains separate from exact sessions and unresolved workloads. JSONL retains the original ambiguous evidence and candidate thread IDs. A runtime without a terminal still cannot be focused; the label does not establish a terminal-client mapping.
 
 Project names describe the displayed workloads’ working directories, not session ownership. A session with more than one distinct readable working directory shows **Multiple directories**, including when one directory is nested inside another. This does not establish separate projects or repository roots. Otherwise, missing directory evidence shows **Unknown project**. A **shared runtime** has no project subtitle because its launch directory may belong to another session. Expanded details retain both the work directory and runtime directory. This labeling does not change attribution or grouping identities.
@@ -138,7 +140,7 @@ agent-monitor --json --samples 3
 agent-monitor --json-schema
 ```
 
-JSONL contains one complete, compact JSON object per line/report. It retains the flat process list and full attribution evidence, including ambiguous candidate IDs. `--group session` is incompatible with `--json` and `--json-schema`.
+JSONL contains one complete, compact JSON object per line/report. It retains the flat process list and full attribution evidence, including ambiguous candidate IDs. Schema version 2 added the `sessionRegistry` evidence value. `--group session` is incompatible with `--json` and `--json-schema`.
 
 `--commands` includes command arguments in reports and process details. Arguments can contain credentials or other sensitive values and are omitted by default. Session IDs and project paths can still appear without this option.
 

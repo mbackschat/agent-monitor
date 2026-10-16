@@ -14,10 +14,33 @@ protocol AgentAttributionAdapter: Sendable {
     func runtimeEvidence(from observations: RuntimeObservations) -> RuntimeEvidence
     func runtimeLink(for marker: SessionMarker) -> RuntimeLink?
     func isSharedRuntime(_ attribution: Attribution) -> Bool
+    /// The harness's own listing of the sessions its live runtimes host, for runtimes whose
+    /// session no native observation reveals. Nil when the harness offers none.
+    var sessionRegistry: SessionRegistryQuery? { get }
+    func runtimeSessions(fromRegistry output: Data) throws -> [RuntimeSession]
 }
 
 extension AgentAttributionAdapter {
     func acceptsRuntimeInvocation(_ invocation: String, executable: String) -> Bool { true }
+    var sessionRegistry: SessionRegistryQuery? { nil }
+    func runtimeSessions(fromRegistry output: Data) throws -> [RuntimeSession] { [] }
+}
+
+/// A harness CLI command the host runs through `PATH`, with `environment` overlaid, to list the
+/// sessions of live runtimes. The adapter declares and parses it; it never runs it.
+package struct SessionRegistryQuery: Equatable, Sendable {
+    package let tool: String
+    package let command: [String]
+    package let environment: [String: String]
+}
+
+/// One listed session. A runtime binds only to the single active entry naming its PID, so a
+/// server hosting several sessions stays unbound.
+package struct RuntimeSession: Equatable, Sendable {
+    package let runtimePID: Int32
+    /// Normalized lowercase UUID, or nil when the listed value is not one.
+    package let sessionID: String?
+    package let active: Bool
 }
 
 enum RuntimeObservation: Hashable, Sendable {

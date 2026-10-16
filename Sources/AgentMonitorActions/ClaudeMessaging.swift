@@ -5,50 +5,40 @@ import Foundation
 /// Claude Code has no documented command that sends into a running session; each session's inbox
 /// socket is the documented local delivery path. See docs/research/claude-session-messaging.md.
 public struct ClaudeMessaging: AgentMessaging {
-    private let executable: URL
-    private let prefix: [String]
+    private let registry: any SessionRegistryReading
     private let timeout: TimeInterval
     private let locateInbox: @Sendable (HeavyProcess) throws -> String
 
     public init() {
-        self.init(
-            executable: URL(fileURLWithPath: "/usr/bin/env"), prefix: ["claude"],
-            locateInbox: NativeActions.claudeInbox)
+        self.init(registry: CommandSessionRegistryReader(timeout: 10), locateInbox: NativeActions.claudeInbox)
     }
 
     init(
-        executable: URL, prefix: [String] = [], timeout: TimeInterval = 10,
+        registry: any SessionRegistryReading, timeout: TimeInterval = 10,
         locateInbox: @escaping @Sendable (HeavyProcess) throws -> String
     ) {
-        self.executable = executable
-        self.prefix = prefix
+        self.registry = registry
         self.timeout = timeout
         self.locateInbox = locateInbox
     }
 
     public func recipients(for target: MessageTarget) throws -> MessageRecipients {
         // `/clear` or `/resume` can rebind a runtime to another session after its children inherited
-        // the old marker. `claude agents --json` is the documented way to read live session state
-        // from outside Claude Code: https://code.claude.com/docs/en/agent-view
-        let command = try BoundedCommand(
-            executable: executable, arguments: prefix + ["agents", "--json"], timeout: timeout,
-            tool: "Claude Code")
-        defer { command.close() }
-        let listing = try command.readOutput()
-        guard let sessions = try? JSONDecoder().decode([AgentEntry].self, from: listing) else {
+        // the old marker, so verify against the same harness listing that attribution uses.
+        let adapters = AttributionAdapters.builtIn
+        guard let query = adapters.sessionRegistry(for: .claude),
+            let sessions = try? adapters.runtimeSessions(.claude, fromRegistry: registry.output(of: query))
+        else {
             throw ActionFailure("Claude Code returned an unsupported session listing. Update Claude Code.")
         }
-        let hosted = sessions.filter { $0.pid == Int(target.runtime.pid) }
+        let hosted = sessions.filter { $0.runtimePID == target.runtime.pid }
         guard hosted.count == 1, let session = hosted.first else {
             throw ActionFailure("Claude Code does not list the runtime as one live session.")
         }
-        guard session.sessionId?.lowercased() == target.session else {
+        guard session.sessionID == target.session else {
             throw ActionFailure("The Claude runtime now hosts another session. Select the process again.")
         }
-        switch session.status.flatMap(AgentStatus.init(rawValue:)) {
-        case .busy, .waiting, .idle: break
-        case nil: throw ActionFailure("Claude Code returned an unknown session status.")
-        }
+        guard session.active else { throw ActionFailure("Claude Code returned an unknown session status.") }
         _ = try inbox(for: target)
         let recipient = AgentRecipient(id: target.session, label: "Claude session")
         return MessageRecipients(root: recipient, selected: recipient)
@@ -77,18 +67,6 @@ public struct ClaudeMessaging: AgentMessaging {
         }
         return path
     }
-}
-
-/// One `claude agents --json` entry. Fields are optional so an entry for another session that
-/// lacks one does not reject the whole listing.
-private struct AgentEntry: Decodable {
-    let pid: Int?
-    let sessionId: String?
-    let status: String?
-}
-
-private enum AgentStatus: String {
-    case busy, waiting, idle
 }
 
 private struct InboxLine: Encodable {

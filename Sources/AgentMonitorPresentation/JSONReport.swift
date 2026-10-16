@@ -2,7 +2,7 @@ import AgentMonitorCore
 import Foundation
 
 public struct JSONReport: Encodable {
-    public let schemaVersion = 1
+    public let schemaVersion = 2
     public let attributionMeaning = "launchOrigin"
     public let timestamp: Date
     public let intervalSeconds: Double

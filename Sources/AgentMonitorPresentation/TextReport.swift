@@ -69,9 +69,10 @@ public enum TextReport {
                 "PID \(row.process.pid)  CPU \(cpu)  footprint \(memory)  \(row.executable.isEmpty ? row.name : row.executable)",
                 style: .heavy))
         if let thread = owner.threadID {
+            let relation = owner.evidence == .sessionRegistry ? "current" : "launch"
             lines.append(
                 ReportLine(
-                    "  \(provider) launch session: \(thread) [\(owner.evidence.rawValue), \(owner.context.rawValue)]"
+                    "  \(provider) \(relation) session: \(thread) [\(owner.evidence.rawValue), \(owner.context.rawValue)]"
                 ))
         } else {
             let label = owner.runtime == nil ? "Session" : "\(provider) logical thread"

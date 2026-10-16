@@ -26,7 +26,7 @@ func claudeVerifiesLiveRuntimeAndPostsOneUnauthenticatedUserLine(status: String)
     #expect(recipients.choices == [AgentRecipient(id: session, label: "Claude session")])
     let message = "[Agent Monitor: selected process PID 701 (worker)]\nCheck \"quotes\" / $(whoami)"
     try fixture.client.send(message, to: session, for: target)
-    #expect(try fixture.calls() == [#"["agents", "--json"]"#])
+    #expect(try fixture.calls() == [#"["claude", "agents", "--json"]"#])
     // Without the session's token the inbox applies its peer controls; one line is one message.
     let lines = try fixture.received().split(separator: "\n", omittingEmptySubsequences: false)
     #expect(lines.count == 2 && lines[1].isEmpty)
@@ -147,8 +147,10 @@ private struct FakeClaude {
             listener = nil
         }
         client = ClaudeMessaging(
-            executable: URL(fileURLWithPath: "/usr/bin/python3"),
-            prefix: [script.path, mode, directory.appendingPathComponent("calls.jsonl").path],
+            registry: CommandSessionRegistryReader(
+                executable: URL(fileURLWithPath: "/usr/bin/python3"),
+                prefix: [script.path, mode, directory.appendingPathComponent("calls.jsonl").path],
+                timeout: timeout),
             timeout: timeout, locateInbox: { _ in socket })
     }
 

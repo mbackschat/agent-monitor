@@ -97,8 +97,10 @@ public struct ProcessMetadata: Sendable {
     }
 }
 
+/// `sessionRegistry` names the session a runtime hosts at the time of its harness's listing,
+/// not launch origin; markers and writer descriptors take precedence over it.
 public enum AttributionEvidence: String, Codable, Sendable {
-    case marker, inheritedMarker, writerLock, runtimeOnly, ambiguous, unknown
+    case marker, inheritedMarker, writerLock, sessionRegistry, runtimeOnly, ambiguous, unknown
 }
 
 public enum RuntimeContext: String, Codable, Sendable {

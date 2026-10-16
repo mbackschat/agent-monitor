@@ -211,3 +211,13 @@ func directoryLabelsDoNotClaimProjectsOrChangeSessionMembership(
     #expect(second.processes.map(\.process.pid) == [103])
     #expect(second.project == "repo")
 }
+
+@Test func listedRuntimeJoinsTheSessionItHostsWithoutClaimingLaunchOrigin() throws {
+    let runtime = groupedRow(1, thread: "same", provider: .claude, evidence: .sessionRegistry)
+    let worker = groupedRow(2, thread: "same", provider: .claude)
+    let groups = SessionGrouping.groups([runtime, worker])
+    #expect(groups.map(\.processes.count) == [2])
+    let text = TextReport.lines(groupedSnapshot([runtime])).map(\.text).joined(separator: "\n")
+    #expect(text.contains("current session: same [sessionRegistry"))
+    #expect(!text.contains("launch session: same"))
+}

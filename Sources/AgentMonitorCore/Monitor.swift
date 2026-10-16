@@ -1,3 +1,5 @@
+import Foundation
+
 public struct Monitor: Sendable {
     private struct Node: Sendable {
         var sample: ProcessSample
@@ -19,6 +21,8 @@ public struct Monitor: Sendable {
     private var nodes: [ProcessIdentity: Node] = [:]
     private var live: Set<ProcessIdentity> = []
     private var runtimes: [AgentProvider: Set<ProcessIdentity>] = [:]
+    /// Sessions that runtime lifetimes host according to their harness's latest listing.
+    private var listedSessions: [ProcessIdentity: String] = [:]
     private let adapters: AttributionAdapters
 
     public init() { adapters = .builtIn }
@@ -45,6 +49,7 @@ public struct Monitor: Sendable {
                 node.metadata = ProcessMetadata(status: .unavailable)
                 node.recognizedProviders = adapters.runtimeProviders(for: sample.executable)
                 node.runtimeProviders = node.recognizedProviders
+                listedSessions[sample.identity] = nil
             }
             if let parent = byPID[sample.parentPID], parent != sample.identity,
                 parent.startMicroseconds <= sample.identity.startMicroseconds
@@ -56,6 +61,7 @@ public struct Monitor: Sendable {
         }
         runtimes = [:]
         for identity in live { indexRuntime(identity) }
+        listedSessions = listedSessions.filter { live.contains($0.key) }
 
         // Retain departed ancestors only while a live descendant needs them; see
         // docs/research/macos-process-attribution.md for reparenting and PID reuse.
@@ -87,7 +93,47 @@ public struct Monitor: Sendable {
         nodes[identity] = node
         if changed {
             for provider in runtimes.keys { runtimes[provider]?.remove(identity) }
+            listedSessions[identity] = nil
             indexRuntime(identity)
+        }
+    }
+
+    /// Live runtimes behind `findings` whose session only their harness's own listing can supply,
+    /// by provider. Bound runtimes are included so a listing can follow `/clear` or `/resume`.
+    public func sessionRegistryRuntimes(in findings: [HeavyProcess]) -> [AgentProvider: Set<ProcessIdentity>]
+    {
+        var result: [AgentProvider: Set<ProcessIdentity>] = [:]
+        for finding in findings {
+            let owner = finding.attribution
+            switch owner.evidence {
+            case .runtimeOnly, .sessionRegistry:
+                guard let provider = owner.provider, let runtime = owner.runtime, live.contains(runtime),
+                    adapters.sessionRegistry(for: provider) != nil
+                else { continue }
+                result[provider, default: []].insert(runtime)
+            case .marker, .inheritedMarker, .writerLock, .ambiguous, .unknown:
+                continue
+            }
+        }
+        return result
+    }
+
+    package func sessionRegistry(for provider: AgentProvider) -> SessionRegistryQuery? {
+        adapters.sessionRegistry(for: provider)
+    }
+
+    /// Replaces the provider's bindings with its listing; nil (a failed listing) or an unparsable
+    /// one removes them. Each live runtime binds only to the single active entry naming its PID.
+    package mutating func bindSessions(_ output: Data?, provider: AgentProvider) {
+        let sessions = output.flatMap { try? adapters.runtimeSessions(provider, fromRegistry: $0) } ?? []
+        let byPID = Dictionary(grouping: sessions, by: \.runtimePID)
+        for runtime in runtimes[provider] ?? [] {
+            let listed = byPID[runtime.pid] ?? []
+            if listed.count == 1, let session = listed.first, session.active, let id = session.sessionID {
+                listedSessions[runtime] = id
+            } else {
+                listedSessions[runtime] = nil
+            }
         }
     }
 
@@ -173,7 +219,7 @@ public struct Monitor: Sendable {
         let resolved = resolve(identity)
         switch resolved.attribution.evidence {
         case .marker, .inheritedMarker: return resolved.marker
-        case .writerLock, .runtimeOnly, .ambiguous, .unknown: return nil
+        case .writerLock, .sessionRegistry, .runtimeOnly, .ambiguous, .unknown: return nil
         }
     }
 
@@ -297,7 +343,10 @@ public struct Monitor: Sendable {
         switch candidates.count {
         case 1: return (.writerLock, candidates[0])
         case 2...: return (.ambiguous, nil)
-        default: return (walk.runtime == nil ? .unknown : .runtimeOnly, nil)
+        default:
+            guard let runtime = walk.runtime else { return (.unknown, nil) }
+            if let session = listedSessions[runtime.sample.identity] { return (.sessionRegistry, session) }
+            return (.runtimeOnly, nil)
         }
     }
 }

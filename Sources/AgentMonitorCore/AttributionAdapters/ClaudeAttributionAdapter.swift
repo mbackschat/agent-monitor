@@ -40,6 +40,39 @@ struct ClaudeAttributionAdapter: AgentAttributionAdapter {
 
     func isSharedRuntime(_ attribution: Attribution) -> Bool { false }
 
+    /// `claude agents --json` is the documented way to read live session state from outside
+    /// Claude Code (https://code.claude.com/docs/en/agent-view). Nonessential traffic is disabled
+    /// because some listings otherwise opened HTTPS connections; see
+    /// docs/research/claude-runtime-attribution.md.
+    let sessionRegistry: SessionRegistryQuery? = SessionRegistryQuery(
+        tool: "Claude Code", command: ["claude", "agents", "--json"],
+        environment: ["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"])
+
+    /// Entries without a PID describe no live runtime and are skipped; unknown statuses are kept
+    /// inactive so they still count when deciding whether a PID is listed exactly once.
+    func runtimeSessions(fromRegistry output: Data) throws -> [RuntimeSession] {
+        try JSONDecoder().decode([ListedSession].self, from: output).compactMap { entry in
+            guard let pid = entry.pid, let runtimePID = Int32(exactly: pid), runtimePID > 0 else {
+                return nil
+            }
+            return RuntimeSession(
+                runtimePID: runtimePID,
+                sessionID: entry.sessionId.flatMap(UUID.init(uuidString:))?.uuidString.lowercased(),
+                active: entry.status.flatMap(ListedStatus.init(rawValue:)) != nil)
+        }
+    }
+
+    /// Fields are optional so one incomplete entry does not reject the whole listing.
+    private struct ListedSession: Decodable {
+        let pid: Int?
+        let sessionId: String?
+        let status: String?
+    }
+
+    private enum ListedStatus: String {
+        case busy, waiting, idle
+    }
+
     /// An unusable inbox leaves the session marker valid. sun_path holds 104 bytes including
     /// the terminator (sys/un.h); see docs/research/claude-session-messaging.md.
     private func inbox(_ values: Set<String>) -> String? {

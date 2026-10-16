@@ -18,6 +18,53 @@ public struct ContinuousSamplingClock: SamplingClock {
     public func now() -> Date { Date() }
 }
 
+/// Runs a harness's declared session listing; injected so tests never start a provider CLI.
+package protocol SessionRegistryReading: Sendable {
+    func output(of query: SessionRegistryQuery) throws -> Data
+}
+
+package struct CommandSessionRegistryReader: SessionRegistryReading {
+    private let executable: URL
+    private let prefix: [String]
+    private let timeout: TimeInterval
+
+    /// Sampling uses a short timeout: a listing that cannot finish leaves runtimes unresolved for
+    /// that sample. `executable` and `prefix` let tests substitute a fake CLI.
+    package init(
+        executable: URL = URL(fileURLWithPath: "/usr/bin/env"), prefix: [String] = [],
+        timeout: TimeInterval = 3
+    ) {
+        self.executable = executable
+        self.prefix = prefix
+        self.timeout = timeout
+    }
+
+    package func output(of query: SessionRegistryQuery) throws -> Data {
+        let command = try BoundedCommand(
+            executable: executable, arguments: prefix + query.command, environment: query.environment,
+            timeout: timeout, tool: query.tool)
+        defer { command.close() }
+        return try command.readOutput()
+    }
+}
+
+/// When each provider's listing is due: immediately for a runtime the previous listing did not
+/// cover, otherwise once a minute so bindings follow `/clear` or `/resume`. Failures wait the same
+/// minute because a listing costs a provider CLI start (docs/research/claude-runtime-attribution.md).
+struct SessionRegistryCadence {
+    private var previous: [AgentProvider: (at: Date, runtimes: Set<ProcessIdentity>)] = [:]
+
+    mutating func due(_ provider: AgentProvider, runtimes: Set<ProcessIdentity>, at now: Date) -> Bool {
+        if let last = previous[provider], runtimes.isSubset(of: last.runtimes), now >= last.at,
+            now.timeIntervalSince(last.at) < 60
+        {
+            return false
+        }
+        previous[provider] = (now, runtimes)
+        return true
+    }
+}
+
 public enum MonitoringError: Error { case invalidConfiguration }
 
 public struct MonitoringConfiguration: Sendable {
@@ -74,15 +121,27 @@ public struct MonitoringSession: Sendable {
     private let configuration: MonitoringConfiguration
     private let reader: any ProcessReading
     private let clock: any SamplingClock
+    private let registry: any SessionRegistryReading
     private let excluded: Set<Int32>
 
     public init(
         configuration: MonitoringConfiguration, reader: any ProcessReading,
         clock: any SamplingClock = ContinuousSamplingClock(), excluding: Set<Int32> = []
     ) {
+        self.init(
+            configuration: configuration, reader: reader, clock: clock,
+            registry: CommandSessionRegistryReader(),
+            excluding: excluding)
+    }
+
+    package init(
+        configuration: MonitoringConfiguration, reader: any ProcessReading, clock: any SamplingClock,
+        registry: any SessionRegistryReading, excluding: Set<Int32> = []
+    ) {
         self.configuration = configuration
         self.reader = reader
         self.clock = clock
+        self.registry = registry
         self.excluded = excluding
     }
 
@@ -134,6 +193,7 @@ public struct MonitoringSession: Sendable {
         monitor.ingest(try reader.snapshot(excluding: excluded).samples)
         var count = 0
         var lastAgentLoadAt: Date?
+        var cadence = SessionRegistryCadence()
         while configuration.samples == 0 || count < configuration.samples {
             let interval = try await wait(live)
             try Task.checkCancellation()
@@ -162,6 +222,23 @@ public struct MonitoringSession: Sendable {
                     reader.metadata(for: $0, includeCommand: configuration.includeCommands)
                 }
             }
+            var findings = monitor.findings(thresholds: thresholds, scope: configuration.scope)
+            var listed = false
+            for (provider, runtimes) in monitor.sessionRegistryRuntimes(in: findings)
+            where cadence.due(provider, runtimes: runtimes, at: sampledAt) {
+                guard let query = monitor.sessionRegistry(for: provider) else { continue }
+                let output: Data?
+                do {
+                    output = try registry.output(of: query)
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    output = nil
+                }
+                monitor.bindSessions(output, provider: provider)
+                listed = true
+            }
+            if listed { findings = monitor.findings(thresholds: thresholds, scope: configuration.scope) }
             try await receive(
                 MonitoringSnapshot(
                     timestamp: sampledAt, intervalSeconds: interval,
@@ -169,8 +246,7 @@ public struct MonitoringSession: Sendable {
                     memoryThresholdBytes: thresholds.memoryBytes,
                     sampledProcessCount: snapshot.samples.count,
                     unreadableProcessCount: snapshot.unreadableCount,
-                    findings: monitor.findings(
-                        thresholds: thresholds, scope: configuration.scope),
+                    findings: findings,
                     agentLoad: collectAgentLoad ? monitor.agentLoad() : nil))
             count += 1
         }

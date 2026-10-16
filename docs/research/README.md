@@ -4,7 +4,7 @@ These notes record dated observations, cited source behavior, labeled inferences
 
 Check this index before investigating a topic, and extend the matching note rather than starting a parallel one. Every new note or retained measurement gets an entry here in the same commit.
 
-Current behavior and accepted contracts belong in the [README](../../README.md) and [architecture](../architecture.md). Repeatable checks and live coverage belong in [development](../development.md#validation-coverage); unfinished work and scope decisions belong in [PLAN.md](../../PLAN.md). Unapproved designs are separate [menu bar](../proposals/menubar-app.md), [contributor-model](../proposals/agent-working-model.md) and [Claude runtime binding](../proposals/claude-runtime-binding.md) proposals.
+Current behavior and accepted contracts belong in the [README](../../README.md) and [architecture](../architecture.md). Repeatable checks and live coverage belong in [development](../development.md#validation-coverage); unfinished work and scope decisions belong in [PLAN.md](../../PLAN.md). Unapproved designs are separate [menu bar](../proposals/menubar-app.md), [contributor-model](../proposals/agent-working-model.md) and [Claude runtime binding](../proposals/claude-runtime-binding.md) proposals, and the [Codex session listing](../proposals/codex-session-registry-research.md) research brief.
 
 ## Findings by topic
 

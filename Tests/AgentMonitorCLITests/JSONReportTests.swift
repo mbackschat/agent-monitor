@@ -11,7 +11,7 @@ import Testing
     let schema = try #require(JSONSerialization.jsonObject(with: JSONReport.schema()) as? [String: Any])
     #expect(schema["$schema"] as? String == "https://json-schema.org/draft/2020-12/schema")
     let properties = try #require(schema["properties"] as? [String: [String: Any]])
-    #expect(properties["schemaVersion"]?["const"] as? Int == 1)
+    #expect(properties["schemaVersion"]?["const"] as? Int == 2)
 }
 
 @Test func jsonlContainsOneCompleteRecordPerLineEvenWhenArgumentsContainNewlines() throws {

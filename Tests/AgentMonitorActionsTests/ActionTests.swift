@@ -124,6 +124,8 @@ func unverifiableRecipientsAreRejected(row: HeavyProcess) async {
     (workload(context: .unverified), false, false),
     (workload(evidence: .ambiguous), false, true),
     (workload(evidence: .runtimeOnly), false, true),
+    // A listed session has no marker-carried inbox, so messaging stays closed.
+    (workload(evidence: .sessionRegistry), false, true),
 ])
 func snapshotEligibilityUsesTheExecutionPrerequisites(
     process: HeavyProcess, message: Bool, focus: Bool

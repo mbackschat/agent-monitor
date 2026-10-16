@@ -220,6 +220,8 @@ public struct SessionActions: ProcessActions {
         switch process.attribution.evidence {
         case .marker, .inheritedMarker, .writerLock:
             return MessageTarget(process: process, session: thread, runtime: runtime)
+        case .sessionRegistry:
+            throw ActionFailure("Only a process carrying its session marker can receive messages.")
         case .runtimeOnly, .ambiguous, .unknown:
             throw ActionFailure("Ambiguous or unresolved attribution cannot receive messages.")
         }
