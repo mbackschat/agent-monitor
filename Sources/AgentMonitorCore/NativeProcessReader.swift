@@ -5,6 +5,19 @@ public struct ProcessSnapshot: Sendable {
     public let samples: [ProcessSample]
     public let enumeratedCount: Int
     public let unreadableCount: Int
+    public let listedAt: Double
+    public let scanSeconds: Double
+
+    public init(
+        samples: [ProcessSample], enumeratedCount: Int, unreadableCount: Int,
+        listedAt: Double, scanSeconds: Double
+    ) {
+        self.samples = samples
+        self.enumeratedCount = enumeratedCount
+        self.unreadableCount = unreadableCount
+        self.listedAt = listedAt
+        self.scanSeconds = scanSeconds
+    }
 }
 
 public struct NativeProcessReader: Sendable {
@@ -27,6 +40,13 @@ public struct NativeProcessReader: Sendable {
     }
 
     public func snapshot(excluding excluded: Set<Int32> = []) throws -> ProcessSnapshot {
+        try snapshot(processIDs: processIDs, excluding: excluded)
+    }
+
+    func snapshot(processIDs: () throws -> [Int32], excluding excluded: Set<Int32> = []) throws
+        -> ProcessSnapshot
+    {
+        let listedAt = seconds(mach_absolute_time())
         let pids = try processIDs()
         var samples: [ProcessSample] = []
         var unreadable = 0
@@ -56,10 +76,13 @@ public struct NativeProcessReader: Sendable {
                 sampledAt: timestamp, cpuSeconds: cpu,
                 footprintBytes: resourceResult == 0 ? usage.ri_phys_footprint : nil
             )
+            sample.startedAt = resourceResult == 0 ? seconds(usage.ri_proc_start_abstime) : nil
             sample.terminalDevice = info.e_tdev == 0 || info.e_tdev == UInt32.max ? nil : info.e_tdev
             samples.append(sample)
         }
-        return ProcessSnapshot(samples: samples, enumeratedCount: pids.count, unreadableCount: unreadable)
+        return ProcessSnapshot(
+            samples: samples, enumeratedCount: pids.count, unreadableCount: unreadable,
+            listedAt: listedAt, scanSeconds: seconds(mach_absolute_time()) - listedAt)
     }
 
     public func metadata(for sample: ProcessSample, includeCommand: Bool = false) -> ProcessMetadata {

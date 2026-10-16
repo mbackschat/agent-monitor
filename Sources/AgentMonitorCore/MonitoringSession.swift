@@ -149,8 +149,8 @@ public struct MonitoringSession: Sendable {
     public var initialInterval: Double { configuration.intervalSeconds }
 
     /// Waits one interval and returns it. Changing a live interval wakes the wait, which then
-    /// counts the time already waited against the new interval; CPU stays exact because it
-    /// divides by the measured time between samples.
+    /// counts the time already waited against the new interval; CPU uses measured times,
+    /// including the newborn listing boundary defined in docs/architecture.md#cpu-accounting.
     private func wait(_ live: LiveInterval?) async throws -> Double {
         guard let live else {
             try await clock.wait(seconds: configuration.intervalSeconds)
@@ -217,7 +217,7 @@ public struct MonitoringSession: Sendable {
     ) async throws {
         try Task.checkCancellation()
         var monitor = Monitor()
-        monitor.ingest(try reader.snapshot(excluding: excluded).samples)
+        monitor.ingest(try reader.snapshot(excluding: excluded))
         var count = 0
         var lastAgentLoadAt: Date?
         var cadence = SessionRegistryCadence()
@@ -230,7 +230,7 @@ public struct MonitoringSession: Sendable {
             }
             try Task.checkCancellation()
             let snapshot = try reader.snapshot(excluding: excluded)
-            monitor.ingest(snapshot.samples)
+            monitor.ingest(snapshot)
             let sampledAt = clock.now()
             // Full-population metadata reads dominate history cost; see docs/research/menu-bar-load-cost.md.
             let collectAgentLoad =

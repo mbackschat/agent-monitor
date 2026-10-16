@@ -32,7 +32,7 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
         if index > 0 && failCollection { throw SessionFixtureError.collection }
         return ProcessSnapshot(
             samples: [sample(42, at: 1 + Double(index) * 2, cpu: Double(index), memory: 1)],
-            enumeratedCount: 3, unreadableCount: 2)
+            enumeratedCount: 3, unreadableCount: 2, listedAt: 1 + Double(index) * 2, scanSeconds: 0)
     }
 
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {

@@ -101,7 +101,9 @@ private final class NativeCollectionFixture: ProcessReading, SamplingClock, Sess
                 executable: "/bin/zsh", name: "zsh", sampledAt: at, cpuSeconds: at,
                 footprintBytes: 2_000_000_000),
         ].filter { !excluding.contains($0.identity.pid) }
-        return ProcessSnapshot(samples: samples, enumeratedCount: samples.count, unreadableCount: 0)
+        return ProcessSnapshot(
+            samples: samples, enumeratedCount: samples.count, unreadableCount: 0, listedAt: at, scanSeconds: 0
+        )
     }
 
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {

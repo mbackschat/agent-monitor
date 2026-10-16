@@ -19,6 +19,7 @@ public struct Monitor: Sendable {
     }
 
     private var nodes: [ProcessIdentity: Node] = [:]
+    private var previousListing: Double?
     private var live: Set<ProcessIdentity> = []
     private var runtimes: [AgentProvider: Set<ProcessIdentity>] = [:]
     /// Sessions that runtime lifetimes host according to their harness's latest listing.
@@ -29,21 +30,32 @@ public struct Monitor: Sendable {
 
     init(adapters: AttributionAdapters) { self.adapters = adapters }
 
-    public mutating func ingest(_ samples: [ProcessSample]) {
+    public mutating func ingest(_ snapshot: ProcessSnapshot) {
+        ingest(snapshot.samples, listedAt: snapshot.listedAt)
+    }
+
+    public mutating func ingest(_ samples: [ProcessSample], listedAt: Double? = nil) {
         let byPID = Dictionary(
             samples.map { ($0.identity.pid, $0.identity) }, uniquingKeysWith: { _, new in new })
+        let previouslyLive = live
+        defer { previousListing = listedAt }
         live = Set(samples.map(\.identity))
         for sample in samples {
             var node =
                 nodes[sample.identity]
                 ?? Node(
                     sample: sample, recognizedProviders: adapters.runtimeProviders(for: sample.executable))
-            let previous = nodes[sample.identity]?.sample
+            let previous = previouslyLive.contains(sample.identity) ? nodes[sample.identity]?.sample : nil
             node.cpuPercent = nil
             if let previous, let oldCPU = previous.cpuSeconds, let newCPU = sample.cpuSeconds,
                 sample.sampledAt > previous.sampledAt, newCPU >= oldCPU
             {
                 node.cpuPercent = 100 * (newCPU - oldCPU) / (sample.sampledAt - previous.sampledAt)
+            } else if previous == nil, let previousListing, let birth = sample.startedAt,
+                birth > previousListing, birth <= sample.sampledAt,
+                sample.sampledAt > previousListing, let cpu = sample.cpuSeconds, cpu >= 0
+            {
+                node.cpuPercent = 100 * cpu / (sample.sampledAt - previousListing)
             }
             if node.sample.executable != sample.executable {
                 node.metadata = ProcessMetadata(status: .unavailable)
