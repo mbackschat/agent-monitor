@@ -12,7 +12,7 @@ struct ReportTable {
 
     init(metrics: [(cpu: Double?, memoryGB: Double?)], processNames: [String]) {
         preferredProcessWidth = max(
-            "PROCESS".count, processNames.map { TextReport.safe($0).count }.max() ?? 0)
+            "PROCESS".count, processNames.map { TerminalCells.width(TextReport.safe($0)) }.max() ?? 0)
         cpuWidth = max(6, metrics.map { Self.number($0.cpu).count }.max() ?? 0)
         memoryWidth = max(5, metrics.map { Self.number($0.memoryGB).count }.max() ?? 0)
     }
@@ -73,7 +73,7 @@ struct ReportTable {
     }
 
     static func pad(_ value: String, to width: Int) -> String {
-        String(value.prefix(width)).padding(toLength: width, withPad: " ", startingAt: 0)
+        TerminalCells.padded(TextReport.safe(value), to: width)
     }
 
     private func right(_ value: String, width: Int) -> String {

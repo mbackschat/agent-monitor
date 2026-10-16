@@ -24,7 +24,7 @@ public enum LiveReportLayout {
                     ReportLine("Agent Monitor"), ReportLine("Resize to 40x8 or larger"),
                     ReportLine(state.actionPanel == nil ? "q/Ctrl-C quit" : "Ctrl-C quit"),
                 ].prefix(height)
-            ).map { ReportLine(String($0.text.prefix(width)), style: $0.style) }
+            ).map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
         }
         if let panel = state.actionPanel { return panel.lines(width: width, height: height) }
         var lines = headerLines(state: state, width: width)
@@ -35,7 +35,7 @@ public enum LiveReportLayout {
         lines += processLines(state: state, width: width, height: available - detailHeight)
         lines += detailsPane(state: state, width: width, height: detailHeight)
         lines += footer.map { ReportLine($0, style: .muted) }
-        return lines.map { ReportLine(String($0.text.prefix(width)), style: $0.style) }
+        return lines.map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
     }
 
     public static func maximumDetailOffset(state: LiveReportState, width: Int, height: Int) -> Int {
@@ -148,8 +148,7 @@ public enum LiveReportLayout {
     }
 
     private static func abbreviated(_ text: String, width: Int) -> String {
-        guard text.count > width else { return text }
-        return String(text.prefix(max(0, width - 1))) + (width > 0 ? "…" : "")
+        TerminalCells.abbreviated(TextReport.safe(text), to: width)
     }
 
     private static func detailHeight(state: LiveReportState, available: Int) -> Int {
@@ -331,16 +330,7 @@ public enum LiveReportLayout {
     }
 
     private static func wrapped(_ values: [String], width: Int) -> [String] {
-        return values.flatMap { value -> [String] in
-            var remaining = TextReport.safe(value)[...]
-            var result: [String] = []
-            while !remaining.isEmpty {
-                let end = remaining.index(remaining.startIndex, offsetBy: min(width, remaining.count))
-                result.append(String(remaining[..<end]))
-                remaining = remaining[end...]
-            }
-            return result
-        }
+        values.flatMap { TerminalCells.wrapped(TextReport.safe($0), to: width) }
     }
 
     /// Local wall-clock time of the frozen snapshot, so the user can judge how stale it is.

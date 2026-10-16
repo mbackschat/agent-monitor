@@ -13,6 +13,34 @@ Versions and revisions come from [Package.resolved](https://github.com/mbackscha
 | [Swift Async Algorithms](https://github.com/apple/swift-async-algorithms/tree/d0b4a06d0f173a2f3be27d3ea21b3c3aa18db440) | 1.1.4; transitive SwiftTUI dependency | [Apache 2.0 with Swift Runtime Library Exception](https://github.com/apple/swift-async-algorithms/blob/d0b4a06d0f173a2f3be27d3ea21b3c3aa18db440/LICENSE.txt); Apple Inc. and the Swift project authors | `licenses/swift-async-algorithms/LICENSE.txt` |
 | [Swift Collections](https://github.com/apple/swift-collections/tree/35a1edcb8ebd2bfe251d587f0b69e62af28f508c) | 1.7.3; transitive SwiftTUI dependency | [Apache 2.0 with Swift Runtime Library Exception](https://github.com/apple/swift-collections/blob/35a1edcb8ebd2bfe251d587f0b69e62af28f508c/LICENSE.txt); Apple Inc. and the Swift project authors | `licenses/swift-collections/LICENSE.txt` |
 
+## Terminal width classification adapted from SwiftTUI
+
+[TerminalCells.swift](Sources/AgentMonitorPresentation/TerminalCells.swift) adapts the width classification in [TextCellWidth.swift at the pinned SwiftTUI revision](https://github.com/SwiftTUI/swift-tui/blob/581c3ab7e2383ce86fcebe36e81041aecac443a5/Sources/SwiftTUIPrimitives/Content/TextCellWidth.swift). Presentation stays independent of SwiftTUI while matching the renderer's cell geometry. The adapted classification retains its MIT terms:
+
+```text
+MIT License
+
+Copyright (c) 2026 OPTIONAL.DEV
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## Components vendored by SwiftTUI
 
 These copies are part of the pinned SwiftTUI revision, not separate entries in the SwiftPM lock file. The release packager preserves the notices for all of SwiftTUI's vendored components, including swift-gif, whose animated-image target is not used by Agent Monitor's executable.

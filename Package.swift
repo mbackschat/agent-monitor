@@ -58,6 +58,7 @@ let package = Package(
             name: "AgentMonitorCLITests",
             dependencies: [
                 "AgentMonitor", .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "SwiftTUIViews", package: "swift-tui"),
             ]),
     ],
     swiftLanguageModes: [.v6]

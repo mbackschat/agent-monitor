@@ -81,7 +81,9 @@ enum Preview {
             }
             // SVG 2 lengthAdjust can scale glyphs; terminal cells need positions, not fitted text.
             // https://www.w3.org/TR/SVG2/text.html#TextElementLengthAdjustAttribute
-            let glyphs = text.enumerated().compactMap { column, character -> String? in
+            var column = 0
+            let glyphs = text.compactMap { character -> String? in
+                defer { column += TerminalCells.width(character) }
                 guard character != " " else { return nil }
                 return "<tspan x=\"\(24 + column * 9)\">\(escape(String(character)))</tspan>"
             }.joined()

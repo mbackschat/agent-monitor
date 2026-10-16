@@ -4,6 +4,13 @@ import Testing
 
 @testable import monitor_preview
 
+@Test func previewAdvancesByWideGlyphCells() {
+    let svg = Preview.svg(lines: [ReportLine("编译 x")], width: 40, height: 8)
+    #expect(svg.contains("<tspan x=\"24\">编</tspan>"))
+    #expect(svg.contains("<tspan x=\"42\">译</tspan>"))
+    #expect(svg.contains("<tspan x=\"69\">x</tspan>"))
+}
+
 @Test(arguments: ["I   W", "PID      CPU%"])
 func previewPositionsTerminalCellsWithoutStretchingGlyphs(text: String) {
     let svg = Preview.svg(lines: [ReportLine(text)], width: 40, height: 8)
