@@ -32,7 +32,9 @@ public enum LiveReportLayout {
         if let panel = state.actionPanel { return panel.lines(width: width, height: height) }
         var lines = headerLines(state: state, width: width)
         lines.append(historyLine(state: state, width: width))
-        let footer = helpLines(width: width, height: height, headerHeight: lines.count, frozen: state.frozen)
+        let footer = helpLines(
+            width: width, height: height, headerHeight: lines.count, frozen: state.frozen,
+            diagnosisRunning: state.diagnosis.isRunning)
         let available = height - lines.count - footer.count
         let detailHeight = detailHeight(state: state, available: available)
         lines += processLines(state: state, width: width, height: available - detailHeight)
@@ -46,7 +48,10 @@ public enum LiveReportLayout {
         let headerHeight = headerLines(state: state, width: width).count + 1
         let available =
             height - headerHeight
-            - helpLines(width: width, height: height, headerHeight: headerHeight, frozen: state.frozen).count
+            - helpLines(
+                width: width, height: height, headerHeight: headerHeight, frozen: state.frozen,
+                diagnosisRunning: state.diagnosis.isRunning
+            ).count
         let visible = detailHeight(state: state, available: available) - 1
         guard visible > 0 else { return 0 }
         return max(0, detailLines(state: state, width: width).count - visible)
@@ -110,14 +115,16 @@ public enum LiveReportLayout {
         }
     }
 
-    private static func helpLines(width: Int, height: Int, headerHeight: Int, frozen: Bool) -> [String] {
+    private static func helpLines(
+        width: Int, height: Int, headerHeight: Int, frozen: Bool, diagnosisRunning: Bool
+    ) -> [String] {
+        let diagnosisHint = diagnosisRunning ? DiagnosisViewState.cleanupHint : DiagnosisViewState.keyHint
         let groups = [
             [
                 "↑/↓ select", "←/→ fold", "g group", "c/m/n/o sort", "r reverse",
-                ". pin",
+                ". pin", diagnosisHint,
             ],
             [frozen ? "p resume" : "p pause", "k terminate", "s message", "f focus"],
-            [DiagnosisViewState.keyHint],
             ["1/2 CPU -/+10%", "3/4 GB -/+1", "</> interval"],
             ["[/] scroll", "-/+ size", "0 min", "9 max", "= restore", "q/Ctrl-C quit"],
         ]
@@ -133,21 +140,18 @@ public enum LiveReportLayout {
             }
         }
         for controls in groups {
-            let group = controls.joined(separator: "   ")
-            if group.count <= width {
-                append(group, separator: "  |  ")
-            } else {
-                for (index, control) in controls.enumerated() {
-                    append(control, separator: index == 0 ? "  |  " : "   ")
-                }
+            for (index, control) in controls.enumerated() {
+                append(control, separator: index == 0 ? " | " : "  ")
             }
         }
         lines.append(line)
         return lines.count <= height - headerHeight - 3
             ? lines
             : [
-                DiagnosisViewState.keyHint,
-                frozen ? "p resume | q/Ctrl-C quit" : "p pause | q/Ctrl-C quit",
+                diagnosisRunning ? diagnosisHint : "\(diagnosisHint) | Resize for all keys",
+                diagnosisRunning
+                    ? "Resize for all keys | q/Ctrl-C quit"
+                    : (frozen ? "p resume | q/Ctrl-C quit" : "p pause | q/Ctrl-C quit"),
             ]
     }
 

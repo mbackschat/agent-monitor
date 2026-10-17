@@ -91,6 +91,31 @@ import Testing
         await controller.stop()
     }
 
+    @Test func liveFooterExplainsCleanupUntilAnotherDiagnosisCanStart() async {
+        let gate = DiagnosisGate()
+        let controller = CPUDiagnosisController(source: { try await gate.run() })
+        controller.start()
+        await gate.waitUntilStarted()
+        controller.dismiss()
+        #expect(!controller.start())
+        var live = LiveReportState()
+        live.diagnosis = controller.state
+        for (width, height) in [(40, 8), (60, 12), (100, 24)] {
+            let lines = LiveReportLayout.lines(state: live, width: width, height: height)
+            #expect(
+                lines.contains { $0.text.contains("diagnosis cleanup in progress") && $0.style == .muted })
+            #expect(!lines.contains { $0.text.contains("d CPU diagnosis") })
+            #expect(lines.contains { $0.text.contains("q/Ctrl-C quit") })
+            if height < 24 { #expect(lines.contains { $0.text.contains("Resize for all keys") }) }
+        }
+        await gate.release(diagnosisPresentationFixture())
+        await controller.waitForCompletion()
+        live.diagnosis = controller.state
+        let lines = LiveReportLayout.lines(state: live, width: 100, height: 24)
+        #expect(lines.contains { $0.text.contains("d CPU diagnosis") })
+        #expect(!lines.contains { $0.text.contains("cleanup in progress") })
+    }
+
     @Test func stopCancelsAndWaitsForOwnedWork() async {
         let gate = DiagnosisGate()
         let controller = CPUDiagnosisController(source: { try await gate.run() })

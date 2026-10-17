@@ -9,7 +9,8 @@ public struct DiagnosisViewState: Equatable, Sendable {
 
     public static let help =
         "Measures from now: three one-second waits plus scan time; provider lookup may add up to three seconds per queried provider."
-    public static let keyHint = "d CPU (3s+scans+up to 3s/provider)"
+    public static let keyHint = "d CPU diagnosis"
+    public static let cleanupHint = "CPU diagnosis cleanup in progress"
     public static let limits =
         "Collection and provider lookups add resource use. Monitor helper flags cover only observed relations to this interface; reparented/unobserved helpers and other monitor instances may be unflagged."
 
