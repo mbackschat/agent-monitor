@@ -109,6 +109,14 @@ class ReleaseTests(unittest.TestCase):
             self.update()
         self.assertTrue(self.formula.read_text().endswith('# user edit\n'))
 
+    def test_refuses_a_staged_formula_edit_even_if_working_copy_was_restored(self):
+        self.formula.write_text(OLD + '# staged user edit\n')
+        self.git('-C', str(self.tap), 'add', 'Formula/agent-monitor.rb')
+        self.formula.write_text(OLD)
+        with self.assertRaises(RuntimeError):
+            self.update()
+        self.assertIn('# staged user edit', self.git('-C', str(self.tap), 'show', ':Formula/agent-monitor.rb'))
+
     def test_refuses_wrong_push_identity(self):
         self.git('-C', str(self.tap), 'config', 'user.email', 'wrong@example.invalid')
         with self.assertRaises(RuntimeError):

@@ -31,6 +31,7 @@ source_version=$(sed -n 's/.*current = "\(.*\)".*/\1/p' Sources/AgentMonitorCore
 if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then fail "$tag already exists"; fi
 [ "$(git branch --show-current)" = main ] || fail 'release from main'
 [ -z "$(git status --porcelain)" ] || fail 'commit or stash all changes first'
+prepared_revision=$(git rev-parse HEAD)
 previous=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
 
 if [ "$mode" = prepare ]; then
@@ -50,10 +51,12 @@ if [ "$mode" = prepare ]; then
     uv run scripts/verify-json-schema.py .build/release/agent-monitor --diagnosis \
         --records "$release_validation/diagnosis.jsonl"
     python3 scripts/verify-tui-terminal.py .build/release/monitor-tui-fixture --fixture
+    [ "$(git rev-parse HEAD)" = "$prepared_revision" ] && [ -z "$(git status --porcelain)" ] \
+        || fail 'source changed during preparation; commit the final revision and prepare again'
     uv run scripts/package-release.py .build/release
     # The archive is stripped; the unstripped executable is needed to symbolicate crash reports.
     cp .build/release/agent-monitor "dist/$name-unstripped"
-    git rev-parse HEAD > "dist/$name.commit"
+    printf '%s\n' "$prepared_revision" > "dist/$name.commit"
     if [ ! -f "$notes" ]; then
         {
             printf '# Agent Monitor %s\n\nTODO: one-sentence summary.\n\n## Changed\n\n' "$version"

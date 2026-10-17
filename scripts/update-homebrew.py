@@ -59,11 +59,14 @@ def update_tap(tap, version, checksum):
     baseline = git('show', f'HEAD:{FORMULA_PATH}') + '\n'
     desired = formula_text(baseline, version, checksum)
     changed = set(git('diff', 'HEAD', '--name-only').splitlines())
-    changed.update(git('diff', '--cached', '--name-only').splitlines())
+    staged = set(git('diff', '--cached', '--name-only').splitlines())
+    changed.update(staged)
     if git('ls-files', '--others', '--exclude-standard') or changed - {FORMULA_PATH}:
         raise RuntimeError('The tap contains unrelated changes; leave them untouched')
     if formula.read_text() not in (baseline, desired):
         raise RuntimeError('The formula contains edits outside this release update')
+    if FORMULA_PATH in staged and git('show', f':{FORMULA_PATH}') + '\n' not in (baseline, desired):
+        raise RuntimeError('The formula has staged edits outside this release update')
     git('fetch', 'origin', 'main')
     behind, ahead = map(int, git('rev-list', '--left-right', '--count', 'origin/main...HEAD').split())
     subject = f'chore(agent-monitor): update to {version}'
