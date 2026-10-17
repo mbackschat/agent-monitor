@@ -4,7 +4,8 @@ public struct DiagnosisViewState: Equatable, Sendable {
     public enum Phase: String, Sendable { case hidden, collecting, completed, failed, cancelled }
     public internal(set) var phase: Phase = .hidden
     public internal(set) var isRunning = false
-    public internal(set) var content: [ReportLine] = []
+    public internal(set) var sections: [DiagnosisReportSection] = []
+    public var content: [ReportLine] { DiagnosisReportSection.displayLines(sections) }
     public var isVisible: Bool { phase != .hidden }
 
     public static let purpose = "Find which processes use the most CPU during a short observation."
@@ -22,10 +23,10 @@ public struct DiagnosisViewState: Equatable, Sendable {
 
     public init() {}
 
-    init(phase: Phase = .hidden, isRunning: Bool = false, content: [ReportLine] = []) {
+    init(phase: Phase = .hidden, isRunning: Bool = false, sections: [DiagnosisReportSection] = []) {
         self.phase = phase
         self.isRunning = isRunning
-        self.content = content
+        self.sections = sections
     }
 
     public var lines: [ReportLine] {
@@ -49,19 +50,19 @@ public struct DiagnosisViewState: Equatable, Sendable {
         return content.map(\.text).joined(separator: "\n")
     }
 
-    static func resultLines(_ value: CPUDiagnosis) -> [ReportLine] {
-        [
+    static func resultSections(_ value: CPUDiagnosis) -> [DiagnosisReportSection] {
+        var sections = DiagnosisText.sections(value, includingHelperFlags: true)
+        sections[0].lines.append(
             ReportLine(
-                "Window started at invocation; result stays fixed until rerun or dismissal.", style: .muted),
+                "Window started at invocation; result stays fixed until rerun or dismissal.", style: .muted))
+        sections[sections.count - 1].lines += [
             ReportLine(Self.interpretation),
+            ReportLine(
+                "Launch-origin evidence is not proof of current use or exclusive ownership of shared daemons.",
+                style: .muted),
+            ReportLine(Self.limits, style: .muted),
         ]
-            + DiagnosisText.lines(value, includingHelperFlags: true).map { ReportLine($0) }
-            + [
-                ReportLine(
-                    "Launch-origin evidence is not proof of current use or exclusive ownership of shared daemons.",
-                    style: .muted),
-                ReportLine(Self.limits, style: .muted),
-            ]
+        return sections
     }
 
     private func wrapped(width: Int) -> [ReportLine] {

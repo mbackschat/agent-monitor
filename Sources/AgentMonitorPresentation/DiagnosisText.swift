@@ -10,12 +10,17 @@ public enum DiagnosisText {
     }
 
     static func lines(_ value: CPUDiagnosis, includingHelperFlags: Bool) -> [String] {
+        DiagnosisReportSection.displayLines(sections(value, includingHelperFlags: includingHelperFlags)).map(
+            \.text)
+    }
+
+    static func sections(_ value: CPUDiagnosis, includingHelperFlags: Bool) -> [DiagnosisReportSection] {
         let report = JSONDiagnosis(value)
         let capacity = report.host.logicalCPUCount.map { " of \($0 * 100)%" } ?? ""
         let host = report.host.meanBusyPercent.map { number($0) + "%" } ?? "No data"
         let measured = report.measured.cpuSeconds.map { number($0) + " CPU-s" } ?? "No data"
         let percent = report.measured.windowCPUPercent.map { " (\(number($0))% of the window)" } ?? ""
-        var lines = [
+        let summary = [
             "CPU diagnosis: \(JSONDiagnosis.timestamp(value.startedAt)) – \(JSONDiagnosis.timestamp(value.endedAt))",
             "Window \(number(value.elapsedSeconds))s; 3 one-second waits; largest scan \(number(value.maximumScanSeconds))s.",
             "CPU: host \(host)\(capacity) · your measured processes \(measured)\(percent)",
@@ -23,11 +28,18 @@ public enum DiagnosisText {
             "Lifetimes: \(value.observedLifetimeCount) observed, \(value.measuredLifetimeCount) measured; \(value.unmeasuredObservationCount) unmeasured observations, \(value.unreadableObservationCount) unreadable reads.",
             "Contributors: \(report.contributors.count) returned, \(value.omittedContributorCount) omitted; totals include both. 100% = one logical CPU.",
         ]
-        for (row, measured) in zip(report.contributors, value.contributors) {
+        var sections = [
+            DiagnosisReportSection(kind: .summary, title: "Summary", lines: summary.map { ReportLine($0) })
+        ]
+        for (index, pair) in zip(report.contributors, value.contributors).enumerated() {
+            let (row, measured) = pair
             let helper = includingHelperFlags && measured.isMonitorHelper ? " [Monitor helper]" : ""
-            lines.append(
-                "\(row.process.pid)/\(row.process.startMicroseconds)\(helper) \(quoted(row.label))\(row.labelTruncated ? " [label truncated]" : ""): \(number(row.cpuSeconds)) CPU-s, mean \(number(row.meanCPUPercent))%, peak \(number(row.peakCPUPercent))%; \(number(row.observedSeconds))s across \(row.validIntervals) intervals."
-            )
+            let title =
+                "\(index + 1). \(quoted(row.label))\(row.labelTruncated ? " [label truncated]" : "") · \(number(row.cpuSeconds)) CPU-s"
+            var lines = [
+                "Process: \(row.process.pid)/\(row.process.startMicroseconds)\(helper)",
+                "CPU: mean \(number(row.meanCPUPercent))%, peak \(number(row.peakCPUPercent))%; \(number(row.observedSeconds))s across \(row.validIntervals) intervals.",
+            ]
             if let footprint = row.footprint {
                 lines.append(
                     "  Footprint: \(footprint.bytes) bytes at \(JSONDiagnosis.timestamp(footprint.sampledAt))."
@@ -61,15 +73,26 @@ public enum DiagnosisText {
                     "  Observed ancestry: \(owner.ancestry.map { "\($0.pid)/\($0.startMicroseconds)" }.joined(separator: " ← "))."
                 )
             }
+            sections.append(
+                DiagnosisReportSection(
+                    kind: .contributor, title: title,
+                    lines: lines.enumerated().map { index, line in
+                        ReportLine(line, style: index < 2 ? .normal : .muted)
+                    }))
         }
-        lines.append(
+        var lines = [
             "Provider lookups: "
                 + (report.providerLookups.isEmpty
                     ? "none."
                     : report.providerLookups.map { "\($0.provider.rawValue) \($0.status)" }.joined(
-                        separator: ", ")))
+                        separator: ", "))
+        ]
         lines += value.diagnostics.map { "\($0.rawValue): \($0.explanation)" }
-        return lines
+        sections.append(
+            DiagnosisReportSection(
+                kind: .notes, title: "Coverage and interpretation",
+                lines: lines.map { ReportLine($0, style: .muted) }))
+        return sections
     }
 
     private static func quoted(_ value: String) -> String {

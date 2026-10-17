@@ -4,6 +4,42 @@ import Foundation
 import Testing
 
 @Suite @MainActor struct InteractiveDiagnosisTests {
+    @Test func completedReportSeparatesRankedContributorsWithoutLosingEvidence() async throws {
+        let value = diagnosisPresentationFixture(available: true, helper: true)
+        let controller = CPUDiagnosisController(source: { value })
+        controller.start()
+        await controller.waitForCompletion()
+        let sections = controller.state.sections
+        #expect(sections.map(\.kind) == [.summary, .contributor, .contributor, .notes])
+        #expect(sections[1].title == "1. \"compiler\" · 2.400 CPU-s")
+        #expect(sections[2].title == "2. \"worker\" · 1.500 CPU-s")
+        let first = sections[1].lines.map(\.text).joined(separator: "\n")
+        #expect(first.contains("42001/\(UInt64.max) [Monitor helper]"))
+        #expect(first.contains("mean 80.000%, peak 100.000%"))
+        #expect(first.contains("Candidate alternatives:"))
+        #expect(first.contains("Footprint: 123 bytes"))
+        #expect(!first.contains("42002/"))
+        let text = try #require(controller.state.reportText)
+        for section in sections.dropFirst() {
+            #expect(text.contains("\n\n\(section.title)\n"))
+        }
+        #expect(text.contains("not proof of exit"))
+        #expect(text.contains("unreadableObservations"))
+        #expect(text.contains(DiagnosisViewState.interpretation))
+        #expect(controller.state.lines.contains { $0.text == sections[1].title && $0.style == .heading })
+        controller.dismiss()
+        #expect(controller.state.sections.isEmpty)
+    }
+
+    @Test func emptyReportRetainsSummaryAndCoverageWithoutInventingContributors() async {
+        let controller = CPUDiagnosisController(source: { diagnosisPresentationFixture(empty: true) })
+        controller.start()
+        await controller.waitForCompletion()
+        #expect(controller.state.sections.map(\.kind) == [.summary, .notes])
+        #expect(controller.state.reportText?.contains("No data") == true)
+        #expect(controller.state.reportText?.contains("0 returned") == true)
+    }
+
     @Test func cancellationIsImmediateAndDrainsBeforeRerunWithoutLatePublication() async {
         let gate = DiagnosisGate()
         let controller = CPUDiagnosisController(source: { try await gate.run() })

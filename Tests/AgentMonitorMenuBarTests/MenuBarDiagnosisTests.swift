@@ -80,24 +80,31 @@ import Testing
     await model.stop()
 }
 
-func menuBarDiagnosisFixture() async throws -> CPUDiagnosis {
-    let reader = NativeDiagnosisFixture()
+func menuBarDiagnosisFixture(processCount: Int = 1) async throws -> CPUDiagnosis {
+    let reader = NativeDiagnosisFixture(processCount: processCount)
     return try await CPUDiagnosisSession(reader: reader, clock: reader, excluding: [99], monitorPID: 99).run()
 }
 
 private final class NativeDiagnosisFixture: DiagnosisReading, SamplingClock, Sendable {
     private let index = Mutex(0)
+    let processCount: Int
+
+    init(processCount: Int) { self.processCount = processCount }
+
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
         let tick = index.withLock { value in
             defer { value += 1 }
             return value
         }
-        let sample = ProcessSample(
-            identity: ProcessIdentity(pid: 42001, startMicroseconds: 1), parentPID: 99,
-            executable: "/fixture/compiler", name: "compiler", sampledAt: 10 + Double(tick),
-            cpuSeconds: Double(tick), footprintBytes: 1_200_000)
+        let samples = (0..<processCount).map { offset in
+            let name = offset == 0 ? "compiler" : "worker"
+            return ProcessSample(
+                identity: ProcessIdentity(pid: 42001 + Int32(offset), startMicroseconds: 1), parentPID: 99,
+                executable: "/fixture/" + name, name: name, sampledAt: 10 + Double(tick),
+                cpuSeconds: Double(tick) / Double(offset + 1), footprintBytes: 1_200_000)
+        }
         return ProcessSnapshot(
-            samples: [sample], enumeratedCount: 1, unreadableCount: 0,
+            samples: samples, enumeratedCount: samples.count, unreadableCount: 0,
             listedAt: 10 + Double(tick), scanSeconds: 0.05, hostCounters: nil, logicalCPUCount: 8)
     }
     func observation(for sample: ProcessSample) -> DiagnosisObservation { .observed(ProcessMetadata()) }
@@ -132,7 +139,7 @@ private actor NativeDiagnosisGate {
     let model = MenuBarModel(
         diagnosisSource: {
             switch phase {
-            case .completed: return try await menuBarDiagnosisFixture()
+            case .completed: return try await menuBarDiagnosisFixture(processCount: 2)
             case .failed: throw CPUDiagnosisError.collectionFailed
             default: return try await gate.run()
             }
@@ -205,4 +212,33 @@ private actor NativeDiagnosisGate {
     #expect(!copy())
     #expect(copied.count == 1)
     await model.stop()
+}
+
+@Test(arguments: [false, true])
+@MainActor func diagnosisContributorCardsWrapWithinThePanel(dark: Bool) async throws {
+    let controller = CPUDiagnosisController(source: { try await menuBarDiagnosisFixture(processCount: 2) })
+    controller.start()
+    await controller.waitForCompletion()
+    let sections = controller.state.sections.filter { $0.kind == .contributor }
+    #expect(sections.count == 2)
+    _ = NSApplication.shared
+    let host = NSHostingView(
+        rootView: VStack(spacing: 12) {
+            ForEach(Array(sections.enumerated()), id: \.offset) { entry in
+                MenuBarDiagnosisSection(section: entry.element)
+            }
+        }.padding(16).frame(width: 420).background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+    host.layoutSubtreeIfNeeded()
+    host.frame.size = host.fittingSize
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize.width == 420)
+    #expect(host.fittingSize.height > 200)
+    if let directory = ProcessInfo.processInfo.environment["MENUBAR_DIAGNOSIS_PREVIEW_DIRECTORY"] {
+        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: directory).appendingPathComponent(
+                "diagnosis-contributors-\(dark ? "dark" : "light").png"))
+    }
 }

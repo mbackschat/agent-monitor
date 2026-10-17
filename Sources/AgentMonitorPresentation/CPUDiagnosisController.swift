@@ -65,7 +65,7 @@ public final class CPUDiagnosisController {
         }
         switch result {
         case .success(let value):
-            state = DiagnosisViewState(phase: .completed, content: DiagnosisViewState.resultLines(value))
+            state = DiagnosisViewState(phase: .completed, sections: DiagnosisViewState.resultSections(value))
         case .failure(is CancellationError):
             state = DiagnosisViewState(phase: .cancelled)
         case .failure:
