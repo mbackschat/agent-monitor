@@ -1,0 +1,81 @@
+import AgentMonitorCore
+
+public struct DiagnosisViewState: Equatable, Sendable {
+    public enum Phase: String, Sendable { case hidden, collecting, completed, failed, cancelled }
+    public internal(set) var phase: Phase = .hidden
+    public internal(set) var isRunning = false
+    public internal(set) var content: [ReportLine] = []
+    public private(set) var offset = 0
+    public var isVisible: Bool { phase != .hidden }
+
+    public static let help =
+        "Measures from now: three one-second waits plus scan time; provider lookup may add up to three seconds per queried provider."
+    public static let keyHint = "d CPU (3s+scans+up to 3s/provider)"
+    public static let limits =
+        "Collection and provider lookups add resource use. Monitor helper flags cover only observed relations to this interface; reparented/unobserved helpers and other monitor instances may be unflagged."
+
+    public init() {}
+
+    init(phase: Phase = .hidden, isRunning: Bool = false, content: [ReportLine] = []) {
+        self.phase = phase
+        self.isRunning = isRunning
+        self.content = content
+    }
+
+    public var lines: [ReportLine] {
+        switch phase {
+        case .hidden: []
+        case .collecting: [ReportLine(Self.help), ReportLine("Window starts at invocation.", style: .muted)]
+        case .completed: content
+        case .failed: [ReportLine(DiagnosisText.collectionFailure, style: .failure)]
+        case .cancelled:
+            [ReportLine("Cancelled. No result retained.", style: .muted)]
+                + (isRunning ? [ReportLine("Waiting for owned work to finish before another run.")] : [])
+        }
+    }
+
+    static func resultLines(_ value: CPUDiagnosis) -> [ReportLine] {
+        [
+            ReportLine(
+                "Window started at invocation; result stays fixed until rerun or dismissal.", style: .muted)
+        ]
+            + DiagnosisText.lines(value, includingHelperFlags: true).map { ReportLine($0) }
+            + [
+                ReportLine(
+                    "Launch-origin evidence is not proof of current use or exclusive ownership of shared daemons.",
+                    style: .muted),
+                ReportLine(Self.limits, style: .muted),
+            ]
+    }
+
+    private func wrapped(width: Int) -> [ReportLine] {
+        lines.flatMap { line in
+            TerminalCells.wrapped(line.text, to: width).map { ReportLine($0, style: line.style) }
+        }
+    }
+
+    public mutating func scroll(by delta: Int, width: Int, height: Int) {
+        let maximum = max(0, wrapped(width: width).count - max(0, height - 3))
+        offset = min(maximum, max(0, offset + delta))
+    }
+
+    public func terminalLines(width: Int, height: Int) -> [ReportLine] {
+        guard width > 0, height > 0 else { return [] }
+        let title = ReportLine("CPU diagnosis · \(phase.rawValue)", style: .title)
+        let controls = "Esc back | x cancel | q quit"
+        if width < 40 || height < 8 {
+            return [title, ReportLine("Resize to 40x8 or larger"), ReportLine(controls)]
+                .prefix(height).map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
+        }
+        let rows = wrapped(width: width)
+        let capacity = height - 3
+        let first = min(offset, max(0, rows.count - capacity))
+        var result = [title] + Array(rows.dropFirst(first).prefix(capacity))
+        result += Array(repeating: ReportLine(""), count: max(0, height - 2 - result.count))
+        result += [
+            ReportLine("↑/↓ scroll | \(isRunning ? "Run again unavailable" : "d Run again")", style: .muted),
+            ReportLine(controls, style: .muted),
+        ]
+        return result.map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
+    }
+}

@@ -121,6 +121,12 @@ Diagnosis does not intentionally change workload, UI or session state. Native re
 
 Measurement and aggregation stay in core, provider recognition/listing interpretation in attribution adapters, strings/schema/guides in presentation, and Argument Parser in CLI targets. Ordinary snapshot and history semantics are not broadened for diagnosis. Deterministic acceptance covers coverage gaps, newborns, exec/PID reuse, retained contributors, zero/empty results, host failures/count changes, exact and ambiguous attribution, partial provider failure, omission conservation and independent clocks; it does not establish live effectiveness or close existing user-run validation gates.
 
+### Interactive run support
+
+`CPUDiagnosisSession` can receive the running interface's monitor PID independently of excluded PIDs. Core flags a contributor as `isMonitorHelper` when its observed parent PID equals that live PID or its existing observed ancestry reaches an exact lifetime with that evidence. The flag persists per PID/start identity for the finite window, including reparenting and departure; reuse does not inherit it. The excluded monitor needs no graph node or metadata read. Detection uses existing parent links and per-lifetime window state, without a second ancestry-retention model. Unobserved/reparented helpers and other monitor instances may remain unflagged. The flag does not change CPU totals, provider attribution, CLI text or either JSON schema.
+
+`CPUDiagnosisController` in presentation owns one cancellable finite run per interface. Starting discards the previous result. Cancel immediately shows cancelled state; dismissal immediately hides and discards it. Both invalidate publication while owned work drains, and another run stays disabled until completion. A generation guard rejects late results, and shutdown cancels and awaits owned work. The injected source returns the core result; the default creates an independent native diagnosis off the main actor. `DiagnosisViewState` retains sanitized display lines and scroll state, separate from live report/history state, and reuses diagnosis explanations and formatting with helper flags and coverage qualifications.
+
 ## Boundary for multiple presentations
 
 ```mermaid

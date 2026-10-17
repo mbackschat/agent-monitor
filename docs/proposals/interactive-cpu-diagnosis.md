@@ -1,6 +1,6 @@
 # CPU diagnosis in the Mac app and TUI
 
-Status: **unapproved**, 2026-10-17. Assessment requested after the CLI diagnosis implementation; this proposal does not authorize UI implementation. It reuses the [finite CPU diagnosis contract](../architecture.md#finite-cpu-diagnosis). [Local evidence and limits](../research/existing-solutions.md#interactive-diagnosis-assessment--2026-10-17) distinguish observed code behavior from expected usability benefits.
+Status: **approved**, 2026-10-17. Approved by the user for implementation in both interfaces. It reuses the [finite CPU diagnosis contract](../architecture.md#finite-cpu-diagnosis). [Local evidence and limits](../research/existing-solutions.md#interactive-diagnosis-assessment--2026-10-17) distinguish observed code behavior from expected usability benefits.
 
 Recommend an explicit **Diagnose CPU** view in both interfaces. It answers “what consumed the most measured CPU during this investigation?” without changing the live table's latest-interval values. An early contributor remains inspectable after it leaves the final scan. This captures work during a new investigation; it cannot reconstruct a burst that ended before the user started it.
 

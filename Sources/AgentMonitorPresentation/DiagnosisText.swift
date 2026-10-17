@@ -6,6 +6,10 @@ public enum DiagnosisText {
         "collectionFailed: Could not acquire the baseline or a required process scan. No diagnosis was produced."
 
     public static func render(_ value: CPUDiagnosis) -> String {
+        lines(value, includingHelperFlags: false).joined(separator: "\n")
+    }
+
+    static func lines(_ value: CPUDiagnosis, includingHelperFlags: Bool) -> [String] {
         let report = JSONDiagnosis(value)
         let capacity = report.host.logicalCPUCount.map { " of \($0 * 100)%" } ?? ""
         let host = report.host.meanBusyPercent.map { number($0) + "%" } ?? "No data"
@@ -19,9 +23,10 @@ public enum DiagnosisText {
             "Lifetimes: \(value.observedLifetimeCount) observed, \(value.measuredLifetimeCount) measured; \(value.unmeasuredObservationCount) unmeasured observations, \(value.unreadableObservationCount) unreadable reads.",
             "Contributors: \(report.contributors.count) returned, \(value.omittedContributorCount) omitted; totals include both. 100% = one logical CPU.",
         ]
-        for row in report.contributors {
+        for (row, measured) in zip(report.contributors, value.contributors) {
+            let helper = includingHelperFlags && measured.isMonitorHelper ? " [Monitor helper]" : ""
             lines.append(
-                "\(row.process.pid)/\(row.process.startMicroseconds) \(quoted(row.label))\(row.labelTruncated ? " [label truncated]" : ""): \(number(row.cpuSeconds)) CPU-s, mean \(number(row.meanCPUPercent))%, peak \(number(row.peakCPUPercent))%; \(number(row.observedSeconds))s across \(row.validIntervals) intervals."
+                "\(row.process.pid)/\(row.process.startMicroseconds)\(helper) \(quoted(row.label))\(row.labelTruncated ? " [label truncated]" : ""): \(number(row.cpuSeconds)) CPU-s, mean \(number(row.meanCPUPercent))%, peak \(number(row.peakCPUPercent))%; \(number(row.observedSeconds))s across \(row.validIntervals) intervals."
             )
             if let footprint = row.footprint {
                 lines.append(
@@ -29,7 +34,11 @@ public enum DiagnosisText {
                 )
             }
             switch row.attribution.value {
-            case .unavailable(let reason): lines.append("  Attribution unavailable: \(reason.rawValue).")
+            case .unavailable(let reason):
+                lines.append("  Attribution unavailable: \(reason.rawValue).")
+                if includingHelperFlags, reason == .notObservedAtEnrichment {
+                    lines.append("  Not observed at enrichment; this is not proof of exit.")
+                }
             case .available(let at, let owner):
                 lines.append(
                     "  Attribution at \(JSONDiagnosis.timestamp(at)): \(owner.provider?.rawValue ?? "unknown") / \(owner.threadID ?? "unresolved") [\(owner.evidence.rawValue), \(owner.context.rawValue)]."
@@ -60,7 +69,7 @@ public enum DiagnosisText {
                     : report.providerLookups.map { "\($0.provider.rawValue) \($0.status)" }.joined(
                         separator: ", ")))
         lines += value.diagnostics.map { "\($0.rawValue): \($0.explanation)" }
-        return lines.joined(separator: "\n")
+        return lines
     }
 
     private static func quoted(_ value: String) -> String {

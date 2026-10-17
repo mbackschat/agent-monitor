@@ -63,6 +63,32 @@ final class DiagnosisFixture: DiagnosisReading, SamplingClock, SessionRegistryRe
 }
 
 @Suite struct CPUDiagnosisSessionTests {
+    @Test func helpersRetainExactLifetimesWithoutAnObservedMonitorOrExtraEnrichment() async throws {
+        let fake = DiagnosisFixture(
+            (0...3).map { index in
+                let at = 10 + Double(index)
+                let cpu = Double(index)
+                var rows = [
+                    sample(20, parent: index < 2 ? 99 : 1, at: at, cpu: cpu),
+                    sample(30, parent: 20, at: at, cpu: cpu),
+                    sample(40, parent: 1, at: at, cpu: cpu),
+                    sample(50, parent: 98, at: at, cpu: cpu),
+                ]
+                if index < 2 { rows.append(sample(60, parent: 99, at: at, cpu: cpu)) }
+                if index >= 2 { rows.append(sample(60, parent: 1, start: 100, at: at, cpu: cpu)) }
+                return diagnosisScan(Array(rows.reversed()), at: at)
+            })
+        let result = try await CPUDiagnosisSession(
+            reader: fake, clock: fake, registry: fake, excluding: [99], monitorPID: 99
+        ).run()
+        let helpers = Set(result.contributors.filter(\.isMonitorHelper).map(\.sample.identity))
+        #expect(helpers == Set([sample(20).identity, sample(30).identity, sample(60).identity]))
+        #expect(result.contributors.count == 6)
+        #expect(fake.state.withLock { $0.exclusions } == Array(repeating: [99], count: 4))
+        #expect(fake.state.withLock { $0.lookups } == 0)
+        #expect(!fake.state.withLock { $0.metadata }.contains { $0.pid == 99 })
+    }
+
     private let runtimePath = "/Users/test/.local/share/claude/versions/2.1.301"
 
     private func scans(_ processes: (Int) -> [ProcessSample]) -> [ProcessSnapshot] {

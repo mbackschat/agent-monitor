@@ -45,6 +45,7 @@ public struct DiagnosisContributor: Sendable {
     public let peakCPUPercent: Double
     public let footprint: DiagnosisFootprint?
     public let attribution: DiagnosisAttribution
+    public var isMonitorHelper = false
 }
 
 public struct CPUDiagnosis: Sendable {
@@ -86,27 +87,37 @@ public struct CPUDiagnosisSession: Sendable {
     private let clock: any SamplingClock
     private let registry: any SessionRegistryReading
     private let excluded: Set<Int32>
+    private let monitorPID: Int32?
 
     public init(
         reader: any DiagnosisReading, clock: any SamplingClock = ContinuousSamplingClock(),
-        excluding: Set<Int32> = []
+        excluding: Set<Int32> = [], monitorPID: Int32? = nil
     ) {
         self.init(
-            reader: reader, clock: clock, registry: CommandSessionRegistryReader(), excluding: excluding)
+            reader: reader, clock: clock, registry: CommandSessionRegistryReader(),
+            excluding: excluding, monitorPID: monitorPID)
     }
 
     package init(
         reader: any DiagnosisReading, clock: any SamplingClock, registry: any SessionRegistryReading,
-        excluding: Set<Int32> = []
+        excluding: Set<Int32> = [], monitorPID: Int32? = nil
     ) {
         self.reader = reader
         self.clock = clock
         self.registry = registry
         excluded = excluding
+        self.monitorPID = monitorPID
+    }
+
+    @concurrent public static func collectLocal() async throws -> CPUDiagnosis {
+        let reader: NativeProcessReader
+        do { reader = try NativeProcessReader() } catch { throw CPUDiagnosisError.collectionFailed }
+        let pid = ProcessInfo.processInfo.processIdentifier
+        return try await CPUDiagnosisSession(reader: reader, excluding: [pid], monitorPID: pid).run()
     }
 
     @concurrent public func run() async throws -> CPUDiagnosis {
-        var window = CPUDiagnosisWindow()
+        var window = CPUDiagnosisWindow(monitorPID: monitorPID)
         var footprintDates: [ProcessIdentity: Date] = [:]
         let startedAt = clock.now()
         var endedAt = startedAt
@@ -203,7 +214,8 @@ public struct CPUDiagnosisSession: Sendable {
             return DiagnosisContributor(
                 sample: value.sample, cpuSeconds: value.cpuSeconds, observedSeconds: value.observedSeconds,
                 validIntervals: value.validIntervals, meanCPUPercent: value.meanCPUPercent,
-                peakCPUPercent: value.peakCPUPercent, footprint: footprint, attribution: attribution)
+                peakCPUPercent: value.peakCPUPercent, footprint: footprint, attribution: attribution,
+                isMonitorHelper: value.isMonitorHelper)
         }
         try Task.checkCancellation()
         return CPUDiagnosis(

@@ -271,7 +271,7 @@ public struct Monitor: Sendable {
         }
     }
 
-    private func chain(from identity: ProcessIdentity) -> [ProcessIdentity] {
+    func chain(from identity: ProcessIdentity) -> [ProcessIdentity] {
         var path: [ProcessIdentity] = []
         var visited: Set<ProcessIdentity> = []
         var next: ProcessIdentity? = identity

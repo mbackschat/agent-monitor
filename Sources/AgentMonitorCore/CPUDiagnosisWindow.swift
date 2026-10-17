@@ -11,6 +11,7 @@ struct CPUWindowContributor: Sendable {
     var footprint: (bytes: UInt64, sampledAt: Double)?
     var cpuSeconds: Double = 0
     var observedSeconds: Double = 0
+    var isMonitorHelper = false
     var validIntervals = 0
     var peakCPUPercent: Double = 0
     var meanCPUPercent: Double { 100 * cpuSeconds / observedSeconds }
@@ -27,6 +28,9 @@ public struct CPUWindowHost: Equatable, Sendable {
 /// Earlier contributors stay in the window even after Monitor drops their live node.
 struct CPUDiagnosisWindow: Sendable {
     var monitor = Monitor()
+    private let monitorPID: Int32?
+
+    init(monitorPID: Int32? = nil) { self.monitorPID = monitorPID }
     private var lifetimes: [ProcessIdentity: CPUWindowContributor] = [:]
     private var firstListing: Double?
     private var previousListing: Double?
@@ -56,9 +60,15 @@ struct CPUDiagnosisWindow: Sendable {
         cpuCounts.insert(snapshot.logicalCPUCount)
         maximumScanSeconds = max(maximumScanSeconds, snapshot.scanSeconds)
         unreadableObservationCount += snapshot.unreadableCount
+        let helperRoots = Set(lifetimes.values.filter(\.isMonitorHelper).map(\.sample.identity))
+            .union(
+                snapshot.samples.filter { monitorPID != nil && $0.parentPID == monitorPID }.map(\.identity))
         for sample in snapshot.samples {
             var contributor = lifetimes[sample.identity] ?? CPUWindowContributor(sample: sample)
             contributor.sample = sample
+            contributor.isMonitorHelper =
+                contributor.isMonitorHelper
+                || monitor.chain(from: sample.identity).contains(where: helperRoots.contains)
             if let bytes = sample.footprintBytes {
                 contributor.footprint = (bytes, sample.sampledAt)
             }

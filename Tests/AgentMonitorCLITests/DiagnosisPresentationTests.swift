@@ -6,7 +6,8 @@ import Testing
 
 func diagnosisPresentationFixture(
     empty: Bool = false, label: String = "/bin/compiler", available: Bool = false,
-    terminal: String = "ttys001", directory: String = "/same", populationCPU: Double = 3.9
+    terminal: String = "ttys001", directory: String = "/same", populationCPU: Double = 3.9,
+    helper: Bool = false, cpuCount: Int? = 8
 ) -> CPUDiagnosis {
     let start = Date(timeIntervalSince1970: 1_792_152_000)
     let first = ProcessSample(
@@ -20,7 +21,7 @@ func diagnosisPresentationFixture(
         startedAt: start, endedAt: start.addingTimeInterval(3.2), elapsedSeconds: 3.2,
         maximumScanSeconds: 0.05,
         host: CPUWindowHost(
-            meanBusyPercent: empty ? nil : 210, logicalCPUCount: 8, observedSeconds: empty ? 0 : 3.15,
+            meanBusyPercent: empty ? nil : 210, logicalCPUCount: cpuCount, observedSeconds: empty ? 0 : 3.15,
             validIntervals: empty ? 0 : 3),
         cpuSeconds: empty ? nil : populationCPU, windowCPUPercent: empty ? nil : 121.875,
         observedLifetimeCount: empty ? 0 : 3, measuredLifetimeCount: empty ? 0 : 2,
@@ -44,7 +45,8 @@ func diagnosisPresentationFixture(
                                     "11111111-1111-4111-8111-111111111111",
                                     "22222222-2222-4222-8222-222222222222",
                                 ],
-                                ancestry: [first.identity])) : .unavailable(.metadataUnavailable)),
+                                ancestry: [first.identity])) : .unavailable(.metadataUnavailable),
+                    isMonitorHelper: helper),
                 DiagnosisContributor(
                     sample: second, cpuSeconds: 1.5, observedSeconds: 2, validIntervals: 2,
                     meanCPUPercent: 75, peakCPUPercent: 100, footprint: nil,
