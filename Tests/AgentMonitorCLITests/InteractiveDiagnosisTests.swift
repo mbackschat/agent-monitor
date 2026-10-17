@@ -60,16 +60,35 @@ import Testing
         #expect(!DiagnosisText.render(value).contains("Monitor helper"))
         #expect(!String(decoding: try JSONDiagnosis.encode(value), as: UTF8.self).contains("isMonitorHelper"))
         for width in [40, 60, 120] {
-            var state = controller.state
-            let first = state.terminalLines(width: width, height: 12)
+            var state = LiveReportState()
+            state.diagnosis = controller.state
+            let first = LiveReportLayout.lines(state: state, width: width, height: 12)
             #expect(first.count == 12)
             #expect(first.allSatisfy { TerminalCells.width($0.text) <= width })
-            state.scroll(by: 10_000, width: width, height: 12)
-            #expect(state.terminalLines(width: width, height: 12) != first)
-            let small = state.terminalLines(width: 30, height: 5).map(\.text).joined()
+            state.scrollDiagnosis(by: 10_000, width: width, height: 12)
+            #expect(LiveReportLayout.lines(state: state, width: width, height: 12) != first)
+            let small = LiveReportLayout.lines(state: state, width: 30, height: 5).map(\.text).joined()
             #expect(small.contains("Resize"))
             #expect(small.contains("Esc back") && small.contains("x cancel"))
         }
+    }
+
+    @Test func controllerPublicationDoesNotOverwriteViewportScroll() async {
+        let value = diagnosisPresentationFixture(available: true)
+        let controller = CPUDiagnosisController(source: { value })
+        controller.start()
+        await controller.waitForCompletion()
+        var live = LiveReportState()
+        live.diagnosis = controller.state
+        live.scrollDiagnosis(by: 5, width: 40, height: 8)
+        let offset = live.diagnosisOffset
+        #expect(offset > 0)
+        live.diagnosis = controller.state
+        #expect(live.diagnosisOffset == offset)
+        controller.start()
+        live.diagnosis = controller.state
+        #expect(live.diagnosisOffset == 0)
+        await controller.stop()
     }
 
     @Test func stopCancelsAndWaitsForOwnedWork() async {

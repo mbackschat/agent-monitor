@@ -74,7 +74,7 @@ public enum TerminalReport {
                         default: delta = max(1, size.height - 3)
                         }
                         state.mutate {
-                            $0.diagnosis.scroll(by: delta, width: size.width, height: size.height)
+                            $0.scrollDiagnosis(by: delta, width: size.width, height: size.height)
                         }
                     default: break
                     }

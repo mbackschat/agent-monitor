@@ -14,7 +14,18 @@ public enum DetailsPaneMode: Sendable { case minimized, split, maximized }
 public enum IntervalAdjustment: Sendable { case faster, slower }
 
 public struct LiveReportState: Equatable, Sendable {
-    public var diagnosis = DiagnosisViewState()
+    public var diagnosis = DiagnosisViewState() {
+        didSet {
+            if diagnosis.phase != oldValue.phase { diagnosisOffset = 0 }
+        }
+    }
+    public private(set) var diagnosisOffset = 0
+
+    public mutating func scrollDiagnosis(by delta: Int, width: Int, height: Int) {
+        diagnosisOffset = min(
+            diagnosis.maximumOffset(width: width, height: height), max(0, diagnosisOffset + delta))
+    }
+
     public var actionPanel: ActionPanel? {
         didSet {
             if actionPanel != nil { returningDetails = nil }

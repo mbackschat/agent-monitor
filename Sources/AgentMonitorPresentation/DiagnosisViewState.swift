@@ -5,7 +5,6 @@ public struct DiagnosisViewState: Equatable, Sendable {
     public internal(set) var phase: Phase = .hidden
     public internal(set) var isRunning = false
     public internal(set) var content: [ReportLine] = []
-    public private(set) var offset = 0
     public var isVisible: Bool { phase != .hidden }
 
     public static let help =
@@ -54,12 +53,11 @@ public struct DiagnosisViewState: Equatable, Sendable {
         }
     }
 
-    public mutating func scroll(by delta: Int, width: Int, height: Int) {
-        let maximum = max(0, wrapped(width: width).count - max(0, height - 3))
-        offset = min(maximum, max(0, offset + delta))
+    func maximumOffset(width: Int, height: Int) -> Int {
+        max(0, wrapped(width: width).count - max(0, height - 3))
     }
 
-    public func terminalLines(width: Int, height: Int) -> [ReportLine] {
+    public func terminalLines(width: Int, height: Int, offset: Int = 0) -> [ReportLine] {
         guard width > 0, height > 0 else { return [] }
         let title = ReportLine("CPU diagnosis · \(phase.rawValue)", style: .title)
         let controls = "Esc back | x cancel | q quit"
@@ -69,7 +67,7 @@ public struct DiagnosisViewState: Equatable, Sendable {
         }
         let rows = wrapped(width: width)
         let capacity = height - 3
-        let first = min(offset, max(0, rows.count - capacity))
+        let first = min(max(0, offset), max(0, rows.count - capacity))
         var result = [title] + Array(rows.dropFirst(first).prefix(capacity))
         result += Array(repeating: ReportLine(""), count: max(0, height - 2 - result.count))
         result += [

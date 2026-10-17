@@ -18,7 +18,9 @@ public struct ReportLine: Equatable, Sendable {
 public enum LiveReportLayout {
     public static func lines(state: LiveReportState, width: Int, height: Int) -> [ReportLine] {
         guard height > 0, width > 0 else { return [] }
-        if state.diagnosis.isVisible { return state.diagnosis.terminalLines(width: width, height: height) }
+        if state.diagnosis.isVisible {
+            return state.diagnosis.terminalLines(width: width, height: height, offset: state.diagnosisOffset)
+        }
         if width < 40 || height < 8 {
             return Array(
                 [
