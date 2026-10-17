@@ -98,17 +98,8 @@ struct MenuBarView: View {
             .padding(12)
         }
         .frame(width: MenuBarLayout.width, height: min(model.panelSize.height, maximumHeight))
-        .task(id: model.isOpen) {
-            guard model.isOpen else {
-                focus = nil
-                return
-            }
-            guard !model.diagnosis.state.isVisible, model.report.actionPanel == nil else { return }
-            focus = initialFocus.open(rows: model.visibleRowIDs)
-            if let focusedRow { model.selectRow(focusedRow) }
-        }
-        .onChange(of: model.diagnosis.state.isVisible) { _, visible in
-            focus = visible ? nil : model.report.selection.map(MenuBarFocus.row)
+        .onChange(of: model.diagnosis.state.isVisible || model.report.actionPanel != nil) { _, inspecting in
+            if inspecting { focus = nil }
         }
         .onChange(of: model.visibleRowIDs) { _, rows in
             guard model.isOpen, !model.diagnosis.state.isVisible, model.report.actionPanel == nil,
@@ -244,6 +235,15 @@ struct MenuBarView: View {
             }
         }
         .padding(14)
+        .task(id: model.isOpen) {
+            guard model.isOpen else {
+                focus = nil
+                return
+            }
+            // Action review and diagnosis remove these focus targets; restore after the table remounts.
+            focus = initialFocus.open(rows: model.visibleRowIDs, preferred: model.report.selection)
+            if let focusedRow { model.selectRow(focusedRow) }
+        }
     }
 
     @ViewBuilder private func nativeRow(_ row: LiveReportRow, sessions: [ProcessIdentity: SessionGroup])

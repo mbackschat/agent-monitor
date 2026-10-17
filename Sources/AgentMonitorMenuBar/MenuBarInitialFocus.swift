@@ -16,8 +16,9 @@ enum MenuBarFocus: Hashable {
 struct MenuBarInitialFocus {
     private var waitingForRows = false
 
-    mutating func open(rows: [LiveReportRowID]) -> MenuBarFocus {
+    mutating func open(rows: [LiveReportRowID], preferred: LiveReportRowID? = nil) -> MenuBarFocus {
         waitingForRows = rows.isEmpty
+        if let preferred, rows.contains(preferred) { return .row(preferred) }
         return rows.first.map(MenuBarFocus.row) ?? .table
     }
 

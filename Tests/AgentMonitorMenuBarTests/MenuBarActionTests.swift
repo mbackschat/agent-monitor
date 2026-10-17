@@ -361,3 +361,30 @@ func menuBarFixture(
     #expect(model.report.actionPanel?.draft?.message("Keep these observations.") == original)
     await model.stop()
 }
+
+@Test(arguments: [false, true])
+@MainActor func returningFromInspectionRetainsTheSelectedRowForFocus(diagnosis: Bool) async throws {
+    let snapshot = try menuBarFixture(pids: [42001, 42002])
+    let actions = FakeActions()
+    let model = MenuBarModel(
+        actions: actions, diagnosisSource: { try await menuBarDiagnosisFixture() },
+        source: { _, _, _, receive in try await receive(snapshot) })
+    model.report.toggleGrouping()
+    model.open()
+    await model.waitForCollection()
+    let selected = try #require(model.visibleRowIDs.last)
+    model.selectRow(selected)
+    if diagnosis {
+        #expect(model.beginDiagnosis())
+        await model.diagnosis.waitForCompletion()
+        model.diagnosis.dismiss()
+    } else {
+        model.begin(.terminate, row: selected)
+        try #require(model.report.actionPanel != nil)
+        model.input(.escape)
+    }
+    var focus = MenuBarInitialFocus()
+    #expect(focus.open(rows: model.visibleRowIDs, preferred: model.report.selection) == .row(selected))
+    #expect(actions.calls.withLock { $0.isEmpty })
+    await model.stop()
+}

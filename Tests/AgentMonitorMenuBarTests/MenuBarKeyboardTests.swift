@@ -150,3 +150,15 @@ func nativeRowArrowsAcceptNonShortcutFlags(modifiers: EventModifiers) {
         #expect(!MenuBarKeyboard.isBulkDisclosure(modifiers: modifiers))
     }
 }
+
+@Test func returningNativeTableRestoresExactSelectionOrFallsBackToVisibleContent() {
+    let first = LiveReportRowID.process(ProcessIdentity(pid: 41, startMicroseconds: 1))
+    let selected = LiveReportRowID.process(ProcessIdentity(pid: 42, startMicroseconds: 1))
+    let reused = LiveReportRowID.process(ProcessIdentity(pid: 42, startMicroseconds: 2))
+    var focus = MenuBarInitialFocus()
+    #expect(focus.open(rows: [first, selected], preferred: selected) == .row(selected))
+    #expect(focus.open(rows: [first, reused], preferred: selected) == .row(first))
+    #expect(focus.open(rows: [], preferred: selected) == .table)
+    #expect(focus.rowsChanged([first], focus: .table) == first)
+    #expect(focus.open(rows: [first], preferred: nil) == .row(first))
+}
