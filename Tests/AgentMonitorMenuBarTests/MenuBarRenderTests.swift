@@ -454,37 +454,39 @@ private struct DisclosureChevronFixture: View {
     #expect(delegate.popoverShouldDetach(NSPopover()))
 }
 
-@Test @MainActor func detachedHeaderReservesCloseButtonSpaceAndResetsOnReopen() async throws {
-    let model = MenuBarModel { _, _, _, _ in }
-    let delegate = MenuBarDelegate(model: model)
+@Test @MainActor func detachmentDoesNotReflowTheHeader() async throws {
+    let snapshot = try menuBarFixture()
+    let model = MenuBarModel { _, _, _, receive in try await receive(snapshot) }
+    let delegate: any NSPopoverDelegate = MenuBarDelegate(model: model)
     model.open()
+    await model.waitForCollection()
     let host = NSHostingView(rootView: MenuBarView(model: model).background(Color.white))
     host.appearance = NSAppearance(named: .aqua)
     host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
-    delegate.popoverDidDetach(NSPopover())
-    #expect(model.isDetached)
-    host.layoutSubtreeIfNeeded()
-    #expect(host.fittingSize == NSSize(width: 420, height: 560))
-    let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-    host.cacheDisplay(in: host.bounds, to: bitmap)
-    let scale = Double(bitmap.pixelsWide) / host.bounds.width
-    for y in 0..<Int(24 * scale) {
-        for x in 0..<bitmap.pixelsWide {
-            let color = try #require(bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
-            #expect(color.redComponent > 0.99 && color.greenComponent > 0.99 && color.blueComponent > 0.99)
+    func headerImage() throws -> Data {
+        host.layoutSubtreeIfNeeded()
+        let header = NSRect(x: 0, y: 0, width: 420, height: 100)
+        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: header))
+        host.cacheDisplay(in: header, to: bitmap)
+        let scale = Double(bitmap.pixelsWide) / header.width
+        var occupiedCloseCornerPixels = 0
+        for y in 0..<Int(32 * scale) {
+            for x in 0..<Int(32 * scale) {
+                let color = try #require(bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
+                if min(color.redComponent, color.greenComponent, color.blueComponent) < 0.99 {
+                    occupiedCloseCornerPixels += 1
+                }
+            }
         }
+        #expect(occupiedCloseCornerPixels == 0)
+        return try #require(bitmap.representation(using: .png, properties: [:]))
     }
-    if let output = ProcessInfo.processInfo.environment["MENUBAR_DETACHED_PREVIEW_PATH"] {
-        try #require(bitmap.representation(using: .png, properties: [:])).write(
-            to: URL(fileURLWithPath: output))
-    }
-    delegate.popoverWillClose(
-        Notification(
-            name: NSPopover.willCloseNotification,
-            userInfo: [NSPopover.closeReasonUserInfoKey: NSPopover.CloseReason.standard.rawValue]))
-    #expect(!model.isDetached)
-    model.open()
-    #expect(!model.isDetached)
+    let before = try headerImage()
+    delegate.popoverDidDetach?(NSPopover())
+    let after = try headerImage()
+    #expect(before == after)
+    #expect(host.fittingSize == NSSize(width: 420, height: 560))
+    #expect(model.isOpen)
     await model.stop()
 }
 

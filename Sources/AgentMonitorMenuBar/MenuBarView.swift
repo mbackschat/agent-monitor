@@ -53,8 +53,7 @@ struct MenuBarView: View {
                     .help("Hold the displayed sample and row order. Resume shows the latest sample (p).")
                 }
             }
-            .padding()
-            .padding(.top, model.isDetached ? 24 : 0)
+            .padding(.vertical, 16).padding(.trailing, 16).padding(.leading, 32)
             if !model.diagnosis.state.isVisible {
                 Text(DiagnosisViewState.purpose)
                     .font(.caption).foregroundStyle(.secondary)
