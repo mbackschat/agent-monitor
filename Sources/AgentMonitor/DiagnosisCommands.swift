@@ -1,7 +1,6 @@
 import AgentMonitorCore
 import AgentMonitorPresentation
 import ArgumentParser
-import Darwin
 import Foundation
 
 struct GuideCommand: ParsableCommand {
@@ -64,13 +63,7 @@ struct DiagnoseCPUCommand: AsyncParsableCommand {
         }
         try await Self.execute(
             json: json,
-            collect: {
-                let reader: NativeProcessReader
-                do { reader = try NativeProcessReader() } catch NativeReadError.timebase {
-                    throw CPUDiagnosisError.collectionFailed
-                }
-                return try await CPUDiagnosisSession(reader: reader, excluding: [getpid()]).run()
-            },
+            collect: CPUDiagnosisSession.collectLocal,
             output: { try FileHandle.standardOutput.write(contentsOf: $0) },
             error: { try FileHandle.standardError.write(contentsOf: $0) })
     }
