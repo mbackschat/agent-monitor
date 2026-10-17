@@ -22,6 +22,7 @@ final class MenuBarModel {
     @ObservationIgnored private var arrivalExpiry: Task<Void, Never>?
     @ObservationIgnored private var arrivalDeadline: ContinuousClock.Instant?
     private(set) var isOpen = false
+    private(set) var isDetached = false
     private(set) var error: String?
     private(set) var lastActionResult: ActionResult?
     private(set) var savedMessage: SavedMessage?
@@ -78,6 +79,11 @@ final class MenuBarModel {
         updateArrivals()
         refreshIndicator()
         startCollection()
+    }
+
+    func detach() {
+        guard isOpen else { return }
+        isDetached = true
     }
 
     func setLiveIcon(_ enabled: Bool) {
@@ -138,6 +144,7 @@ final class MenuBarModel {
     }
 
     func close() {
+        isDetached = false
         diagnosis.dismiss()
         if let panel = report.actionPanel {
             switch panel.phase {

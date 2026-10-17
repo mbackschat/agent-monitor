@@ -16,7 +16,8 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "AgentMonitorMenuBar",
-            dependencies: ["AgentMonitorCore", "AgentMonitorPresentation", "AgentMonitorActions"]),
+            dependencies: ["AgentMonitorCore", "AgentMonitorPresentation", "AgentMonitorActions"],
+            resources: [.process("Resources")]),
         .testTarget(
             name: "AgentMonitorMenuBarTests", dependencies: ["AgentMonitorMenuBar"]),
         .target(name: "AgentMonitorCore"),

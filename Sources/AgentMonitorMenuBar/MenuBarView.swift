@@ -20,7 +20,10 @@ struct MenuBarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Image(systemName: "terminal.fill").foregroundStyle(.secondary)
+                if let logo = MenuBarLogo.image {
+                    Image(nsImage: logo).resizable().interpolation(.high)
+                        .frame(width: 20, height: 20).accessibilityHidden(true)
+                }
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Agent Monitor").font(.headline)
                     if model.diagnosis.state.isVisible {
@@ -51,6 +54,7 @@ struct MenuBarView: View {
                 }
             }
             .padding()
+            .padding(.top, model.isDetached ? 24 : 0)
             if !model.diagnosis.state.isVisible {
                 Text(DiagnosisViewState.purpose)
                     .font(.caption).foregroundStyle(.secondary)

@@ -453,3 +453,53 @@ private struct DisclosureChevronFixture: View {
     let delegate = MenuBarDelegate()
     #expect(delegate.popoverShouldDetach(NSPopover()))
 }
+
+@Test @MainActor func detachedHeaderReservesCloseButtonSpaceAndResetsOnReopen() async throws {
+    let model = MenuBarModel { _, _, _, _ in }
+    let delegate = MenuBarDelegate(model: model)
+    model.open()
+    let host = NSHostingView(rootView: MenuBarView(model: model).background(Color.white))
+    host.appearance = NSAppearance(named: .aqua)
+    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    delegate.popoverDidDetach(NSPopover())
+    #expect(model.isDetached)
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize == NSSize(width: 420, height: 560))
+    let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    let scale = Double(bitmap.pixelsWide) / host.bounds.width
+    for y in 0..<Int(24 * scale) {
+        for x in 0..<bitmap.pixelsWide {
+            let color = try #require(bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
+            #expect(color.redComponent > 0.99 && color.greenComponent > 0.99 && color.blueComponent > 0.99)
+        }
+    }
+    if let output = ProcessInfo.processInfo.environment["MENUBAR_DETACHED_PREVIEW_PATH"] {
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: output))
+    }
+    delegate.popoverWillClose(
+        Notification(
+            name: NSPopover.willCloseNotification,
+            userInfo: [NSPopover.closeReasonUserInfoKey: NSPopover.CloseReason.standard.rawValue]))
+    #expect(!model.isDetached)
+    model.open()
+    #expect(!model.isDetached)
+    await model.stop()
+}
+
+@Test @MainActor func nativeHeaderLogoIsTheCanonicalArtwork() throws {
+    let url = try #require(MenuBarLogo.resourceURL)
+    let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        .deletingLastPathComponent().deletingLastPathComponent()
+    #expect(
+        try Data(contentsOf: url)
+            == Data(contentsOf: repository.appendingPathComponent("docs/assets/agent-monitor.webp")))
+    let image = try #require(MenuBarLogo.image)
+    #expect(image.size == NSSize(width: 256, height: 256))
+    let bitmap = try #require(image.representations.first as? NSBitmapImageRep)
+    for _ in 0..<100 {
+        #expect(MenuBarLogo.image === image)
+        #expect(MenuBarLogo.image?.representations.first === bitmap)
+    }
+}

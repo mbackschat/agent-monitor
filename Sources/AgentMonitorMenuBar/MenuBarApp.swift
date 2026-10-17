@@ -111,6 +111,7 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
         model.close()
     }
     func popoverShouldDetach(_ popover: NSPopover) -> Bool { true }
+    func popoverDidDetach(_ popover: NSPopover) { model.detach() }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         Task {

@@ -20,6 +20,7 @@ app="$root/.build/Agent Monitor.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$products/agent-monitor-menubar" "$app/Contents/MacOS/agent-monitor-menubar"
 cp -R "$products/AgentMonitor_AgentMonitorPresentation.bundle" "$app/Contents/Resources/"
+cp -R "$products/AgentMonitor_AgentMonitorMenuBar.bundle" "$app/Contents/Resources/"
 cp LICENSE "$app/Contents/Resources/LICENSE"
 cp THIRD_PARTY_NOTICES.md "$app/Contents/Resources/THIRD_PARTY_NOTICES.md"
 python3 - "$app/Contents/Info.plist" <<'PY'
