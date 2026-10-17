@@ -18,6 +18,7 @@ public struct ReportLine: Equatable, Sendable {
 public enum LiveReportLayout {
     public static func lines(state: LiveReportState, width: Int, height: Int) -> [ReportLine] {
         guard height > 0, width > 0 else { return [] }
+        if state.diagnosis.isVisible { return state.diagnosis.terminalLines(width: width, height: height) }
         if width < 40 || height < 8 {
             return Array(
                 [
@@ -114,6 +115,7 @@ public enum LiveReportLayout {
                 ". pin",
             ],
             [frozen ? "p resume" : "p pause", "k terminate", "s message", "f focus"],
+            [DiagnosisViewState.keyHint],
             ["1/2 CPU -/+10%", "3/4 GB -/+1", "</> interval"],
             ["[/] scroll", "-/+ size", "0 min", "9 max", "= restore", "q/Ctrl-C quit"],
         ]
@@ -142,7 +144,7 @@ public enum LiveReportLayout {
         return lines.count <= height - headerHeight - 3
             ? lines
             : [
-                ". pin | Resize for all keys",
+                DiagnosisViewState.keyHint,
                 frozen ? "p resume | q/Ctrl-C quit" : "p pause | q/Ctrl-C quit",
             ]
     }

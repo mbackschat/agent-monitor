@@ -29,6 +29,7 @@ public enum TerminalReport {
         grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(), interval: Double = 1,
         color: Bool = true,
         actions: any ProcessActions = SessionActions.local(),
+        diagnosisSource: @escaping CPUDiagnosisSource = CPUDiagnosisSession.collectLocal,
         source: @escaping SnapshotSource
     ) async throws {
         let identity = Identity(components: ["agent-monitor"])
@@ -37,6 +38,8 @@ public enum TerminalReport {
             initialState: LiveReportState(grouping: grouping, thresholds: thresholds, interval: interval),
             invalidationIdentities: [identity])
         let outcome = TerminalOutcome()
+        let diagnosis = CPUDiagnosisController(source: diagnosisSource)
+        diagnosis.onChange = { [weak state] value in state?.mutate { $0.diagnosis = value } }
         // SwiftTUI 0.14.0 defaults to mouse reporting, which captures terminal selection drags.
         let host = TerminalHost(
             environment: hostEnvironment(color: color, base: ProcessInfo.processInfo.environment),
@@ -53,6 +56,30 @@ public enum TerminalReport {
             stateContainer: state,
             focusTracker: FocusTracker(invalidationIdentities: [identity]),
             keyHandler: { key, _, state in
+                if state.state.diagnosis.isVisible {
+                    guard key.modifiers.isEmpty else { return .handled }
+                    let size = host.surfaceSize
+                    switch key.key {
+                    case .character("q"): return .exit(.userExit(key))
+                    case .escape: diagnosis.dismiss()
+                    case .character("x"): diagnosis.cancel()
+                    case .character("d"):
+                        if size.width >= 40, size.height >= 8 { diagnosis.start() }
+                    case .arrowUp, .arrowDown, .pageUp, .pageDown:
+                        let delta: Int
+                        switch key.key {
+                        case .arrowUp: delta = -1
+                        case .arrowDown: delta = 1
+                        case .pageUp: delta = -max(1, size.height - 3)
+                        default: delta = max(1, size.height - 3)
+                        }
+                        state.mutate {
+                            $0.diagnosis.scroll(by: delta, width: size.width, height: size.height)
+                        }
+                    default: break
+                    }
+                    return .handled
+                }
                 if state.state.actionPanel != nil {
                     guard host.surfaceSize.width >= 40, host.surfaceSize.height >= 8 else { return .handled }
                     if let input = actionInput(key) {
@@ -91,6 +118,8 @@ public enum TerminalReport {
                 }
                 switch key.key {
                 case .character("q"): return .exit(.userExit(key))
+                case .character("d"):
+                    if host.surfaceSize.width >= 40, host.surfaceSize.height >= 8 { diagnosis.start() }
                 case .character("k"): begin(.terminate)
                 case .character("s"): begin(.message)
                 case .character("f"): begin(.focus)
@@ -122,10 +151,12 @@ public enum TerminalReport {
         do {
             _ = try await runtime.run()
         } catch {
+            await diagnosis.stop()
             outcome.actionTask?.cancel()
             await outcome.actionTask?.value
             throw error
         }
+        await diagnosis.stop()
         outcome.actionTask?.cancel()
         await outcome.actionTask?.value
         if let error = outcome.error { throw error }

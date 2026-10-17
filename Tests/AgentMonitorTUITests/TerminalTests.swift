@@ -44,7 +44,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
             && dividerRow($0) == 12
     }
     for (width, headerRows, footerRows, divider) in [
-        (120, 3, 2, 12), (200, 3, 2, 12), (80, 5, 4, 12), (100, 4, 3, 12),
+        (120, 3, 3, 12), (200, 3, 2, 12), (80, 5, 5, 12), (100, 4, 4, 12),
     ] {
         var resized = winsize(ws_row: 24, ws_col: UInt16(width), ws_xpixel: 0, ws_ypixel: 0)
         try #require(ioctl(terminal.slave, TIOCSWINSZ, &resized) == 0)
@@ -81,8 +81,8 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
         $0.contains("PID descending") && $0.contains("PID 42 |")
     }
     for (key, label, divider) in [
-        ("+", "Details 55%", 12), ("9", "Details max", 4), ("0", "Details min", 20),
-        ("=", "Details 55%", 12), ("-", "Details 50%", 12),
+        ("+", "Details 55%", 11), ("9", "Details max", 4), ("0", "Details min", 19),
+        ("=", "Details 55%", 11), ("-", "Details 50%", 12),
     ] {
         try writeAllBytes(Array(key.utf8), to: terminal.master)
         _ = try await waitForANSIVisibleScreen(
@@ -169,6 +169,12 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
         }
     }
     try writeAllBytes([3], to: terminal.master)
+    try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
+}
+
+private func assertCleanExit(
+    _ pid: pid_t, terminal: RealTerminalPTYPair, original: termios, reaped: inout Bool
+) async throws {
     let deadline = ContinuousClock.now + .seconds(4)
     var status: Int32 = 0
     var cleanup: [UInt8] = []
@@ -186,7 +192,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
         }
         try await Task.sleep(for: .milliseconds(20))
     }
-    try #require(reaped, "Child must exit within four seconds of Ctrl-C")
+    try #require(reaped, "Owned fixture must exit within four seconds of quitting")
     #expect(status == 0)
     let cleanupText = String(decoding: cleanup, as: UTF8.self)
     #expect(cleanupText.contains("\u{1B}[?1049l"))
@@ -199,15 +205,18 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     #expect(restored.c_cflag == original.c_cflag)
 }
 
-private func launch(_ binary: String, terminal: Int32) throws -> pid_t {
+private func launch(
+    _ binary: String, terminal: Int32, environment additions: [String: String] = [:]
+) throws -> pid_t {
     var actions: posix_spawn_file_actions_t?
     try #require(posix_spawn_file_actions_init(&actions) == 0)
     defer { posix_spawn_file_actions_destroy(&actions) }
     for descriptor: Int32 in 0...2 {
         try #require(posix_spawn_file_actions_adddup2(&actions, terminal, descriptor) == 0)
     }
-    let environment = ProcessInfo.processInfo.environment.merging(["TERM": "xterm-256color"]) { _, new in new
-    }
+    let environment = ProcessInfo.processInfo.environment
+        .merging(["TERM": "xterm-256color"]) { _, new in new }
+        .merging(additions) { _, new in new }
     var arguments = [strdup(binary), nil]
     var variables = environment.map { strdup("\($0.key)=\($0.value)") } + [nil]
     defer {
@@ -343,4 +352,100 @@ private func dividerRow(_ text: String) -> Int? {
     ) {
         $0.contains("every 0.5 s") && !$0.contains("PAUSED")
     }
+}
+
+@Test func terminalDiagnosisUsesFakesAndPreservesPausedReportAcrossCancelAndResize() async throws {
+    let binary =
+        ProcessInfo.processInfo.environment["AGENT_MONITOR_TUI_FIXTURE"]
+        ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().appendingPathComponent(".build/debug/monitor-tui-fixture").path
+    let terminal = try RealTerminalPTYPair.open(size: .init(width: 100, height: 24), stallBudget: nil)
+    defer { terminal.close() }
+    var original = termios()
+    try #require(tcgetattr(terminal.slave, &original) == 0)
+    // Gate the owned source so PTY scheduling cannot skip the transient collecting state.
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let gate = directory.appendingPathComponent("release-diagnosis")
+    let pid = try launch(
+        binary, terminal: terminal.slave, environment: ["AGENT_MONITOR_DIAGNOSIS_GATE": gate.path])
+    var reaped = false
+    defer {
+        if !reaped {
+            kill(pid, SIGKILL)
+            waitpid(pid, nil, 0)
+        }
+    }
+    var screen = ANSIVisibleScreen(size: .init(width: 100, height: 24))
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(8)
+    ) {
+        $0.contains("fixture-42")
+    }
+    try writeAllBytes(Array("p".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("PAUSED")
+    }
+    try writeAllBytes(Array("d".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("CPU diagnosis") && $0.contains("collecting")
+    }
+    try writeAllBytes(Array("ksf".utf8), to: terminal.master)
+    var small = winsize(ws_row: 7, ws_col: 30, ws_xpixel: 0, ws_ypixel: 0)
+    try #require(ioctl(terminal.slave, TIOCSWINSZ, &small) == 0)
+    screen = ANSIVisibleScreen(size: .init(width: 30, height: 7))
+    try #require(kill(pid, SIGWINCH) == 0)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("Resize to 40x8") && $0.contains("x cancel")
+    }
+    try writeAllBytes(Array("xd".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("cancelled")
+    }
+    try writeAllBytes([27], to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("Agent Monitor") && !$0.contains("diagnosis")
+    }
+    var large = winsize(ws_row: 24, ws_col: 100, ws_xpixel: 0, ws_ypixel: 0)
+    try #require(ioctl(terminal.slave, TIOCSWINSZ, &large) == 0)
+    screen = ANSIVisibleScreen(size: .init(width: 100, height: 24))
+    try #require(kill(pid, SIGWINCH) == 0)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("PAUSED") && !$0.contains("CPU diagnosis")
+    }
+    try Data().write(to: gate)
+    try writeAllBytes(Array("d".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(8)
+    ) {
+        $0.contains("completed") && $0.contains("Monitor helper") && $0.contains("diagnosis-worker")
+    }
+    try writeAllBytes([27], to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("PAUSED") && !$0.contains("CPU diagnosis")
+    }
+    try FileManager.default.removeItem(at: gate)
+    try writeAllBytes(Array("d".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("CPU diagnosis") && $0.contains("collecting")
+    }
+    try writeAllBytes(Array("q".utf8), to: terminal.master)
+    try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
 }

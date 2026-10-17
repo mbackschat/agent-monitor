@@ -203,7 +203,7 @@ func detailsSplitStaysFixedAcrossRefreshSelectionAndDisappearance(width: Int) th
     #expect(maximized.contains { $0.text.contains("PID 42 |") })
     state.minimizeDetails()
     let minimized = LiveReportLayout.lines(state: state, width: 100, height: 24)
-    #expect(minimized.firstIndex { $0.style == .separator } == 20)
+    #expect(minimized.firstIndex { $0.style == .separator } == 19)
     #expect(!minimized.contains { $0.text.contains("PID 42 |") })
     state.restoreDetails()
     #expect(state.detailsPercent == 55)
@@ -221,7 +221,7 @@ func detailsSplitStaysFixedAcrossRefreshSelectionAndDisappearance(width: Int) th
     state.adjustDetails(by: 10)
     let tall = LiveReportLayout.lines(state: state, width: 100, height: 24)
     let short = LiveReportLayout.lines(state: state, width: 40, height: 8)
-    #expect(tall.firstIndex { $0.style == .separator } == 11)
+    #expect(tall.firstIndex { $0.style == .separator } == 10)
     #expect(short.count == 8)
     #expect(short.allSatisfy { $0.text.count <= 40 })
     #expect(short.last?.text.contains("q/Ctrl-C") == true)
@@ -305,7 +305,7 @@ func keyboardHelpSeparatesControlsWithoutClipping(width: Int) {
     #expect(!applied.contains { $0.text.contains("pending") })
 }
 
-@Test(arguments: [(100, 4, 3), (120, 3, 2), (160, 3, 2), (200, 3, 2)])
+@Test(arguments: [(100, 4, 4), (120, 3, 3), (160, 3, 2), (200, 3, 2)])
 func responsiveChromeReturnsSpareRowsToProcesses(size: (width: Int, header: Int, footer: Int)) throws {
     var state = LiveReportState()
     state.receive(liveSnapshot((1...40).map { liveRow(Int32($0)) }))
@@ -642,4 +642,31 @@ private func explicitInspectionChangesCancelReturningDetails(change: InspectionC
     state.receive(liveSnapshot([row]))
     #expect(state.expanded == nil)
     #expect(state.detailsMode == .minimized)
+}
+
+@Test @MainActor func diagnosisReplacesOnlyTheViewportAndKeepsFrozenLiveState() async {
+    var live = LiveReportState()
+    live.receive(liveSnapshot([liveRow(42)]))
+    live.toggleFreeze()
+    let before = live
+    let result = diagnosisPresentationFixture()
+    let controller = CPUDiagnosisController(source: { result })
+    #expect(controller.start())
+    await controller.waitForCompletion()
+    live.diagnosis = controller.state
+    let lines = LiveReportLayout.lines(state: live, width: 80, height: 20)
+    #expect(lines.first?.text == "CPU diagnosis · completed")
+    #expect(!lines.map(\.text).joined().contains("CPU >"))
+    live.receive(liveSnapshot([liveRow(84)]))
+    #expect(live.snapshot == before.snapshot)
+    #expect(live.selection == before.selection)
+    #expect(live.frozen)
+    controller.dismiss()
+    live.diagnosis = controller.state
+    #expect(LiveReportLayout.lines(state: live, width: 80, height: 20).first?.text.contains("PAUSED") == true)
+}
+
+@Test func liveViewAdvertisesDiagnosisDurationWithoutConfirmation() {
+    let lines = LiveReportLayout.lines(state: LiveReportState(), width: 120, height: 24)
+    #expect(lines.map(\.text).joined().contains(DiagnosisViewState.keyHint))
 }

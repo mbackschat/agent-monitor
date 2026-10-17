@@ -45,6 +45,7 @@ agent-monitor --tui --group session
 
 | Key | Action |
 | --- | --- |
+| **d** | Start a finite CPU diagnosis immediately; three one-second waits plus scans and up to three seconds per queried provider |
 | ↑ / ↓ | Select a row |
 | ← / → | Collapse/expand a session or close/open process details |
 | Shift+← / Shift+→ | Collapse/expand displayed session groups at the current level |
@@ -77,6 +78,8 @@ The TUI defaults to a 5-second refresh; an explicit `--interval` overrides it. T
 The layout adapts to terminal size. Narrow views abbreviate names and session IDs and omit the terminal/project column; open details for the full information. The process column contains names only, with executable paths and optional command arguments in details. Very small windows show a resize hint.
 
 To copy text, drag-select it and use your terminal's Copy command (usually Command-C on macOS). Navigation is keyboard-driven; mouse selection belongs to the terminal. Whether selection survives a refresh depends on your terminal.
+
+In CPU diagnosis, **↑/↓** and **Page Up/Down** scroll the fixed result, **x** cancels, **Esc** returns to the live report, and **d** runs again. Rerun discards the old result immediately and remains disabled until the preceding run finishes cleanup. Each run may query providers again. The view ranks the top ten by measured CPU-seconds, including earlier contributors; the live table, history and paused state stay independent. Diagnosis rows have no actions. Below 40×8, starting and rerunning are disabled while Cancel, Back and quit remain available. **Monitor helper** flags observed descendants of this monitor only; reparented/unobserved helpers and other monitor instances may be unflagged, and their CPU remains in totals.
 
 ## Process actions
 
@@ -221,7 +224,7 @@ The menu bar icon uses three thick bars for the filtered processes’ CPU as a s
 
 The smaller monochrome badge at the upper left, separated from the shortened bars by a clear gap, shows the **current number of heavy agent processes**, including **0** when none are heavy. The icon and menu-bar item stay the same width; counts above 99 display **99+**, with the exact count in the right-click menu and accessibility label. A process counts once when it appears in the filtered findings. The applied CPU and footprint thresholds appear in the right-click menu. Changes to filters take effect on the next displayed sample, including when paused. Sustained heavy processes stay counted; the count falls when they become quiet or leave the observed sample. The bars never invert to announce an event. macOS supplies contrasting template colors for the system’s light/dark menu bar. There is no flashing, animation or extra sampling for the badge.
 
-**Diagnose CPU** starts a separate finite investigation immediately, with three one-second waits plus scanning and provider-lookup time. Results rank the top ten by measured CPU-seconds and retain earlier contributors; they do not change the live table, history or icon. You can start while paused without resuming the live view. **Cancel** responds immediately; **Run again** waits for cleanup, discards the previous result and starts a fresh window. **Back**, popover dismissal and detached-window closure discard the result; dragging the panel into a detached window keeps the run. Diagnosis rows have no actions. **Monitor helper** marks observed descendants of this instance; unobserved/reparented helpers and other monitor instances may remain unflagged. Their CPU stays in the totals.
+**Diagnose CPU** starts a separate finite investigation immediately, with three one-second waits plus scanning and provider-lookup time. Results rank the top ten by measured CPU-seconds and retain earlier contributors; they do not change the live table, history or icon. You can start while paused without resuming the live view. **Cancel** leaves the collecting state while owned work finishes; **Run again** waits for cleanup, discards the previous result and starts a fresh window. Each run may query providers again, independently of live monitoring’s listing cadence. **Back**, popover dismissal and detached-window closure discard the result; dragging the panel into a detached window keeps the run. Diagnosis rows have no actions. **Monitor helper** marks observed descendants of this instance; unobserved/reparented helpers and other monitor instances may remain unflagged. Their CPU stays in the totals.
 
 Click outside the panel to dismiss it. The live icon samples every **15 seconds** while closed and uses your selected interval while open; the CPU value averages the actual time between samples. Reopening shows the latest snapshot immediately and resumes live table updates. Turn off **View options → Live menu bar icon** for a static three-bar icon and no closed-panel sampling; reopening in this mode takes a fresh baseline and waits one interval for measurements. The choice lasts until quit. Closing always cancels pending actions; a send already handed off may still have been accepted, so check any retained outcome before retrying. **Quit** exits and drains owned tasks.
 

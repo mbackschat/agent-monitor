@@ -14,6 +14,7 @@ public enum DetailsPaneMode: Sendable { case minimized, split, maximized }
 public enum IntervalAdjustment: Sendable { case faster, slower }
 
 public struct LiveReportState: Equatable, Sendable {
+    public var diagnosis = DiagnosisViewState()
     public var actionPanel: ActionPanel? {
         didSet {
             if actionPanel != nil { returningDetails = nil }

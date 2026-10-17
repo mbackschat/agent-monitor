@@ -112,6 +112,10 @@ public enum AgentGuide {
             . pins/unpins the selected process or session; p pauses/resumes the view while sampling continues.
             [/] scroll details; -/+ shrink/grow details by 5 percentage points (10–90%).
             0 minimizes; 9 maximizes; = restores the chosen split (initially 50%).
+            d starts CPU diagnosis immediately: three one-second waits plus scans and up to three seconds per queried provider; each run may query again.
+            Diagnosis keeps a fixed CPU-seconds ranking, separate from live values/history. It can run while paused; the live view stays paused.
+            In diagnosis: x cancels, Esc returns, d runs again (discarding the old result), ↑/↓ and Page Up/Down scroll. Rerun waits for cleanup; below 40x8 only cancellation, Back and quit remain available.
+            Monitor helper flags identify observed descendants of this instance; other instances and unobserved/reparented helpers may be unflagged. Totals include their CPU; diagnosis rows have no actions.
             k reviews SIGTERM; s composes a verified session message; f focuses the hosting terminal.
             In action review: Ctrl-Y confirms, Esc cancels/returns. In the message editor: Tab changes recipient, Enter reviews, Backspace edits; pasted text cannot activate shortcuts.
             ↑/↓ and Page Up/Down scroll action panels. q or Ctrl-C quits; q is ordinary text while composing.
