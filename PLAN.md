@@ -16,6 +16,28 @@ Real terminal Codex workload attribution and live Codex child-recipient routing/
 
 ## Scope and pending decisions
 
+### Temporary feedback intake — 2026-10-17
+
+User-reported observations and ideas, awaiting investigation; this intake does not approve implementation of the ideas. IDs remain stable as more feedback arrives. Split compound reports so each outcome can be tracked independently. Next action: triage these items, establish causes with regression guards for bugs, and assess shared presentation and Mac app implications before proposing scope. Remove resolved entries once their outcome is documented in the owning guide.
+
+- [ ] **FEEDBACK-01 — Initially show grouped, expanded sessions.** Idea: this seems the most helpful initial view. Primary scope: TUI; assess default-view implications for the Mac app separately.
+- [ ] **FEEDBACK-02 — Separate folding from opening details.** TUI, possibly Mac app: ←/→ currently feels overloaded between root expand/collapse and child details. Footer calls this “fold”. The explanation “←/→ collapses/expands processes; ↑/↓ selects a process, then → opens its details.” appears only inside details, although it describes general navigation. User recommends separate functions and discoverable general help.
+- [ ] **FEEDBACK-03 — Make grouped hierarchy visible at the leading edge.** TUI: no clear symbol or indentation at/before the first column; `[-]` in the middle of the “LAUNCH SESSION / HEAVY PROCESS” column is easy to overlook. Screenshot 1 shows group count `1` and child PID `51519` aligned without a clear leading hierarchy cue.
+- [ ] **FEEDBACK-04 — Distinguish expandable rows.** TUI: it is not visually obvious which rows support expand/collapse. Related to FEEDBACK-03, but track the affordance independently from indentation.
+- [ ] **FEEDBACK-05 — Distinguish session rows from column headers.** TUI: user reports launch sessions appear white like table headers, while processes are orange, making row roles confusing.
+- [ ] **FEEDBACK-06 — Investigate missing per-process project information after grouping.** TUI bug candidate; assess shared grouping and Mac app impact. Before grouping, PID `64679`, process `2.1.299`, session `claude/b62cf475-622b-4ae8-8098-1fad1101babc`, TTY `ttys010` shows project `conceptgraph`; sibling node workloads show `client-activity`. After grouping, the session header shows `client-activity`, and `conceptgraph` is absent. PID `64679` is still visible in screenshot 3, so the screenshots support loss of the project label rather than disappearance of that process. Root cause and intended grouped display remain unverified; the screenshots also show different node PIDs/sample totals.
+- [ ] **FEEDBACK-07 — Open keyboard help with `?`.** Idea for both TUI and Mac app: provide discoverable keyboard help through `?`.
+- [ ] **FEEDBACK-08 — Visually scope details controls.** TUI: footer segment `| [/] scroll  -/+ size  0 min  9 max  = restore` concerns details, but identical color/spacing and an overlooked separator fail to communicate that scope.
+- [ ] **FEEDBACK-09 — Make hiding details discoverable.** TUI: user cannot tell how to hide the details pane. Track separately from footer styling so the close interaction is explicitly resolved.
+- [ ] **FEEDBACK-10 — Remove ambiguity from the details size percentage.** TUI: `Details 45%` after pressing `-` resembles CPU utilization. User suggests removing the percentage or moving it beside `-/+ size` in keyboard help.
+- [ ] **FEEDBACK-11 — Clarify pin state across focus changes.** TUI: `@` and `+` shown while changing focus do not communicate pinning clearly. Assess shared pin state/Mac app impact if investigation indicates a common cause.
+- [ ] **FEEDBACK-12 — Add larger diagnosis scrolling steps and endpoint jumps.** TUI idea: long diagnosis output is cumbersome to scroll line by line; proposed Space/Shift+Space scroll by one-third page, `t` jumps to top, and `b` to bottom. Check interaction conflicts before accepting bindings.
+- [ ] **FEEDBACK-13 — Fix usable, clearly scoped scrolling on German keyboards.** TUI: user asks what scroll keys target and reports `[`/`]`, entered as Option+5/Option+6 on their German keyboard, do not work. Verify input handling and provide usable bindings; coordinate scope labeling with FEEDBACK-08 and longer navigation with FEEDBACK-12.
+
+Screenshot provenance: user attachments in the 2026-10-17 feedback conversation. Image 1: `/Users/mbackschat/Desktop/missing indent when grouped.png`; image 2: `/Users/mbackschat/Desktop/lost before.png`; image 3: `/Users/mbackschat/Desktop/lost after.png`. These are local source references, not portable repository assets; the observations and identifying values needed for triage are recorded above.
+
+### Existing scope decisions
+
 The shipped scope includes text/TUI/JSONL reports, session grouping in text and TUI, built-in Codex/Claude attribution, confirmed single-process termination, verified session messaging and terminal focus through both TUI and CLI actions. Preserve the [architecture boundaries](docs/architecture.md) when extending it.
 
 Accepted deferral (2026-10-16): [Codex registry integration](docs/decisions/codex-session-registry.md) waits for a verifiable native process relation; the current methods do not resolve marker-less children of shared runtimes.
