@@ -3,6 +3,8 @@ import SwiftUI
 
 struct MenuBarDiagnosisView: View {
     @Bindable var diagnosis: CPUDiagnosisController
+    let copyStatus: String?
+    let onCopy: () -> Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -15,7 +17,15 @@ struct MenuBarDiagnosisView: View {
                 } else {
                     Button("Run again") { diagnosis.start() }
                         .disabled(diagnosis.state.isRunning)
-                        .help(DiagnosisViewState.help)
+                        .help(DiagnosisViewState.startHelp)
+                }
+            }
+            if diagnosis.state.phase == .completed {
+                HStack {
+                    Button("Copy report", systemImage: "doc.on.doc") { _ = onCopy() }
+                        .controlSize(.small)
+                        .help("Copy the full fixed report, including identities and measurement coverage.")
+                    if let copyStatus { Text(copyStatus).font(.caption).foregroundStyle(.secondary) }
                 }
             }
             ForEach(Array(diagnosis.state.lines.enumerated()), id: \.offset) { entry in

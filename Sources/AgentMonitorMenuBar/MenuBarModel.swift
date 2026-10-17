@@ -26,6 +26,7 @@ final class MenuBarModel {
     private(set) var lastActionResult: ActionResult?
     private(set) var savedMessage: SavedMessage?
     private(set) var messageCopyStatus: String?
+    private(set) var diagnosisCopyStatus: String?
     private(set) var liveIcon = true
     private(set) var indicator = MenuBarIndicator()
     @ObservationIgnored var onIndicatorChange: (() -> Void)?
@@ -48,11 +49,20 @@ final class MenuBarModel {
         diagnosis = CPUDiagnosisController(source: diagnosisSource)
         self.actions = actions
         self.source = source
+        diagnosis.onChange = { [weak self] _ in self?.diagnosisCopyStatus = nil }
     }
 
     @discardableResult func beginDiagnosis() -> Bool {
         guard isOpen, report.actionPanel == nil else { return false }
         return diagnosis.start()
+    }
+
+    @discardableResult
+    func copyDiagnosisReport(using write: @MainActor (String) -> Bool = MenuBarClipboard.copy) -> Bool {
+        guard isOpen, let text = diagnosis.state.reportText else { return false }
+        let copied = write(text)
+        diagnosisCopyStatus = copied ? "Copied" : "Copy failed"
+        return copied
     }
 
     func start() {

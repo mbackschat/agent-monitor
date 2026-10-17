@@ -41,7 +41,7 @@ struct MenuBarView: View {
                             !model.isOpen || model.report.actionPanel != nil
                                 || model.diagnosis.state.isRunning
                         )
-                        .help(DiagnosisViewState.help)
+                        .help(DiagnosisViewState.startHelp)
                     Button(
                         model.report.frozen ? "Resume" : "Pause",
                         systemImage: model.report.frozen ? "play.fill" : "pause.fill"
@@ -52,6 +52,10 @@ struct MenuBarView: View {
             }
             .padding()
             if !model.diagnosis.state.isVisible {
+                Text(DiagnosisViewState.purpose)
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal).padding(.bottom, 6)
                 Text(CPUContext.text(model.report.snapshot?.cpuAccounting))
                     .font(.caption).foregroundStyle(.secondary).monospacedDigit()
                     .fixedSize(horizontal: false, vertical: true)
@@ -64,7 +68,9 @@ struct MenuBarView: View {
                         MenuBarKeyboardHelp { model.showsKeyboardHelp = false }
                     }
                     if model.diagnosis.state.isVisible {
-                        MenuBarDiagnosisView(diagnosis: model.diagnosis)
+                        MenuBarDiagnosisView(
+                            diagnosis: model.diagnosis, copyStatus: model.diagnosisCopyStatus,
+                            onCopy: { model.copyDiagnosisReport() })
                     } else if let panel = model.report.actionPanel {
                         actionPanel(panel)
                     } else {

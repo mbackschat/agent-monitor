@@ -7,6 +7,12 @@ public struct DiagnosisViewState: Equatable, Sendable {
     public internal(set) var content: [ReportLine] = []
     public var isVisible: Bool { phase != .hidden }
 
+    public static let purpose = "Find which processes use the most CPU during a short observation."
+    public static let whenToRun =
+        "Run while the slowdown is happening; work that ended earlier cannot be recovered."
+    public static var startHelp: String { "\(purpose) \(whenToRun) \(help)" }
+    public static let interpretation =
+        "Start with the largest CPU-seconds contributors. Use their PID and session evidence to find the workload in the live table; check coverage and Monitor helper flags before drawing conclusions."
     public static let help =
         "Measures from now: three one-second waits plus scan time; provider lookup may add up to three seconds per queried provider."
     public static let keyHint = "d CPU diagnosis"
@@ -25,7 +31,11 @@ public struct DiagnosisViewState: Equatable, Sendable {
     public var lines: [ReportLine] {
         switch phase {
         case .hidden: []
-        case .collecting: [ReportLine(Self.help), ReportLine("Window starts at invocation.", style: .muted)]
+        case .collecting:
+            [
+                ReportLine(Self.purpose), ReportLine(Self.whenToRun), ReportLine(Self.help),
+                ReportLine("Window starts at invocation.", style: .muted),
+            ]
         case .completed: content
         case .failed: [ReportLine(DiagnosisText.collectionFailure, style: .failure)]
         case .cancelled:
@@ -34,10 +44,16 @@ public struct DiagnosisViewState: Equatable, Sendable {
         }
     }
 
+    public var reportText: String? {
+        guard phase == .completed else { return nil }
+        return content.map(\.text).joined(separator: "\n")
+    }
+
     static func resultLines(_ value: CPUDiagnosis) -> [ReportLine] {
         [
             ReportLine(
-                "Window started at invocation; result stays fixed until rerun or dismissal.", style: .muted)
+                "Window started at invocation; result stays fixed until rerun or dismissal.", style: .muted),
+            ReportLine(Self.interpretation),
         ]
             + DiagnosisText.lines(value, includingHelperFlags: true).map { ReportLine($0) }
             + [

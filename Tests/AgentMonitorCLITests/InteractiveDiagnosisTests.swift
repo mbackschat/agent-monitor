@@ -116,6 +116,23 @@ import Testing
         #expect(!lines.contains { $0.text.contains("cleanup in progress") })
     }
 
+    @Test func guidanceExplainsWhenToRunAndHowToReadTheFixedResult() async throws {
+        let controller = CPUDiagnosisController(source: { diagnosisPresentationFixture(available: true) })
+        controller.start()
+        let collecting = controller.state.lines.map(\.text).joined(separator: "\n")
+        #expect(collecting.contains("slowdown"))
+        #expect(collecting.contains("earlier"))
+        #expect(controller.state.reportText == nil)
+        await controller.waitForCompletion()
+        let copied = try #require(controller.state.reportText)
+        #expect(copied.contains("CPU-seconds"))
+        #expect(copied.contains("live table"))
+        #expect(copied.contains("coverage"))
+        #expect(copied.contains(String(UInt64.max)))
+        controller.dismiss()
+        #expect(controller.state.reportText == nil)
+    }
+
     @Test func stopCancelsAndWaitsForOwnedWork() async {
         let gate = DiagnosisGate()
         let controller = CPUDiagnosisController(source: { try await gate.run() })

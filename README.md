@@ -16,7 +16,7 @@ This README describes the current source build, which can be ahead of the [lates
 
 - **Live terminal view** — refresh every 5 seconds by default; watch CPU and memory usage, sort processes, and open details without leaving your terminal. Stable order keeps existing rows in place and appends newcomers. Change the update interval or freeze the view while you look.
 - **Native menu bar app** — open a compact macOS panel for resource usage and session actions, with Pause/Resume and a separate **Diagnose CPU** investigation; three bold load bars get a quick startup sample, then update every 15 seconds while the panel is closed. Available from a source build.
-- **Finite CPU diagnosis** — start with **d** in the TUI or **Diagnose CPU** in the Mac app. Rank a new observation window by measured CPU-seconds and retain contributors that leave before it ends, without changing live-table values.
+- **Finite CPU diagnosis** — start with **d** in the TUI or **Diagnose CPU** in the Mac app. Rank a new observation window by measured CPU-seconds and retain contributors that leave before it ends, without changing live-table values. The Mac app can copy the completed report for further investigation.
 - **Compact history** — one strip for agent CPU, memory or heavy-process count, covering the last 10 minutes or one hour in both live views, updated at most every 15 seconds.
 - **Pinned inspection** — keep a process or session at the top while its values update, in both native and terminal views. Missing targets stay marked until unpinned.
 - **Session grouping** — bring related heavy processes together and see their combined resource usage.

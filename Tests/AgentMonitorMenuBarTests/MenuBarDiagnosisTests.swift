@@ -163,3 +163,46 @@ private actor NativeDiagnosisGate {
     if phase == .collecting || phase == .cancelled { await gate.release(try await menuBarDiagnosisFixture()) }
     await model.stop()
 }
+
+@Test @MainActor func diagnosisCopiesOnlyTheCompletedFixedReportAndClearsStatusOnRerun() async throws {
+    let gate = NativeDiagnosisGate()
+    let model = MenuBarModel(diagnosisSource: { try await gate.run() }, source: { _, _, _, _ in })
+    var copied: [String] = []
+    func copy() -> Bool {
+        model.copyDiagnosisReport(using: {
+            copied.append($0)
+            return true
+        })
+    }
+    #expect(!copy())
+    model.open()
+    #expect(model.beginDiagnosis())
+    await gate.waitUntilStarted()
+    #expect(!copy())
+    #expect(copied.isEmpty)
+    await gate.release(try await menuBarDiagnosisFixture())
+    await model.diagnosis.waitForCompletion()
+    #expect(copy())
+    let text = try #require(copied.first)
+    #expect(text == model.diagnosis.state.reportText)
+    #expect(text.contains("42001/1 [Monitor helper]"))
+    #expect(text.contains("CPU diagnosis:") && text.contains("Host coverage:"))
+    #expect(text.contains("not proof of current use"))
+    #expect(text.contains("CPU-s"))
+    #expect(model.diagnosisCopyStatus == "Copied")
+    let failedCopy = model.copyDiagnosisReport(using: { _ in false })
+    #expect(!failedCopy)
+    #expect(model.diagnosisCopyStatus == "Copy failed")
+    #expect(model.beginDiagnosis())
+    await gate.waitUntilStarted()
+    #expect(model.diagnosisCopyStatus == nil)
+    #expect(!copy())
+    model.diagnosis.cancel()
+    #expect(!copy())
+    await gate.release(try await menuBarDiagnosisFixture())
+    await model.diagnosis.waitForCompletion()
+    model.close()
+    #expect(!copy())
+    #expect(copied.count == 1)
+    await model.stop()
+}
