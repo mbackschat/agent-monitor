@@ -38,6 +38,7 @@ if [ "$mode" = prepare ]; then
     [ ! -e "$archive" ] || fail "$archive exists; delete dist/$name* to prepare again"
     bash scripts/doctor.sh
     python3 scripts/test_release.py
+    python3 scripts/test_docs.py
     python3 scripts/docs.py check
     swift format lint --strict --recursive Sources Tests Tools Package.swift
     release_validation="$root/.build/release-validation"

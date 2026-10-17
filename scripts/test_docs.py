@@ -3,6 +3,7 @@
 
 import importlib.util
 import pathlib
+import subprocess
 import tempfile
 import unittest
 
@@ -61,6 +62,25 @@ class DocsTests(unittest.TestCase):
 
     def test_links_inside_code_are_ignored(self):
         self.write("docs/usage.md", "# Usage\n\n`[a](missing.md)`\n\n```\n[b](missing.md)\n```\n")
+        self.assertEqual(docs.check(self.root), [])
+
+    def test_existing_ignored_link_targets_fail_even_through_tracked_symlinks(self):
+        subprocess.run(['git', 'init', '--quiet', str(self.root)], check=True)
+        self.write('.gitignore', '.skill-sources/\n')
+        self.write('.skill-sources/testing/SKILL.md', '# Testing\n')
+        link = self.root / '.agents/skills/testing'
+        link.parent.mkdir(parents=True)
+        link.symlink_to('../../.skill-sources/testing', target_is_directory=True)
+        subprocess.run(['git', '-C', str(self.root), 'add', '.agents/skills/testing'], check=True)
+        for target in ['../.skill-sources/testing/SKILL.md', '../.agents/skills/testing/SKILL.md']:
+            with self.subTest(target=target):
+                self.write('docs/usage.md', f'# Usage\n\n[Testing]({target})\n')
+                errors = docs.check(self.root)
+                self.assertEqual(len(errors), 1, errors)
+                self.assertIn('ignored by Git', errors[0])
+
+    def test_new_nonignored_link_targets_are_allowed_before_staging(self):
+        subprocess.run(['git', 'init', '--quiet', str(self.root)], check=True)
         self.assertEqual(docs.check(self.root), [])
 
     def test_unindexed_document_is_reported(self):

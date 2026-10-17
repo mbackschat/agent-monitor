@@ -11,6 +11,7 @@ import datetime
 import os
 import pathlib
 import re
+import subprocess
 import sys
 import urllib.parse
 
@@ -82,19 +83,39 @@ def anchors(path, cache):
     return cache[path]
 
 
+def ignored_paths(root, paths):
+    if not (root / '.git').exists():
+        return set()
+    candidates = sorted({str(path.relative_to(root)) for path in paths if path.is_relative_to(root)})
+    if not candidates:
+        return set()
+    result = subprocess.run(
+        ['git', '-C', str(root), 'check-ignore', '--stdin', '-z'],
+        input='\0'.join(candidates) + '\0', text=True, capture_output=True,
+    )
+    if result.returncode not in (0, 1):
+        result.check_returncode()
+    return {root / name for name in result.stdout.split('\0') if name}
+
+
 def check_links(root, path, cache):
-    errors = []
+    errors, links = [], []
     for number, line in prose_lines(path.read_text(encoding="utf-8")):
         for target in LINK.findall(line):
             if re.match(r"^[a-z][a-z0-9+.-]*:", target, re.IGNORECASE):
                 continue
             file_part, _, fragment = urllib.parse.unquote(target).partition("#")
             destination = (path.parent / file_part).resolve() if file_part else path
-            location = f"{path.relative_to(root)}:{number}"
-            if not destination.exists():
-                errors.append(f"{location}: link target {target} does not exist")
-            elif fragment and destination.suffix == ".md" and fragment not in anchors(destination, cache):
-                errors.append(f"{location}: anchor #{fragment} not found in {file_part or path.name}")
+            links.append((number, target, file_part, fragment, destination))
+    ignored = ignored_paths(root, (entry[4] for entry in links))
+    for number, target, file_part, fragment, destination in links:
+        location = f"{path.relative_to(root)}:{number}"
+        if destination in ignored:
+            errors.append(f"{location}: link target {target} is ignored by Git and unavailable in a clean checkout")
+        elif not destination.exists():
+            errors.append(f"{location}: link target {target} does not exist")
+        elif fragment and destination.suffix == ".md" and fragment not in anchors(destination, cache):
+            errors.append(f"{location}: anchor #{fragment} not found in {file_part or path.name}")
     return errors
 
 
