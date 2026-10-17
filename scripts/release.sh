@@ -36,15 +36,24 @@ previous=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
 if [ "$mode" = prepare ]; then
     [ ! -e "$archive" ] || fail "$archive exists; delete dist/$name* to prepare again"
     bash scripts/doctor.sh
+    python3 scripts/test_release.py
     python3 scripts/docs.py check
     swift format lint --strict --recursive Sources Tests Tools Package.swift
-    swift test
+    release_validation="$root/.build/release-validation"
+    mkdir -p "$release_validation"
+    CPU_DIAGNOSIS_FIXTURE_PATH="$release_validation/diagnosis.jsonl" \
+        JSON_REPORT_FIXTURE_PATH="$release_validation/reports.jsonl" swift test
     bash scripts/preview.sh check
     swift build -c release -debug-info-format none
-    python3 scripts/verify-tui-terminal.py .build/release/agent-monitor
+    uv run scripts/verify-json-schema.py .build/release/agent-monitor \
+        --records "$release_validation/reports.jsonl"
+    uv run scripts/verify-json-schema.py .build/release/agent-monitor --diagnosis \
+        --records "$release_validation/diagnosis.jsonl"
+    python3 scripts/verify-tui-terminal.py .build/release/monitor-tui-fixture --fixture
     uv run scripts/package-release.py .build/release
     # The archive is stripped; the unstripped executable is needed to symbolicate crash reports.
     cp .build/release/agent-monitor "dist/$name-unstripped"
+    git rev-parse HEAD > "dist/$name.commit"
     if [ ! -f "$notes" ]; then
         {
             printf '# Agent Monitor %s\n\nTODO: one-sentence summary.\n\n## Changed\n\n' "$version"
@@ -60,6 +69,9 @@ if [ "$mode" = prepare ]; then
 fi
 
 [ -f "$archive" ] && [ -f "$archive.sha256" ] || fail "run bash scripts/release.sh $version first"
+[ -f "dist/$name.commit" ] && [ "$(cat "dist/$name.commit")" = "$(git rev-parse HEAD)" ] \
+    || fail 'HEAD differs from the prepared release; prepare from the committed release revision'
+(cd dist && shasum -a 256 -c "$name.tar.gz.sha256")
 if [ ! -f "$notes" ] || grep -q TODO "$notes"; then fail "finish $notes first"; fi
 # A push under the wrong identity cannot be taken back; the previous release's author is the reference.
 if [ -n "$previous" ]; then
@@ -82,3 +94,4 @@ gh release download "$tag" --dir "$check"
 echo "Published $tag and verified the downloaded archive."
 echo "Homebrew tap: url https://github.com/mbackschat/agent-monitor/releases/download/$tag/$name.tar.gz"
 echo "              sha256 $(cut -d ' ' -f 1 "$archive.sha256")"
+python3 scripts/update-homebrew.py "$version"

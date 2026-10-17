@@ -27,6 +27,8 @@ jobs:
         run: |
           python3 scripts/test_docs.py
           python3 scripts/docs.py check
+      - name: Check release automation with fake Homebrew and disposable repositories
+        run: python3 scripts/test_release.py
       - name: Check Swift formatting
         run: swift format lint --strict --recursive Sources Tests Tools Package.swift
       - name: Run headless tests and synthetic native renders

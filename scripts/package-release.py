@@ -123,6 +123,13 @@ def main():
         schema = json.loads(run("agent-monitor", "--json-schema", cwd=unpacked, env=environment))
         if "$schema" not in schema:
             raise SystemExit("Packaged JSON Schema check failed")
+        diagnosis_schema = json.loads(
+            run("agent-monitor", "diagnose", "cpu", "--json-schema", cwd=unpacked, env=environment)
+        )
+        if "$schema" not in diagnosis_schema:
+            raise SystemExit("Packaged diagnosis schema check failed")
+        if "CPU" not in run("agent-monitor", "guide", "semantics", cwd=unpacked, env=environment):
+            raise SystemExit("Packaged guide check failed")
         shutil.copy2(staged_archive, archive)
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     checksum = archive.with_suffix(archive.suffix + ".sha256")
