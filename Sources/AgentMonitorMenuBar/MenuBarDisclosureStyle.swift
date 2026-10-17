@@ -85,7 +85,8 @@ private struct MenuBarRowHeader<Label: View>: View {
                             Image(systemName: expanded ? "chevron.down" : "chevron.right")
                                 .font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary)
                         case .process:
-                            Color.clear
+                            Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                                .font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
                         }
                     }
                     .frame(width: 18, height: 32).accessibilityHidden(true)

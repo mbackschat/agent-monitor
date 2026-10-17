@@ -36,6 +36,56 @@ import Testing
     #expect(host.fittingSize.height == 32)
 }
 
+@Test(arguments: [MenuBarRowDisclosure.process, .group(count: 6)])
+@MainActor func disclosureChevronVisiblyChangesWithExpansion(disclosure: MenuBarRowDisclosure) throws {
+    _ = NSApplication.shared
+    func leadingPixels(expanded: Bool) throws -> [Int] {
+        let host = NSHostingView(
+            rootView: DisclosureChevronFixture(disclosure: disclosure, expanded: expanded))
+        host.appearance = NSAppearance(named: .aqua)
+        host.frame = NSRect(x: 0, y: 0, width: 420, height: 80)
+        host.layoutSubtreeIfNeeded()
+        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        let scale = Double(bitmap.pixelsWide) / host.bounds.width
+        var pixels: [Int] = []
+        // The leading slot contains only the disclosure indicator; children start at the 24-point indent.
+        for y in 0..<bitmap.pixelsHigh {
+            for x in 0..<Int(18 * scale) {
+                let color = try #require(bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
+                pixels.append(Int((color.redComponent * 255).rounded()))
+            }
+        }
+        return pixels
+    }
+    let collapsed = try leadingPixels(expanded: false)
+    let expanded = try leadingPixels(expanded: true)
+    #expect(collapsed.contains { $0 < 220 })
+    #expect(expanded.contains { $0 < 220 })
+    #expect(collapsed != expanded)
+}
+
+private struct DisclosureChevronFixture: View {
+    let disclosure: MenuBarRowDisclosure
+    let expanded: Bool
+    @FocusState private var focus: MenuBarFocus?
+
+    var body: some View {
+        DisclosureGroup(isExpanded: .constant(expanded)) {
+            Text("Details")
+        } label: {
+            Text("Process")
+        }
+        .disclosureGroupStyle(
+            MenuBarDisclosureStyle(
+                id: .process(ProcessIdentity(pid: 42, startMicroseconds: 1)), disclosure: disclosure,
+                pinned: false, arrived: false, focus: $focus, onPin: { true }, onPinShortcut: { true })
+        )
+        .frame(width: 420, height: 80, alignment: .topLeading)
+        .background(Color.white)
+    }
+}
+
 @Test(
     .enabled(if: ProcessInfo.processInfo.environment["MENUBAR_PREVIEW_PATH"] != nil),
     arguments: [false, true])
