@@ -20,7 +20,7 @@ enum MenuBarKeyboard {
 
 extension MenuBarModel {
     func pidToCopy(for row: LiveReportRowID) -> String? {
-        guard isOpen, report.actionPanel == nil, visibleRowIDs.contains(row),
+        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, visibleRowIDs.contains(row),
             case .process(let identity) = row,
             report.rows.contains(where: { $0.process == identity })
         else { return nil }
@@ -40,7 +40,7 @@ extension MenuBarModel {
         _ key: String, row: LiveReportRowID?,
         writeClipboard: @MainActor (String) -> Bool = MenuBarClipboard.copy
     ) -> Bool {
-        guard isOpen, report.actionPanel == nil else { return false }
+        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil else { return false }
         if let shortcut = ReportShortcut(rawValue: key) {
             switch shortcut {
             case .pause:

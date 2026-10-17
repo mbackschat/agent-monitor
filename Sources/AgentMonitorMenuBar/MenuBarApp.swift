@@ -17,7 +17,12 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
     private var item: NSStatusItem?
     private let popover = NSPopover()
     private lazy var statusMenu = MenuBarStatusMenu(model: model)
-    private let model = MenuBarModel(source: MenuBarCollection.source())
+    private let model: MenuBarModel
+
+    init(model: MenuBarModel = MenuBarModel(source: MenuBarCollection.source())) {
+        self.model = model
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -97,7 +102,14 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
     }
 
     func popoverDidShow(_ notification: Notification) { model.open() }
-    func popoverWillClose(_ notification: Notification) { model.close() }
+    func popoverWillClose(_ notification: Notification) {
+        // NSPopover.h distinguishes detachment from closure; the visible window keeps its run.
+        guard
+            notification.userInfo?[NSPopover.closeReasonUserInfoKey] as? String
+                != NSPopover.CloseReason.detachToWindow.rawValue
+        else { return }
+        model.close()
+    }
     func popoverShouldDetach(_ popover: NSPopover) -> Bool { true }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

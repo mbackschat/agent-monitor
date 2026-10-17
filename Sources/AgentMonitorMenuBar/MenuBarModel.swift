@@ -15,6 +15,7 @@ typealias MenuBarSource =
 @MainActor @Observable
 final class MenuBarModel {
     var report = LiveReportState(grouping: .session, interval: 5)
+    let diagnosis: CPUDiagnosisController
     var panelSize: MenuBarPanelSize = .standard
     var showsKeyboardHelp = false
     private(set) var arrivals = MenuBarArrivals()
@@ -39,9 +40,19 @@ final class MenuBarModel {
     @ObservationIgnored private let source: MenuBarSource
     @ObservationIgnored private let actions: any ProcessActions
 
-    init(actions: any ProcessActions = SessionActions.local(), source: @escaping MenuBarSource) {
+    init(
+        actions: any ProcessActions = SessionActions.local(),
+        diagnosisSource: @escaping CPUDiagnosisSource = CPUDiagnosisSession.collectLocal,
+        source: @escaping MenuBarSource
+    ) {
+        diagnosis = CPUDiagnosisController(source: diagnosisSource)
         self.actions = actions
         self.source = source
+    }
+
+    @discardableResult func beginDiagnosis() -> Bool {
+        guard isOpen, report.actionPanel == nil else { return false }
+        return diagnosis.start()
     }
 
     func start() {
@@ -108,13 +119,16 @@ final class MenuBarModel {
     }
 
     func toggleFreeze() {
-        guard isOpen, report.snapshot != nil, report.actionPanel == nil else { return }
+        guard isOpen, !diagnosis.state.isVisible, report.snapshot != nil, report.actionPanel == nil else {
+            return
+        }
         report.toggleFreeze()
         updateArrivals()
         refreshIndicator()
     }
 
     func close() {
+        diagnosis.dismiss()
         if let panel = report.actionPanel {
             switch panel.phase {
             case .compose, .review:
@@ -141,6 +155,7 @@ final class MenuBarModel {
         cancelCollection()
         await collection?.value
         await action?.value
+        await diagnosis.stop()
         collection = nil
         action = nil
     }
@@ -207,7 +222,8 @@ final class MenuBarModel {
     }
 
     func canBegin(_ kind: ProcessActionKind, row: LiveReportRowID) -> Bool {
-        guard isOpen, report.actionPanel == nil, visibleRowIDs.contains(row) else { return false }
+        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, visibleRowIDs.contains(row)
+        else { return false }
         switch row {
         case .group(let id):
             guard case .focus = kind,
@@ -227,7 +243,7 @@ final class MenuBarModel {
     }
 
     func begin(_ kind: ProcessActionKind, row: LiveReportRowID) {
-        guard isOpen, report.actionPanel == nil else { return }
+        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil else { return }
         if case .message = kind, let savedMessage {
             if row == .process(savedMessage.process.process) { resumeMessage() }
             return
@@ -249,7 +265,8 @@ final class MenuBarModel {
     }
 
     @discardableResult func togglePin(_ row: LiveReportRowID) -> Bool {
-        guard isOpen, report.actionPanel == nil, visibleRowIDs.contains(row) else { return false }
+        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, visibleRowIDs.contains(row)
+        else { return false }
         report.togglePin(row)
         return true
     }
@@ -302,12 +319,12 @@ final class MenuBarModel {
     }
 
     func resumeMessage() {
-        guard isOpen, report.actionPanel == nil, let savedMessage else { return }
+        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, let savedMessage else { return }
         perform(report.beginMessage(for: savedMessage.process, sampledAt: savedMessage.sampledAt))
     }
 
     func discardMessage() {
-        guard isOpen, report.actionPanel == nil else { return }
+        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil else { return }
         savedMessage = nil
     }
 

@@ -23,7 +23,9 @@ struct MenuBarView: View {
                 Image(systemName: "terminal.fill").foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Agent Monitor").font(.headline)
-                    if model.report.frozen, let snapshot = model.report.snapshot {
+                    if model.diagnosis.state.isVisible {
+                        Text("Finite CPU investigation").font(.caption).foregroundStyle(.secondary)
+                    } else if model.report.frozen, let snapshot = model.report.snapshot {
                         Text("Paused at \(snapshot.timestamp.formatted(date: .omitted, time: .standard))")
                             .font(.caption).foregroundStyle(.secondary).monospacedDigit()
                     } else {
@@ -31,25 +33,39 @@ struct MenuBarView: View {
                     }
                 }
                 Spacer()
-                Button(
-                    model.report.frozen ? "Resume" : "Pause",
-                    systemImage: model.report.frozen ? "play.fill" : "pause.fill"
-                ) { model.toggleFreeze() }
-                .disabled(model.report.snapshot == nil || model.report.actionPanel != nil)
-                .help("Hold the displayed sample and row order. Resume shows the latest sample (p).")
+                if model.diagnosis.state.isVisible {
+                    Button("Back") { model.diagnosis.dismiss() }
+                } else {
+                    Button("Diagnose CPU") { model.beginDiagnosis() }
+                        .disabled(
+                            !model.isOpen || model.report.actionPanel != nil
+                                || model.diagnosis.state.isRunning
+                        )
+                        .help(DiagnosisViewState.help)
+                    Button(
+                        model.report.frozen ? "Resume" : "Pause",
+                        systemImage: model.report.frozen ? "play.fill" : "pause.fill"
+                    ) { model.toggleFreeze() }
+                    .disabled(model.report.snapshot == nil || model.report.actionPanel != nil)
+                    .help("Hold the displayed sample and row order. Resume shows the latest sample (p).")
+                }
             }
             .padding()
-            Text(CPUContext.text(model.report.snapshot?.cpuAccounting))
-                .font(.caption).foregroundStyle(.secondary).monospacedDigit()
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal).padding(.bottom, 12)
+            if !model.diagnosis.state.isVisible {
+                Text(CPUContext.text(model.report.snapshot?.cpuAccounting))
+                    .font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal).padding(.bottom, 12)
+            }
             Divider()
             ScrollViewReader { proxy in
                 ScrollView {
-                    if model.showsKeyboardHelp {
+                    if model.showsKeyboardHelp && !model.diagnosis.state.isVisible {
                         MenuBarKeyboardHelp { model.showsKeyboardHelp = false }
                     }
-                    if let panel = model.report.actionPanel {
+                    if model.diagnosis.state.isVisible {
+                        MenuBarDiagnosisView(diagnosis: model.diagnosis)
+                    } else if let panel = model.report.actionPanel {
                         actionPanel(panel)
                     } else {
                         report
@@ -87,19 +103,22 @@ struct MenuBarView: View {
                 focus = nil
                 return
             }
-            guard model.report.actionPanel == nil else { return }
+            guard !model.diagnosis.state.isVisible, model.report.actionPanel == nil else { return }
             focus = initialFocus.open(rows: model.visibleRowIDs)
             if let focusedRow { model.selectRow(focusedRow) }
         }
+        .onChange(of: model.diagnosis.state.isVisible) { _, visible in
+            focus = visible ? nil : model.report.selection.map(MenuBarFocus.row)
+        }
         .onChange(of: model.visibleRowIDs) { _, rows in
-            guard model.isOpen, model.report.actionPanel == nil,
+            guard model.isOpen, !model.diagnosis.state.isVisible, model.report.actionPanel == nil,
                 let row = initialFocus.rowsChanged(rows, focus: focus)
             else { return }
             model.selectRow(row)
             focus = .row(row)
         }
         .onKeyPress(keys: [.leftArrow, .rightArrow], phases: .down) { key in
-            guard model.isOpen, model.report.actionPanel == nil,
+            guard model.isOpen, !model.diagnosis.state.isVisible, model.report.actionPanel == nil,
                 focus != nil, MenuBarKeyboard.isBulkDisclosure(modifiers: key.modifiers),
                 model.report.setSessionDisclosure(
                     expanded: key.key == .rightArrow, from: focusedRow, flattenSingletons: true)
@@ -112,7 +131,7 @@ struct MenuBarView: View {
         .onKeyPress(.downArrow) { moveFocus(by: 1) }
         .onKeyPress(.upArrow) { moveFocus(by: -1) }
         .onKeyPress(keys: MenuBarKeyboard.keys, phases: .down) { key in
-            guard model.report.actionPanel == nil,
+            guard !model.diagnosis.state.isVisible, model.report.actionPanel == nil,
                 MenuBarKeyboard.accepts(key.characters, modifiers: key.modifiers)
             else { return .ignored }
             if key.characters == "q" {
@@ -293,7 +312,9 @@ struct MenuBarView: View {
     }
 
     private func moveFocus(by delta: Int) -> KeyPress.Result {
-        guard focus != nil, model.report.actionPanel == nil else { return .ignored }
+        guard focus != nil, !model.diagnosis.state.isVisible, model.report.actionPanel == nil else {
+            return .ignored
+        }
         focusedRow = model.moveFocus(from: focusedRow, by: delta)
         return .handled
     }

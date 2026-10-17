@@ -203,7 +203,7 @@ plutil -lint '.build/Agent Monitor.app/Contents/Info.plist'
 codesign --verify --deep --strict '.build/Agent Monitor.app'
 ```
 
-During iteration, append `--filter AgentMonitorMenuBarTests` or select the affected tests; use the complete suite for a change spanning collection, attribution and native state. CI enables the same synthetic renders and retains them for review. Inspect the light/dark panel, icon strip and message review for clipping and contrast after visible changes. These generated files are ignored validation output, not replacements for the optimized README assets. Rendering needs AppKit on macOS, but no desktop clicks or Computer Use permission. Passing model assertions or writing image files does not establish live macOS interaction.
+During iteration, append `--filter AgentMonitorMenuBarTests` or select the affected tests; use the complete suite for a change spanning collection, attribution and native state. CI enables the same synthetic renders and retains them for review. Inspect the light/dark panel, icon strip and message review for clipping and contrast after visible changes. These generated files are ignored validation output, not replacements for the optimized README assets. Rendering needs AppKit on macOS, but no desktop clicks or Computer Use permission. Passing model assertions or writing image files does not establish live macOS interaction. Set `MENUBAR_DIAGNOSIS_PREVIEW_DIRECTORY` to an existing output directory to render collecting, completed, failed and cancelled diagnosis states in light/dark appearance. The diagnosis tests inject a finite fake reader and controlled completion gates; they never use real session listings.
 
 ### Manual macOS smoke test
 
