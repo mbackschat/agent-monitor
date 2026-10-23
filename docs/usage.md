@@ -132,6 +132,8 @@ JSONL output has no action commands.
 
 ## Filters and measurements
 
+The current report is not a complete accounting of agent CPU or memory. Short-lived workers can run entirely between scans, and displayed session totals omit processes below both thresholds. Lower thresholds reveal more observed processes; shorter intervals can capture more workers, but neither guarantees complete coverage. These are gaps against the project's [resource visibility requirements](architecture.md#resource-visibility-requirements), not acceptable evidence that a busy agent is idle.
+
 By default, findings must exceed **25% CPU OR 1 GB physical footprint**. Only agent-associated processes appear; `--all-processes` also includes unrelated and unattributed processes owned by your user. Unknown or ambiguous agent sessions remain visible.
 
 - CPU is averaged over the elapsed interval between snapshots. **100% means one fully occupied core**, so a multithreaded process can exceed 100%.

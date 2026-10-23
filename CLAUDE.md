@@ -1,6 +1,14 @@
 # Repository instructions
 
-Agent Monitor maps heavy macOS processes to coding-agent sessions through text, JSONL, TUI and a maintained native menu bar app. `CLAUDE.md` is canonical; preserve the `AGENTS.md` symlink.
+Agent Monitor exists to reliably identify the coding agents and processes responsible for CPU and memory use on macOS. It provides text, JSONL, TUI and a maintained native menu bar app. `CLAUDE.md` is canonical; preserve the `AGENTS.md` symlink.
+
+## Product priority
+
+The user's number-one priority is a full, reliable understanding of agent CPU load and memory use, with the responsible agents and processes identified. Measurement coverage and attribution correctness take precedence over low monitoring overhead, quiet defaults and presentation convenience. A busy agent workload that appears idle or substantially undercounted is a core product failure, even when the limitation is documented.
+
+Do not use display thresholds, refresh cadence or heavy-process-only totals as a substitute for accounting for agent work. Filters may simplify inspection, but must not silently redefine an advertised agent/session total or hide a coverage gap. Evaluate short-lived and exited workers, below-threshold processes and memory as well as sustained CPU. Never manufacture completeness by assigning unattributed load to an agent or calling the difference from host usage “system load”; preserve unknown ownership and missing measurements explicitly.
+
+These are acceptance priorities, not claims that the current sampler meets them. Read the [resource visibility requirements](docs/architecture.md#resource-visibility-requirements) and the [active accounting work](PLAN.md#resource-accounting-priority) before measurement, filtering or aggregation changes. Current defaults and heavy-process-only totals are implementation limitations to address, not product invariants to preserve indefinitely.
 
 ## Start and scope
 
@@ -23,7 +31,7 @@ For measurement and presentation changes, assess whether the Mac app and TUI wou
 
 Harness-specific recognition, marker validation, descriptor/inbox interpretation, runtime classification and listing declarations/parsing belong in [attribution adapters](Sources/AgentMonitorCore/AttributionAdapters/). Hosts own native access, allowlisting and command execution; adapters declare and interpret observations. Never add provider heuristics to the sampler, reader, parser, models or UI. Preserve all recognition claims and uncertainty; adapter order cannot select an owner. Messaging and focus keep separate action adapters.
 
-Use exact process lifetimes, not PID alone. Never infer ownership from cwd or treat a protocol process handle as an OS PID. Session totals cover displayed heavy processes only; grouping preserves provider/session identity and leaves JSONL flat. Project labels use workload directories, never a shared runtime's launch directory. Shared presentation owns sticky disclosure without stale measurements or overriding explicit inspection changes.
+Use exact process lifetimes, not PID alone. Never infer ownership from cwd or treat a protocol process handle as an OS PID. Grouping preserves provider/session identity and leaves JSONL flat; the [current heavy-process-only totals](docs/architecture.md#current-implementation) must remain honestly labeled until their accounting changes. Project labels use workload directories, never a shared runtime's launch directory. Shared presentation owns sticky disclosure without stale measurements or overriding explicit inspection changes.
 
 Actions require frozen identity, fresh same-user/recipient verification and explicit confirmation where applicable. Acceptance is not delivery or completion; never automatically retry uncertain actions. Never read transcripts or a Claude messaging token. Tests and research probes use fake providers and disposable owned processes, never real harness listings, live messages or signals to user workloads; keep a probe script only when its measurement is retained.
 

@@ -39,6 +39,8 @@ The [doctor](../scripts/doctor.sh) checks macOS, Swift, the active macOS SDK, Gi
 
 ## Validation coverage
 
+Resource changes must meet the [resource visibility requirements](architecture.md#resource-visibility-requirements). Validate attribution and accounting separately: a correctly attributed surviving process does not establish coverage of its exited siblings. Use disposable workloads with independently known CPU work and memory allocations, varying worker lifetimes across collection boundaries, below-threshold populations, nesting and PID reuse. Check for both missing work and double counting, distinguish current memory from historical observations, and preserve unknown ownership. Faster polling, lower thresholds or a larger reported total alone are not a success oracle. User-authorized read-only live captures can expose representative workload shapes, but do not replace controlled regression guards or establish a lossless total.
+
 Each [GitHub release](https://github.com/mbackschat/agent-monitor/releases) records its own verification; the commands above and [terminal checks](#terminal-and-machine-output-checks) reproduce automated coverage. The following live evidence was collected on Apple Silicon, macOS 27.0.1 and Swift 6.4 on 2026-10-14–15. It does not establish compatibility with other systems or provider versions.
 
 | Area | Evidence and remaining limits |

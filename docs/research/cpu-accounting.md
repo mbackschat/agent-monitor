@@ -65,3 +65,25 @@ An external review of the CPU accounting proposal, since implemented as the [arc
 - Whether final counters of previously identified zombies could recover exited work without lossless tree accounting.
 - How host tick totals compare with Activity Monitor's CPU load presentation, and their resolution at short intervals.
 - How often a reaping ancestor is a shared runtime in real Codex or Claude workloads.
+
+## Live build observation — 2026-10-23
+
+The user explicitly authorized read-only investigation while the reported CPU discrepancy was occurring. At 18:58:22 and 18:58:24 Europe/Berlin, `top` reported 0% idle; `sysctl hw.logicalcpu` returned 8. Thus host occupancy was approximately 800% in the monitor's one-core unit at those instants. A separate native process listing traced `lean`/`clang` workers through `lake` → `timeout` → `zsh` → a native Claude runtime. Half-second process listings showed workers repeatedly replaced within roughly one or two seconds. This establishes an agent-launched build with substantial worker churn, not an exact session ID or a partition of all host CPU. No provider listing, transcript, message, signal or workload modification was used.
+
+A later capture began at 17:02:16.706971 UTC (19:02:16 local time), while the same `lake` parent remained present. The [raw counters and replay results](cpu-churn-2026-10-23.json) retain 168 scans, 46 distinct direct-child PID/birth identities, native Mach timebase, parent/self/child counters and footprints. The probe stopped after 17.395 seconds when the parent usage read was unavailable or its birth identity no longer matched; that condition does not establish normal exit. It consumed 0.273 CPU-seconds, approximately 1.57% of one core. That is the cost of a targeted Python/ctypes counter probe, not the production collector or UI. The earlier saturated-host observations and this later capture are different windows; no 800% ground truth is asserted for the replay window.
+
+The probe used `proc_listchildpids`, verified to return a PID count rather than a byte count, and `proc_pid_rusage(RUSAGE_INFO_V2)` for the parent and its current direct children. It converted user/system/birth ticks with `mach_timebase_info` and recorded each read against `mach_absolute_time`. Requested spacing was 100 ms; actual timing includes scheduling and scan work. An initial exploratory capture divided the list count by the PID size and omitted workers; it was rejected and is not part of the retained dataset. Only the corrected capture is used below.
+
+Replay takes every Nth scan from the first 151 captured scans, preserving identical endpoints and a 15.534-second duration for every row. For each PID/birth identity, it adds consecutive CPU deltas, or cumulative CPU for a newborn whose birth follows the preceding listing; first-scan CPU is excluded. The filtered column accepts an interval only when its per-process CPU exceeds 25% or its footprint exceeds 1 GB. Percentages are accepted CPU-seconds divided by the common window duration, not a claim that workers were simultaneously running at their peak rates. The parent itself is excluded from these worker totals.
+
+| Nominal spacing | Scans | Distinct workers observed | Measured worker CPU | After default filters | Peak observed worker footprint |
+| --- | --- | --- | --- | --- | --- |
+| 0.1 s | 151 | 45 | 229.7% | 226.9% | 0.586 GB |
+| 0.2 s | 76 | 44 | 221.1% | 218.0% | 0.573 GB |
+| 0.5 s | 31 | 41 | 201.5% | 196.9% | 0.566 GB |
+| 1 s | 16 | 30 | 175.6% | 161.0% | 0.566 GB |
+| 5 s | 4 | 13 | 113.4% | 102.8% | 0.539 GB |
+
+In this replay, five-second sampling plus default filtering retained 44.7% of the CPU measured at 100 ms without filtering. This quantifies a loss relative to another partial observation, not 55.3% of all actual build CPU. Faster sampling still misses unseen work and the CPU after each final observation. The footprint column is the maximum simultaneous sum at an observed scan, not a sum of per-worker peaks or a proven allocation peak. The capture excludes nested descendants and other processes; it reads resource counters directly, including any readable zombies, while production additionally verifies BSD metadata and same-user lifetime identity. No agent metadata enrichment or production UI ran in the probe. Therefore these results establish interval/filter sensitivity for this workload, not an end-to-end benchmark or a proof of complete accounting.
+
+The parent reaped-children counters remain raw diagnostic data. They are not added to worker CPU and are not an independent oracle: pre-window work can be reaped in-window, and the [automatic-reaping and overlap evidence](#review-follow-up--2026-10-16) still applies. No exit-counter recovery mechanism was validated by this capture.

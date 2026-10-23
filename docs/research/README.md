@@ -23,11 +23,13 @@ Checked dates are when the evidence was gathered; later editorial edits do not r
 | [Swift terminal UI findings](terminal-ui.md) | 2026-10-14 | Library observations, discovery-socket failure, direct runtime behavior and bounded probe measurements. |
 | [Local process observations](terminal-process-observations.md) | 2026-10-14 | Anonymized process topology, marker readability and synthetic orphan experiments. |
 | [macOS measurement and attribution](macos-process-attribution.md) | 2026-10-14 | Native APIs, counter units, process identity, permissions and event-collection limits. |
-| [CPU accounting coverage](cpu-accounting.md) | 2026-10-16 | First-interval, exited and short-lived lifetimes, reaped-descendant counters, unprivileged host CPU ticks and the 2026-10-16 disposable probes. |
+| [CPU accounting coverage](cpu-accounting.md) | 2026-10-16; follow-up 2026-10-23 | First-interval, exited and short-lived lifetimes, reaped-descendant counters, unprivileged host CPU ticks, disposable probes and a user-authorized live build capture quantifying interval/filter sensitivity. |
 | [Existing tools and reusable mechanisms](existing-solutions.md) | 2026-10-14; follow-ups to 2026-10-17 | Inspected source, license files, maintenance observations and untested compatibility; the [2026-10-16 CLI investigation](existing-solutions.md#agent-oriented-cli-investigation--2026-10-16) adds agent-oriented guidance, finite diagnostics, discovery/schema comparisons and a constrained helper experiment; the [2026-10-17 interactive assessment](existing-solutions.md#interactive-diagnosis-assessment--2026-10-17) records local reuse evidence, cancellation/cadence observations, monitor-helper risks and the excluded-parent correction, plus unverified UI benefits; the implemented design lives in the [interactive diagnosis contract](../architecture.md#interactive-cpu-diagnosis). |
 | [Development tools](development-tools.md) | 2026-10-14 to 2026-10-15 | Skill contents, Peter Steinberger's SwiftUI/profiling candidates, host discovery differences and audit/benchmark gaps. |
 
 ## Retained measurements
+
+- [Live build CPU churn on 2026-10-23](cpu-churn-2026-10-23.json): read-only direct-worker counters and common-window replays at nominal 0.1–5 second cadences, with CPU filters and observed footprint peaks. The [method and limits](cpu-accounting.md#live-build-observation--2026-10-23) distinguish partial observed work from a complete load oracle.
 
 - [Native menu bar load cost on 2026-10-15](menu-bar-load-cost-2026-10-15.json): raw sampling breakdown behind the [menu bar load cost](menu-bar-load-cost.md) note.
 - [History collection cost on 2026-10-15](history-collection-cost-2026-10-15.json): all-agent summary cost at one-second and 15-second cadences; method and limits in [menu bar load cost](menu-bar-load-cost.md).

@@ -2,7 +2,18 @@
 
 ## Purpose and status
 
-Agent Monitor maps heavy processes to specific coding-agent sessions. Sampling and attribution must be reusable by text output, an optional terminal UI, and a native menu bar app. See [PLAN.md](../PLAN.md) for open work and scope, and the [development guide](development.md#validation-coverage) for validation limits.
+Agent Monitor exists to identify the agents and processes responsible for CPU and memory use. Sampling and attribution must be reusable by text output, an optional terminal UI, and a native menu bar app. See [PLAN.md](../PLAN.md) for open work and scope, and the [development guide](development.md#validation-coverage) for validation limits.
+
+## Resource visibility requirements
+
+User priority clarified on 2026-10-23: a full, reliable understanding of agent load and memory is the primary acceptance criterion. Coverage and correct attribution take precedence over collection cost and presentation convenience. Substantially underreporting a busy agent workload is a product failure; documenting that failure does not satisfy the requirement.
+
+- **Population:** agent/session resource totals must account for the relevant observed processes independently of display thresholds. Below-threshold workers and their memory must not disappear from totals merely to shorten a table. CPU and memory need separately stated populations and observation times; a sum of departed workers' last footprints is not current memory use.
+- **Lifetime coverage:** evaluate short-lived workers and CPU consumed before exit, not just long-running processes. A shorter polling interval is an improvement only to the extent demonstrated by measurements; it does not prove complete accounting. UI refresh and collection choices must serve coverage rather than silently sacrifice it.
+- **Responsibility:** identify the responsible process lifetimes and agents from verifiable evidence. Preserve the distinction between launch origin and current responsibility for shared services. Unattributed, ambiguous, unreadable and unobserved work must remain explicit; host usage minus measured agent usage is not a measured system-load category.
+- **Evidence:** validate resource accounting against independent CPU-work and memory oracles, including churn, overlapping workers, nesting, exit and PID reuse. Prevent double counting as well as undercounting. Show coverage limitations where users interpret totals, and do not present a partial sum as the complete load.
+
+The following sections describe the current implementation, which does not yet meet these requirements: live session totals and the native indicator use filtered findings, collection can miss short-lived work, and all-agent history enrichment is infrequent. The [active accounting work](../PLAN.md#resource-accounting-priority) tracks the gap. The [exited-descendant counter decision](decisions/exited-descendant-cpu.md) remains a correctness constraint; the new priority does not make unsafe counter addition valid.
 
 ## Current implementation
 
