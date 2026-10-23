@@ -1,0 +1,598 @@
+{
+  "date": "2026-10-23",
+  "sourceRevision": "96654e2",
+  "probeSource": "Tools/CPUAccountingProbe/exec-identity.c",
+  "probeSHA256": "476d1d6fc8b1ef4acc0f43195c3c7f82b56c6760a5a0fa43c9aaeb77579d9804",
+  "method": "20 serial owned-child trials. Gated same-binary exec changes a synthetic environment value; child touches 16 MiB before and 32 MiB after. Parent compares public task_name_for_pid + TASK_AUDIT_TOKEN, fresh and retained ports, rusage_info_v4 and BSD name. No real provider queries or user-process signals.",
+  "summary": {
+    "runs": 20,
+    "protocol_ok": 20,
+    "fresh_tokens_readable": 20,
+    "changed_pidversion": 20,
+    "same_birth_uuid_name": 20,
+    "peak_increased": 20,
+    "retained_port_failed": 20
+  },
+  "runs": [
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49422557795120,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 41021,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98959318
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49422557795120,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 152527,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98959319
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424069941301,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 36378,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968928
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424069941301,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 142654,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968929
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424070209137,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 31465,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968932
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424070209137,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 121358,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968933
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424070439631,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 33336,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968936
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424070439631,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 122300,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968937
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424070662072,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 32017,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968940
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424070662072,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 124926,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968941
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424070901682,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 33480,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968944
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424070901682,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 125641,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968945
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424071139119,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 31454,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968948
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424071139119,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 131166,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968949
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424071394252,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 41096,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968952
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424071394252,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 140774,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968953
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424071679896,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 35629,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968956
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424071679896,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 146586,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968957
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424071939571,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 31316,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968960
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424071939571,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 114258,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968961
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424072175756,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 34891,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968964
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424072175756,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34718056,
+        "cpu_ticks": 137398,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968965
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424072416797,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 31679,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968968
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424072416797,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 120260,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968969
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424072666048,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 29775,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968972
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424072666048,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 116026,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968973
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424072878752,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17842440,
+        "cpu_ticks": 28184,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968976
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424072878752,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34718056,
+        "cpu_ticks": 117446,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968977
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424073106758,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 32818,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968980
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424073106758,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 130589,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968981
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424073379933,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 32517,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968984
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424073379933,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 133364,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968985
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424073627097,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 29567,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968988
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424073627097,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 130213,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968989
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424073893431,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 30037,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968992
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424073893431,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 120333,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968993
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424074120778,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17842464,
+        "cpu_ticks": 31610,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968996
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424074120778,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 129638,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98968997
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    },
+    {
+      "protocol_ok": true,
+      "before": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424074354223,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 17858848,
+        "cpu_ticks": 33937,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98969000
+      },
+      "after": {
+        "resource_result": 0,
+        "bsd_bytes": 136,
+        "birth_abstime": 49424074354223,
+        "uuid": "716301a4d10a34c8a692c02f71437588",
+        "name": "exec-identity",
+        "peak": 34734464,
+        "cpu_ticks": 123141,
+        "task_name_result": 0,
+        "audit_token_result": 0,
+        "pidversion": 98969001
+      },
+      "retained_audit_result": 268435459,
+      "retained_pidversion": -1
+    }
+  ]
+}

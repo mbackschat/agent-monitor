@@ -1,98 +1,109 @@
 # Resource accounting across process lifetimes
 
-Status: **unapproved**, 2026-10-23. Design for closing the remaining CPU-01 accounting gaps; the user's priority is recorded in [CLAUDE.md](../../CLAUDE.md#product-priority) and [the resource requirements](../architecture.md#resource-visibility-requirements). This proposal does not claim that a tracing backend or independent collector is implemented.
+Status: **unapproved**, 2026-10-23. Design for CPU-01; priority and acceptance expectations belong in [CLAUDE.md](../../CLAUDE.md#product-priority) and [resource visibility](../architecture.md#resource-visibility-requirements). Independent acquisition, historical attribution and adaptive sampling are not implemented. The [review assessment](../research/cpu-accounting.md#external-review-assessment--2026-10-23) records evidence, disagreements and unresolved experiments.
 
 ## Recommendation
 
-Separate frequent native acquisition, automatic background attribution and presentation. Add adaptive acquisition that prioritizes coverage, with a fixed fastest supported mode for investigations. Only deeper inspection should be on demand; identifying responsible agents must not depend on opening a row. Bounded scheduler tracing remains a separate candidate for CPU that polling cannot capture, subject to its conservation gates. The [controlled probes](../research/cpu-accounting.md#controlled-exit-and-scheduler-probes--2026-10-23) show why both capabilities matter: repeated metadata work limits native cadence, every tested polling configuration missed the 10 ms group, and System Trace matched one exit ledger but overcounted a second trial by 146%, requiring explicit event/lifetime completeness validation. Increasing the live timer alone is an interim improvement. The [follow-up analysis](../research/cpu-accounting.md#independent-acquisition-and-adaptation--2026-10-23) distinguishes evidence for this split from the untested adaptive policy.
+Require independent acquisition at a fixed, selectable cadence, prompt bounded evidence capture, automatic background attribution and retained interval measurements. This establishes a measurable baseline before enabling adaptation. Keep global adaptation as a proposed, validation-gated option, preserving the user's requested direction. Scheduler tracing is a separate optional investigation because its conservation tests failed. Deeper inspection may be on demand; identifying responsible agents must not depend on opening a row.
 
 ## Required contract
 
-- **Conserved intervals:** reports aggregate accepted CPU-seconds over one stated monotonic interval, including contributors that disappear before publication. Session/process percentages use that common denominator. Retain lifetime and attribution evidence with each contribution; a later PID reuse, exec or provider-session change cannot relabel earlier work. Unknown transition boundaries remain uncertain.
-- **Independent observation:** acquisition, evidence capture/resolution and presentation have independent progress. Their responsibilities and overload behavior are specified below; UI pause and slow provider queries cannot suspend native acquisition.
-- **Process and session evidence:** preserve exact PID/start identities, observed ancestry and adapter-owned metadata while they exist. Session totals ignore display filters. Unresolved work remains inspectable, and host occupancy, measured current-user CPU, known agent CPU and unknown ownership remain separate populations. A host remainder is not a classification.
-- **Memory:** show latest physical footprint only for current observations; retain timestamped historical values separately. Observed simultaneous footprint peaks are distinct from current memory and from sums of individual process peaks. The implemented per-process kernel footprint peak can reset on exec and provides neither a report-window timestamp nor a concurrent session peak. Missing measurements are unknown, not zero; exited workers contribute historical CPU without inflating current memory.
-- **Historical inspection:** TUI, text/JSONL and the Mac app expose contributors from the report interval even if absent at its end. Historical-only rows cannot initiate process/session actions. Pausing freezes the displayed interval and evidence while acquisition continues. Resume does not replay an unbounded queue of old views.
-- **Bounded tracing:** an explicitly invoked scheduler investigation reports its capture interval, process coverage, unavailable attribution and detected trace loss. It must reject unsupported decoding or incomplete capture rather than silently substituting polling. Join process lifecycle evidence with native attribution; scheduler CPU alone cannot identify a coding-agent session. Tracing must not depend on holding user processes stopped or changing their reaping behavior.
+### Acquisition and resolution
 
-A minimal measurement distinction, using existing `ProcessIdentity` and `Attribution` types:
+| Responsibility | Required behavior |
+| --- | --- |
+| Counter acquisition | Enumerate all in-scope lifetimes, capture counters and host observations, preserve identity checks and monotonic times, and record scan start/end plus each process's read time. Filters and unresolved ownership cannot exclude discovery. |
+| Prompt evidence | Resolve observed parent links to exact lifetime identities. On discovery or a detected execution change, attempt a small allowlisted marker/invocation read inline under an explicit per-scan work budget. Overflow is queued with its discovery time and a late/not-captured status. A stalled metadata read must remain visible as acquisition lag; a work budget is not a syscall deadline. |
+| Background resolution | Interpret captured evidence through adapters, read mutable descriptor/socket/cwd observations, and refresh provider listings automatically. Blocking operations cannot hold the acquisition executor. Publish immutable, versioned resolution results tied to original evidence and contribution identities. |
+| Presentation | Refresh independently, show pending/uncertain ownership beside measurements and retain historical contributors. Pausing a view does not pause acquisition. Historical-only rows cannot initiate actions. |
+
+Use a dedicated serial acquisition thread with an explicit, reported QoS; do not run synchronous native acquisition or blocking provider commands on Swift's cooperative executor. Background blocking work and recording use separately bounded execution resources. QoS is not a real-time guarantee or CPU-core assignment. Select QoS and cadence from owned-load measurements, including achieved p50/p99/max periods under saturation, rather than assuming a requested timer interval is achieved. No overlapping scans or unbounded catch-up work.
+
+Structural ancestry is the preferred evidence for churned descendants when verified ancestors provide an unambiguous association. A shared runtime or an unresolved parent does not establish session ownership. Parent ordering uses native monotonic birth observations when available; a wall-clock comparison alone cannot verify an ancestry edge after a clock adjustment. Missing parent birth/evidence remains unknown. Retain observed edges with their times; a later live graph cannot rewrite an earlier path.
+
+### Evidence validity and execution changes
+
+| Evidence class | Cache and validity contract |
+| --- | --- |
+| Execution-bound candidates | Captured launch markers and invocation/executable observations may be cached only within a verified execution epoch and the adapter's stated semantics. A path, image UUID, process name or unchanged footprint peak does not prove that no same-path exec occurred. Environment/argument observations are not automatically immutable merely because no exec was detected. |
+| Point observations | Registry bindings, descriptors, sockets and cwd carry observation times, refresh policies and unavailable states. A refresh deadline is a cost/freshness policy, not proof of continuous validity between observations. |
+| Historical support | A resolved contribution cites evidence supporting its entire measured interval. Extended coverage requires a documented provider guarantee or verified continuity; otherwise retain point observations and interval uncertainty. |
+
+A reliable supported-OS execution-generation mechanism remains a feasibility gate for caching across scans. Fresh task-name-port audit tokens detected same-path exec in [20 owned-child trials](../research/cpu-accounting.md#controlled-same-path-exec-follow-up), while retained ports failed after exec. Adopt this as the leading candidate; arbitrary target access, scan-scale cost and generation/counter read-race handling remain gates. Path/name/UUID changes or a falling kernel footprint peak may invalidate a cache but cannot certify stability. Without a verified generation or continuity guarantee, refresh candidate evidence and expose the unobserved transition risk; do not reuse old markers as certain historical ownership. CPU counter continuity and attribution-epoch continuity are separate questions.
+
+For example, observing session A at t=60 and B at t=120 does not establish that A owned 60–120, or that a contribution spanning 70–110 belonged exclusively to either. The transition time is unknown; other unobserved owners are not excluded. Preserve these observations and report uncertain ownership until evidence actually covers the contribution. Even equal endpoint observations do not prove continuity without a supporting contract.
+
+A minimal distinction, using existing `Attribution`:
 
 ```swift
-enum ObservedPresence: Sendable { case current, noLongerObserved }
+struct MeasuredInterval: Sendable {
+    let start: Double
+    let end: Double
+}
 
-struct FootprintObservation: Sendable {
-    let bytes: UInt64
-    let monotonicSeconds: Double
+enum EvidenceCoverage: Sendable {
+    case point(at: Double)
+    case supported(interval: MeasuredInterval, basisEvidenceIDs: [UUID])
 }
 
 enum ContributionResolution: Sendable {
     case pending
-    case observed(Attribution, atMonotonicSeconds: Double)
+    case supported(Attribution, evidenceIDs: [UUID])
+    case uncertain(candidates: [Attribution], evidenceIDs: [UUID])
     case unavailable
-}
-
-struct IntervalContribution: Sendable {
-    let process: ProcessIdentity
-    let cpuSeconds: Double?
-    let observedFrom: Double
-    let observedThrough: Double
-    let presence: ObservedPresence
-    let latestFootprint: FootprintObservation?
-    let resolution: ContributionResolution
 }
 ```
 
-`noLongerObserved` does not prove exit. `latestFootprint` on such a contributor is historical only. The containing report supplies the interval boundaries, known coverage failures and attribution qualifications; unavailable CPU must not be inferred as zero. Resolution may improve without changing measured CPU. `pending` and `unavailable` must remain distinguishable from a resolved nonagent; the existing attribution value retains unknown/ambiguous claims. This is a proposed contract, not a new wire schema.
+Candidates are not necessarily exhaustive. Evidence and resolution revisions are retained with the contribution; resolved ownership is never recomputed from the current registry/graph. Contradicting evidence may revoke a specific resolution into uncertainty, with the previous revision preserved. Greater specificity is allowed only when the new evidence supports that same interval. Observation time, supported interval and resolution time are distinct.
 
-## Acquisition and resolution
+### CPU conservation and report windows
 
-| Responsibility | Required behavior |
-| --- | --- |
-| Fast acquisition | Capture monotonic resource counters, current/kernel-peak footprint, exact same-user lifetime identity and observed parent/executable context. Preserve identity verification around native reads. Discover new lifetimes independently of attribution or visible rows; filters and unresolved ownership never exclude a process from discovery. |
-| Prompt evidence capture | Give new lifetimes and observed executable/ancestry changes priority for bounded, allowlisted attribution observations while the process exists. Capture raw evidence with identity and observation time; adapters continue to own recognition and interpretation. This work progresses separately from counter scans. Failure or late capture stays explicit. |
-| Background resolution | Automatically interpret captured evidence, resolve provider sessions and refresh bindings. Cache by lifetime and evidence validity, not PID alone. Provider calls, descriptor/socket inspection and other expensive resolution cannot hold the acquisition path. Only requested deeper inspection waits for user interest. |
-| Presentation | Consume retained interval measurements at an independent refresh rate. Show measured CPU with ownership pending/unavailable until evidence supports attribution. Report interval, achieved collection timing and coverage failures accompany the result in every presentation. |
+Retain the last valid cumulative counter and observation ID per exact lifetime and compatible counter generation across temporary read failures. Compare it with the next valid read even when intervening scans failed. Record those gaps; a recovered delta supplies total CPU over its endpoints, not its distribution inside the gap. Decreasing/reset counters, uncertain counter continuity, baseline eviction or a reused PID break the baseline with a reason. Retention is bounded; eviction cannot silently become measured zero. Recovery of final CPU after exit remains unresolved, and [reaped-child counters](../decisions/exited-descendant-cpu.md) remain excluded.
 
-Deferring interpretation is safe only for evidence already retained. A worker that exits before capture may never be attributable; an exit event does not guarantee readable final counters. Captured parent PID alone does not establish the parent's exact lifetime. Preserve uncertainty when parent identity, exec boundaries or shared-runtime/session transitions were not observed. Later evidence must not retroactively assign an entire earlier interval to whichever session is current now. Refresh long-lived bindings as well as new processes: unchanged PID/executable does not prove unchanged session ownership.
+An accepted delta is identified by its two original observation IDs and counted once. Logical report membership uses scan indices: a report contains closing observations in `(baselineScan, finalScan]`. A delta whose opening observation predates the baseline scan is emitted separately as recovered CPU-seconds with its real interval and excluded from that report's rate. Do not prorate it or attach it to the newest session. A wider analysis window may include it once if both endpoints are within that window.
 
-Retain CPU contributions and the evidence needed to interpret them after a process disappears. Bound raw samples, pending evidence and resolved history explicitly. Superseded presentation snapshots may be coalesced; CPU contributions or distinct attribution evidence may not be silently replaced by the newest item. Report affected intervals and evidence loss when capacity is exceeded. A slow resolver must neither block collection nor cause unbounded memory growth. An overload is a coverage failure, not permission to report zero or claim a complete total.
+For ordinary deltas, the common rate denominator is the enclosing monotonic observation window, from the baseline scan's listing time to the final scan's end. This encloses the constituent read intervals; expose those intervals and scan spread. Consecutive windows can overlap by a scan duration because collection is not atomic. They are not exact nonoverlapping wall-time partitions, and their durations/rates must not be summed. Conservation is tested on unique accepted deltas. When coalescing reports, merge scan ranges and recompute membership, denominator and deduplicated contributions from their endpoints; do not drop older contributions or add percentages.
 
-Use actual monotonic observation boundaries for CPU deltas. Report windows must account for a delta's covered interval; changing cadence cannot assign a whole cross-boundary delta to the newest report or imply exact proportional allocation without evidence. Memory retains sample times and age; values measured at different times cannot be advertised as an exact simultaneous snapshot. These constraints favor one collection cadence initially.
+Window CPU is explicitly observed CPU per enclosing window, not complete system occupancy. Mark missing/uncertain measurements, baseline exclusions and separately recovered CPU. Session totals ignore display filters. Host occupancy, current-user measurements, known agents, monitor/helpers and unresolved ownership remain distinct populations; differences do not classify load.
 
-## Adaptive acquisition
+### Coverage and memory
 
-Adapt the whole native acquisition cycle first. Discovery and host observations remain independent of resolver/display cadence; no process becomes exempt because it was previously idle, unresolved or outside agent scope. Keep the slowest allowed cycle bounded and make fixed fastest supported collection available. Numeric intervals, thresholds and dwell times remain undecided until measured; the current 100 ms requested wait is neither a proposed adaptive bound nor a demonstrated safe floor.
+Native outcomes retain the operation, listed PID, verified identity if available, return length/status and immediately captured errno on failure. Distinguish permission denied, lookup unavailable/ESRCH, short reads, identity mismatch, counter unavailable and other failures. Readable out-of-scope users are separate from read failures. ESRCH alone does not prove normal exit or distinguish a reaped worker from every other unavailable state. Counts describe observed failures, not processes never listed. Raw outcomes must be available to recording and controlled probes.
 
-| Condition | Required policy |
-| --- | --- |
-| Collector startup, recovery after interruption or missing/stale activity signals | Begin or remain in fast collection; absence of observations is not evidence of quiet. |
-| New/disappearing lifetimes, rising process/host CPU, or observed memory growth/peak change | Accelerate promptly and hold the faster rate long enough to observe the burst. Unresolved processes participate in these signals. |
-| Sustained host-versus-observed CPU discrepancy | Treat comparable-window divergence as an investigation signal, never as agent attribution. Account for different populations, counter resolution and scan skew; divergence alone need not disappear at the fastest rate. |
-| Sustained quiet | Slow gradually only when fresh host, churn and resource observations agree. Use separate acceleration/deceleration conditions and a quiet dwell period to prevent oscillation. Periodic fast observations check for activity missed at the slower cadence; they cannot recover a burst already missed. |
-| Scan overruns or resolver backlog | Expose achieved cadence, scan duration, lag and gaps. Avoid overlapping scans or catch-up storms. Resolver pressure cannot silently reduce collection coverage; an unattainable target remains visible. |
+Current footprint always carries its observation time and availability. Independently sampled values are observed aggregates with scan spread, not exact simultaneous memory. Kernel footprint peaks remain separate and may reset on exec. Historical process values must not inflate current totals. Delayed ownership cannot safely reconstruct a session peak from today's membership or from a shared ancestor label. A historical session peak is optional until retained per-scan observations and interval-supported attribution can establish it.
 
-The policy must expose its mode, requested and achieved cadence and reason for rate changes. Host busy time includes the monitor; report monitor cost separately and test whether its own collection work sustains acceleration. Do not subtract unlike measurement windows or label the remainder as agent load. CPU quietness alone cannot justify ignoring memory changes.
+Bound contribution/evidence storage and report queue pressure explicitly. Superseded display snapshots may be coalesced only by the conservation rule above. Lost observations or evidence produce affected-interval gaps; they cannot silently become zero load. A slow resolver cannot stall acquisition or create unbounded memory use.
 
-Acceptance requires comparison with fixed fast collection and independent owned-worker CPU ledgers across duration groups, abrupt quiet-to-busy transitions, bursts between scans, memory-only activity and sustained churn. Compare observation/attribution coverage, transition latency, achieved cadence, monitor CPU and bounded memory. Inject slow/failing resolution, PID reuse, exec/session changes and capacity exhaustion; retained attribution must not drift and acquisition must keep progressing. State the acceptable coverage regression before evaluating results; lower overhead cannot compensate for losing a short-worker group. Adaptive collection remains unvalidated until these checks pass, and even passing them does not make polling lossless.
+### Acceptance evidence
 
-## Dependent diagnostic recording
+Fix allowed coverage/attribution regressions before running comparisons. Use repeated owned workloads, initially at least 100 workers per duration group with randomized start phase, and report uncertainty across runs rather than treating this count as a statistical guarantee. Include nested descendants, same-path exec, session changes, read-failure injection, quiet and saturated hosts, and delayed/failing fake providers/consumers.
 
-The [bounded recording proposal](diagnostic-recording.md) consumes independent measurements and captured/resolved context after this acquisition contract exists. It specifies opt-in runtime start/pause/resume, independently readable 50 MB chunks, lossless compression and a configurable 250 MB compressed store. Recording and compression must not block acquisition; saved data preserves attribution timing, pauses and coverage gaps.
+Retain per-worker listing/read timestamps and outcomes so never-listed, listed-but-unreadable, baseline exclusions and final-tail loss can be distinguished. Compare retained CPU with independent `wait4` ledgers by duration group, including total and tail loss. Derive a coverage expectation from actual lifetimes, scan timing and listing-to-read delay; a worker's requested CPU duration is not its wall-clock lifetime. Report cadence p50/p99/max, monitor/helper CPU, stage costs and bounded memory. The existing four-worker groups and aggregate prototype results do not establish these properties.
 
 ## Optional
 
-- A lighter scheduler-only recording configuration, if measured conservation and lifecycle evidence satisfy independent per-duration CPU oracles, including the failed trace case. The stock System Trace template's temporary storage and finalization cost are unsuitable for continuous use.
-- Separate rates for individual processes, only if they improve measured coverage and preserve meaningful CPU windows and memory age. Prior low CPU is insufficient evidence that a process can safely be sampled less often.
-- A user-selected slower collection interval or static menu icon. These choices must expose their coverage consequences and must not change the meaning of totals.
+### Adaptive acquisition
+
+The user's proposed adaptation remains a candidate after fixed-cadence measurements. Adapt the whole collector before considering individual process rates. Accelerate on non-monitor churn, process/host activity and memory changes; slow gradually only with fresh agreeing quiet signals, with separate thresholds/dwell times and periodic fast observations. Missing signals are not quiet. Do not drive adaptation solely from measured agent CPU.
+
+Exclude the exact monitor/helper lifetimes from activation signals, while recording their cost separately. Comparable-window host-minus-monitor occupancy may be a control input after its tick resolution, sampling skew and helper coverage are validated; it is never an attribution result. Unidentified descendants and unrelated host load can still sustain acceleration. Expose rate-change reasons and achieved timing. The highest visible PID is not an established creation counter or missed-process bound.
+
+Require coverage comparisons against fixed fast collection across burst phases and durations, plus idle cost and self-trigger tests. No numeric adaptive thresholds are selected. A fixed fastest **validated** cadence is selectable; back-to-back scans are a bounded experiment, not an always-on default. A time-bounded intensive mode may be offered with measured cost visible. Monitoring overhead is a tradeoff to measure, not automatically a prohibited workload action. Adaptation is not mathematically proven always worse, but may miss a burst before detecting its trigger.
+
+### Other optional capabilities
+
+- Bounded scheduler tracing, only after supported capture/decoding, conservation, lifecycle joins and loss detection pass separate gates. The existing `xctrace` experiment is not a reliable backend and is not a requirement for independent native collection.
+- Historical per-session observed memory peaks, retaining original per-process scan values and defensible ownership. Exact ancestry anchors alone cannot prove session continuity. Maximum observed process kernel peaks may be retained as separately labeled historical observations, with verified exec boundaries where available.
+- Separate per-process sampling rates, only after proving meaningful CPU-window and memory-age semantics against global collection.
+
+## Dependent diagnostic recording
+
+The [recording proposal](diagnostic-recording.md) consumes raw observations, failure records and versioned attribution evidence after this acquisition contract exists. It shares the acceptance rules and exposes retention/pause gaps. Recording or compression cannot hold acquisition.
 
 ## Excluded
 
-Purely on-demand agent attribution, automatic workload suspension to preserve evidence, arbitrary CPU attribution across unobserved transitions, automatic installation of a privileged service, Endpoint Security entitlement provisioning, disabling system security, unrestricted transcript/environment collection, assigning shared-runtime CPU to an arbitrary session, and automatic changes to user workloads are outside this design. Hardware instruction tracing is not required; the M1 test machine cannot capture Apple's M4 Processor Trace.
+Purely on-demand basic attribution, automatic installation of privileged services, changing system security, unrestricted transcripts/environment collection, guessed shared-runtime ownership, arbitrary CPU proration and automatic actions on user workloads. No tracing result establishes an exact memory peak.
 
-## Material feasibility risks
+## Material feasibility gates
 
-- System Trace matched the first controlled ledger but failed the second; the current prototype does not provide reliable conservation or prove lossless event delivery, arbitrary lifetime reconstruction, early-attachment completeness or exact agent-session joins. These are acceptance gates, not bookkeeping details.
-- Private ktrace interfaces have ownership/privilege constraints; a supported distribution path and bounded capture lifecycle are unresolved. The tested `xctrace` path requires Xcode and may require host permissions unavailable to a packaged app.
-- Sampling cannot establish how many processes ran entirely between observations. An honest native result may remain partial even with no recorded read errors. CPU conservation must be checked per worker-duration group against independent ledgers, not only as an aggregate dominated by long workers.
-- Prompt evidence capture can still lose a race with exit or exec. Independent workers share CPU/memory bandwidth, so asynchronous separation alone does not establish sampling deadlines. Adaptive polling can miss both a burst and its trigger; global host activity can instead keep it permanently fast.
-- No CPU trace result establishes exact memory peaks. Accurate lifetime CPU and useful current/observed-peak memory need separate validation.
+Execution-generation access, evidence continuity, blocking-read latency, fixed cadence/QoS under contention and baseline retention bounds remain unvalidated. Polling can miss lifetimes entirely and cannot recover final counters reliably after reaping. Documentation corrections do not close these gates or authorize implementation; retained experiments and explicit uncertainty are required.
