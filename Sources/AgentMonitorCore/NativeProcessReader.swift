@@ -9,10 +9,13 @@ public struct ProcessSnapshot: Sendable {
     public let scanSeconds: Double
     public let hostCounters: HostCPUCounters?
     public let logicalCPUCount: Int
+    public let nativeOutcomes: [NativeCounterOutcome]
+    public let nativeTiming: NativeScanTiming?
 
     public init(
         samples: [ProcessSample], enumeratedCount: Int, unreadableCount: Int,
-        listedAt: Double, scanSeconds: Double, hostCounters: HostCPUCounters?, logicalCPUCount: Int
+        listedAt: Double, scanSeconds: Double, hostCounters: HostCPUCounters?, logicalCPUCount: Int,
+        nativeOutcomes: [NativeCounterOutcome] = [], nativeTiming: NativeScanTiming? = nil
     ) {
         self.samples = samples
         self.enumeratedCount = enumeratedCount
@@ -21,6 +24,8 @@ public struct ProcessSnapshot: Sendable {
         self.scanSeconds = scanSeconds
         self.hostCounters = hostCounters
         self.logicalCPUCount = logicalCPUCount
+        self.nativeOutcomes = nativeOutcomes
+        self.nativeTiming = nativeTiming
     }
 }
 
@@ -29,12 +34,16 @@ public struct NativeProcessReader: DiagnosisReading {
     private let denominator: UInt32
     private let adapters: AttributionAdapters
     private let hostSource: any HostCPUReading
+    private let counterAccess: any NativeCounterAccess
 
     public init(hostSource: any HostCPUReading = NativeHostCPUReader()) throws {
         try self.init(adapters: .builtIn, hostSource: hostSource)
     }
 
-    init(adapters: AttributionAdapters, hostSource: any HostCPUReading = NativeHostCPUReader()) throws {
+    init(
+        adapters: AttributionAdapters, hostSource: any HostCPUReading = NativeHostCPUReader(),
+        counterAccess: any NativeCounterAccess = SystemNativeCounterAccess()
+    ) throws {
         var timebase = mach_timebase_info_data_t()
         guard mach_timebase_info(&timebase) == KERN_SUCCESS, timebase.denom > 0 else {
             throw NativeReadError.timebase
@@ -43,6 +52,7 @@ public struct NativeProcessReader: DiagnosisReading {
         denominator = timebase.denom
         self.adapters = adapters
         self.hostSource = hostSource
+        self.counterAccess = counterAccess
     }
 
     public func snapshot(excluding excluded: Set<Int32> = []) throws -> ProcessSnapshot {
@@ -52,47 +62,105 @@ public struct NativeProcessReader: DiagnosisReading {
     func snapshot(processIDs: () throws -> [Int32], excluding excluded: Set<Int32> = []) throws
         -> ProcessSnapshot
     {
+        let started = mach_absolute_time()
         let hostCounters = hostSource.read()
-        let listedAt = seconds(mach_absolute_time())
+        let listing = mach_absolute_time()
+        let continuous = mach_continuous_time()
+        let wallTime = Date()
         let pids = try processIDs()
         var samples: [ProcessSample] = []
+        var outcomes: [NativeCounterOutcome] = []
         var unreadable = 0
         for pid in pids where !excluded.contains(pid) {
-            guard let info = bsdInfo(pid) else {
+            let initial = counterAccess.bsdInfo(pid)
+            let initialTime = mach_absolute_time()
+            guard let info = initial.value else {
+                appendFailure(
+                    initial, pid: pid, identity: nil, operation: .bsdInfo, at: initialTime, to: &outcomes)
                 unreadable += 1
                 continue
             }
-            guard info.pbi_uid == getuid() else { continue }
+            guard info.pbi_uid == getuid() else {
+                outcomes.append(
+                    NativeCounterOutcome(
+                        pid: pid, identity: identity(info), operation: .bsdInfo, status: .outOfScopeUser,
+                        failure: nil, observedAtTicks: initialTime))
+                continue
+            }
             let identity = identity(info)
-            let executable = executablePath(pid) ?? ""
-            var usage = rusage_info_v4()
-            let resourceResult = withUnsafeMutablePointer(to: &usage) { pointer in
-                pointer.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) {
-                    proc_pid_rusage(pid, RUSAGE_INFO_V4, $0)
-                }
-            }
-            let timestamp = seconds(mach_absolute_time())
-            guard let after = bsdInfo(pid), self.identity(after) == identity else {
+            let executable = counterAccess.executablePath(pid)
+            let executableTime = mach_absolute_time()
+            let resource = counterAccess.resources(pid)
+            let timestamp = mach_absolute_time()
+            let verification = counterAccess.bsdInfo(pid)
+            let verificationTime = mach_absolute_time()
+            let verified =
+                verification.value.map {
+                    self.identity($0) == identity && $0.pbi_uid == info.pbi_uid
+                } ?? false
+            appendFailure(
+                executable, pid: pid, identity: verified ? identity : nil, operation: .executablePath,
+                at: executableTime, to: &outcomes)
+            appendFailure(
+                resource, pid: pid, identity: verified ? identity : nil, operation: .resourceUsage,
+                at: timestamp, to: &outcomes)
+            guard let after = verification.value else {
+                appendFailure(
+                    verification, pid: pid, identity: nil, operation: .identityVerification,
+                    at: verificationTime, to: &outcomes)
                 unreadable += 1
                 continue
             }
-            let cpu = resourceResult == 0 ? seconds(usage.ri_user_time) + seconds(usage.ri_system_time) : nil
+            guard self.identity(after) == identity, after.pbi_uid == info.pbi_uid else {
+                outcomes.append(
+                    NativeCounterOutcome(
+                        pid: pid, identity: nil, operation: .identityVerification, status: .identityMismatch,
+                        failure: nil, observedAtTicks: verificationTime))
+                unreadable += 1
+                continue
+            }
+            let usage = resource.value
+            let rawCPU = usage.map {
+                NativeCPUCounters(
+                    user: $0.ri_user_time, system: $0.ri_system_time,
+                    numerator: numerator, denominator: denominator)
+            }
             var sample = ProcessSample(
-                identity: identity, parentPID: Int32(bitPattern: info.pbi_ppid), executable: executable,
-                name: cString(info.pbi_comm),
-                sampledAt: timestamp, cpuSeconds: cpu,
-                footprintBytes: resourceResult == 0 ? usage.ri_phys_footprint : nil
-            )
-            sample.kernelPeakFootprintBytes = resourceResult == 0 ? usage.ri_lifetime_max_phys_footprint : nil
-            sample.startedAt = resourceResult == 0 ? seconds(usage.ri_proc_start_abstime) : nil
+                identity: identity, parentPID: Int32(bitPattern: info.pbi_ppid),
+                executable: executable.value ?? "",
+                name: cString(info.pbi_comm), sampledAt: seconds(timestamp), cpuSeconds: rawCPU?.seconds,
+                footprintBytes: usage?.ri_phys_footprint)
+            sample.rawCPU = rawCPU
+            sample.sampledAtTicks = timestamp
+            sample.startedAtTicks = usage?.ri_proc_start_abstime
+            sample.startedAt = sample.startedAtTicks.map(seconds)
+            sample.kernelPeakFootprintBytes = usage?.ri_lifetime_max_phys_footprint
             sample.terminalDevice = info.e_tdev == 0 || info.e_tdev == UInt32.max ? nil : info.e_tdev
             samples.append(sample)
         }
+        let ended = mach_absolute_time()
         return ProcessSnapshot(
             samples: samples, enumeratedCount: pids.count, unreadableCount: unreadable,
-            listedAt: listedAt, scanSeconds: seconds(mach_absolute_time()) - listedAt,
+            listedAt: seconds(listing), scanSeconds: seconds(ended) - seconds(listing),
             hostCounters: hostCounters,
-            logicalCPUCount: hostCounters?.processors.count ?? ProcessInfo.processInfo.activeProcessorCount)
+            logicalCPUCount: hostCounters?.processors.count ?? ProcessInfo.processInfo.activeProcessorCount,
+            nativeOutcomes: outcomes,
+            nativeTiming: NativeScanTiming(
+                startedAbsolute: started, listingAbsolute: listing, listingContinuous: continuous,
+                listingWallTime: wallTime, endedAbsolute: ended, numerator: numerator,
+                denominator: denominator))
+    }
+
+    private func appendFailure<Value>(
+        _ result: NativeCounterRead<Value>, pid: Int32, identity: ProcessIdentity?,
+        operation: NativeCounterOperation, at time: UInt64, to outcomes: inout [NativeCounterOutcome]
+    ) {
+        if case .failure(let failure) = result {
+            outcomes.append(
+                NativeCounterOutcome(
+                    pid: pid, identity: identity, operation: operation, status: failure.status,
+                    failure: failure, observedAtTicks: time))
+        }
     }
 
     public func metadata(for sample: ProcessSample, includeCommand: Bool = false) -> ProcessMetadata {
@@ -161,10 +229,7 @@ public struct NativeProcessReader: DiagnosisReading {
     }
 
     private func bsdInfo(_ pid: Int32) -> proc_bsdinfo? {
-        var info = proc_bsdinfo()
-        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
-        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else { return nil }
-        return info
+        counterAccess.bsdInfo(pid).value
     }
 
     private func identity(_ info: proc_bsdinfo) -> ProcessIdentity {
@@ -174,9 +239,7 @@ public struct NativeProcessReader: DiagnosisReading {
     }
 
     private func executablePath(_ pid: Int32) -> String? {
-        var path = [UInt8](repeating: 0, count: 4 * Int(MAXPATHLEN))
-        guard proc_pidpath(pid, &path, UInt32(path.count)) > 0 else { return nil }
-        return String(decoding: path.prefix { $0 != 0 }, as: UTF8.self)
+        counterAccess.executablePath(pid).value
     }
 
     private func terminalName(_ device: UInt32) -> String? {

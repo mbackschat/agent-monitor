@@ -6,7 +6,10 @@ public struct Monitor: Sendable {
         var parent: ProcessIdentity?
         var metadata = ProcessMetadata(status: .unavailable)
         var cpuContribution: CPUContribution?
-        var cpuPercent: Double? { cpuContribution?.cpuPercent }
+        var cpuPercent: Double? {
+            guard let cpuContribution, !cpuContribution.spansMissingScans else { return nil }
+            return cpuContribution.cpuPercent
+        }
         /// Claims from the executable path, kept for the lifetime; `runtimeProviders` may narrow
         /// them once `argv[0]` has been read.
         var recognizedProviders: Set<AgentProvider>
@@ -20,7 +23,8 @@ public struct Monitor: Sendable {
     }
 
     private var nodes: [ProcessIdentity: Node] = [:]
-    private var previousListing: Double?
+    private var counterLedger = CounterLedger()
+    public private(set) var counterScan: CounterScan?
     private var previousHostCounters: HostCPUCounters?
     private var previousScanSeconds: Double?
     private var live: Set<ProcessIdentity> = []
@@ -34,7 +38,10 @@ public struct Monitor: Sendable {
     init(adapters: AttributionAdapters) { self.adapters = adapters }
 
     @discardableResult public mutating func ingest(_ snapshot: ProcessSnapshot) -> CPUAccounting {
-        ingest(snapshot.samples, listedAt: snapshot.listedAt)
+        let accounting = counterLedger.ingest(
+            snapshot.samples, listedAt: snapshot.listedAt, scanSeconds: snapshot.scanSeconds,
+            source: snapshot)
+        ingest(snapshot.samples, accounting: accounting)
         let measured = live.compactMap { nodes[$0]?.cpuPercent }
         defer {
             previousHostCounters = snapshot.hostCounters
@@ -48,30 +55,24 @@ public struct Monitor: Sendable {
     }
 
     public mutating func ingest(_ samples: [ProcessSample], listedAt: Double? = nil) {
+        let accounting = counterLedger.ingest(samples, listedAt: listedAt)
+        ingest(samples, accounting: accounting)
+    }
+
+    private mutating func ingest(_ samples: [ProcessSample], accounting: CounterScan) {
+        counterScan = accounting
+        let contributions = Dictionary(
+            accounting.contributions.map { ($0.id.closing.process, $0) },
+            uniquingKeysWith: { first, _ in first })
         let byPID = Dictionary(
             samples.map { ($0.identity.pid, $0.identity) }, uniquingKeysWith: { _, new in new })
-        let previouslyLive = live
-        defer { previousListing = listedAt }
         live = Set(samples.map(\.identity))
         for sample in samples {
             var node =
                 nodes[sample.identity]
                 ?? Node(
                     sample: sample, recognizedProviders: adapters.runtimeProviders(for: sample.executable))
-            let previous = previouslyLive.contains(sample.identity) ? nodes[sample.identity]?.sample : nil
-            node.cpuContribution = nil
-            if let previous, let oldCPU = previous.cpuSeconds, let newCPU = sample.cpuSeconds,
-                sample.sampledAt > previous.sampledAt, newCPU >= oldCPU
-            {
-                node.cpuContribution = CPUContribution(
-                    cpuSeconds: newCPU - oldCPU, observedSeconds: sample.sampledAt - previous.sampledAt)
-            } else if previous == nil, let previousListing, let birth = sample.startedAt,
-                birth > previousListing, birth <= sample.sampledAt,
-                sample.sampledAt > previousListing, let cpu = sample.cpuSeconds, cpu >= 0
-            {
-                node.cpuContribution = CPUContribution(
-                    cpuSeconds: cpu, observedSeconds: sample.sampledAt - previousListing)
-            }
+            node.cpuContribution = contributions[sample.identity]
             if node.sample.executable != sample.executable {
                 node.metadata = ProcessMetadata(status: .unavailable)
                 node.recognizedProviders = adapters.runtimeProviders(for: sample.executable)
@@ -231,8 +232,8 @@ public struct Monitor: Sendable {
         }
     }
 
-    /// The accepted interval's numerator and measured duration, before percentage rounding.
-    /// Absent lifetimes cannot expose counters retained solely for ancestry.
+    /// Returns the interval closed by the current scan, including recovery across read gaps.
+    /// A retained baseline alone is not new work; absent lifetimes therefore return nil.
     public func cpuContribution(for identity: ProcessIdentity) -> CPUContribution? {
         guard live.contains(identity) else { return nil }
         return nodes[identity]?.cpuContribution

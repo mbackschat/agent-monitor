@@ -1,11 +1,3 @@
-/// One valid R1 interval. Its duration is the lifetime's measured accounting window,
-/// including zero before birth for a newborn (docs/architecture.md#cpu-accounting).
-public struct CPUContribution: Equatable, Sendable {
-    public let cpuSeconds: Double
-    public let observedSeconds: Double
-    public var cpuPercent: Double { 100 * cpuSeconds / observedSeconds }
-}
-
 struct CPUWindowContributor: Sendable {
     var sample: ProcessSample
     var footprint: (bytes: UInt64, sampledAt: Double)?

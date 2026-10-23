@@ -18,8 +18,11 @@ public struct ProcessSample: Sendable {
     public var terminal: String?
     public var terminalDevice: UInt32?
     public var startedAt: Double?
+    public var sampledAtTicks: UInt64?
+    public var startedAtTicks: UInt64?
     public var sampledAt: Double
     public var cpuSeconds: Double?
+    public var rawCPU: NativeCPUCounters?
     public var footprintBytes: UInt64?
     public var kernelPeakFootprintBytes: UInt64?
 

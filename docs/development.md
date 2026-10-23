@@ -53,11 +53,13 @@ Each [GitHub release](https://github.com/mbackschat/agent-monitor/releases) reco
 
 Keep terminal-focus test coverage at both boundaries: fake adapters for routing and a fake `osascript` for the production Terminal.app adapter. Never drive real terminals in automated tests.
 
-Sampling can miss short-lived work. Existing lifetimes need consecutive valid observations for CPU deltas; newborns can contribute on first observation under the [CPU accounting contract](architecture.md#cpu-accounting). Missing readable markers can leave detached processes unknown; launch-origin attribution does not establish which client caused a shared daemon's current load.
+Sampling can miss short-lived work. Live rates need consecutive valid observations; the [retained-counter contract](architecture.md#retained-counter-accounting) also recovers compatible CPU deltas across read gaps for wider windows, including eligible delayed first readings. Missing readable markers can leave detached processes unknown; launch-origin attribution does not establish which client caused a shared daemon's current load.
 
 Terminal layout tests compare table padding, clipping and detail wrapping with the pinned SwiftTUI renderer's cell widths, including CJK, fullwidth names, emoji and combining marks. This verifies renderer geometry, not every terminal/font's Unicode display policy.
 
 PTY screen checks have occasionally timed out in development; passing retries did not establish the cause. Retain failed-run evidence when investigating timing failures.
+
+Retained accounting has deterministic guards in `CounterLedgerTests`, `CPUAccountingTests`, `CPUDiagnosisWindowTests` and `NativeCounterOutcomeTests`: repeated first/read failures, original newborn listing references, pre-existing lifetimes, PID reuse, counter resets, raw-tick precision, baseline/listing eviction, common-window deduplication and recovery exclusions. Injected native calls verify failure classification, errno preservation, UID/identity changes and clock/counter propagation without accessing provider listings. The owned fixed-CPU child check remains an independent POSIX-clock check of newborn accounting. These checks do not validate saturated acquisition cadence, complete churn/exit coverage, adapter continuity, or a steady-state heap bound; those remain CPU-01 acceptance work.
 
 ## Manual terminal-focus check
 

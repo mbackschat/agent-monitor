@@ -47,7 +47,7 @@ private func cpuSample(
     #expect(try #require(monitor.findings().first).cpuPercent == 25)
 }
 
-@Test func retainedAncestorCannotBridgeAnUnobservedSnapshot() throws {
+@Test func recoveredAncestorCPUDoesNotBecomeLatestLiveRate() throws {
     var monitor = Monitor()
     monitor.ingest([cpuSample(at: 11, cpu: 2, born: 1), sample(20, parent: 10)], listedAt: 10)
     monitor.ingest([sample(20, parent: 10, at: 13)], listedAt: 12)
@@ -55,12 +55,38 @@ private func cpuSample(
     #expect(try #require(monitor.findings().first).cpuPercent == nil)
 }
 
-@Test func unreadableCPUDoesNotInventANewbornBaselineOnNextObservation() throws {
+@Test func delayedNewbornCPUIsExcludedFromLatestLiveRate() throws {
     var monitor = Monitor()
     monitor.ingest([], listedAt: 10)
     monitor.ingest([cpuSample(at: 12, cpu: nil, born: 11)], listedAt: 11.9)
     monitor.ingest([cpuSample(at: 14, cpu: 1, born: 11)], listedAt: 13.9)
     #expect(try #require(monitor.findings().first).cpuPercent == nil)
+}
+
+@Test func lastGoodCounterSurvivesRepeatedReadFailures() throws {
+    var monitor = Monitor()
+    let initial = cpuSample(at: 11, cpu: 2, born: 1)
+    monitor.ingest([initial], listedAt: 10)
+    monitor.ingest([cpuSample(at: 12, cpu: nil, born: 1)], listedAt: 11.9)
+    monitor.ingest([], listedAt: 13)
+    monitor.ingest([cpuSample(at: 15, cpu: 4, born: 1)], listedAt: 14)
+    let recovered = try #require(monitor.cpuContribution(for: initial.identity))
+    #expect(recovered.cpuSeconds == 2)
+    #expect(recovered.observedSeconds == 4)
+    #expect(monitor.finding(for: initial.identity)?.cpuPercent == nil)
+}
+
+@Test func firstGoodCounterUsesRetainedListingBeforeBirth() throws {
+    var monitor = Monitor()
+    monitor.ingest([], listedAt: 10)
+    monitor.ingest([cpuSample(at: 11.2, cpu: nil, born: 10.5)], listedAt: 11)
+    monitor.ingest([], listedAt: 12)
+    let firstGood = cpuSample(at: 13.2, cpu: 1, born: 10.5)
+    monitor.ingest([firstGood], listedAt: 13)
+    let recovered = try #require(monitor.cpuContribution(for: firstGood.identity))
+    #expect(recovered.cpuSeconds == 1)
+    #expect(abs(recovered.observedSeconds - 3.2) < 0.000_001)
+    #expect(monitor.finding(for: firstGood.identity)?.cpuPercent == nil)
 }
 
 @Test func nativeNewbornCPUAgreesWithOwnedFixedCPUBurn() throws {

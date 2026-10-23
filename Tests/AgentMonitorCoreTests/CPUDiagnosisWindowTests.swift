@@ -63,17 +63,17 @@ func diagnosisScan(
         #expect(try #require(window.rankedContributors.last).meanCPUPercent > earlier.meanCPUPercent)
     }
 
-    @Test func gapsAndInvalidCountersNeverBridgeAndZeroRemainsMeasured() {
+    @Test func readGapsRecoverWithinDiagnosisButCounterResetsDoNot() {
         var window = CPUDiagnosisWindow()
         window.ingest(diagnosisScan([sample(1, at: 10, cpu: 1), sample(2, at: 10, cpu: 2)], at: 10))
         window.ingest(diagnosisScan([sample(1, at: 11, cpu: nil), sample(2, at: 11, cpu: 2)], at: 11))
         window.ingest(diagnosisScan([sample(1, at: 12, cpu: 3)], at: 12))
         window.ingest(diagnosisScan([sample(1, at: 13, cpu: 2), sample(2, at: 13, cpu: 4)], at: 13))
         #expect(window.unmeasuredObservationCount == 4)
-        #expect(window.cpuSeconds == 0)
-        #expect(window.windowCPUPercent == 0)
-        #expect(window.measuredLifetimeCount == 1)
-        #expect(window.contributors.first?.sample.identity.pid == 2)
+        #expect(window.cpuSeconds == 4)
+        #expect(window.windowCPUPercent == 400 / 3.25)
+        #expect(window.measuredLifetimeCount == 2)
+        #expect(window.contributors.map(\.sample.identity.pid) == [1, 2])
     }
 
     @Test func baselineAndOlderFirstObservationDoNotBecomeContributions() {
