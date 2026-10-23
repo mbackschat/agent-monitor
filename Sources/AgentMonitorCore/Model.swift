@@ -151,7 +151,11 @@ public struct Thresholds: Equatable, Sendable {
     public let cpuPercent: Double
     public let memoryBytes: UInt64
 
-    public init(cpuPercent: Double = 25, memoryBytes: UInt64 = 1_000_000_000) {
+    public static let heavy = Thresholds(cpuPercent: 25, memoryBytes: 1_000_000_000)
+
+    public var isUnfiltered: Bool { cpuPercent == 0 && memoryBytes == 0 }
+
+    public init(cpuPercent: Double = 0, memoryBytes: UInt64 = 0) {
         self.cpuPercent = cpuPercent
         self.memoryBytes = memoryBytes
     }

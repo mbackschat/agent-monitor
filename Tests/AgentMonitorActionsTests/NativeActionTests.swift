@@ -41,7 +41,7 @@ import Testing
             identity: identity, parentPID: 1, executable: "/fixture/worker",
             name: "worker", sampledAt: 0, cpuSeconds: nil, footprintBytes: nil)
     ])
-    #expect(monitor.findings().isEmpty)
+    #expect(monitor.findings(thresholds: .heavy).isEmpty)
     #expect(monitor.finding(for: identity)?.process == identity)
     monitor.ingest([])
     #expect(monitor.finding(for: identity) == nil)

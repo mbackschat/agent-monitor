@@ -183,13 +183,13 @@ struct MenuBarView: View {
                 Divider()
             }
             HStack {
-                Text(model.displayedProcessCount.map { "Heavy processes · \($0)" } ?? "Heavy processes")
+                Text(model.observedProcessCount.map { "Observed processes · \($0)" } ?? "Observed processes")
                     .font(.subheadline.bold())
                 Spacer()
                 MenuBarViewOptions(model: model)
             }
             Text(
-                "\(model.report.sortDescription) · CPU > \(resource(model.report.thresholds.cpuPercent, unit: "%")) or footprint > \(resource(Double(model.report.thresholds.memoryBytes) / 1e9, unit: " GB")) · \(resource(model.report.interval, unit: " s"))"
+                "\(model.report.sortDescription) · \(model.report.thresholds.isUnfiltered ? "All observed processes" : "CPU > " + resource(model.report.thresholds.cpuPercent, unit: "%") + " or footprint > " + resource(Double(model.report.thresholds.memoryBytes) / 1e9, unit: " GB")) · \(resource(model.report.interval, unit: " s"))"
             )
             .font(.caption).foregroundStyle(.secondary)
             MenuBarHistoryStrip(model: model)
@@ -211,8 +211,8 @@ struct MenuBarView: View {
                     }.frame(maxWidth: .infinity).padding(.vertical, 20)
                 } else if pinned.isEmpty && unpinned.isEmpty {
                     ContentUnavailableView(
-                        "No heavy agent processes", systemImage: "checkmark.circle",
-                        description: Text("Nothing exceeds the current thresholds."))
+                        "No matching agent processes", systemImage: "checkmark.circle",
+                        description: Text("No observed processes match this scope and its display filters."))
                 } else {
                     if !pinned.isEmpty {
                         Label("Pinned", systemImage: "pin.fill").font(.caption.bold()).foregroundStyle(
@@ -238,7 +238,7 @@ struct MenuBarView: View {
             }
             if let snapshot = model.report.snapshot {
                 Text(
-                    "Row totals cover displayed heavy processes only. CPU 100% = one core.\n\(snapshot.sampledProcessCount) sampled · \(snapshot.unreadableProcessCount) unreadable"
+                    "Session totals include all observed members, independent of filters. Sampling can miss short-lived work. CPU 100% = one core.\n\(snapshot.sampledProcessCount) sampled · \(snapshot.unreadableProcessCount) unreadable"
                 )
                 .font(.caption2).foregroundStyle(.secondary)
             }
@@ -262,7 +262,8 @@ struct MenuBarView: View {
         case .process(let process):
             processRow(process, session: sessions[process.process])
         case .group(let group):
-            if !model.report.isPinned(row.id), group.processes.count == 1, let process = group.processes.first
+            if !model.report.isPinned(row.id), group.processes.count == 1,
+                let process = model.report.children(of: group).first
             {
                 processRow(process, session: group)
             } else {

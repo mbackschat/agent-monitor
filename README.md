@@ -12,23 +12,23 @@ When several coding agents are running, a busy `node`, `java`, or `python` proce
 
 This README describes the current source build, which can be ahead of the [latest release](https://github.com/mbackschat/agent-monitor/releases/latest); newer controls, history and the menu bar app require a [source build](docs/installation.md#build-from-source).
 
-**Current accounting limitation:** a busy agent build can be substantially underreported when workers start and finish between scans. Default filters also omit smaller processes and their memory from session totals. Reliable identification and complete understanding of agent CPU and memory use is the project's highest priority; the current sampler does not yet meet it. See the [measurement limits](docs/usage.md#filters-and-measurements) and [active accounting work](PLAN.md#resource-accounting-priority). A low agent total does not establish that agents are causing little load.
+**Current accounting limitation:** a busy agent build can be substantially underreported when workers start and finish between scans. Reliable identification and complete understanding of agent CPU and memory use is the project's highest priority; the current sampler does not yet meet it. See the [measurement limits](docs/usage.md#filters-and-measurements) and [active accounting work](PLAN.md#resource-accounting-priority). A low agent total does not establish that agents are causing little load.
 
 ## Features
 
 - **Live terminal view** — refresh every 5 seconds by default; watch CPU and memory usage, sort processes, and open details without leaving your terminal. Stable order keeps existing rows in place and appends newcomers. Change the update interval or freeze the view while you look.
 - **Native menu bar app** — open a compact macOS panel for resource usage and session actions, with Pause/Resume and a separate **Diagnose CPU** investigation; three bold load bars get a quick startup sample, then update every 15 seconds while the panel is closed. Available from a source build.
 - **Finite CPU diagnosis** — start with **d** in the TUI or **Diagnose CPU** in the Mac app. Rank a new observation window by measured CPU-seconds and retain contributors that leave before it ends, without changing live-table values. The Mac app can copy the completed report for further investigation.
-- **Compact history** — one strip for agent CPU, memory or heavy-process count, covering the last 10 minutes or one hour in both live views, updated at most every 15 seconds.
+- **Compact history** — one strip for agent CPU, memory or heavy-process count, covering the last 10 minutes or one hour in both live views, updated with every collected report.
 - **Pinned inspection** — keep a process or session at the top while its values update, in both native and terminal views. Missing targets stay marked until unpinned.
-- **Session grouping** — bring related heavy processes together and see their combined resource usage.
+- **Session grouping** — bring related observed processes together and see their combined resource usage.
 - **Adjustable filters** — change CPU and memory thresholds while the monitor runs.
 - **Message the agent** — send a reviewed message to the process's verified Codex agent or Claude Code session; the inspected PID, CPU, memory and sample time are included automatically. Copy the prepared message from the native app.
 - **Jump to the session's terminal** — bring the terminal running the agent to the front, selecting its tab in Terminal.app.
 - **Stop a runaway process** — review and send SIGTERM to one process only.
 - **Actions from scripts** — the same actions as `kill`, `message`, and `focus` commands, with confirmation or `--yes`.
 - **Responsive layout** — use narrow or wide terminals, resize the details pane, and copy text with normal terminal selection.
-- **Scriptable output** — print a colored report or stream JSONL schema version 3 to other tools.
+- **Scriptable output** — print a colored report or stream JSONL schema version 4 to other tools.
 - **Explicit uncertainty** — unknown or ambiguous sessions stay visible instead of being guessed.
 
 ## Install
@@ -61,7 +61,7 @@ Switch between individual processes and session groups to see which agent launch
 
 Use **↑ / ↓** to select, **← / →** to collapse/expand a session or process details, **Shift+← / Shift+→** to collapse/expand session groups at the current level, **g** to toggle grouping, **o** for Stable order, **h** to change the history metric, **t** for 10-minute/hour history, **< / >** to update less or more often, **.** to pin/unpin the selected row, **p** to pause/resume the view, **d** for a finite CPU diagnosis, and **q** to quit. The controls and current filters are shown in the terminal.
 
-By default, the monitor shows agent-associated processes exceeding **25% CPU or 1 GB memory footprint**. If the list is empty, press **1** to lower the CPU threshold or **3** to lower the memory threshold. CPU at 100% means one fully occupied core.
+By default, the monitor shows **all observed agent-associated processes**, including idle processes and missing resource measurements. Display filters start disabled (both thresholds are zero); session totals and the Mac icon include observed processes even when you hide their rows. CPU at 100% means one fully occupied core.
 
 ## Choose what to show
 
@@ -69,10 +69,10 @@ In the Mac app, open **View options** and choose **Processes** or **Sessions** u
 
 | Setting | What it changes |
 |---|---|
-| **Processes** | A flat list of individual heavy processes, each with its own CPU and memory values and session attribution. Use it to find the specific command consuming resources. Pinned session groups remain grouped at the top. |
-| **Sessions** | Groups heavy processes by attributed agent session or corroborated root session. Expand a group to inspect its processes. Counts and CPU/memory totals cover only the heavy processes currently shown, not the whole session. The Mac app shows an unpinned one-process session directly as a process row. |
+| **Processes** | A flat list of individual observed processes, each with its own CPU and memory values and session attribution. Use it to find the specific command consuming resources. Pinned session groups remain grouped at the top. |
+| **Sessions** | Groups observed processes by attributed agent session or corroborated root session. Expand a group to inspect its processes. Counts and CPU/memory totals include all observed session members, independent of display filters; sampling can still miss work. The Mac app shows an unpinned one-process session directly as a process row. |
 | **Sort** | Stable order keeps surviving rows in place and appends newcomers. CPU/Footprint/PID order ranks individual processes, or session groups by their totals/minimum PID. It does not change which processes qualify. |
-| **CPU / Footprint thresholds** | A process qualifies when it exceeds either threshold. Lower them to reveal lighter workloads; switching between Processes and Sessions does not change these filters. |
+| **CPU / Footprint thresholds** | Both zero disables display filtering. Otherwise a process qualifies when it exceeds either threshold. Lower them to reveal lighter workloads; switching between Processes and Sessions does not change these filters. |
 | **Interval** | How often the open panel or TUI samples, normally every 5 seconds. This controls refresh frequency, not filtering. |
 
 Sessions are not projects: two sessions in the same directory remain separate, and one session can contain workloads in multiple directories. Unknown or ambiguous ownership stays separate rather than being guessed.
@@ -107,7 +107,7 @@ See the [usage guide](docs/usage.md) for all keyboard controls, filters, session
 
 Text, TUI and native headers show host occupancy beside measured CPU from your listed processes, including a count without CPU data. Newborn processes contribute their first observed interval; work never observed or after the last observation remains uncounted. “No data” means host occupancy is unavailable. See [measurement semantics](docs/usage.md#filters-and-measurements).
 
-The maintained, source-built native menu bar app runs with `bash scripts/menubar.sh run`. Click its load icon for session groups, resource usage and process details; keyboard focus starts on the table so arrow keys navigate rows immediately; expand a process to focus its terminal, review a termination request or compose a message. It uses the same monitoring and verified action services as the TUI, with a native popover that can be detached by dragging. The app follows the system light/dark appearance. The live icon’s bars and count match the filtered table, including Pause. Its small monochrome process-count badge sits above shorter bars, keeping the menu-bar item’s width fixed. New rows and their parent session headers briefly receive a gray background highlight, including collapsed parents. Stable order is the default in both GUI and TUI; CPU, footprint and PID sorting remain available. Row context menus offer pinning, Copy PID, terminal focus, messaging and termination, with unavailable actions dimmed. Right-click the icon for load details, View options and Quit. Choose a static icon in View options to stop closed-panel sampling. See [menu bar usage](docs/usage.md#menu-bar-app) and [build and validation limits](docs/development.md#menu-bar-app).
+The maintained, source-built native menu bar app runs with `bash scripts/menubar.sh run`. Click its load icon for session groups, resource usage and process details; keyboard focus starts on the table so arrow keys navigate rows immediately; expand a process to focus its terminal, review a termination request or compose a message. It uses the same monitoring and verified action services as the TUI, with a native popover that can be detached by dragging. The app follows the system light/dark appearance. The live icon’s bars and count include all observed agents, independent of table filters, including Pause. Its small monochrome process-count badge sits above shorter bars, keeping the menu-bar item’s width fixed. New rows and their parent session headers briefly receive a gray background highlight, including collapsed parents. Stable order is the default in both GUI and TUI; CPU, footprint and PID sorting remain available. Row context menus offer pinning, Copy PID, terminal focus, messaging and termination, with unavailable actions dimmed. Right-click the icon for load details, View options and Quit. Choose a static icon in View options to stop closed-panel sampling. See [menu bar usage](docs/usage.md#menu-bar-app) and [build and validation limits](docs/development.md#menu-bar-app).
 
 <p><img src="docs/assets/menubar-preview.webp" width="420" height="560" alt="Light appearance: Agent Monitor panel paused with an expanded pinned Claude session, a shared Codex runtime, process totals, history, and resource usage."></p>
 
@@ -115,21 +115,21 @@ The maintained, source-built native menu bar app runs with `bash scripts/menubar
 
 ## Options and defaults
 
-With no options, `agent-monitor` prints one text report after a one-second baseline interval. A process appears when **CPU OR memory exceeds its threshold**; only your user's agent-associated processes are included by default.
+With no options, `agent-monitor` prints one text report after a one-second baseline interval. With both thresholds zero, every observed process in scope appears, including unavailable measurements. With filters enabled, **CPU OR memory must exceed its threshold**; only your user's agent-associated processes are included by default.
 
 The following options control reports; diagnosis has fixed defaults and its own output flags.
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--cpu <percent>` | CPU threshold; 100% means one occupied core. Accepts nonnegative values. | `25` (%) |
-| `--memory-gb <gb>` | Physical memory footprint threshold in decimal GB. Accepts nonnegative values. | `1` (GB) |
+| `--cpu <percent>` | CPU threshold; 100% means one occupied core. Accepts nonnegative values. | `0` (%) |
+| `--memory-gb <gb>` | Physical memory footprint threshold in decimal GB. Accepts nonnegative values. | `0` (GB) |
 | `--interval <seconds>` | Wait between samples, from 0.1 to 60 seconds. | `5` with `--tui`, otherwise `1` (seconds) |
 | `--samples <count>` | Number of reports; `0` runs until you quit. | `1`; `0` with `--tui` |
 | `--tui`, `-tui` | Open the live terminal UI in Stable order; requires interactive input and output. | Off; text reports |
-| `--group <mode>` | `none` shows individual processes; `session` groups by launch session and totals displayed heavy processes. | `none` |
-| `--json` | Emit JSONL schema version 3: one complete JSON object per report, including CPU context. | Off |
+| `--group <mode>` | `none` shows individual processes; `session` groups by launch session and totals all observed members. | `none` |
+| `--json` | Emit JSONL schema version 4: one complete JSON object per report, including CPU context. | Off |
 | `--json-schema` | Print the report's JSON Schema and exit without sampling. | Off |
-| `--all-processes` | Include unrelated and unattributed processes; same-user scope and heavy thresholds still apply. | Off |
+| `--all-processes` | Include unrelated and unattributed processes; same-user scope and display thresholds still apply. | Off |
 | `--commands` | Include command arguments in reports and details; arguments can contain secrets. | Off |
 | `--no-color` | Disable colors in text, TUI and action output, like `NO_COLOR=1`; JSONL is never colored. Colors otherwise appear only on a terminal. | Off |
 | `--version` | Print the installed version and exit. | — |

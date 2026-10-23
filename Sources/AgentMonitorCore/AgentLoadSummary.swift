@@ -18,7 +18,7 @@ public struct AgentLoadSummary: Equatable, Sendable {
         footprintBytes = agents.compactMap(\.footprintBytes).reduce(0, +)
         missingCPUCount = agents.filter { $0.cpuPercent == nil }.count
         missingFootprintCount = agents.filter { $0.footprintBytes == nil }.count
-        let thresholds = Thresholds()
+        let thresholds = Thresholds.heavy
         heavyProcesses = Set(
             agents.filter {
                 ($0.cpuPercent.map { $0 > thresholds.cpuPercent } ?? false)

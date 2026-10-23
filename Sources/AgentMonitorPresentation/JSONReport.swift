@@ -2,7 +2,7 @@ import AgentMonitorCore
 import Foundation
 
 public struct JSONReport: Encodable {
-    public let schemaVersion = 3
+    public let schemaVersion = 4
     public let cpuAccounting: CPUAccountingFields
     public let attributionMeaning = "launchOrigin"
     public let timestamp: Date
@@ -12,6 +12,7 @@ public struct JSONReport: Encodable {
     public let sampledProcessCount: Int
     public let unreadableProcessCount: Int
     public let findings: [HeavyProcess]
+    public let observedFindings: [HeavyProcess]
 
     public init(_ snapshot: MonitoringSnapshot) {
         cpuAccounting = CPUAccountingFields(snapshot.cpuAccounting)
@@ -22,6 +23,7 @@ public struct JSONReport: Encodable {
         sampledProcessCount = snapshot.sampledProcessCount
         unreadableProcessCount = snapshot.unreadableProcessCount
         findings = snapshot.findings
+        observedFindings = snapshot.observedFindings
     }
 
     public static func encodeLine(_ snapshot: MonitoringSnapshot) throws -> Data {

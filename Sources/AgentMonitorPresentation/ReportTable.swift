@@ -36,7 +36,7 @@ struct ReportTable {
     func header(columns: Columns, grouped: Bool = false) -> String {
         let description: String
         if grouped {
-            description = "LAUNCH SESSION / HEAVY PROCESS | heavy-process totals only"
+            description = "LAUNCH SESSION / PROCESS | all observed totals"
         } else {
             switch columns {
             case .compact(let process, let agent):

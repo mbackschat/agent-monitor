@@ -38,7 +38,7 @@ func statusItemRoutesSecondaryClicksToTheContextMenu(
         let item = try #require(menu.item(withTitle: line))
         #expect(!item.isEnabled)
     }
-    #expect(menu.items.contains { $0.title.contains("1 heavy") })
+    #expect(menu.items.contains { $0.title.contains("1 observed") })
     let options = try #require(menu.item(withTitle: "View options")?.submenu)
     #expect(options.item(withTitle: "Sessions")?.state == .on)
     #expect(options.item(withTitle: "View options") == nil)
@@ -82,7 +82,7 @@ func statusItemRoutesSecondaryClicksToTheContextMenu(
     _ = await iterator.next()
     #expect(heldMenu.items == heldItems)
     #expect(heldMenu.items.contains { $0.title.contains("waiting") })
-    #expect(controller.makeMenu().items.contains { $0.title.contains("1 heavy") })
+    #expect(controller.makeMenu().items.contains { $0.title.contains("1 observed") })
     #expect(!model.isOpen)
     await model.stop()
 }

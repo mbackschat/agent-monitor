@@ -1,8 +1,8 @@
 import AppKit
 
 enum MenuBarStatusImage {
-    @MainActor static func make(level: Int?, heavyCount: Int?) -> NSImage {
-        let text = heavyCount.map {
+    @MainActor static func make(level: Int?, processCount: Int?) -> NSImage {
+        let text = processCount.map {
             NSAttributedString(
                 string: $0 > 99 ? "99+" : String($0),
                 attributes: [

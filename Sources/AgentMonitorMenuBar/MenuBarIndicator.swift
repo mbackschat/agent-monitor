@@ -18,7 +18,7 @@ struct MenuBarIndicator {
         self.processorCount = max(1, processorCount)
     }
 
-    var heavyCount: Int? { load?.processCount }
+    var processCount: Int? { load?.processCount }
 
     var level: Int? {
         guard let load, load.missingCPUCount < load.processCount || load.processCount == 0 else { return nil }
@@ -32,7 +32,7 @@ struct MenuBarIndicator {
     }
 
     mutating func receive(_ snapshot: MonitoringSnapshot, paused: Bool = false) {
-        load = AgentLoadSummary(processes: snapshot.findings)
+        load = AgentLoadSummary(processes: snapshot.observedFindings)
         cpuAccounting = snapshot.cpuAccounting
         thresholds = Thresholds(
             cpuPercent: snapshot.cpuThresholdPercent, memoryBytes: snapshot.memoryThresholdBytes)
@@ -62,13 +62,16 @@ struct MenuBarIndicator {
         let memory = (Double(load.footprintBytes) / 1e9).formatted(.number.precision(.fractionLength(1)))
         let partial = load.missingCPUCount > 0 || load.missingFootprintCount > 0
         return [
-            "Agent Monitor — \(load.processCount) heavy processes in view",
+            "Agent Monitor — \(load.processCount) observed agent processes",
             paused ? "Paused — matching the displayed table" : nil,
-            "Agents in view: CPU \(load.missingCPUCount > 0 ? "≥ " : "")\(cpu)% (100% = one core)",
+            "Observed agents: CPU \(load.missingCPUCount > 0 ? "≥ " : "")\(cpu)% (100% = one core)",
             CPUContext.text(cpuAccounting),
             "Footprint \(load.missingFootprintCount > 0 ? "≥ " : "")\(memory) GB",
             "Bars: share of all cores · boundaries at 25% and 50%",
-            "Filter: CPU > \(thresholds.cpuPercent.formatted())% of one core or footprint > \((Double(thresholds.memoryBytes) / 1e9).formatted()) GB",
+            "Totals include filtered processes; sampling can miss short-lived work",
+            thresholds.isUnfiltered
+                ? "Display: all observed processes"
+                : "Filter: CPU > \(thresholds.cpuPercent.formatted())% of one core or footprint > \((Double(thresholds.memoryBytes) / 1e9).formatted()) GB",
             partial ? "Some resource measurements are unavailable" : nil,
             unreadableCount > 0 ? "\(unreadableCount) processes could not be read" : nil,
             "Sampled \(sampledAt.formatted(date: .omitted, time: .standard))",

@@ -5,6 +5,28 @@ import Testing
 @testable import AgentMonitor
 @testable import AgentMonitorCore
 
+@Test(arguments: [true, false])
+func sessionTotalsIncludeProcessesHiddenByDisplayFilters(showBusy: Bool) throws {
+    let busy = groupedRow(1, thread: "a", cpu: 50, memory: 100_000_000)
+    let quiet = groupedRow(2, thread: "a", cpu: 10, memory: 200_000_000)
+    let fixture = groupedSnapshot([busy])
+    let snapshot = MonitoringSnapshot(
+        cpuAccounting: fixture.cpuAccounting, timestamp: fixture.timestamp,
+        intervalSeconds: fixture.intervalSeconds, cpuThresholdPercent: 25,
+        memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 2,
+        unreadableProcessCount: 0, findings: showBusy ? [busy] : [], observedFindings: [busy, quiet])
+    var state = LiveReportState(grouping: .session)
+    state.receive(snapshot)
+    let group = try #require(state.groups.first)
+    #expect(group.cpuTotal == 60)
+    #expect(abs(try #require(group.memoryGBTotal) - 0.3) < 1e-12)
+    #expect(state.rows.map(\.process) == (showBusy ? [busy.process] : []))
+    #expect(state.children(of: group).map(\.process) == (showBusy ? [busy.process] : []))
+    let text = TextReport.render(snapshot, grouping: .session)
+    #expect(text.contains("60.00%"))
+    #expect(text.contains("0.30 GB"))
+}
+
 @Test func groupingUsesCorroboratedRootsAndNeverSharedDirectories() throws {
     let root = groupedRow(1, thread: "root", root: "root")
     let child = groupedRow(2, thread: "child", root: "root")
@@ -81,7 +103,7 @@ import Testing
     #expect(throws: (any Error).self) { try Options.parse(["--group", "project"]) }
     let text = TextReport.render(
         groupedSnapshot([groupedRow(1, thread: "a"), groupedRow(2, thread: "a")]), grouping: .session)
-    #expect(text.contains("heavy-process totals"))
+    #expect(text.contains("totals include all observed members"))
     #expect(text.contains("100.00%"))
     #expect(text.contains("PID 1") && text.contains("PID 2"))
 }
@@ -103,8 +125,8 @@ import Testing
     #expect(state.groups.map(\.sessionID) == ["a", "b", "c"])
     #expect(state.selectedGroup == selected)
     let lines = LiveReportLayout.lines(state: state, width: 120, height: 24)
-    #expect(lines.contains { $0.text.contains("heavy-process totals only") })
-    #expect(lines.contains { $0.text.contains("80.00") && $0.text.contains("2 heavy") })
+    #expect(lines.contains { $0.text.contains("all observed totals") })
+    #expect(lines.contains { $0.text.contains("80.00") && $0.text.contains("2 observed") })
 }
 
 @Test func reusedPIDDoesNotInheritAnUnresolvedGroupsExpansion() throws {

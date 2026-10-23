@@ -266,7 +266,7 @@ public struct Monitor: Sendable {
     private func heavyIdentities(thresholds: Thresholds) -> [ProcessIdentity] {
         live.filter { identity in
             guard let node = nodes[identity] else { return false }
-            return node.cpuPercent.map { $0 > thresholds.cpuPercent } == true
+            return thresholds.isUnfiltered || node.cpuPercent.map { $0 > thresholds.cpuPercent } == true
                 || node.sample.footprintBytes.map { $0 > thresholds.memoryBytes } == true
         }
     }

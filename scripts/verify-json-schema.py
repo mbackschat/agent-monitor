@@ -134,7 +134,7 @@ for field, value in [("hostBusyPercent", -1), ("hostBusyPercent", None), ("logic
     invalid = copy.deepcopy(records[0])
     invalid["cpuAccounting"][field] = value
     invalid_records.append(invalid)
-for field in ["cpuAccounting", "schemaVersion"]:
+for field in ["cpuAccounting", "schemaVersion", "observedFindings"]:
     invalid = copy.deepcopy(records[0])
     del invalid[field]
     invalid_records.append(invalid)

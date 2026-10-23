@@ -253,12 +253,12 @@ func keyboardHelpSeparatesControlsWithoutClipping(width: Int) {
     var state = LiveReportState(grouping: .session)
     state.receive(liveSnapshot([liveRow(42)]))
     var lines = LiveReportLayout.lines(state: state, width: 100, height: 24)
-    #expect(lines.contains { $0.text.contains("CPU > 25.00% OR GB > 1.00") })
+    #expect(lines.contains { $0.text.contains("All observed processes") })
     state.toggleGrouping()
     state.receive(liveSnapshot([]))
     lines = LiveReportLayout.lines(state: state, width: 100, height: 24)
-    #expect(lines.contains { $0.text.contains("left the heavy findings") })
-    #expect(lines.contains { $0.text.contains("CPU > 25.00% OR GB > 1.00") })
+    #expect(lines.contains { $0.text.contains("left the displayed findings") })
+    #expect(lines.contains { $0.text.contains("All observed processes") })
 }
 
 @Test func filterKeysUseTenCPUPointsAndOneDecimalGBAndClampAtZero() {
@@ -319,8 +319,8 @@ func responsiveChromeReturnsSpareRowsToProcesses(size: (width: Int, header: Int,
             - 2)
     #expect(lines.allSatisfy { $0.text.count <= size.width })
     let header = lines.prefix(table).map(\.text).joined(separator: "\n")
-    #expect(header.contains("40 heavy / 40 sampled"))
-    #expect(header.contains("CPU > 25.00% OR GB > 1.00"))
+    #expect(header.contains("40 shown / 40 sampled"))
+    #expect(header.contains("All observed processes"))
 }
 
 @Test(arguments: [60, 160])
@@ -477,7 +477,7 @@ func pausedStatusAndResumeKeyRemainVisible(width: Int) {
     let paused = LiveReportLayout.lines(state: state, width: width, height: 8)
     #expect(paused[0].text.hasPrefix("PAUSED at "))
     #expect(paused[0].text.contains("p resume"))
-    #expect(paused.contains { $0.text.contains("CPU > 25.00% OR GB > 1.00") })
+    #expect(paused.contains { $0.text.contains("All observed processes") })
 }
 
 @Test func pausedInspectionKeepsSelectionDetailsAndOrderWhileCPUChanges() {

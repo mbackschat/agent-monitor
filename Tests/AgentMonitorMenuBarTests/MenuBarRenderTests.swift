@@ -106,7 +106,7 @@ private struct DisclosureChevronFixture: View {
             hostBusyPercent: 410.9, logicalCPUCount: 8, measuredUserPercent: 369.1,
             unmeasuredLifetimeCount: 3, previousScanSeconds: 0.041),
         timestamp: Date(timeIntervalSince1970: 52_496), intervalSeconds: 1,
-        cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
+        cpuThresholdPercent: 0, memoryThresholdBytes: 0,
         sampledProcessCount: 42, unreadableProcessCount: 0, findings: findings,
         agentLoad: AgentLoadSummary(processes: findings))
     let model = MenuBarModel { _, _, _, receive in
@@ -118,7 +118,7 @@ private struct DisclosureChevronFixture: View {
                         hostBusyPercent: 410.9, logicalCPUCount: 8, measuredUserPercent: 369.1,
                         unmeasuredLifetimeCount: 3, previousScanSeconds: 0.041),
                     timestamp: snapshot.timestamp.addingTimeInterval(Double(tick - 40) * 15),
-                    intervalSeconds: 15, cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
+                    intervalSeconds: 15, cpuThresholdPercent: 0, memoryThresholdBytes: 0,
                     sampledProcessCount: 42, unreadableProcessCount: 0, findings: findings,
                     agentLoad: AgentLoadSummary(processes: historyFindings)))
         }
@@ -165,13 +165,13 @@ private struct DisclosureChevronFixture: View {
         row.layer?.backgroundColor = (dark ? NSColor.black : NSColor.white).cgColor
         row.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         view.addSubview(row)
-        for (index, label) in ["Starting", "0 heavy", "1 heavy", "12 heavy", "99+ heavy"].enumerated() {
+        for (index, label) in ["Starting", "0 heavy", "1 observed", "12 heavy", "99+ heavy"].enumerated() {
             let button = NSButton(frame: NSRect(x: index * 60 + 18, y: 20, width: 24, height: 24))
             button.isBordered = false
             button.imagePosition = .imageOnly
             button.image = MenuBarStatusImage.make(
                 level: index == 0 ? nil : index - 1,
-                heavyCount: [nil, 0, 1, 12, 100][index])
+                processCount: [nil, 0, 1, 12, 100][index])
             button.contentTintColor = dark ? .white : .black
             row.addSubview(button)
             let title = NSTextField(labelWithString: label)

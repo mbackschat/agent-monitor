@@ -68,7 +68,7 @@ import Testing
     #expect(model.report.pins.count == 1)
     model.open()
     #expect(!model.report.frozen)
-    #expect(model.report.thresholds.cpuPercent == 35)
+    #expect(model.report.thresholds.cpuPercent == 10)
     #expect(model.report.sortKey == .memory)
     #expect(model.report.ascending)
     #expect(model.report.grouping == .none)

@@ -45,7 +45,7 @@ public struct SessionGroup: Equatable, Sendable {
         let kind = isSharedRuntime ? "" : (isRoot ? " root" : " session")
         let partial = cpuPartial || memoryPartial ? " | partial totals" : ""
         return
-            "\(provider?.rawValue ?? "unknown")/\(session)\(kind) | \(processes.count) heavy | \(project)\(partial)"
+            "\(provider?.rawValue ?? "unknown")/\(session)\(kind) | \(processes.count) observed | \(project)\(partial)"
     }
 
     private func sum(_ values: [Double?]) -> Double? {

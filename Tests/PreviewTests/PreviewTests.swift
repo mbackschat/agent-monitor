@@ -49,7 +49,7 @@ func previewFixtureUsesProductionLayoutAcrossWidths(width: Int, grouped: Bool) t
     #expect(lines.count == 24)
     #expect(lines.allSatisfy { $0.text.count <= width })
     #expect(lines.contains { $0.text.contains("q/Ctrl-C quit") })
-    #expect(lines.contains { $0.text.contains("CPU > 25.00% OR GB > 1.00") })
+    #expect(lines.contains { $0.text.contains("All observed processes") })
     let svg = Preview.svg(lines: lines, width: width, height: 24)
     #expect(svg.contains("SYNTHETIC DATA"))
     #expect(!svg.contains("/Users/"))

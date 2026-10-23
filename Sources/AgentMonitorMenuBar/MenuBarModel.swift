@@ -198,8 +198,8 @@ final class MenuBarModel {
         refreshIndicator()
     }
 
-    var displayedProcessCount: Int? {
-        report.snapshot.map { Set($0.findings.map(\.process)).count }
+    var observedProcessCount: Int? {
+        report.snapshot.map { Set($0.observedFindings.map(\.process)).count }
     }
 
     private func refreshIndicator() {
@@ -305,7 +305,9 @@ final class MenuBarModel {
         return (projection.pinnedRows + projection.unpinnedRows).flatMap { row in
             switch row {
             case .group(let group):
-                if !report.isPinned(row.id), group.processes.count == 1, let process = group.processes.first {
+                if !report.isPinned(row.id), group.processes.count == 1,
+                    let process = report.children(of: group).first
+                {
                     return [LiveReportRowID.process(process.process)]
                 }
                 return [row.id]

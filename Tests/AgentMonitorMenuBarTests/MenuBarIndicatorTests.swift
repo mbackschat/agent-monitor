@@ -7,6 +7,23 @@ import Testing
 
 @testable import AgentMonitorMenuBar
 
+@Test func indicatorIncludesAgentResourcesHiddenByDisplayFilters() throws {
+    let fixture = try menuBarFixture(pids: [42001, 42002], cpu: 100, memoryBytes: 100_000_000)
+    let snapshot = MonitoringSnapshot(
+        cpuAccounting: fixture.cpuAccounting, timestamp: fixture.timestamp,
+        intervalSeconds: 1, cpuThresholdPercent: 200, memoryThresholdBytes: 1_000_000_000,
+        sampledProcessCount: 2, unreadableProcessCount: 0, findings: [],
+        observedFindings: fixture.findings)
+    var indicator = MenuBarIndicator(processorCount: 8)
+    indicator.receive(snapshot)
+    #expect(indicator.level == 2)
+    #expect(indicator.processCount == 2)
+    #expect(
+        indicator.statusDescription.contains(200.0.formatted(.number.precision(.fractionLength(1))) + "%"))
+    #expect(
+        indicator.statusDescription.contains(0.2.formatted(.number.precision(.fractionLength(1))) + " GB"))
+}
+
 private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) throws -> MonitoringSnapshot {
     let sample = try menuBarFixture(pids: [pid], cpu: cpu, memoryBytes: 10)
     return MonitoringSnapshot(
@@ -27,23 +44,23 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     }
     indicator.fail()
     #expect(indicator.level == nil)
-    #expect(indicator.heavyCount == nil)
+    #expect(indicator.processCount == nil)
     #expect(indicator.statusDescription.contains("unavailable"))
 }
 
 @Test func badgeCountsCurrentHeavyProcessesFromTheFirstSampleUntilTheyBecomeQuiet() throws {
     var indicator = MenuBarIndicator(processorCount: 8)
     #expect(indicator.level == nil)
-    #expect(indicator.heavyCount == nil)
+    #expect(indicator.processCount == nil)
     for cpu in [50.0, 80, 100, 150] {
         indicator.receive(try loadSample(cpu))
-        #expect(indicator.heavyCount == 1)
+        #expect(indicator.processCount == 1)
     }
     indicator.receive(try loadSample(0))
-    #expect(indicator.heavyCount == 0)
+    #expect(indicator.processCount == 0)
     #expect(indicator.level == 0)
     indicator.receive(try loadSample(150, pid: 42002))
-    #expect(indicator.heavyCount == 1)
+    #expect(indicator.processCount == 1)
     #expect(!indicator.statusDescription.contains("temporary"))
 }
 
@@ -58,14 +75,14 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
             timestamp: fixture.timestamp, intervalSeconds: 15, cpuThresholdPercent: 999,
             memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 2, unreadableProcessCount: 0,
             findings: fixture.findings + fixture.findings, agentLoad: nil))
-    #expect(indicator.heavyCount == 2)
+    #expect(indicator.processCount == 2)
     #expect(indicator.level == 0)
 }
 
 @Test @MainActor func loadIconsKeepSizeAndIncreaseFilledAreaAtActualResolution() throws {
     var areas: [Int] = []
     for level in 0...3 {
-        let image = MenuBarStatusImage.make(level: level, heavyCount: nil)
+        let image = MenuBarStatusImage.make(level: level, processCount: nil)
         #expect(image.size == NSSize(width: 18, height: 18))
         #expect(image.isTemplate)
         let bitmap = try #require(
@@ -90,24 +107,24 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
 @Test func unavailableLoadClearsTheBadgeAndRecoveryRestoresTheActualCount() throws {
     var indicator = MenuBarIndicator(processorCount: 8)
     indicator.receive(try loadSample(50))
-    #expect(indicator.heavyCount == 1)
+    #expect(indicator.processCount == 1)
     indicator.fail()
     #expect(indicator.level == nil)
-    #expect(indicator.heavyCount == nil)
+    #expect(indicator.processCount == nil)
     indicator.receive(try loadSample(50))
-    #expect(indicator.heavyCount == 1)
+    #expect(indicator.processCount == 1)
     #expect(indicator.statusDescription.contains("50"))
 }
 
 @Test @MainActor func numericBadgeOverlaysTheCornerWithoutWideningTheIcon() throws {
-    let startup = try iconBitmap(MenuBarStatusImage.make(level: nil, heavyCount: nil))
-    let quiet = try iconBitmap(MenuBarStatusImage.make(level: 0, heavyCount: nil))
+    let startup = try iconBitmap(MenuBarStatusImage.make(level: nil, processCount: nil))
+    let quiet = try iconBitmap(MenuBarStatusImage.make(level: 0, processCount: nil))
     #expect(
         startup.representation(using: .png, properties: [:])
             == quiet.representation(using: .png, properties: [:]))
-    let normal = try iconBitmap(MenuBarStatusImage.make(level: 3, heavyCount: nil))
+    let normal = try iconBitmap(MenuBarStatusImage.make(level: 3, processCount: nil))
     for count in [0, 1, 12, 99, 100, 1234] {
-        let image = MenuBarStatusImage.make(level: 3, heavyCount: count)
+        let image = MenuBarStatusImage.make(level: 3, processCount: count)
         #expect(image.isTemplate)
         #expect(image.size == NSSize(width: 18, height: 18))
         let bitmap = try iconBitmap(image)
@@ -120,12 +137,12 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
             }
         }
     }
-    let one = try iconBitmap(MenuBarStatusImage.make(level: 1, heavyCount: 1))
-    let two = try iconBitmap(MenuBarStatusImage.make(level: 1, heavyCount: 2))
+    let one = try iconBitmap(MenuBarStatusImage.make(level: 1, processCount: 1))
+    let two = try iconBitmap(MenuBarStatusImage.make(level: 1, processCount: 2))
     #expect(
         one.representation(using: .png, properties: [:]) != two.representation(using: .png, properties: [:]))
-    let hundred = try iconBitmap(MenuBarStatusImage.make(level: 1, heavyCount: 100))
-    let thousand = try iconBitmap(MenuBarStatusImage.make(level: 1, heavyCount: 1000))
+    let hundred = try iconBitmap(MenuBarStatusImage.make(level: 1, processCount: 100))
+    let thousand = try iconBitmap(MenuBarStatusImage.make(level: 1, processCount: 1000))
     #expect(
         hundred.representation(using: .png, properties: [:])
             == thousand.representation(using: .png, properties: [:]))
@@ -168,12 +185,12 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     model.toggleFreeze()
     let held = model.report.snapshot
     let heldLevel = model.indicator.level
-    let heldCount = model.indicator.heavyCount
+    let heldCount = model.indicator.processCount
     input.yield(try loadSample(Double(ProcessInfo.processInfo.activeProcessorCount) * 100, time: 2))
     #expect(await iterator.next() == 5)
     #expect(model.report.snapshot == held)
     #expect(model.indicator.level == heldLevel)
-    #expect(model.indicator.heavyCount == heldCount)
+    #expect(model.indicator.processCount == heldCount)
     model.toggleFreeze()
     #expect(model.report.snapshot?.timestamp == Date(timeIntervalSince1970: 2))
     #expect(model.indicator.level != heldLevel)
@@ -244,7 +261,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
 @Test func tableFindingsDriveBarsAndBadgeEvenWithoutAHistorySummary() throws {
     var indicator = MenuBarIndicator(processorCount: 8)
     indicator.receive(try loadSample(400))
-    #expect(indicator.heavyCount == 1)
+    #expect(indicator.processCount == 1)
     #expect(indicator.level == 3)
     let fixture = try menuBarFixture(pids: [42001, 42002], cpu: 10, memoryBytes: 10)
     indicator.receive(
@@ -256,13 +273,13 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
             cpuThresholdPercent: 5, memoryThresholdBytes: 500_000_000,
             sampledProcessCount: 3, unreadableProcessCount: 0, findings: fixture.findings,
             agentLoad: AgentLoadSummary(processes: (try loadSample(2000)).findings)))
-    #expect(indicator.heavyCount == 2)
+    #expect(indicator.processCount == 2)
     #expect(indicator.level == 1)
-    #expect(indicator.statusDescription.contains("2 heavy processes in view"))
+    #expect(indicator.statusDescription.contains("2 observed agent processes"))
     #expect(!indicator.statusDescription.contains("CPU > 25%"))
     indicator.receive(try loadSample(0, time: 3))
     #expect(indicator.availability == .current)
-    #expect(indicator.heavyCount == 0)
+    #expect(indicator.processCount == 0)
     #expect(indicator.level == 0)
 }
 
@@ -289,20 +306,20 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     input.yield(snapshot)
     _ = await iterator.next()
     #expect(model.visibleRowIDs.count == 2)
-    #expect(model.displayedProcessCount == 3)
-    #expect(model.indicator.heavyCount == model.displayedProcessCount)
+    #expect(model.observedProcessCount == 3)
+    #expect(model.indicator.processCount == model.observedProcessCount)
     let group = try #require(model.report.groups.first { $0.processes.count == 2 })
     model.togglePin(.group(group.id))
     model.toggleFreeze()
     input.yield(try menuBarFixture(pids: []))
     _ = await iterator.next()
-    #expect(model.displayedProcessCount == 3)
-    #expect(model.indicator.heavyCount == 3)
+    #expect(model.observedProcessCount == 3)
+    #expect(model.indicator.processCount == 3)
     #expect(model.indicator.statusDescription.contains("Paused"))
     model.toggleFreeze()
     #expect(model.visibleRowIDs.count == 1)
-    #expect(model.displayedProcessCount == 0)
-    #expect(model.indicator.heavyCount == 0)
+    #expect(model.observedProcessCount == 0)
+    #expect(model.indicator.processCount == 0)
     await model.stop()
 }
 
@@ -317,7 +334,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     var indicator = MenuBarIndicator(processorCount: 8)
     indicator.receive(snapshot)
     #expect(indicator.level == 0)
-    #expect(indicator.heavyCount == 0)
+    #expect(indicator.processCount == 0)
     #expect(indicator.statusLines.contains(CPUContext.text(context)))
     #expect(indicator.statusDescription.contains(CPUContext.text(context)))
 }
@@ -333,7 +350,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     indicator.receive(snapshot)
     #expect(
         indicator.statusLines.contains {
-            $0.hasPrefix("Agents in view: CPU ") && $0.hasSuffix("% (100% = one core)")
+            $0.hasPrefix("Observed agents: CPU ") && $0.hasSuffix("% (100% = one core)")
         })
     #expect(indicator.statusLines.filter { $0.hasPrefix("CPU") } == [CPUContext.text(snapshot.cpuAccounting)])
 }

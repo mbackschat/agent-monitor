@@ -100,12 +100,15 @@ public struct MonitoringSnapshot: Equatable, Sendable {
     public let sampledProcessCount: Int
     public let unreadableProcessCount: Int
     public let findings: [HeavyProcess]
+    /// Unfiltered observations in the requested scope: display thresholds must not change resource totals.
+    public let observedFindings: [HeavyProcess]
     public let agentLoad: AgentLoadSummary?
 
     public init(
         cpuAccounting: CPUAccounting, timestamp: Date, intervalSeconds: Double, cpuThresholdPercent: Double,
         memoryThresholdBytes: UInt64, sampledProcessCount: Int, unreadableProcessCount: Int,
-        findings: [HeavyProcess], agentLoad: AgentLoadSummary? = nil
+        findings: [HeavyProcess], agentLoad: AgentLoadSummary? = nil,
+        observedFindings: [HeavyProcess]? = nil
     ) {
         self.cpuAccounting = cpuAccounting
         self.timestamp = timestamp
@@ -115,6 +118,7 @@ public struct MonitoringSnapshot: Equatable, Sendable {
         self.sampledProcessCount = sampledProcessCount
         self.unreadableProcessCount = unreadableProcessCount
         self.findings = findings
+        self.observedFindings = observedFindings ?? findings
         self.agentLoad = agentLoad
     }
 }
@@ -221,7 +225,6 @@ public struct MonitoringSession: Sendable {
         var monitor = Monitor()
         monitor.ingest(try reader.snapshot(excluding: excluded))
         var count = 0
-        var lastAgentLoadAt: Date?
         var cadence = SessionRegistryCadence()
         while configuration.samples == 0 || count < configuration.samples {
             let interval = try await wait(live)
@@ -234,28 +237,17 @@ public struct MonitoringSession: Sendable {
             let snapshot = try reader.snapshot(excluding: excluded)
             let cpuAccounting = monitor.ingest(snapshot)
             let sampledAt = clock.now()
-            // Full-population metadata reads dominate history cost; see docs/research/menu-bar-load-cost.md.
-            let collectAgentLoad =
-                configuration.collectAgentLoad
-                && (lastAgentLoadAt.map { sampledAt < $0 || sampledAt.timeIntervalSince($0) >= 15 } ?? true)
-            if collectAgentLoad {
-                lastAgentLoadAt = sampledAt
-                for sample in snapshot.samples {
-                    try Task.checkCancellation()
-                    monitor.enrich(
-                        reader.metadata(for: sample, includeCommand: configuration.includeCommands),
-                        for: sample.identity)
-                }
-            } else {
-                monitor.enrich(thresholds: thresholds) {
-                    reader.metadata(for: $0, includeCommand: configuration.includeCommands)
-                }
+            for sample in snapshot.samples {
+                try Task.checkCancellation()
+                monitor.enrich(
+                    reader.metadata(for: sample, includeCommand: configuration.includeCommands),
+                    for: sample.identity)
             }
-            var findings = monitor.findings(thresholds: thresholds, scope: configuration.scope)
+            var observedFindings = monitor.findings(scope: configuration.scope)
             if await resolveSessions?() ?? true,
-                try listSessions(for: findings, in: &monitor, cadence: &cadence, at: sampledAt)
+                try listSessions(for: observedFindings, in: &monitor, cadence: &cadence, at: sampledAt)
             {
-                findings = monitor.findings(thresholds: thresholds, scope: configuration.scope)
+                observedFindings = monitor.findings(scope: configuration.scope)
             }
             try await receive(
                 MonitoringSnapshot(
@@ -265,8 +257,9 @@ public struct MonitoringSession: Sendable {
                     memoryThresholdBytes: thresholds.memoryBytes,
                     sampledProcessCount: snapshot.samples.count,
                     unreadableProcessCount: snapshot.unreadableCount,
-                    findings: findings,
-                    agentLoad: collectAgentLoad ? monitor.agentLoad() : nil))
+                    findings: monitor.findings(thresholds: thresholds, scope: configuration.scope),
+                    agentLoad: configuration.collectAgentLoad ? monitor.agentLoad() : nil,
+                    observedFindings: observedFindings))
             count += 1
         }
     }

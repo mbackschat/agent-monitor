@@ -77,9 +77,9 @@ public enum LiveReportLayout {
         if let notice = state.notice {
             status = notice
         } else if state.grouping == .session {
-            status = "\(state.rows.count) heavy / \(state.groups.count) launch groups"
+            status = "\(state.rows.count) shown / \(state.groups.count) launch groups"
         } else if let snapshot = state.snapshot {
-            status = "\(state.rows.count) heavy / \(snapshot.sampledProcessCount) sampled"
+            status = "\(state.rows.count) shown / \(snapshot.sampledProcessCount) sampled"
         } else {
             status = "Sampling baseline…"
         }
@@ -89,7 +89,9 @@ public enum LiveReportLayout {
                     || $0.memoryThresholdBytes != state.thresholds.memoryBytes
             } ?? false
         let filters =
-            "CPU > \(ReportNumber.text(state.thresholds.cpuPercent))% OR GB > \(ReportNumber.text(Double(state.thresholds.memoryBytes) / 1e9))"
+            (state.thresholds.isUnfiltered
+                ? "All observed processes"
+                : "CPU > \(ReportNumber.text(state.thresholds.cpuPercent))% OR GB > \(ReportNumber.text(Double(state.thresholds.memoryBytes) / 1e9))")
             + (pending ? " (pending)" : "")
         let context = ReportLine(CPUContext.text(state.snapshot?.cpuAccounting), style: .muted)
         // Width-based row counts preserve pane geometry across changing status text; see docs/architecture.md.
@@ -200,7 +202,9 @@ public enum LiveReportLayout {
         if rows.isEmpty {
             lines.append(
                 ReportLine(
-                    state.snapshot == nil ? "Waiting for first report…" : "No heavy processes in this scope.")
+                    state.snapshot == nil
+                        ? "Waiting for first report…"
+                        : "No processes match the display filters in this scope.")
             )
         }
         return padded(lines, to: height)

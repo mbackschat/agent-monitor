@@ -149,7 +149,7 @@ private let emptySnapshot = MonitoringSnapshot(
     trigger.yield(())
     var iterator = observations.makeAsyncIterator()
     let values = await iterator.next()
-    #expect(values?.0 == 35)
+    #expect(values?.0 == 10)
     #expect(values?.1 == 10)
     // Session names are shown only in the open panel; the closed icon needs counts alone.
     #expect(values?.2 == true)

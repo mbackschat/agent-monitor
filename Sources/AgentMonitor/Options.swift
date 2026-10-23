@@ -12,17 +12,21 @@ struct ColorOption: ParsableArguments {
 struct ReportOptions: ParsableArguments {
     @Option(
         name: .customLong("cpu"),
-        help: "Show CPU above this percentage; 100 means one occupied core. Default: 25.")
+        help:
+            "Show CPU above this percentage; 100 means one occupied core. Default: 0. Both thresholds at zero show every observed process."
+    )
     var requestedCPU: Double?
 
-    var cpu: Double { requestedCPU ?? 25 }
+    var cpu: Double { requestedCPU ?? 0 }
 
     @Option(
         name: .customLong("memory-gb"),
-        help: "Show physical footprint above this many decimal GB. Default: 1.")
+        help:
+            "Show physical footprint above this many decimal GB. Default: 0. Both thresholds at zero show every observed process."
+    )
     var requestedMemoryGB: Double?
 
-    var memoryGB: Double { requestedMemoryGB ?? 1 }
+    var memoryGB: Double { requestedMemoryGB ?? 0 }
 
     @Option(
         name: .customLong("interval"),
@@ -48,7 +52,7 @@ struct ReportOptions: ParsableArguments {
     @Option(
         name: .customLong("group"),
         help:
-            "Group text/TUI by launch session: none or session. TUI: g toggles grouping; left/right collapses/expands a session or process details. Totals cover displayed heavy processes only. Not available with --json or --json-schema. Default: none."
+            "Group text/TUI by launch session: none or session. TUI: g toggles grouping; left/right collapses/expands a session or process details. Totals include all observed session members, independent of display filters. Not available with --json or --json-schema. Default: none."
     )
     var requestedGroup: GroupOption?
 
@@ -58,7 +62,8 @@ struct ReportOptions: ParsableArguments {
 
     @Flag(
         help:
-            "Include unrelated and unattributed processes; heavy thresholds and same-user scope still apply.")
+            "Include unrelated and unattributed processes; display thresholds and same-user scope still apply."
+    )
     var allProcesses = false
 
     @Flag(help: "Include command arguments; these can contain secrets.")
@@ -96,7 +101,7 @@ struct ReportOptions: ParsableArguments {
 struct JSONOptions: ParsableArguments {
     @Flag(
         help:
-            "Emit machine JSON: reports use JSONL schema version 3; CPU diagnosis uses one version 1 document."
+            "Emit machine JSON: reports use JSONL schema version 4; CPU diagnosis uses one version 1 document."
     )
     var json = false
 

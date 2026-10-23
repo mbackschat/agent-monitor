@@ -128,7 +128,10 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public var groups: [SessionGroup] {
-        SessionGrouping.groups(rows).sorted { left, right in
+        let displayed = rows
+        let identities = Set(displayed.map(\.process))
+        let hidden = (snapshot?.observedFindings ?? []).filter { !identities.contains($0.process) }
+        return SessionGrouping.groups(displayed + hidden).sorted { left, right in
             switch sortKey {
             case .stable:
                 let leftRank = stableGroupRanks[left.id] ?? Int.max
@@ -238,7 +241,7 @@ public struct LiveReportState: Equatable, Sendable {
         updates += 1
         if let selected, !snapshot.findings.contains(where: { $0.process == selected }) {
             if expanded == selected, detailsMode != .minimized { returningDetails = selected }
-            notice = "PID \(selected.pid) left the heavy findings; details cleared."
+            notice = "PID \(selected.pid) left the displayed findings; details cleared."
             if !isPinned(.process(selected)) { selection = nil }
             expanded = nil
             detailOffset = 0
@@ -331,7 +334,8 @@ public struct LiveReportState: Equatable, Sendable {
             return nil
         }
         func flattened(_ group: SessionGroup) -> Bool {
-            flattenSingletons && group.processes.count == 1 && !isPinned(.group(group.id))
+            flattenSingletons && group.processes.count == 1 && !children(of: group).isEmpty
+                && !isPinned(.group(group.id))
         }
         var targets = groups.filter { !flattened($0) }
         if let row, !topLevel.contains(where: { $0.id == row }) {
@@ -452,7 +456,7 @@ public struct LiveReportState: Equatable, Sendable {
                 if case .group(let id) = $0.id { return id }
                 return nil
             })
-        // Samples contain only heavy findings, so absence cannot establish that a session ended.
+        // A missing observation cannot establish that a session ended; see docs/architecture.md.
         // Bound absent identities without evicting visible expansion (docs/architecture.md).
         var remainingAbsent = 256
         rememberedOpenGroups = rememberedOpenGroups.reversed().filter { id in

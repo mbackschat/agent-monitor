@@ -33,7 +33,7 @@ import Testing
         #expect(closed.findings.allSatisfy { $0.attribution.evidence == .runtimeOnly })
         #expect(fixture.listings.withLock { $0 } == 0)
         #expect(model.report.snapshot == nil)
-        #expect(model.indicator.heavyCount == 2)
+        #expect(model.indicator.processCount == 2)
 
         model.open()
         advance.yield(())

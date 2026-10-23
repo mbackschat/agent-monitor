@@ -13,19 +13,24 @@ public enum TextReport {
     }
 
     public static func lines(_ report: MonitoringSnapshot, grouping: ReportGrouping = .none) -> [ReportLine] {
+        let unfiltered = report.cpuThresholdPercent == 0 && report.memoryThresholdBytes == 0
+        let filter =
+            unfiltered
+            ? "All observed processes"
+            : "CPU > \(ReportNumber.text(report.cpuThresholdPercent))% OR footprint > \(ReportNumber.text(Double(report.memoryThresholdBytes) / 1e9)) GB"
         var lines = [
             ReportLine(""),
             ReportLine(String(repeating: "=", count: 72), style: .muted),
             ReportLine(
-                "Agent Monitor | \(report.timestamp.ISO8601Format()) | CPU > \(ReportNumber.text(report.cpuThresholdPercent))% OR footprint > \(ReportNumber.text(Double(report.memoryThresholdBytes) / 1e9)) GB",
+                "Agent Monitor | \(report.timestamp.ISO8601Format()) | \(filter)",
                 style: .title),
             ReportLine(
-                "\(report.findings.count) heavy processes; \(report.sampledProcessCount) same-user processes sampled. CPU: 100% = one core.",
+                "\(report.findings.count) processes shown; \(report.sampledProcessCount) same-user processes sampled. CPU: 100% = one core.",
                 style: .muted),
         ]
         lines.append(ReportLine(CPUContext.text(report.cpuAccounting), style: .muted))
         if report.findings.isEmpty {
-            lines.append(ReportLine("No processes exceeded either threshold in this interval."))
+            lines.append(ReportLine("No processes match the display filters in this scope."))
         }
         switch grouping {
         case .none:
@@ -33,9 +38,10 @@ public enum TextReport {
         case .session:
             lines.append(
                 ReportLine(
-                    "Grouped by launch session; heavy-process totals only, not complete session usage.",
+                    "Grouped by launch session; totals include all observed members, independent of filters. Sampling may miss short-lived work.",
                     style: .muted))
-            for group in SessionGrouping.groups(report.findings) {
+            let displayed = Set(report.findings.map(\.process))
+            for group in SessionGrouping.groups(report.observedFindings) {
                 let cpu = group.cpuTotal.map { ReportNumber.text($0) + "%" } ?? "unavailable"
                 let memory = group.memoryGBTotal.map { ReportNumber.text($0) + " GB" } ?? "unavailable"
                 lines.append(ReportLine(""))
@@ -45,9 +51,11 @@ public enum TextReport {
                         style: .heading))
                 lines.append(
                     ReportLine(
-                        "  Heavy-process totals: CPU \(cpu)\(group.cpuPartial ? " (partial)" : "")  footprint \(memory)\(group.memoryPartial ? " (partial)" : "")"
+                        "  Observed totals: CPU \(cpu)\(group.cpuPartial ? " (partial)" : "")  footprint \(memory)\(group.memoryPartial ? " (partial)" : "")"
                     ))
-                for row in group.processes { lines += processLines(row) }
+                for row in group.processes where displayed.contains(row.process) {
+                    lines += processLines(row)
+                }
             }
         }
         return lines

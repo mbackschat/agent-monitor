@@ -32,15 +32,15 @@ import Testing
     }
     let normalized = help.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     #expect(normalized.contains("CPU is averaged between snapshots"))
-    #expect(normalized.contains("JSONL schema version 3"))
+    #expect(normalized.contains("JSONL schema version 4"))
     #expect(normalized.contains("host occupancy beside your measured processes"))
     #expect(AgentGuide.render(.tui).contains("0 minimizes; 9 maximizes; = restores the chosen split"))
 }
 
 @Test func optionsAcceptEqualsSyntaxAndPreserveDefaults() throws {
     let defaults = try Options.parse([])
-    #expect(defaults.cpu == 25)
-    #expect(defaults.memoryGB == 1)
+    #expect(defaults.cpu == 0)
+    #expect(defaults.memoryGB == 0)
     #expect(defaults.interval == 1)
     #expect(defaults.samples == 1)
     #expect(!defaults.json)

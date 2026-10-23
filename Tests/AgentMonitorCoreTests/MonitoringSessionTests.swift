@@ -213,7 +213,8 @@ func sessionRejectsInvalidLiveThresholds(cpu: Double) async throws {
         reader: fixture, clock: fixture)
     try await session.run { fixture.receive($0) }
     #expect(fixture.collected.withLock { $0.first?.agentLoad } == nil)
-    #expect(!fixture.events.withLock { $0 }.contains("metadata"))
+    #expect(fixture.events.withLock { $0 }.contains("metadata"))
+    #expect(fixture.collected.withLock { $0.first?.observedFindings.count } == 1)
 }
 
 @Test func agentLoadCountsEachLifetimeOnceAndPreservesMissingMeasurements() throws {
@@ -251,8 +252,40 @@ private final class SummaryClock: SamplingClock, Sendable {
     func wait(seconds: Double) async throws { time.withLock { $0 += seconds } }
 }
 
+@Test func resourceTotalsRefreshOnEverySample() async throws {
+    let fixture = SessionFixture()
+    let session = MonitoringSession(
+        configuration: try MonitoringConfiguration(
+            thresholds: Thresholds(cpuPercent: 100, memoryBytes: 100),
+            samples: 3, collectAgentLoad: true),
+        reader: fixture, clock: SummaryClock())
+    try await session.run { fixture.receive($0) }
+    let snapshots = fixture.collected.withLock { $0 }
+    #expect(snapshots.count == 3)
+    #expect(snapshots.allSatisfy { $0.agentLoad?.cpuPercent == 50 })
+    #expect(snapshots.allSatisfy { $0.agentLoad?.footprintBytes == 1 })
+}
+
+@Test(arguments: [true, false])
+func defaultReportIncludesIdleSmallAgent(measurementsAvailable: Bool) throws {
+    var monitor = Monitor()
+    monitor.ingest([
+        sample(42, at: 1, cpu: measurementsAvailable ? 0 : nil, memory: measurementsAvailable ? 1024 : nil)
+    ])
+    monitor.ingest([
+        sample(42, at: 2, cpu: measurementsAvailable ? 0 : nil, memory: measurementsAvailable ? 1024 : nil)
+    ])
+    monitor.enrich(thresholds: Thresholds()) { _ in
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)])
+    }
+    let finding = try #require(monitor.findings(scope: .agentsOnly).first)
+    #expect(finding.cpuPercent == (measurementsAvailable ? 0 : nil))
+    #expect(finding.footprintBytes == (measurementsAvailable ? 1024 : nil))
+    #expect(finding.attribution.threadID == sessionA)
+}
+
 @Test(arguments: [0.25, 1.0, 15.0, 30.0])
-func agentLoadEnrichmentRunsOnFirstSampleThenAtMostEveryFifteenSeconds(interval: Double) async throws {
+func agentLoadEnrichmentRunsOnEverySample(interval: Double) async throws {
     let fixture = SessionFixture()
     let clock = SummaryClock()
     let count = Int(30 / interval) + 1
@@ -266,20 +299,20 @@ func agentLoadEnrichmentRunsOnFirstSampleThenAtMostEveryFifteenSeconds(interval:
     let summaryTimes = snapshots.filter { $0.agentLoad != nil }.map { $0.timestamp.timeIntervalSince1970 }
     #expect(
         summaryTimes
-            == stride(from: interval, through: Double(count) * interval, by: max(15, interval)).map { $0 })
+            == stride(from: interval, through: Double(count) * interval, by: interval).map { $0 })
     #expect(snapshots.count == count)
     #expect(fixture.scans.withLock { $0 } == count + 1)
     #expect(fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count == summaryTimes.count)
 }
 
-@Test func summaryCadenceDoesNotSlowHeavyProcessEnrichment() async throws {
+@Test func summaryAndAttributionRefreshTogether() async throws {
     let fixture = SessionFixture()
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(samples: 16, collectAgentLoad: true),
         reader: fixture, clock: SummaryClock())
     try await session.run { fixture.receive($0) }
     let snapshots = fixture.collected.withLock { $0 }
-    #expect(snapshots.filter { $0.agentLoad != nil }.count == 2)
+    #expect(snapshots.filter { $0.agentLoad != nil }.count == 16)
     #expect(snapshots.allSatisfy { $0.findings.first?.attribution.threadID == sessionA })
     #expect(fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count == 16)
 }
@@ -296,5 +329,5 @@ func agentLoadEnrichmentRunsOnFirstSampleThenAtMostEveryFifteenSeconds(interval:
     }
     #expect(
         fixture.collected.withLock { $0 }.filter { $0.agentLoad != nil }.map(\.timestamp)
-            == [Date(timeIntervalSince1970: 1), Date(timeIntervalSince1970: -9)])
+            == [1.0, 2, -9, -8].map { Date(timeIntervalSince1970: $0) })
 }

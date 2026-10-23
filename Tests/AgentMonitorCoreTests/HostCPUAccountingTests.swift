@@ -102,7 +102,7 @@ private final class SequenceHostSource: HostCPUReading, Sendable {
     #expect(abs(next.measuredUserPercent - 20) < 1e-10)
     #expect(next.unmeasuredLifetimeCount == 1)
     #expect(next.previousScanSeconds == 0.4)
-    #expect(monitor.findings().isEmpty)
+    #expect(monitor.findings(thresholds: .heavy).isEmpty)
 }
 
 @Test func hostNativeSourceReturnsPerCPUStates() throws {

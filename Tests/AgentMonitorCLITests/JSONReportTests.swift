@@ -5,13 +5,30 @@ import Testing
 @testable import AgentMonitor
 @testable import AgentMonitorCore
 
+@Test func jsonPreservesUnfilteredObservationsBesideDisplayFindings() throws {
+    let snapshot = MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+            unmeasuredLifetimeCount: 1, previousScanSeconds: nil),
+        timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1, cpuThresholdPercent: 100,
+        memoryThresholdBytes: 3_000_000_000, sampledProcessCount: 1, unreadableProcessCount: 0,
+        findings: [], observedFindings: [jsonProcess()])
+    let json = try #require(
+        JSONSerialization.jsonObject(with: JSONReport.encodeLine(snapshot)) as? [String: Any])
+    #expect((json["findings"] as? [[String: Any]])?.isEmpty == true)
+    let observed = try #require(json["observedFindings"] as? [[String: Any]])
+    #expect(observed.count == 1)
+    #expect(observed[0]["footprintBytes"] as? UInt64 == 2_000_000_000)
+    #expect(observed[0]["cpuPercent"] == nil)
+}
+
 @Test func schemaDiscoveryIsAnExplicitOutputMode() throws {
     #expect(try Options.parse(["--json-schema"]).jsonSchema)
     #expect(throws: (any Error).self) { try Options.parse(["--json", "--json-schema"]) }
     let schema = try #require(JSONSerialization.jsonObject(with: JSONReport.schema()) as? [String: Any])
     #expect(schema["$schema"] as? String == "https://json-schema.org/draft/2020-12/schema")
     let properties = try #require(schema["properties"] as? [String: [String: Any]])
-    #expect(properties["schemaVersion"]?["const"] as? Int == 3)
+    #expect(properties["schemaVersion"]?["const"] as? Int == 4)
 }
 
 @Test func jsonlContainsOneCompleteRecordPerLineEvenWhenArgumentsContainNewlines() throws {
@@ -33,7 +50,7 @@ import Testing
     #expect(rows[0]["cpuPercent"] == nil)
 }
 
-@Test func jsonlV3CarriesTypedCPUAccountingAndOmitsUnavailableValues() throws {
+@Test func jsonlV4CarriesTypedCPUAccountingAndOmitsUnavailableValues() throws {
     var records: [Data] = []
     for host: Double? in [210.9, nil] {
         let snapshot = MonitoringSnapshot(
@@ -47,7 +64,7 @@ import Testing
         let data = try JSONReport.encodeLine(snapshot)
         records.append(data)
         let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        #expect(json["schemaVersion"] as? Int == 3)
+        #expect(json["schemaVersion"] as? Int == 4)
         let accounting = try #require(json["cpuAccounting"] as? [String: Any])
         #expect(accounting["hostBusyPercent"] as? Double == host)
         #expect(accounting["logicalCPUCount"] as? Int == 8)

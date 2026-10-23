@@ -21,7 +21,7 @@ import Testing
     #expect(Set(agents.map { $0.process.pid }) == [10, 20, 30, 40])
     #expect(agents.first { $0.process.pid == 30 }?.attribution.provider == nil)
     #expect(agents.first { $0.process.pid == 20 }?.attribution.evidence == .ambiguous)
-    #expect(Set(monitor.findings(scope: .allProcesses).map { $0.process.pid }) == [10, 20, 30, 40, 50])
+    #expect(Set(monitor.findings(scope: .allProcesses).map { $0.process.pid }) == [10, 20, 30, 40, 50, 60])
 }
 
 let sessionA = "11111111-1111-4111-8111-111111111111"
@@ -50,7 +50,7 @@ func sample(
     monitor.enrich(
         ProcessMetadata(markers: [SessionMarker(threadID: sessionB, provider: .codex)], cwd: "/same"),
         for: b.identity)
-    let rows = monitor.findings()
+    let rows = monitor.findings(thresholds: .heavy)
     #expect(rows.count == 2)
     #expect(rows.first { $0.process == a.identity }?.attribution.threadID == sessionA)
     #expect(rows.first { $0.process == b.identity }?.attribution.threadID == sessionB)
@@ -140,7 +140,7 @@ func sample(
 @Test func cpuUsesIntervalDeltaAndStrictThreshold() throws {
     var monitor = Monitor()
     monitor.ingest([sample(20, cpu: 3, memory: nil)])
-    #expect(monitor.findings().isEmpty)
+    #expect(monitor.findings(thresholds: .heavy).isEmpty)
     monitor.ingest([sample(20, at: 3, cpu: 4, memory: nil)])
     let row = try #require(monitor.findings().first)
     #expect(row.cpuPercent == 50)
@@ -268,7 +268,7 @@ func sample(
     monitor.enrich(
         ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .claude, inboxSocket: inbox)]),
         for: workload.identity)
-    #expect(Set(monitor.enrichmentTargets().map(\.identity.pid)) == [10, 15, 20])
+    #expect(Set(monitor.enrichmentTargets(thresholds: .heavy).map(\.identity.pid)) == [10, 15, 20])
     monitor.enrich(ProcessMetadata(listeningSockets: [inbox]), for: runtime.identity)
     monitor.enrich(ProcessMetadata(listeningSockets: ["/tmp/cc-socks/15.sock"]), for: other.identity)
     let row = try #require(monitor.finding(for: workload.identity))
@@ -318,7 +318,7 @@ func detachedWorkloadDoesNotGuessItsRuntime(case name: String) throws {
                 SessionMarker(threadID: sessionA, provider: .claude, inboxSocket: "/tmp/cc-socks/10.sock")
             ]),
         for: workload.identity)
-    #expect(Set(monitor.enrichmentTargets().map(\.identity.pid)) == [10, 20])
+    #expect(Set(monitor.enrichmentTargets(thresholds: .heavy).map(\.identity.pid)) == [10, 20])
 }
 
 // Codex → claude → worker and Claude → codex → worker both leave both markers in the worker's

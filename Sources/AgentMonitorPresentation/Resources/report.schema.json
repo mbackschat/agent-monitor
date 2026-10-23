@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:agent-monitor:report:3",
-  "title": "Agent Monitor report v3",
+  "$id": "urn:agent-monitor:report:4",
+  "title": "Agent Monitor report v4",
   "description": "One JSONL report. Optional unavailable values are omitted, not zero. Associations describe launch origin, not current shared-daemon causality, except evidence sessionRegistry: the session a runtime hosted when its harness listed it.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 3
+      "const": 4
     },
     "attributionMeaning": {
       "const": "launchOrigin"
@@ -46,6 +46,13 @@
     },
     "cpuAccounting": {
       "$ref": "#/$defs/cpuAccounting"
+    },
+    "observedFindings": {
+      "type": "array",
+      "description": "All observed processes in the requested scope, independent of display thresholds. Sampling may miss short-lived processes.",
+      "items": {
+        "$ref": "#/$defs/heavyProcess"
+      }
     }
   },
   "required": [
@@ -58,7 +65,8 @@
     "sampledProcessCount",
     "unreadableProcessCount",
     "findings",
-    "cpuAccounting"
+    "cpuAccounting",
+    "observedFindings"
   ],
   "$defs": {
     "processIdentity": {
