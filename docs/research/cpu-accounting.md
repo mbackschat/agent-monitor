@@ -178,3 +178,22 @@ Inference: different sampling rates per process make report-window accounting an
 | Is per-process adaptation worth its semantic cost? | A comparison against global adaptation that preserves counter interval boundaries and exposes memory observation age. No such measurement exists here. |
 
 The evidence supports investigating independent acquisition before choosing adaptive thresholds. It does not establish that adaptive polling outperforms fixed fast polling, that any particular quiet interval is safe, or that scheduler tracing has passed the separate conservation gates.
+
+## Diagnostic recording size estimates — 2026-10-23
+
+The user requested recordings after independent acquisition/background attribution exists, then specified opt-in runtime start/pause/resume, lossless compression, chunks of 50 MB uncompressed data and up to 250 MB compressed data in total, with documented editable limits. The [recording proposal](../proposals/diagnostic-recording.md) owns the design. This section contains arithmetic estimates, not a compression benchmark; MB means 1,000,000 bytes and 10:1 means uncompressed bytes divided by compressed bytes.
+
+Source inspection at `009ec7d` of [JSONReport](../../Sources/AgentMonitorPresentation/JSONReport.swift) shows full process records in both displayed `findings` and unfiltered `observedFindings`. Existing synthetic JSONL fixtures measured 1,084 and 1,032 bytes per report, each with one displayed and one observed entry; the compact observed entry alone measured 340 bytes. These fixtures establish repeated report/context overhead, not realistic recording size or compression ratio. A recording format with contextual references and numeric observations has not been implemented or measured.
+
+Assuming **64–128 serialized bytes per process observation**, raw bytes per hour equal process count × achieved observations per second × bytes per observation × 3,600. The range is a planning assumption, excluding extra context checkpoints, lifecycle/resolution events and container overhead. The following conditional estimates assume all records achieve **10:1** compression:
+
+| Recorded processes | Achieved observation rate | Raw MB/hour | Compressed MB/hour at 10:1 | Hours retained in 250 MB at 10:1 |
+| --- | --- | --- | --- | --- |
+| 100 | 1 Hz | 23–46 | 2.3–4.6 | 54–109 |
+| 100 | 10 Hz | 230–461 | 23–46 | 5.4–10.9 |
+| 500 | 10 Hz | 1,152–2,304 | 115–230 | 1.1–2.2 |
+| 100 | 100 Hz | 2,304–4,608 | 230–461 | 0.54–1.09 |
+
+A full 50 MB chunk becomes approximately 5 MB at 10:1, giving about 50 retained chunks or 2,500 MB of uncompressed history before overhead. At 100 processes and 10 Hz, one full chunk represents roughly 6.5–13 minutes. At 5:1 the same compressed budget retains half as much history as the table; near 1:1 it retains roughly one tenth. Adaptive cadence, process count and churn change the retained duration. Pauses yield partial chunks and explicit time gaps; they do not lower the achieved sampling rate of observations actually recorded.
+
+Inference: repeated JSON strings may compress well, but a compact representation has already removed much of that repetition. A ratio observed on redundant presentation snapshots would not justify promising the same ratio for numeric counter deltas, changing identities or context checkpoints. No evidence here establishes 10:1 or better. Relevant empirical questions are ratio on representative changing data, compression/decompression cost, worst-case output expansion, bounded pending writes and interpretability after oldest-chunk eviction or pause/resume. Round-trip identity verifies compression is lossless; it does not establish collection completeness or undo intentional retention loss.

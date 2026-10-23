@@ -75,6 +75,10 @@ The policy must expose its mode, requested and achieved cadence and reason for r
 
 Acceptance requires comparison with fixed fast collection and independent owned-worker CPU ledgers across duration groups, abrupt quiet-to-busy transitions, bursts between scans, memory-only activity and sustained churn. Compare observation/attribution coverage, transition latency, achieved cadence, monitor CPU and bounded memory. Inject slow/failing resolution, PID reuse, exec/session changes and capacity exhaustion; retained attribution must not drift and acquisition must keep progressing. State the acceptable coverage regression before evaluating results; lower overhead cannot compensate for losing a short-worker group. Adaptive collection remains unvalidated until these checks pass, and even passing them does not make polling lossless.
 
+## Dependent diagnostic recording
+
+The [bounded recording proposal](diagnostic-recording.md) consumes independent measurements and captured/resolved context after this acquisition contract exists. It specifies opt-in runtime start/pause/resume, independently readable 50 MB chunks, lossless compression and a configurable 250 MB compressed store. Recording and compression must not block acquisition; saved data preserves attribution timing, pauses and coverage gaps.
+
 ## Optional
 
 - A lighter scheduler-only recording configuration, if measured conservation and lifecycle evidence satisfy independent per-duration CPU oracles, including the failed trace case. The stock System Trace template's temporary storage and finalization cost are unsuitable for continuous use.
