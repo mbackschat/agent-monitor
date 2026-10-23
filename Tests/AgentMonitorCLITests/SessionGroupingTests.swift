@@ -7,7 +7,7 @@ import Testing
 
 @Test(arguments: [true, false])
 func sessionTotalsIncludeProcessesHiddenByDisplayFilters(showBusy: Bool) throws {
-    let busy = groupedRow(1, thread: "a", cpu: 50, memory: 100_000_000)
+    let busy = groupedRow(1, thread: "a", cpu: 50, memory: 100_000_000, peak: 4_000_000_000)
     let quiet = groupedRow(2, thread: "a", cpu: 10, memory: 200_000_000)
     let fixture = groupedSnapshot([busy])
     let snapshot = MonitoringSnapshot(
@@ -25,6 +25,7 @@ func sessionTotalsIncludeProcessesHiddenByDisplayFilters(showBusy: Bool) throws 
     let text = TextReport.render(snapshot, grouping: .session)
     #expect(text.contains("60.00%"))
     #expect(text.contains("0.30 GB"))
+    #expect(text.contains("Kernel footprint peak: 4.00 GB") == showBusy)
 }
 
 @Test func groupingUsesCorroboratedRootsAndNeverSharedDirectories() throws {
@@ -149,12 +150,13 @@ func sessionTotalsIncludeProcessesHiddenByDisplayFilters(showBusy: Bool) throws 
 private func groupedRow(
     _ pid: Int32, thread: String?, root: String? = nil, provider: AgentProvider = .codex,
     evidence: AttributionEvidence = .marker, cpu: Double? = 50, memory: UInt64? = 1_200_000_000,
-    cwd: String? = "/same/project", runtimeDirectory: String? = "/same/project"
+    cwd: String? = "/same/project", runtimeDirectory: String? = "/same/project", peak: UInt64? = nil
 ) -> HeavyProcess {
     let identity = ProcessIdentity(pid: pid, startMicroseconds: 1)
     return HeavyProcess(
         process: identity, executable: "/bin/worker", name: "worker", cpuPercent: cpu,
-        footprintBytes: memory, cwd: cwd, command: nil, metadataStatus: .markerRead,
+        footprintBytes: memory, kernelPeakFootprintBytes: peak, cwd: cwd, command: nil,
+        metadataStatus: .markerRead,
         attribution: Attribution(
             provider: provider, evidence: evidence, context: .terminal,
             threadID: thread, rootSessionID: root, runtime: ProcessIdentity(pid: 999, startMicroseconds: 1),

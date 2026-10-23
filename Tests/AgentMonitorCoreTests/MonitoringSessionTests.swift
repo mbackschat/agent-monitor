@@ -331,3 +331,22 @@ func agentLoadEnrichmentRunsOnEverySample(interval: Double) async throws {
         fixture.collected.withLock { $0 }.filter { $0.agentLoad != nil }.map(\.timestamp)
             == [1.0, 2, -9, -8].map { Date(timeIntervalSince1970: $0) })
 }
+
+@Test func kernelFootprintPeakRefreshesWithoutInflatingCurrentMemory() throws {
+    var monitor = Monitor()
+    var observation = sample(42, executable: "/first", memory: 100)
+    observation.kernelPeakFootprintBytes = 4_000_000_000
+    monitor.ingest([observation])
+    monitor.enrich(
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]),
+        for: observation.identity)
+    #expect(monitor.agentLoad().footprintBytes == 100)
+    #expect(monitor.findings().first?.kernelPeakFootprintBytes == 4_000_000_000)
+    observation.executable = "/second"
+    observation.kernelPeakFootprintBytes = 200
+    monitor.ingest([observation])
+    #expect(monitor.findings().first?.kernelPeakFootprintBytes == 200)
+    observation.kernelPeakFootprintBytes = nil
+    monitor.ingest([observation])
+    #expect(monitor.findings().first?.kernelPeakFootprintBytes == nil)
+}

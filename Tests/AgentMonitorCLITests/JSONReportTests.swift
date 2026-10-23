@@ -1,4 +1,5 @@
 import AgentMonitorPresentation
+import Darwin
 import Foundation
 import Testing
 
@@ -91,9 +92,35 @@ private func jsonProcess() -> HeavyProcess {
     let identity = ProcessIdentity(pid: 42, startMicroseconds: 1)
     return HeavyProcess(
         process: identity, executable: "/bin/worker", name: "worker", cpuPercent: nil,
-        footprintBytes: 2_000_000_000, cwd: nil, command: ["line\nbreak"], metadataStatus: .unavailable,
+        footprintBytes: 2_000_000_000, kernelPeakFootprintBytes: 3_000_000_000, cwd: nil,
+        command: ["line\nbreak"], metadataStatus: .unavailable,
         attribution: Attribution(
             provider: nil, evidence: .unknown, context: .unverified, threadID: nil,
             rootSessionID: nil, runtime: nil, terminal: nil, runtimeDirectory: nil, candidateThreadIDs: [],
             ancestry: [identity]))
+}
+
+@Test func nativeKernelFootprintPeakReachesJSON() throws {
+    let pid = ProcessInfo.processInfo.processIdentifier
+    var before = rusage_info_v4()
+    #expect(
+        withUnsafeMutablePointer(to: &before) { pointer in
+            pointer.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) {
+                proc_pid_rusage(pid, RUSAGE_INFO_V4, $0)
+            }
+        } == 0)
+    let observed = try NativeProcessReader().snapshot(processIDs: { [pid] })
+    var monitor = Monitor()
+    let accounting = monitor.ingest(observed)
+    let snapshot = MonitoringSnapshot(
+        cpuAccounting: accounting, timestamp: Date(), intervalSeconds: 0.1,
+        cpuThresholdPercent: 0, memoryThresholdBytes: 0, sampledProcessCount: 1,
+        unreadableProcessCount: 0, findings: monitor.findings())
+    let json = try #require(
+        JSONSerialization.jsonObject(with: JSONReport.encodeLine(snapshot)) as? [String: Any])
+    let rows = try #require(json["observedFindings"] as? [[String: Any]])
+    let row = try #require(rows.first)
+    let peak = try #require(row["kernelPeakFootprintBytes"] as? NSNumber).uint64Value
+    #expect(peak >= before.ri_lifetime_max_phys_footprint)
+    #expect(peak == observed.samples.first?.kernelPeakFootprintBytes)
 }

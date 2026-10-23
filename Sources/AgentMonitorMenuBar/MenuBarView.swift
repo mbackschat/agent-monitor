@@ -393,6 +393,7 @@ struct MenuBarView: View {
                     }.controlSize(.small).help("Copy this process ID (y when its row is focused)")
                 }
                 Text(process.executable)
+                if let peak = FootprintContext.kernelPeak(process) { Text(peak) }
                 Text(
                     "Session: \(process.attribution.threadID ?? (process.isSharedRuntime ? "shared runtime" : "unresolved"))"
                 )

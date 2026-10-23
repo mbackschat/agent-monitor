@@ -148,7 +148,7 @@ for field, value in [("unknownField", 1), ("schemaVersion", 2)]:
     invalid_records.append(invalid)
 with_findings = next((record for record in records if record["findings"]), None)
 if with_findings:
-    for field, value in [("cpuPercent", -1), ("footprintBytes", "large"), ("process", {"pid": 1})]:
+    for field, value in [("cpuPercent", -1), ("footprintBytes", "large"), ("kernelPeakFootprintBytes", -1), ("kernelPeakFootprintBytes", "large"), ("process", {"pid": 1})]:
         invalid = copy.deepcopy(with_findings)
         invalid["findings"][0][field] = value
         invalid_records.append(invalid)

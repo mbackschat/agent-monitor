@@ -248,6 +248,7 @@ public struct Monitor: Sendable {
         return HeavyProcess(
             process: identity, executable: node.sample.executable, name: node.sample.name,
             cpuPercent: node.cpuPercent, footprintBytes: node.sample.footprintBytes,
+            kernelPeakFootprintBytes: node.sample.kernelPeakFootprintBytes,
             cwd: node.metadata.cwd, command: node.metadata.command, metadataStatus: node.metadata.status,
             attribution: resolve(identity).attribution)
     }

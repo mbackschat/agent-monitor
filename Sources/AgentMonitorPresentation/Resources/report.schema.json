@@ -197,6 +197,11 @@
         },
         "attribution": {
           "$ref": "#/$defs/attribution"
+        },
+        "kernelPeakFootprintBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Kernel-reported maximum physical footprint in bytes for the current task. Can reset on exec. Not current memory or a simultaneous session peak. Omitted when unavailable."
         }
       },
       "required": [

@@ -137,7 +137,7 @@ The current report is not a complete accounting of agent CPU or memory. Short-li
 By default, **both display thresholds are zero and all observed processes in scope are shown**, including idle processes and unavailable resource measurements. With either threshold nonzero, findings must strictly exceed CPU OR physical footprint. Filters change process rows, never session totals or the Mac icon. Only agent-associated processes appear; `--all-processes` also includes unrelated and unattributed processes owned by your user. Unknown or ambiguous agent sessions remain visible.
 
 - CPU is averaged over the elapsed interval between snapshots. **100% means one fully occupied core**, so a multithreaded process can exceed 100%.
-- Memory is a snapshot of physical footprint in **decimal GB**. Footprint includes memory accounting that RSS omits.
+- Memory is a snapshot of physical footprint in **decimal GB**. Footprint includes memory accounting that RSS omits. Process inspection also shows the kernel footprint peak when available, which can reveal earlier allocation bursts. That counter can reset on exec; it is separate from current memory and must not be summed as a simultaneous session peak. Report JSONL v4 exposes it as optional `kernelPeakFootprintBytes`.
 - `*` marks an exceeded process threshold. Missing measurements are unavailable, not zero.
 
 ```sh

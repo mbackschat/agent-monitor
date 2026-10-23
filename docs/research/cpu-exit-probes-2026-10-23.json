@@ -1105,5 +1105,17 @@
     "held_peak": 68190544,
     "released_current": 1048864,
     "released_peak": 68190544
+  },
+  "footprint_exec": {
+    "allocation_bytes": 67108864,
+    "before_current": 770288,
+    "before_peak": 753880,
+    "held_current": 68190544,
+    "held_peak": 68190544,
+    "released_current": 1048864,
+    "released_peak": 68190544,
+    "after_exec_current": 1048816,
+    "after_exec_peak": 1081584,
+    "same_birth": true
   }
 }

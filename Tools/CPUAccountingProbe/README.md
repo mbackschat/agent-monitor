@@ -5,7 +5,7 @@ These development-only probes support the [2026-10-23 CPU investigation](../../d
 | Probe | Purpose |
 | --- | --- |
 | [exit-race.py](exit-race.py) | Register `NOTE_EXIT` before each of 40 owned workers starts; attempt final `proc_pid_rusage` immediately after notification while an independent supervisor reaps with `wait4`. |
-| [footprint-peak.c](footprint-peak.c) | Compare current and lifetime maximum physical footprint before, during and after an owned child touches and frees 64 MiB. |
+| [footprint-peak.c](footprint-peak.c) | Compare current and kernel peak physical footprint before, during and after an owned child touches and frees 64 MiB; `--exec` also verifies reset after replacing the executable without changing birth identity. |
 | [task-port.c](task-port.c) | Hold a task-name port across one owned worker's exit and reaping, then retry `TASK_ABSOLUTETIME_INFO`. |
 | [trace-workload.py](trace-workload.py) | Four waves of four owned CPU workers, each touching 8 MiB. The default requests 50 ms CPU per worker; `--mixed` requests 10, 50, 200 and 1,000 ms across the waves. Parent `wait4` results provide the independent CPU ledger. |
 | [trace-summary.py](trace-summary.py) | Resolve xctrace XML references and sum `Running` thread-state durations only for the controlled ledger's worker PIDs. Use the matching trace and ledger from one run; this diagnostic parser does not resolve arbitrary PID reuse or agent ownership. |
@@ -66,4 +66,13 @@ xcrun xctrace export --input .build/cpu-coverage/controlled.trace --xpath '/trac
 python3 Tools/CPUAccountingProbe/trace-summary.py .build/cpu-coverage/threads.xml .build/cpu-coverage/oracle.json > .build/cpu-coverage/trace-summary.json
 ```
 
-Compare every worker and duration group as well as the aggregate. Confirm all workers fall inside the recorded interval; a plausible aggregate alone is insufficient. `Running` spans describe scheduler occupancy, while `wait4` reports kernel CPU accounting, so small differences are expected. The exported state table can contain spans outside actual lifetimes, including suspicious long `Running` spans with missing termination evidence in the failed trial; they are not process birth/death evidence and are excluded from CPU sums. The parser does not diagnose trace-buffer loss, establish exact session attribution or provide a complete memory oracle.
+Compare every worker and duration group as well as the aggregate. Confirm all workers fall inside the recorded interval; a plausible aggregate alone is insufficient. `Running` spans describe scheduler occupancy, while `wait4` reports kernel CPU accounting, so small differences are expected. The exported state table can contain spans outside actual lifetimes, including suspicious long `Running` spans with missing termination evidence in the failed trial; they are not process birth/death evidence. The parser includes these suspicious Running spans, which explains why its output must not be trusted as conserved CPU. The parser does not diagnose trace-buffer loss, establish exact session attribution or provide a complete memory oracle.
+
+## Kernel footprint peak
+
+```sh
+clang -Wall -Wextra -O2 Tools/CPUAccountingProbe/footprint-peak.c -o .build/cpu-coverage/footprint-peak
+.build/cpu-coverage/footprint-peak --exec > .build/cpu-coverage/footprint-exec.json
+```
+
+The child waits at controlled allocation/free boundaries, then optionally execs `/bin/sleep`; the parent verifies the replacement before reading the final counters. No other process is signaled or suspended.

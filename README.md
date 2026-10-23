@@ -21,6 +21,7 @@ This README describes the current source build, which can be ahead of the [lates
 - **Finite CPU diagnosis** — start with **d** in the TUI or **Diagnose CPU** in the Mac app. Rank a new observation window by measured CPU-seconds and retain contributors that leave before it ends, without changing live-table values. The Mac app can copy the completed report for further investigation.
 - **Compact history** — one strip for agent CPU, memory or heavy-process count, covering the last 10 minutes or one hour in both live views, updated with every collected report.
 - **Pinned inspection** — keep a process or session at the top while its values update, in both native and terminal views. Missing targets stay marked until unpinned.
+- **Memory burst context** — inspect the kernel footprint peak beside current memory; it survives freeing allocations but can reset on exec.
 - **Session grouping** — bring related observed processes together and see their combined resource usage.
 - **Adjustable filters** — change CPU and memory thresholds while the monitor runs.
 - **Message the agent** — send a reviewed message to the process's verified Codex agent or Claude Code session; the inspected PID, CPU, memory and sample time are included automatically. Copy the prepared message from the native app.

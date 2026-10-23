@@ -318,7 +318,7 @@ public enum LiveReportLayout {
                 [
                     "Launch \(group.isRoot ? "root" : "session"): \(group.sessionDescription)",
                     group.label,
-                    "Heavy-process totals only; ~ marks partial totals with missing measurements.",
+                    "All observed members; ~ marks partial totals with missing measurements.",
                     "Launch origin does not prove current use of shared daemons.",
                     "←/→ collapses/expands processes; ↑/↓ selects a process, then → opens its details.",
                 ], width: width)
@@ -333,6 +333,7 @@ public enum LiveReportLayout {
             "Runtime directory: \(attribution.runtimeDirectory ?? "unavailable")",
             "Observed chain: \(attribution.ancestry.map { String($0.pid) }.joined(separator: " ← "))",
         ]
+        if let peak = FootprintContext.kernelPeak(row) { values.append(peak) }
         if let root = attribution.rootSessionID { values.append("Root session: \(root)") }
         if !attribution.candidateThreadIDs.isEmpty {
             values.append("Candidates: " + attribution.candidateThreadIDs.joined(separator: ", "))

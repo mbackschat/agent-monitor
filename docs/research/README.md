@@ -45,4 +45,4 @@ These observations were collected on Apple Silicon, macOS 27.0.1, Xcode 27 and S
 
 Short optimized TUI smoke runs on that date used approximately 1.9–4.2% of one core, including startup and rendering. These are historical smoke observations without a retained full trace, not a sustained benchmark; rerun the [terminal check](../../scripts/verify-tui-terminal.py) for a current measurement.
 
-- [Controlled CPU exit and scheduler probes on 2026-10-23](cpu-exit-probes-2026-10-23.json): independent `wait4` oracles, native polling conservation/cost, exit-notification and retained-port failures, and scheduler-trace results; [method and limits](cpu-accounting.md#controlled-exit-and-scheduler-probes--2026-10-23).
+- [Controlled CPU exit and scheduler probes on 2026-10-23](cpu-exit-probes-2026-10-23.json): independent `wait4` oracles, native polling conservation/cost, exit-notification and retained-port failures, scheduler-trace results, and kernel footprint peaks across free/exec; [method and limits](cpu-accounting.md#controlled-exit-and-scheduler-probes--2026-10-23).

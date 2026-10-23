@@ -77,6 +77,7 @@ public enum TextReport {
             ReportLine(
                 "PID \(row.process.pid)  CPU \(cpu)  footprint \(memory)  \(row.executable.isEmpty ? row.name : row.executable)",
                 style: .heavy))
+        if let peak = FootprintContext.kernelPeak(row) { lines.append(ReportLine("  " + peak)) }
         if let thread = owner.threadID {
             let relation = owner.evidence == .sessionRegistry ? "current" : "launch"
             lines.append(

@@ -65,10 +65,10 @@ public struct NativeProcessReader: DiagnosisReading {
             guard info.pbi_uid == getuid() else { continue }
             let identity = identity(info)
             let executable = executablePath(pid) ?? ""
-            var usage = rusage_info_v2()
+            var usage = rusage_info_v4()
             let resourceResult = withUnsafeMutablePointer(to: &usage) { pointer in
                 pointer.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) {
-                    proc_pid_rusage(pid, RUSAGE_INFO_V2, $0)
+                    proc_pid_rusage(pid, RUSAGE_INFO_V4, $0)
                 }
             }
             let timestamp = seconds(mach_absolute_time())
@@ -83,6 +83,7 @@ public struct NativeProcessReader: DiagnosisReading {
                 sampledAt: timestamp, cpuSeconds: cpu,
                 footprintBytes: resourceResult == 0 ? usage.ri_phys_footprint : nil
             )
+            sample.kernelPeakFootprintBytes = resourceResult == 0 ? usage.ri_lifetime_max_phys_footprint : nil
             sample.startedAt = resourceResult == 0 ? seconds(usage.ri_proc_start_abstime) : nil
             sample.terminalDevice = info.e_tdev == 0 || info.e_tdev == UInt32.max ? nil : info.e_tdev
             samples.append(sample)

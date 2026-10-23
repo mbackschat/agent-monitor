@@ -21,6 +21,7 @@ public struct ProcessSample: Sendable {
     public var sampledAt: Double
     public var cpuSeconds: Double?
     public var footprintBytes: UInt64?
+    public var kernelPeakFootprintBytes: UInt64?
 
     public init(
         identity: ProcessIdentity, parentPID: Int32, executable: String, name: String,
@@ -138,10 +139,28 @@ public struct HeavyProcess: Equatable, Codable, Sendable {
     public let name: String
     public let cpuPercent: Double?
     public let footprintBytes: UInt64?
+    public let kernelPeakFootprintBytes: UInt64?
     public let cwd: String?
     public let command: [String]?
     public let metadataStatus: MetadataStatus
     public let attribution: Attribution
+
+    init(
+        process: ProcessIdentity, executable: String, name: String, cpuPercent: Double?,
+        footprintBytes: UInt64?, kernelPeakFootprintBytes: UInt64? = nil, cwd: String?,
+        command: [String]?, metadataStatus: MetadataStatus, attribution: Attribution
+    ) {
+        self.process = process
+        self.executable = executable
+        self.name = name
+        self.cpuPercent = cpuPercent
+        self.footprintBytes = footprintBytes
+        self.kernelPeakFootprintBytes = kernelPeakFootprintBytes
+        self.cwd = cwd
+        self.command = command
+        self.metadataStatus = metadataStatus
+        self.attribution = attribution
+    }
 
     /// Provider evidence identifies shared runtime usage without assigning it to one thread.
     public var isSharedRuntime: Bool { AttributionAdapters.builtIn.isSharedRuntime(self) }
