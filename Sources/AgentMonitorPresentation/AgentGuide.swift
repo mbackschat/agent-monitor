@@ -102,13 +102,13 @@ public enum AgentGuide {
         case .tui:
             """
             agent-monitor --tui [--group session]
-            Requires interactive stdin/stdout. Defaults: five-second interval, unlimited reports; explicit --interval and --samples override them.
+            Requires interactive stdin/stdout. Defaults: 100 ms waits plus collection time, unlimited reports; explicit --interval and --samples override them.
             ↑/↓ select; ←/→ collapse/expand session or process details.
             Shift+←/→ collapse/expand session groups at the current level; g toggles grouping.
             c/m/n sort CPU/footprint/PID; o stable arrival order (default); r reverses numeric sorts.
             h cycles history CPU/memory/heavy count; t switches 10 minutes/one hour.
             1/2 lower/raise CPU by 10 percentage points; 3/4 lower/raise footprint by 1 GB.
-            </> update less/more often: 0.5, 1, 2, 5, 10, 30 or 60 seconds.
+            </> update less/more often: 0.1, 0.25, 0.5, 1, 2, 5, 10, 30 or 60 seconds.
             . pins/unpins the selected process or session; p pauses/resumes the view while sampling continues.
             [/] scroll details; -/+ shrink/grow details by 5 percentage points (10–90%).
             0 minimizes; 9 maximizes; = restores the chosen split (initially 50%).

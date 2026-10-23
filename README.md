@@ -16,8 +16,8 @@ This README describes the current source build, which can be ahead of the [lates
 
 ## Features
 
-- **Live terminal view** — refresh every 5 seconds by default; watch CPU and memory usage, sort processes, and open details without leaving your terminal. Stable order keeps existing rows in place and appends newcomers. Change the update interval or freeze the view while you look.
-- **Native menu bar app** — open a compact macOS panel for resource usage and session actions, with Pause/Resume and a separate **Diagnose CPU** investigation; three bold load bars get a quick startup sample, then update every 15 seconds while the panel is closed. Available from a source build.
+- **Live terminal view** — use a 100 ms sampling wait by default (collection adds time); watch CPU and memory usage, sort processes, and open details without leaving your terminal. Stable order keeps existing rows in place and appends newcomers. Change the update interval or freeze the view while you look.
+- **Native menu bar app** — open a compact macOS panel for resource usage and session actions, with Pause/Resume and a separate **Diagnose CPU** investigation; three bold load bars keep collecting at the selected interval even while the panel is closed. Available from a source build.
 - **Finite CPU diagnosis** — start with **d** in the TUI or **Diagnose CPU** in the Mac app. Rank a new observation window by measured CPU-seconds and retain contributors that leave before it ends, without changing live-table values. The Mac app can copy the completed report for further investigation.
 - **Compact history** — one strip for agent CPU, memory or heavy-process count, covering the last 10 minutes or one hour in both live views, updated with every collected report.
 - **Pinned inspection** — keep a process or session at the top while its values update, in both native and terminal views. Missing targets stay marked until unpinned.
@@ -73,7 +73,7 @@ In the Mac app, open **View options** and choose **Processes** or **Sessions** u
 | **Sessions** | Groups observed processes by attributed agent session or corroborated root session. Expand a group to inspect its processes. Counts and CPU/memory totals include all observed session members, independent of display filters; sampling can still miss work. The Mac app shows an unpinned one-process session directly as a process row. |
 | **Sort** | Stable order keeps surviving rows in place and appends newcomers. CPU/Footprint/PID order ranks individual processes, or session groups by their totals/minimum PID. It does not change which processes qualify. |
 | **CPU / Footprint thresholds** | Both zero disables display filtering. Otherwise a process qualifies when it exceeds either threshold. Lower them to reveal lighter workloads; switching between Processes and Sessions does not change these filters. |
-| **Interval** | How often the open panel or TUI samples, normally every 5 seconds. This controls refresh frequency, not filtering. |
+| **Interval** | How often the open panel or TUI samples, with a 100 ms wait by default. Collection and rendering add time. This controls sampling cadence, not filtering. |
 
 Sessions are not projects: two sessions in the same directory remain separate, and one session can contain workloads in multiple directories. Unknown or ambiguous ownership stays separate rather than being guessed.
 
@@ -115,7 +115,7 @@ The maintained, source-built native menu bar app runs with `bash scripts/menubar
 
 ## Options and defaults
 
-With no options, `agent-monitor` prints one text report after a one-second baseline interval. With both thresholds zero, every observed process in scope appears, including unavailable measurements. With filters enabled, **CPU OR memory must exceed its threshold**; only your user's agent-associated processes are included by default.
+With no options, `agent-monitor` prints one text report after a 100 ms baseline wait plus collection. With both thresholds zero, every observed process in scope appears, including unavailable measurements. With filters enabled, **CPU OR memory must exceed its threshold**; only your user's agent-associated processes are included by default.
 
 The following options control reports; diagnosis has fixed defaults and its own output flags.
 
@@ -123,7 +123,7 @@ The following options control reports; diagnosis has fixed defaults and its own 
 | --- | --- | --- |
 | `--cpu <percent>` | CPU threshold; 100% means one occupied core. Accepts nonnegative values. | `0` (%) |
 | `--memory-gb <gb>` | Physical memory footprint threshold in decimal GB. Accepts nonnegative values. | `0` (GB) |
-| `--interval <seconds>` | Wait between samples, from 0.1 to 60 seconds. | `5` with `--tui`, otherwise `1` (seconds) |
+| `--interval <seconds>` | Wait between samples, from 0.1 to 60 seconds. | `0.1` (seconds) |
 | `--samples <count>` | Number of reports; `0` runs until you quit. | `1`; `0` with `--tui` |
 | `--tui`, `-tui` | Open the live terminal UI in Stable order; requires interactive input and output. | Off; text reports |
 | `--group <mode>` | `none` shows individual processes; `session` groups by launch session and totals all observed members. | `none` |

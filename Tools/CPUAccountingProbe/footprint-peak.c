@@ -1,0 +1,59 @@
+#include <libproc.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+static int receive(int fd) {
+    char token;
+    return read(fd, &token, 1) == 1;
+}
+
+static int measure(pid_t pid, struct rusage_info_v4 *usage) {
+    return proc_pid_rusage(pid, RUSAGE_INFO_V4, (rusage_info_t *)usage);
+}
+
+int main(void) {
+    const size_t bytes = 64 * 1024 * 1024;
+    int commands[2], replies[2];
+    if (pipe(commands) || pipe(replies)) return 1;
+    pid_t child = fork();
+    if (child < 0) return 1;
+    if (child == 0) {
+        close(commands[1]);
+        close(replies[0]);
+        if (!receive(commands[0])) _exit(2);
+        volatile char *memory = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+        if (memory == MAP_FAILED) _exit(3);
+        for (size_t offset = 0; offset < bytes; offset += getpagesize()) memory[offset] = 1;
+        write(replies[1], "a", 1);
+        if (!receive(commands[0])) _exit(2);
+        if (munmap((void *)memory, bytes)) _exit(4);
+        write(replies[1], "f", 1);
+        if (!receive(commands[0])) _exit(2);
+        _exit(0);
+    }
+    close(commands[0]);
+    close(replies[1]);
+    struct rusage_info_v4 before = {0}, held = {0}, released = {0};
+    int failed = measure(child, &before);
+    write(commands[1], "a", 1);
+    if (!receive(replies[0])) failed = 1;
+    failed |= measure(child, &held);
+    write(commands[1], "f", 1);
+    if (!receive(replies[0])) failed = 1;
+    failed |= measure(child, &released);
+    write(commands[1], "x", 1);
+    close(commands[1]);
+    close(replies[0]);
+    int status;
+    waitpid(child, &status, 0);
+    if (failed || !WIFEXITED(status) || WEXITSTATUS(status)) return 1;
+    printf("{\"allocation_bytes\":%zu,\"before_current\":%llu,\"before_peak\":%llu,"
+           "\"held_current\":%llu,\"held_peak\":%llu,\"released_current\":%llu,\"released_peak\":%llu}\n",
+           bytes, before.ri_phys_footprint, before.ri_lifetime_max_phys_footprint,
+           held.ri_phys_footprint, held.ri_lifetime_max_phys_footprint,
+           released.ri_phys_footprint, released.ri_lifetime_max_phys_footprint);
+    return 0;
+}

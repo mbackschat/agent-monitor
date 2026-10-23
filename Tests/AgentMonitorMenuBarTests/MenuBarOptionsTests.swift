@@ -167,7 +167,7 @@ func selectedThresholdRejectsNegativeOrNonFiniteCPU(value: Double) {
     }
     controller.updateTitle(button)
     #expect(button.title == "Memory · 1h")
-    #expect(model.report.interval == 5)
+    #expect(model.report.interval == 0.1)
 }
 
 @Test(arguments: HistoryMetric.allCases, HistoryWindow.allCases)

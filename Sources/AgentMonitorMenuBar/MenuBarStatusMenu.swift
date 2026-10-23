@@ -30,7 +30,9 @@ enum MenuBarActivation {
         menu.autoenablesItems = false
         let lines =
             model.liveIcon
-            ? model.indicator.statusLines + ["Closed-panel sampling: every 15 seconds"]
+            ? model.indicator.statusLines + [
+                "Closed-panel sampling: every \(model.report.interval.formatted()) seconds"
+            ]
             : ["Agent Monitor", "Live icon is off; sampling only while the panel is open"]
         for (index, line) in lines.enumerated() {
             let item =

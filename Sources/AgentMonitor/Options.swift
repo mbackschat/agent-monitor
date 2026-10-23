@@ -30,10 +30,10 @@ struct ReportOptions: ParsableArguments {
 
     @Option(
         name: .customLong("interval"),
-        help: "Seconds to wait between samples, from 0.1 to 60. Default: 5 with --tui, otherwise 1.")
+        help: "Seconds to wait between samples, from 0.1 to 60. Default: 0.1; scans and enrichment add time.")
     var requestedInterval: Double?
 
-    var interval: Double { requestedInterval ?? (tui ? 5 : 1) }
+    var interval: Double { requestedInterval ?? 0.1 }
 
     @Option(
         name: .customLong("samples"),

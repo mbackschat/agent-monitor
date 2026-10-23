@@ -150,12 +150,12 @@ private let emptySnapshot = MonitoringSnapshot(
     var iterator = observations.makeAsyncIterator()
     let values = await iterator.next()
     #expect(values?.0 == 10)
-    #expect(values?.1 == 10)
+    #expect(values?.1 == 0.25)
     // Session names are shown only in the open panel; the closed icon needs counts alone.
     #expect(values?.2 == true)
     model.adjustInterval(.faster)
     trigger.yield(())
-    #expect(await iterator.next()?.1 == 5)
+    #expect(await iterator.next()?.1 == 0.1)
     model.setInterval(15)
     model.report.setThresholds(Thresholds(cpuPercent: 50, memoryBytes: 500_000_000))
     trigger.yield(())
@@ -166,7 +166,7 @@ private let emptySnapshot = MonitoringSnapshot(
     model.setInterval(2)
     trigger.yield(())
     let closedValues = await iterator.next()
-    #expect(closedValues?.1 == 15)
+    #expect(closedValues?.1 == 2)
     #expect(closedValues?.2 == false)
     #expect(calls.withLock { $0 } == 1)
     await model.stop()
@@ -200,7 +200,7 @@ private let emptySnapshot = MonitoringSnapshot(
     await model.stop()
 }
 
-@Test @MainActor func nativeTableDefaultsToFiveSeconds() {
+@Test @MainActor func nativeTableDefaultsToFastCollection() {
     let model = MenuBarModel { _, _, _, _ in }
-    #expect(model.report.interval == 5)
+    #expect(model.report.interval == 0.1)
 }

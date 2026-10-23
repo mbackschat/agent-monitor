@@ -61,9 +61,9 @@ import Testing
     #expect(model.handleShortcut("t", row: row))
     #expect(model.report.historyWindow == .oneHour)
     #expect(model.handleShortcut("<", row: row))
-    #expect(model.report.interval == 10)
+    #expect(model.report.interval == 0.25)
     #expect(model.handleShortcut(">", row: row))
-    #expect(model.report.interval == 5)
+    #expect(model.report.interval == 0.1)
     var clipboard = ""
     let copied = model.handleShortcut(
         "y", row: row,

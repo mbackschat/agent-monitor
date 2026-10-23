@@ -41,7 +41,7 @@ import Testing
     let defaults = try Options.parse([])
     #expect(defaults.cpu == 0)
     #expect(defaults.memoryGB == 0)
-    #expect(defaults.interval == 1)
+    #expect(defaults.interval == 0.1)
     #expect(defaults.samples == 1)
     #expect(!defaults.json)
     #expect(!defaults.commands)
@@ -120,9 +120,9 @@ func colorFollowsTheFlagNoColorAndTheTerminal(
     #expect(TerminalReport.hostEnvironment(color: true, base: ["TERM": "xterm"]) == ["TERM": "xterm"])
 }
 
-@Test func liveTUIRefreshDefaultsToFiveSecondsWithoutChangingBatchOrExplicitIntervals() throws {
-    #expect(try Options.parse(["--tui"]).interval == 5)
+@Test func reportsDefaultToFastCollectionAndPreserveExplicitIntervals() throws {
+    #expect(try Options.parse(["--tui"]).interval == 0.1)
     #expect(try Options.parse(["--tui", "--interval", "1"]).interval == 1)
-    #expect(try Options.parse(["--json"]).interval == 1)
-    #expect(try Options.parse([]).interval == 1)
+    #expect(try Options.parse(["--json"]).interval == 0.1)
+    #expect(try Options.parse([]).interval == 0.1)
 }

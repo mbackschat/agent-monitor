@@ -427,7 +427,7 @@ func statusChromeAndKeysUseTheirOwnRoles(width: Int) {
     state.adjustInterval(.faster)
     #expect(state.interval == 0.5)
     state.adjustInterval(.faster)
-    #expect(state.interval == 0.5)
+    #expect(state.interval == 0.25)
     for _ in 0..<10 { state.adjustInterval(.slower) }
     #expect(state.interval == 60)
     var between = LiveReportState(interval: 3)
@@ -436,12 +436,12 @@ func statusChromeAndKeysUseTheirOwnRoles(width: Int) {
     between = LiveReportState(interval: 3)
     between.adjustInterval(.slower)
     #expect(between.interval == 5)
-    // Below the ladder, faster keeps the explicit --interval rather than slowing it down.
+    // Nonpreset intervals move to the nearest faster/slower supported value.
     var fast = LiveReportState(interval: 0.2)
     fast.adjustInterval(.faster)
-    #expect(fast.interval == 0.2)
+    #expect(fast.interval == 0.1)
     fast.adjustInterval(.slower)
-    #expect(fast.interval == 0.5)
+    #expect(fast.interval == 0.25)
 }
 
 @Test func statusShowsTheRequestedInterval() {

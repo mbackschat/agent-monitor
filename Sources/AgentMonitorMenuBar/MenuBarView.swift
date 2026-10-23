@@ -93,8 +93,12 @@ struct MenuBarView: View {
             }
             Divider()
             HStack {
-                Text(model.liveIcon ? "Closed: every 15 seconds" : "Updates only while open")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text(
+                    model.liveIcon
+                        ? "Closed: every \(model.report.interval.formatted()) seconds"
+                        : "Updates only while open"
+                )
+                .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Picker("Panel size", selection: $model.panelSize) {
                     ForEach(MenuBarPanelSize.allCases, id: \.self) { size in

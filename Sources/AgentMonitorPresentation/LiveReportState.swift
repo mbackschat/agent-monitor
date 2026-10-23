@@ -76,9 +76,7 @@ public struct LiveReportState: Equatable, Sendable {
     private var stableProcessRanks: [ProcessIdentity: Int] = [:]
     private var stableGroupRanks: [SessionGroupID: Int] = [:]
 
-    /// Each sample walks every process, so the TUI does not step below 0.5 s; an explicit faster
-    /// `--interval` is kept until the user slows down.
-    public static let intervalSteps: [Double] = [0.5, 1, 2, 5, 10, 30, 60]
+    public static let intervalSteps: [Double] = [0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60]
 
     public init(grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(), interval: Double = 1)
     {

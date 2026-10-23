@@ -14,7 +14,7 @@ typealias MenuBarSource =
 
 @MainActor @Observable
 final class MenuBarModel {
-    var report = LiveReportState(grouping: .session, interval: 5)
+    var report = LiveReportState(grouping: .session, interval: 0.1)
     let diagnosis: CPUDiagnosisController
     var panelSize: MenuBarPanelSize = .standard
     var showsKeyboardHelp = false
@@ -90,7 +90,7 @@ final class MenuBarModel {
     }
 
     private var samplingInterval: Double {
-        let regular = isOpen ? report.interval : 15
+        let regular = report.interval
         return needsStartupSample ? min(0.25, regular) : regular
     }
 

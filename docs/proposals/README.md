@@ -8,4 +8,5 @@ The table is generated from each proposal's `Status:` line; do not edit it by ha
 | Proposal | Status | Since |
 | --- | --- | --- |
 | [Proposed agent working model](agent-working-model.md) | unapproved | 2026-10-15 |
+| [Resource accounting across process lifetimes](resource-accounting.md) | unapproved | 2026-10-23 |
 <!-- status-table:end -->

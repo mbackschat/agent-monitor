@@ -162,7 +162,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     return bitmap
 }
 
-@Test @MainActor func liveIconSamplesClosedAtFifteenSecondsAndKeepsOneCollector() async throws {
+@Test @MainActor func liveIconPreservesFastCollectionWhileClosedAndKeepsOneCollector() async throws {
     let (requests, input) = AsyncStream<MonitoringSnapshot>.makeStream()
     let (events, output) = AsyncStream<Double>.makeStream()
     let calls = Mutex(0)
@@ -176,18 +176,18 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     var iterator = events.makeAsyncIterator()
     model.start()
     input.yield(try loadSample(0))
-    #expect(await iterator.next() == 15)
+    #expect(await iterator.next() == 0.1)
     #expect(model.report.snapshot == nil)
     #expect(model.indicator.level == 0)
     model.open()
     input.yield(try loadSample(50))
-    #expect(await iterator.next() == 5)
+    #expect(await iterator.next() == 0.1)
     model.toggleFreeze()
     let held = model.report.snapshot
     let heldLevel = model.indicator.level
     let heldCount = model.indicator.processCount
     input.yield(try loadSample(Double(ProcessInfo.processInfo.activeProcessorCount) * 100, time: 2))
-    #expect(await iterator.next() == 5)
+    #expect(await iterator.next() == 0.1)
     #expect(model.report.snapshot == held)
     #expect(model.indicator.level == heldLevel)
     #expect(model.indicator.processCount == heldCount)
@@ -195,9 +195,9 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(model.report.snapshot?.timestamp == Date(timeIntervalSince1970: 2))
     #expect(model.indicator.level != heldLevel)
     model.close()
-    model.adjustInterval(.slower)
+    model.setInterval(2)
     input.yield(try loadSample(0, time: 3))
-    #expect(await iterator.next() == 15)
+    #expect(await iterator.next() == 2)
     #expect(model.report.snapshot == nil)
     #expect(calls.withLock { $0 } == 1)
     model.open()
@@ -242,19 +242,20 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
         }
     }
     var iterator = events.makeAsyncIterator()
+    model.setInterval(5)
     model.start()
     #expect(await iterator.next() == 0.25)
     model.open()
     model.close()
     input.yield(())
-    #expect(await iterator.next() == 15)
+    #expect(await iterator.next() == 5)
     model.open()
     model.setInterval(5)
     input.yield(())
     #expect(await iterator.next() == 5)
     model.close()
     input.yield(())
-    #expect(await iterator.next() == 15)
+    #expect(await iterator.next() == 5)
     await model.stop()
 }
 

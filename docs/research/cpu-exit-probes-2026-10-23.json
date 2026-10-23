@@ -1,0 +1,1109 @@
+{
+  "date": "2026-10-23",
+  "platform": "Mac mini M1; macOS 27.0.1 (26A434); Instruments 27.1 (27A9275)",
+  "exit_notification_probe": {
+    "method": "Independent observer registers before worker starts; supervisor immediately wait4 reaps; 40 owned 10 ms CPU workers",
+    "results": [
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010331
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010329
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010367999999999999
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010314
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010352
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010839999999999999
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010867
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010426999999999999
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010984999999999998
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010829
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010957
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010702
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010359
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010411
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010811999999999999
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.011205
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.01082
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010772
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010435
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010855
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010426
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010603999999999999
+      },
+      {
+        "event": true,
+        "readable": true,
+        "error": null,
+        "observed_cpu_seconds": 0.010509208333333332,
+        "expected_cpu_seconds": 0.010870999999999999
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010973
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010369
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010386
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010409
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010357
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010385
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010644
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010879
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010362
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010482
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010988
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010716999999999999
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010352
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010638
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010365
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010535
+      },
+      {
+        "event": true,
+        "readable": false,
+        "error": 3,
+        "observed_cpu_seconds": null,
+        "expected_cpu_seconds": 0.010891
+      }
+    ]
+  },
+  "retained_task_name_port": {
+    "task_name_result": 0,
+    "live_info_result": 0,
+    "reaped_info_result": 4,
+    "reaped_cpu_ticks": 0
+  },
+  "system_trace": {
+    "workers": [
+      {
+        "pid": 80032,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.05307099999999999,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05309235600000002,
+        "trace_rows": 1821,
+        "ratio": 1.0004024043262805
+      },
+      {
+        "pid": 80033,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.052960999999999994,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05286266500000002,
+        "trace_rows": 1605,
+        "ratio": 0.9981432563584529
+      },
+      {
+        "pid": 80034,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.053390999999999994,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05285266699999995,
+        "trace_rows": 1808,
+        "ratio": 0.9899171583225629
+      },
+      {
+        "pid": 80035,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.052889,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05290270400000003,
+        "trace_rows": 1705,
+        "ratio": 1.000259108699352
+      },
+      {
+        "pid": 80036,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.052878999999999995,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.052945368999999964,
+        "trace_rows": 2085,
+        "ratio": 1.0012551107244836
+      },
+      {
+        "pid": 80037,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.053481,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05341986100000006,
+        "trace_rows": 1748,
+        "ratio": 0.9988568089601926
+      },
+      {
+        "pid": 80038,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.053690999999999996,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05348863200000001,
+        "trace_rows": 1982,
+        "ratio": 0.9962308766832433
+      },
+      {
+        "pid": 80039,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.05275,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05229459299999989,
+        "trace_rows": 1708,
+        "ratio": 0.9913666919431259
+      },
+      {
+        "pid": 80040,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.052572999999999995,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05260882400000001,
+        "trace_rows": 1000,
+        "ratio": 1.0006814144142433
+      },
+      {
+        "pid": 80041,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.053491,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.053411415999999996,
+        "trace_rows": 715,
+        "ratio": 0.998512198313735
+      },
+      {
+        "pid": 80042,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.052959,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05272166400000001,
+        "trace_rows": 837,
+        "ratio": 0.9955184954398687
+      },
+      {
+        "pid": 80043,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.052792,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.052714990000000024,
+        "trace_rows": 864,
+        "ratio": 0.9985412562509476
+      },
+      {
+        "pid": 80044,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.053501999999999994,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05323374500000002,
+        "trace_rows": 566,
+        "ratio": 0.9949860752869056
+      },
+      {
+        "pid": 80045,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.052627,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.052512582999999995,
+        "trace_rows": 510,
+        "ratio": 0.997825887852243
+      },
+      {
+        "pid": 80046,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.052418,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05268341500000001,
+        "trace_rows": 331,
+        "ratio": 1.0050634324087149
+      },
+      {
+        "pid": 80047,
+        "parent": 80018,
+        "status": 0,
+        "cpu_seconds": 0.053790000000000004,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05392441099999999,
+        "trace_rows": 477,
+        "ratio": 1.002498810187767
+      }
+    ],
+    "oracle_seconds": 0.8492649999999998,
+    "trace_running_seconds": 0.847669895,
+    "ratio": 0.9981217817760065
+  },
+  "trace_limits": {
+    "template": "System Trace",
+    "requested_seconds": 10,
+    "scope": "all-processes; only disposable worker results retained",
+    "export_approx_mb": 613,
+    "expected_workers": 16,
+    "worker_requested_cpu_seconds": 0.05,
+    "collection_and_export": "Several minutes, not a background-collector overhead benchmark",
+    "memory": "Allocation size is fixture intent, not a measured physical-footprint peak",
+    "raw_trace_peak_temporary_gb": 3.3,
+    "raw_trace_final_approx_gb": 1.1
+  },
+  "collection_cost": [
+    {
+      "maximumScanSeconds": 0.006305041490122676,
+      "averagePercentOfOneCPUCore": 29.32844282709725,
+      "samples": 30,
+      "elapsedSeconds": 4.54963125,
+      "intervalSeconds": 0.1,
+      "processCPUSeconds": 1.334336,
+      "meanScanSeconds": 0.005038684730728467,
+      "meanSampledProcessCount": 670.3333333333334
+    },
+    {
+      "maximumScanSeconds": 0.012895291903987527,
+      "averagePercentOfOneCPUCore": 4.666668469791332,
+      "samples": 30,
+      "elapsedSeconds": 32.81340875,
+      "intervalSeconds": 1,
+      "processCPUSeconds": 1.531293,
+      "meanScanSeconds": 0.0072506097067768375,
+      "meanSampledProcessCount": 670.2666666666667
+    }
+  ],
+  "native_conservation": [
+    {
+      "elapsedSeconds": 7.698068292,
+      "intervalSeconds": 0.1,
+      "measuredCPUSeconds": 4.709022041666667,
+      "oracleCPUSeconds": 5.066089,
+      "ratio": 0.929518222373643,
+      "scans": 51,
+      "workers": [
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.01283,
+          "pid": 94492,
+          "requestedCPUSeconds": 0.01
+        },
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.011968,
+          "pid": 94493,
+          "requestedCPUSeconds": 0.01
+        },
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.012281,
+          "pid": 94494,
+          "requestedCPUSeconds": 0.01
+        },
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.011754999999999998,
+          "pid": 94495,
+          "requestedCPUSeconds": 0.01
+        },
+        {
+          "measuredCPUSeconds": 0.022122875,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.051530999999999993,
+          "pid": 94498,
+          "requestedCPUSeconds": 0.05
+        },
+        {
+          "measuredCPUSeconds": 0.021469875,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.051605,
+          "pid": 94499,
+          "requestedCPUSeconds": 0.05
+        },
+        {
+          "measuredCPUSeconds": 0.02084575,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.051482,
+          "pid": 94500,
+          "requestedCPUSeconds": 0.05
+        },
+        {
+          "measuredCPUSeconds": 0.020174125,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.051523,
+          "pid": 94501,
+          "requestedCPUSeconds": 0.05
+        },
+        {
+          "measuredCPUSeconds": 0.188780125,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.201736,
+          "pid": 94502,
+          "requestedCPUSeconds": 0.2
+        },
+        {
+          "measuredCPUSeconds": 0.1877865,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.2015,
+          "pid": 94503,
+          "requestedCPUSeconds": 0.2
+        },
+        {
+          "measuredCPUSeconds": 0.18823666666666666,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.201485,
+          "pid": 94504,
+          "requestedCPUSeconds": 0.2
+        },
+        {
+          "measuredCPUSeconds": 0.18371608333333334,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.201231,
+          "pid": 94505,
+          "requestedCPUSeconds": 0.2
+        },
+        {
+          "measuredCPUSeconds": 0.969805875,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 1.001374,
+          "pid": 94506,
+          "requestedCPUSeconds": 1
+        },
+        {
+          "measuredCPUSeconds": 0.967878875,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 1.001284,
+          "pid": 94507,
+          "requestedCPUSeconds": 1
+        },
+        {
+          "measuredCPUSeconds": 0.9684625416666668,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 1.001205,
+          "pid": 94508,
+          "requestedCPUSeconds": 1
+        },
+        {
+          "measuredCPUSeconds": 0.96974275,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 1.001299,
+          "pid": 94509,
+          "requestedCPUSeconds": 1
+        }
+      ]
+    },
+    {
+      "elapsedSeconds": 8.690427208,
+      "intervalSeconds": 1,
+      "measuredCPUSeconds": 4.4484235000000005,
+      "oracleCPUSeconds": 5.070371000000001,
+      "ratio": 0.8773368852101749,
+      "scans": 9,
+      "workers": [
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.013704999999999998,
+          "pid": 94937,
+          "requestedCPUSeconds": 0.01
+        },
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.012332,
+          "pid": 94938,
+          "requestedCPUSeconds": 0.01
+        },
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.012433999999999999,
+          "pid": 94939,
+          "requestedCPUSeconds": 0.01
+        },
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.011792,
+          "pid": 94940,
+          "requestedCPUSeconds": 0.01
+        },
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.051719,
+          "pid": 94941,
+          "requestedCPUSeconds": 0.05
+        },
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.052249,
+          "pid": 94942,
+          "requestedCPUSeconds": 0.05
+        },
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.052575,
+          "pid": 94943,
+          "requestedCPUSeconds": 0.05
+        },
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.052157999999999996,
+          "pid": 94944,
+          "requestedCPUSeconds": 0.05
+        },
+        {
+          "measuredCPUSeconds": 0.175266625,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.201455,
+          "pid": 94945,
+          "requestedCPUSeconds": 0.2
+        },
+        {
+          "measuredCPUSeconds": 0.1752555,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.201506,
+          "pid": 94946,
+          "requestedCPUSeconds": 0.2
+        },
+        {
+          "measuredCPUSeconds": 0.174212875,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.20154899999999998,
+          "pid": 94947,
+          "requestedCPUSeconds": 0.2
+        },
+        {
+          "measuredCPUSeconds": 0.1730003333333333,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.201422,
+          "pid": 94948,
+          "requestedCPUSeconds": 0.2
+        },
+        {
+          "measuredCPUSeconds": 0.9451272083333333,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 1.00139,
+          "pid": 94952,
+          "requestedCPUSeconds": 1
+        },
+        {
+          "measuredCPUSeconds": 0.9473398333333334,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 1.001368,
+          "pid": 94953,
+          "requestedCPUSeconds": 1
+        },
+        {
+          "measuredCPUSeconds": 0.9370064166666667,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 1.001458,
+          "pid": 94954,
+          "requestedCPUSeconds": 1
+        },
+        {
+          "measuredCPUSeconds": 0.9212147083333333,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 1.001259,
+          "pid": 94955,
+          "requestedCPUSeconds": 1
+        }
+      ]
+    },
+    {
+      "elapsedSeconds": 8.388736791,
+      "intervalSeconds": 0.01,
+      "measuredCPUSeconds": 4.977325083333334,
+      "method": "prototype: native scans plus first-observation metadata; no refresh, registry or UI",
+      "oracleCPUSeconds": 5.098631,
+      "ratio": 0.9762081396620649,
+      "scans": 401,
+      "workers": [
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.015293000000000001,
+          "pid": 98886,
+          "requestedCPUSeconds": 0.01
+        },
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.014820999999999999,
+          "pid": 98887,
+          "requestedCPUSeconds": 0.01
+        },
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.014644,
+          "pid": 98888,
+          "requestedCPUSeconds": 0.01
+        },
+        {
+          "measuredCPUSeconds": 0,
+          "measuredLifetimes": 0,
+          "oracleCPUSeconds": 0.012563999999999999,
+          "pid": 98889,
+          "requestedCPUSeconds": 0.01
+        },
+        {
+          "measuredCPUSeconds": 0.048644625,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.054995999999999996,
+          "pid": 98890,
+          "requestedCPUSeconds": 0.05
+        },
+        {
+          "measuredCPUSeconds": 0.04622095833333333,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.054314999999999995,
+          "pid": 98891,
+          "requestedCPUSeconds": 0.05
+        },
+        {
+          "measuredCPUSeconds": 0.051228125,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.05319499999999999,
+          "pid": 98892,
+          "requestedCPUSeconds": 0.05
+        },
+        {
+          "measuredCPUSeconds": 0.048949791666666666,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.052231,
+          "pid": 98893,
+          "requestedCPUSeconds": 0.05
+        },
+        {
+          "measuredCPUSeconds": 0.20233374999999998,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.20484399999999997,
+          "pid": 98894,
+          "requestedCPUSeconds": 0.2
+        },
+        {
+          "measuredCPUSeconds": 0.19443191666666668,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.202826,
+          "pid": 98895,
+          "requestedCPUSeconds": 0.2
+        },
+        {
+          "measuredCPUSeconds": 0.19971058333333333,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.20390999999999998,
+          "pid": 98896,
+          "requestedCPUSeconds": 0.2
+        },
+        {
+          "measuredCPUSeconds": 0.19343191666666668,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 0.202589,
+          "pid": 98897,
+          "requestedCPUSeconds": 0.2
+        },
+        {
+          "measuredCPUSeconds": 0.9997866666666667,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 1.0033759999999998,
+          "pid": 98898,
+          "requestedCPUSeconds": 1
+        },
+        {
+          "measuredCPUSeconds": 1.0027241666666666,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 1.0038529999999999,
+          "pid": 98899,
+          "requestedCPUSeconds": 1
+        },
+        {
+          "measuredCPUSeconds": 0.9984622083333334,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 1.002847,
+          "pid": 98900,
+          "requestedCPUSeconds": 1
+        },
+        {
+          "measuredCPUSeconds": 0.991400375,
+          "measuredLifetimes": 1,
+          "oracleCPUSeconds": 1.002327,
+          "pid": 98901,
+          "requestedCPUSeconds": 1
+        }
+      ]
+    }
+  ],
+  "native_probe_provenance": "Optimized Swift 6.4 (-O), core revision 8c86886; no provider listing or UI; 10ms case is a first-metadata-only prototype, not MonitoringSession.",
+  "system_trace_mixed": {
+    "workers": [
+      {
+        "pid": 1102,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 0.01,
+        "cpu_seconds": 0.013103,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.013819578000000002,
+        "trace_rows": 223,
+        "ratio": 1.054688086697703
+      },
+      {
+        "pid": 1103,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 0.01,
+        "cpu_seconds": 0.013033,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.013847499000000003,
+        "trace_rows": 279,
+        "ratio": 1.0624951277526282
+      },
+      {
+        "pid": 1105,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 0.01,
+        "cpu_seconds": 0.012998,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.013631881999999994,
+        "trace_rows": 181,
+        "ratio": 1.0487676565625477
+      },
+      {
+        "pid": 1106,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 0.01,
+        "cpu_seconds": 0.013518,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.014213710000000003,
+        "trace_rows": 197,
+        "ratio": 1.0514654534694483
+      },
+      {
+        "pid": 1116,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 0.05,
+        "cpu_seconds": 0.054202,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.053664073000000055,
+        "trace_rows": 1067,
+        "ratio": 0.9900755138186793
+      },
+      {
+        "pid": 1118,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 0.05,
+        "cpu_seconds": 0.053581,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05314819899999999,
+        "trace_rows": 1137,
+        "ratio": 0.9919224911815755
+      },
+      {
+        "pid": 1119,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 0.05,
+        "cpu_seconds": 0.053909,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05416770699999998,
+        "trace_rows": 1098,
+        "ratio": 1.0047989575024576
+      },
+      {
+        "pid": 1121,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 0.05,
+        "cpu_seconds": 0.053988999999999995,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.05408582899999997,
+        "trace_rows": 1373,
+        "ratio": 1.0017934949711973
+      },
+      {
+        "pid": 1128,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 0.2,
+        "cpu_seconds": 0.20334599999999997,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.2014411350000003,
+        "trace_rows": 4692,
+        "ratio": 0.9906323950311308
+      },
+      {
+        "pid": 1131,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 0.2,
+        "cpu_seconds": 0.202978,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.20137664100000055,
+        "trace_rows": 3725,
+        "ratio": 0.9921106770191871
+      },
+      {
+        "pid": 1134,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 0.2,
+        "cpu_seconds": 0.203505,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.20171192000000057,
+        "trace_rows": 4572,
+        "ratio": 0.9911890125549769
+      },
+      {
+        "pid": 1135,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 0.2,
+        "cpu_seconds": 0.203563,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 0.2016142639999996,
+        "trace_rows": 4438,
+        "ratio": 0.9904268653930214
+      },
+      {
+        "pid": 1145,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 1.0,
+        "cpu_seconds": 1.002572,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 2.9160189930000007,
+        "trace_rows": 2227,
+        "ratio": 2.9085382326655846
+      },
+      {
+        "pid": 1146,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 1.0,
+        "cpu_seconds": 1.003951,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 2.9182688389999996,
+        "trace_rows": 2260,
+        "ratio": 2.9067841348830763
+      },
+      {
+        "pid": 1147,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 1.0,
+        "cpu_seconds": 1.002675,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 2.9150746730000003,
+        "trace_rows": 2318,
+        "ratio": 2.907297651781485
+      },
+      {
+        "pid": 1149,
+        "parent": 1100,
+        "status": 0,
+        "requested_cpu_seconds": 1.0,
+        "cpu_seconds": 1.004904,
+        "allocation_bytes": 8388608,
+        "trace_running_seconds": 2.7105007590000003,
+        "trace_rows": 2137,
+        "ratio": 2.6972733305868024
+      }
+    ],
+    "oracle_seconds": 5.095827,
+    "trace_running_seconds": 12.536585701000002,
+    "ratio": 2.4601670545330525
+  },
+  "system_trace_mixed_validation": {
+    "status": "failed CPU conservation; not a validated accounting backend",
+    "termination_records": {
+      "observed": {
+        "1103": 5.230374125,
+        "1102": 5.238919666,
+        "1105": 5.246499375,
+        "1106": 5.253492625,
+        "1118": 5.4433825,
+        "1116": 5.454041,
+        "1119": 5.461906625,
+        "1121": 5.470045916,
+        "1134": 5.896706291,
+        "1131": 5.901467458,
+        "1135": 5.930447458,
+        "1128": 5.936181958
+      },
+      "missing": [
+        1145,
+        1146,
+        1147,
+        1149
+      ]
+    },
+    "longest_running_spans": [
+      {
+        "pid": 1145,
+        "start_seconds": 6.539599583,
+        "duration_seconds": 2.447999917,
+        "thread_id": "159323699"
+      },
+      {
+        "pid": 1146,
+        "start_seconds": 6.539600916,
+        "duration_seconds": 2.447998875,
+        "thread_id": "159323700"
+      },
+      {
+        "pid": 1147,
+        "start_seconds": 6.5395995,
+        "duration_seconds": 2.448083166,
+        "thread_id": "159323701"
+      },
+      {
+        "pid": 1149,
+        "start_seconds": 6.539601291,
+        "duration_seconds": 2.44799875,
+        "thread_id": "159323702"
+      }
+    ]
+  },
+  "footprint_peak": {
+    "allocation_bytes": 67108864,
+    "before_current": 721112,
+    "before_peak": 721112,
+    "held_current": 68190544,
+    "held_peak": 68190544,
+    "released_current": 1048864,
+    "released_peak": 68190544
+  }
+}
