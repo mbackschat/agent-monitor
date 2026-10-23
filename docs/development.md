@@ -242,13 +242,13 @@ MENUBAR_LOAD_MEASUREMENT_PATH=/tmp/agent-load.json swift test --filter measureNa
 For the smaller optimized core-only probe, without building the UI dependencies:
 
 ```sh
-swiftc -parse-as-library -O -swift-version 6 Sources/AgentMonitorCore/*.swift Sources/AgentMonitorCore/AttributionAdapters/*.swift Tools/LoadProbe/LoadProbe.swift -o /tmp/agent-load-probe
+swiftc -parse-as-library -O -swift-version 6 -package-name agent-monitor Sources/AgentMonitorCore/*.swift Sources/AgentMonitorCore/AttributionAdapters/*.swift Tools/LoadProbe/LoadProbe.swift -o /tmp/agent-load-probe
 /tmp/agent-load-probe
 ```
 
 Pass `--history` to the optimized standalone probe for four sequential 40-sample runs at a one-second table interval, with summaries disabled/enabled/enabled/disabled. It reports the actual number of summaries alongside CPU time; run it alone and retain compiler/revision provenance when comparing results.
 
-This development-only probe is not a package product or a release component. Both probes record process CPU time and elapsed time without saving process identities or paths. This debug test-harness measurement includes attribution/summary collection, but excludes menu bar drawing and is not an app wakeup or battery measurement.
+This development-only probe is not a package product or a release component. Both probes explicitly disable provider session listings and record process CPU time and elapsed time without saving process identities or paths. This debug test-harness measurement includes native attribution/summary collection, but excludes provider resolution and menu bar drawing and is not an app wakeup or battery measurement.
 
 The additional [README native screenshot](assets/menubar-preview.webp) comes from the production SwiftUI hosting view with synthetic identities and measurements, paused with a pinned session expanded. Keep the TUI preview as well. Regenerate the native asset after visible native changes:
 

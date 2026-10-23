@@ -26,9 +26,11 @@ import Synchronization
         let summaries = Mutex(0)
         let start = ContinuousClock.now
         let cpu = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
-        try await session.run { snapshot in
-            if snapshot.agentLoad != nil { summaries.withLock { $0 += 1 } }
-        }
+        try await session.run(
+            resolveSessions: { false },
+            { snapshot in
+                if snapshot.agentLoad != nil { summaries.withLock { $0 += 1 } }
+            })
         let ms = Double(clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID) - cpu) / 1e6
         let time = start.duration(to: .now).components
         let seconds = Double(time.seconds) + Double(time.attoseconds) / 1e18

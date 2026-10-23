@@ -77,7 +77,7 @@ func measureNativeAgentLoadSampling() async throws {
         reader: reader, excluding: [ProcessInfo.processInfo.processIdentifier])
     let start = ContinuousClock.now
     let cpuStart = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
-    try await session.run { snapshot in #expect(snapshot.agentLoad != nil) }
+    try await session.run(resolveSessions: { false }, { snapshot in #expect(snapshot.agentLoad != nil) })
     let cpuMilliseconds = Double(clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID) - cpuStart) / 1e6
     let duration = start.duration(to: .now).components
     let elapsedSeconds = Double(duration.seconds) + Double(duration.attoseconds) / 1e18
