@@ -281,7 +281,7 @@ A third provider requires an explicit revision of the closed provider enum and J
 
 The TUI spends one header line on the strip, including `h` metric and `t` time-range hints. Native presentation uses a 28-point strip inside the fixed-height scroll content, semantic grayscale bars over a persistent subtle baseline and the existing persistent AppKit options controller in a history-menu placement. That menu has checked metric/range choices and retains its items while tracking. Its title changes only outside tracking when the selected metric/range changes. The native current-value label says “No data” for an unavailable measurement, with explicit empty-history accessibility text; measured zero retains its numeric value. Both views scale bars from zero to the visible peak, at least 1; peak compression preserves short observed bursts without inventing measurements between samples.
 
-TUI and native live tables default to a 5-second interval; text/JSONL default to one second. Explicit intervals override these defaults.
+Text/JSONL, TUI and native live collection default to a 100 ms requested wait; scans and enrichment add time. Explicit intervals override these defaults. Closing the native panel preserves the selected collection cadence for the live icon.
 
 ## Native menu bar app
 
