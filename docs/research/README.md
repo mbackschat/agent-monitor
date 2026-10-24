@@ -18,7 +18,7 @@ Checked dates are when the evidence was gathered; later editorial edits do not r
 | [Process signaling and messaging interfaces](session-actions.md) | 2026-10-14 | Signal races, queue/resume interfaces, recipient identity and acceptance versus delivery. |
 | [Terminal focus mechanisms](terminal-focus.md) | 2026-10-14; follow-up 2026-10-15 | Host identifiers, per-terminal APIs, macOS permission/activation behavior and untested desktop states. |
 | [Menu bar feasibility](menubar-app.md) | 2026-10-15 | UI/lifecycle APIs, launch environment, process access, signing and Homebrew evidence, with unverified inferences identified. |
-| [Menu bar load collection cost](menu-bar-load-cost.md) | 2026-10-15 | Native sampling breakdown, runtime-recognition and argument-buffer hotspots, bounded measurements and energy limits. |
+| [Menu bar load collection cost](menu-bar-load-cost.md) | 2026-10-15; follow-up 2026-10-24 | Native sampling breakdown, runtime-recognition and argument-buffer hotspots, and the native row-command stall with synthetic before/after measurements; bounded measurements and energy limits. |
 | [Native menu design](native-menu-design.md) | 2026-10-15 | Apple interface guidance, pinned CodexBar/RepoBar/Trimmy source and screenshots, content-sizing API observations and unresolved live interaction questions. |
 | [Swift terminal UI findings](terminal-ui.md) | 2026-10-14 | Library observations, discovery-socket failure, direct runtime behavior and bounded probe measurements. |
 | [Local process observations](terminal-process-observations.md) | 2026-10-14 | Anonymized process topology, marker readability and synthetic orphan experiments. |
@@ -28,6 +28,8 @@ Checked dates are when the evidence was gathered; later editorial edits do not r
 | [Development tools](development-tools.md) | 2026-10-14 to 2026-10-15 | Skill contents, Peter Steinberger's SwiftUI/profiling candidates, host discovery differences and audit/benchmark gaps. |
 
 ## Retained measurements
+
+- [Native row commands on 2026-10-24](native-row-commands-2026-10-24.json): synthetic command-predicate timings in session/process views and aggregate observations from the reported UI stall; [method and limits](menu-bar-load-cost.md#native-row-command-stall--2026-10-24).
 
 - [Same-path exec identity on 2026-10-23](exec-identity-2026-10-23.json): twenty owned-child trials compare fresh/retained audit-token ports, birth/image/name observations and rising kernel peaks; [method and limits](cpu-accounting.md#controlled-same-path-exec-follow-up).
 

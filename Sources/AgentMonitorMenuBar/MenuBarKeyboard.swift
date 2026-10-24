@@ -20,9 +20,9 @@ enum MenuBarKeyboard {
 
 extension MenuBarModel {
     func pidToCopy(for row: LiveReportRowID) -> String? {
-        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, visibleRowIDs.contains(row),
+        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, rowIndex.visible.contains(row),
             case .process(let identity) = row,
-            report.rows.contains(where: { $0.process == identity })
+            rowIndex.processes[identity] != nil
         else { return nil }
         return String(identity.pid)
     }

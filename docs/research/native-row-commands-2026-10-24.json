@@ -1,0 +1,177 @@
+{
+  "date": "2026-10-24",
+  "baselineCommit": "458e8dc",
+  "configuration": "Swift debug test build; macOS 27.0.1; synthetic same-user process/session records; no native sampling or provider calls",
+  "operation": "For each displayed process, evaluate terminate/message/focus eligibility and PID-copy eligibility once. Three passes per population/grouping. Index construction and SwiftUI layout excluded.",
+  "liveObservation": {
+    "processCPUPercentSnapshot": 98.9,
+    "nominalSampleSeconds": 3,
+    "sampleIntervalMilliseconds": 5,
+    "mainThreadSamplesInRowLayout": 322,
+    "acquisitionThreadSamplesWaiting": 322,
+    "resolutionThreadSamplesWaiting": 322,
+    "limits": "Single ps CPU snapshot and short statistical stack sample of the user-reported monitor; not a sustained energy measurement. Raw local stack addresses and paths are not retained in this portable summary."
+  },
+  "before": [
+    {
+      "grouping": "session",
+      "milliseconds": [
+        1427.39875,
+        1941.818,
+        2308.235292
+      ],
+      "processes": 50
+    },
+    {
+      "grouping": "none",
+      "milliseconds": [
+        270.968959,
+        231.2135,
+        300.25075
+      ],
+      "processes": 50
+    },
+    {
+      "grouping": "session",
+      "milliseconds": [
+        36098.219333,
+        25735.691,
+        36353.817292
+      ],
+      "processes": 150
+    },
+    {
+      "grouping": "none",
+      "milliseconds": [
+        2465.110958,
+        2115.037125,
+        1961.106917
+      ],
+      "processes": 150
+    }
+  ],
+  "after": [
+    {
+      "grouping": "session",
+      "milliseconds": [
+        0.351416,
+        0.293,
+        0.268958
+      ],
+      "processes": 50
+    },
+    {
+      "grouping": "none",
+      "milliseconds": [
+        0.294959,
+        0.270958,
+        0.309833
+      ],
+      "processes": 50
+    },
+    {
+      "grouping": "session",
+      "milliseconds": [
+        0.861583,
+        0.92825,
+        0.90325
+      ],
+      "processes": 150
+    },
+    {
+      "grouping": "none",
+      "milliseconds": [
+        0.930708,
+        0.852042,
+        0.816041
+      ],
+      "processes": 150
+    }
+  ],
+  "filteredAfter": [
+    {
+      "grouping": "session",
+      "milliseconds": [
+        0.05975,
+        0.054042,
+        0.053958
+      ],
+      "observedProcesses": 150,
+      "processes": 10
+    },
+    {
+      "grouping": "none",
+      "milliseconds": [
+        0.055083,
+        0.048792,
+        0.049083
+      ],
+      "observedProcesses": 150,
+      "processes": 10
+    }
+  ],
+  "renderAfterIndexingBeforeLazyRows": [
+    {
+      "initialMilliseconds": 1226.786875,
+      "processes": 150,
+      "refreshMilliseconds": [
+        158.255416,
+        126.433209,
+        152.403084
+      ]
+    },
+    {
+      "initialMilliseconds": 3381.329833,
+      "processes": 1000,
+      "refreshMilliseconds": [
+        861.443292,
+        697.307458,
+        674.250083
+      ]
+    }
+  ],
+  "renderAfterLazyRows": [
+    {
+      "displayedRows": 150,
+      "initialMilliseconds": 371.398666,
+      "processes": 150,
+      "refreshMilliseconds": [
+        19.234709,
+        15.337958,
+        15.60725
+      ]
+    },
+    {
+      "displayedRows": 1000,
+      "initialMilliseconds": 41.244708,
+      "processes": 1000,
+      "refreshMilliseconds": [
+        54.022875,
+        52.295,
+        51.129208
+      ]
+    },
+    {
+      "displayedRows": 10,
+      "initialMilliseconds": 39.424375,
+      "processes": 150,
+      "refreshMilliseconds": [
+        10.437375,
+        9.635666,
+        8.86325
+      ]
+    }
+  ],
+  "renderMethod": "Offscreen NSHostingView, fixed 420 by 560 points; initial layout and three snapshot refreshes including model receipt/index rebuilding, debug build. Synthetic rows only. Final measurements ran alongside the tiny command-predicate benchmark; not frame delivery or real input latency.",
+  "populationLimit": "50/150/1000 are synthetic test sizes, not a count observed in the reported app. The user said filters would leave about ten displayed rows. The filtered test retains 150 observations in ten sessions with ten qualifying processes.",
+  "renderExpandedGroupAfter": {
+    "displayedRows": 151,
+    "initialMilliseconds": 53.868208,
+    "processes": 150,
+    "refreshMilliseconds": [
+      11.2675,
+      11.370875,
+      10.342792
+    ]
+  }
+}

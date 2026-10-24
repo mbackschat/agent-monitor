@@ -155,7 +155,8 @@ public struct LiveReportState: Equatable, Sendable {
             switch row {
             case .group(let group):
                 return [row]
-                    + (openGroups.contains(group.id) ? children(of: group).map(LiveReportRow.process) : [])
+                    + (openGroups.contains(group.id)
+                        ? (projection.childrenByGroup[group.id] ?? []).map(LiveReportRow.process) : [])
             case .process, .unavailable: return [row]
             }
         }

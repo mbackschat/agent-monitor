@@ -13,7 +13,14 @@ typealias MenuBarSource =
 
 @MainActor @Observable
 final class MenuBarModel {
-    var report = LiveReportState(grouping: .session, interval: 0.1)
+    var report = LiveReportState(grouping: .session, interval: 0.1) {
+        didSet {
+            if MenuBarRowIndex.needsUpdate(from: oldValue, to: report) {
+                rowIndex = MenuBarRowIndex(state: report)
+            }
+        }
+    }
+    private(set) var rowIndex = MenuBarRowIndex(state: LiveReportState(grouping: .session))
     let diagnosis: CPUDiagnosisController
     var panelSize: MenuBarPanelSize = .standard
     var showsKeyboardHelp = false
@@ -230,18 +237,16 @@ final class MenuBarModel {
     }
 
     func canBegin(_ kind: ProcessActionKind, row: LiveReportRowID) -> Bool {
-        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, visibleRowIDs.contains(row)
+        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, rowIndex.visible.contains(row)
         else { return false }
         switch row {
         case .group(let id):
             guard case .focus = kind,
-                let group = report.groups.first(where: { $0.id == id }),
-                Set(group.processes.compactMap(\.attribution.runtime)).count == 1,
-                let process = group.processes.first(where: { $0.attribution.runtime != nil })
+                let process = rowIndex.groupFocusTargets[id]
             else { return false }
             return SessionActions.canFocusTerminal(process)
         case .process(let id):
-            guard let process = report.rows.first(where: { $0.process == id }) else { return false }
+            guard let process = rowIndex.processes[id] else { return false }
             switch kind {
             case .terminate: return true
             case .focus: return SessionActions.canFocusTerminal(process)
@@ -273,14 +278,14 @@ final class MenuBarModel {
     }
 
     @discardableResult func togglePin(_ row: LiveReportRowID) -> Bool {
-        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, visibleRowIDs.contains(row)
+        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, rowIndex.visible.contains(row)
         else { return false }
         report.togglePin(row)
         return true
     }
 
     func selectRow(_ row: LiveReportRowID) {
-        guard visibleRowIDs.contains(row) else { return }
+        guard rowIndex.visible.contains(row) else { return }
         if !report.visibleRows.contains(where: { $0.id == row }),
             case .process(let identity) = row,
             let group = report.groups.first(where: { $0.processes.contains { $0.process == identity } })
@@ -298,23 +303,7 @@ final class MenuBarModel {
         report.setDisclosure(expanded: expanded)
     }
 
-    var visibleRowIDs: [LiveReportRowID] {
-        let projection = report.projection
-        return (projection.pinnedRows + projection.unpinnedRows).flatMap { row in
-            switch row {
-            case .group(let group):
-                if !report.isPinned(row.id), group.processes.count == 1,
-                    let process = report.children(of: group).first
-                {
-                    return [LiveReportRowID.process(process.process)]
-                }
-                return [row.id]
-                    + (report.openGroups.contains(group.id)
-                        ? report.children(of: group).map { .process($0.process) } : [])
-            case .process, .unavailable: return [row.id]
-            }
-        }
-    }
+    var visibleRowIDs: [LiveReportRowID] { rowIndex.visibleIDs }
 
     func moveFocus(from row: LiveReportRowID?, by delta: Int) -> LiveReportRowID? {
         let rows = visibleRowIDs

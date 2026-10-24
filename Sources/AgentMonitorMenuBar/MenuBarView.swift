@@ -157,13 +157,10 @@ struct MenuBarView: View {
     }
 
     private var report: some View {
-        let projection = model.report.projection
+        let projection = model.rowIndex.projection
         let pinned = projection.pinnedRows
         let unpinned = projection.unpinnedRows
-        let sessions = Dictionary(
-            uniqueKeysWithValues: projection.groups.flatMap { group in
-                group.processes.map { ($0.process, group) }
-            })
+        let sessions = model.rowIndex.sessions
         return VStack(alignment: .leading, spacing: 12) {
             if let saved = model.savedMessage {
                 VStack(alignment: .leading, spacing: 6) {
@@ -221,12 +218,12 @@ struct MenuBarView: View {
                     if !pinned.isEmpty {
                         Label("Pinned", systemImage: "pin.fill").font(.caption.bold()).foregroundStyle(
                             .secondary)
-                        VStack(alignment: .leading, spacing: 4) {
+                        LazyVStack(alignment: .leading, spacing: 4) {
                             ForEach(pinned, id: \.id) { nativeRow($0, sessions: sessions) }
                         }
                         if !unpinned.isEmpty { Divider() }
                     }
-                    VStack(alignment: .leading, spacing: 4) {
+                    LazyVStack(alignment: .leading, spacing: 4) {
                         ForEach(unpinned, id: \.id) { nativeRow($0, sessions: sessions) }
                     }
                 }
@@ -267,7 +264,7 @@ struct MenuBarView: View {
             processRow(process, session: sessions[process.process])
         case .group(let group):
             if !model.report.isPinned(row.id), group.processes.count == 1,
-                let process = model.report.children(of: group).first
+                let process = model.rowIndex.projection.childrenByGroup[group.id]?.first
             {
                 processRow(process, session: group)
             } else {
@@ -349,8 +346,11 @@ struct MenuBarView: View {
                 Button("Terminal", systemImage: "terminal") { model.begin(.focus, row: .group(group.id)) }
                     .controlSize(.small)
                     .disabled(!model.canBegin(.focus, row: .group(group.id)))
-                ForEach(model.report.children(of: group), id: \.process) { process in
-                    processRow(process)
+                LazyVStack(alignment: .leading, spacing: 4) {
+                    ForEach(model.rowIndex.projection.childrenByGroup[group.id] ?? [], id: \.process) {
+                        process in
+                        processRow(process)
+                    }
                 }
             }.padding(.top, 8)
         } label: {

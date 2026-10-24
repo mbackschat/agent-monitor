@@ -30,15 +30,29 @@ extension LiveReportState {
                 !isPinned(.group($0.id)) && $0.processes.contains { !isPinned(.process($0.process)) }
             }.map(LiveReportRow.group)
         }
-        return ReportProjection(groups: sessions, pinnedRows: pinned, unpinnedRows: unpinned)
+        let displayed = Set(processes.map(\.process))
+        let pinnedIDs = Set(pins.map(\.id))
+        let children = Dictionary(
+            uniqueKeysWithValues: sessions.map { group in
+                (group.id, children(of: group, displayed: displayed, pinned: pinnedIDs))
+            })
+        return ReportProjection(
+            groups: sessions, pinnedRows: pinned, unpinnedRows: unpinned, childrenByGroup: children)
     }
 
     public func children(of group: SessionGroup) -> [HeavyProcess] {
-        let displayed = Set(rows.map(\.process))
+        children(
+            of: group, displayed: Set((snapshot?.findings ?? []).map(\.process)),
+            pinned: Set(pins.map(\.id)))
+    }
+
+    private func children(
+        of group: SessionGroup, displayed: Set<ProcessIdentity>, pinned: Set<LiveReportRowID>
+    ) -> [HeavyProcess] {
         let children = group.processes.filter {
-            displayed.contains($0.process) && !isPinned(.process($0.process))
+            displayed.contains($0.process) && !pinned.contains(.process($0.process))
         }
-        guard isPinned(.group(group.id)), sortKey != .stable else { return children }
+        guard pinned.contains(.group(group.id)), sortKey != .stable else { return children }
         return children.sorted {
             if $0.process.pid != $1.process.pid { return $0.process.pid < $1.process.pid }
             return $0.process.startMicroseconds < $1.process.startMicroseconds
@@ -50,4 +64,5 @@ public struct ReportProjection: Sendable {
     public let groups: [SessionGroup]
     public let pinnedRows: [LiveReportRow]
     public let unpinnedRows: [LiveReportRow]
+    public let childrenByGroup: [SessionGroupID: [HeavyProcess]]
 }
