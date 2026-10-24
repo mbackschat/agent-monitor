@@ -1,0 +1,97 @@
+{
+  "initialDebug": {
+    "date": "2026-10-24",
+    "runs": [
+      {
+        "acquisitionAggregationP95Ms": 1.596208,
+        "chargedRecords": 6000,
+        "chargedTextBytes": 274743,
+        "elapsedMs": 3663.210959,
+        "peakRSSAfter": 49594368,
+        "peakRSSBefore": 43057152,
+        "processes": 90,
+        "projectionP95Ms": 64.648833,
+        "scans": 600,
+        "unitRecords": 5400
+      },
+      {
+        "acquisitionAggregationP95Ms": 8.291625,
+        "chargedRecords": 40518,
+        "chargedTextBytes": 1872864,
+        "elapsedMs": 34656.993042,
+        "peakRSSAfter": 92291072,
+        "peakRSSBefore": 49774592,
+        "processes": 613,
+        "projectionP95Ms": 787.572875,
+        "scans": 600,
+        "unitRecords": 36780
+      }
+    ]
+  },
+  "optimizedDebug": {
+    "date": "2026-10-24",
+    "runs": [
+      {
+        "acquisitionAggregationP95Ms": 1.043,
+        "chargedRecords": 6000,
+        "chargedTextBytes": 274743,
+        "elapsedMs": 2191.517834,
+        "peakRSSAfter": 55754752,
+        "peakRSSBefore": 42729472,
+        "processes": 90,
+        "projectionP95Ms": 35.1615,
+        "scans": 600,
+        "unitRecords": 5400
+      },
+      {
+        "acquisitionAggregationP95Ms": 7.176333,
+        "chargedRecords": 40518,
+        "chargedTextBytes": 1872864,
+        "elapsedMs": 16185.5125,
+        "peakRSSAfter": 103661568,
+        "peakRSSBefore": 55820288,
+        "processes": 613,
+        "projectionP95Ms": 259.852958,
+        "scans": 600,
+        "unitRecords": 36780
+      }
+    ]
+  },
+  "optimizedRelease": {
+    "date": "2026-10-24",
+    "runs": [
+      {
+        "acquisitionAggregationP95Ms": 0.290166,
+        "chargedRecords": 6000,
+        "chargedTextBytes": 274743,
+        "elapsedMs": 628.280125,
+        "peakRSSAfter": 53985280,
+        "peakRSSBefore": 41926656,
+        "processes": 90,
+        "projectionP95Ms": 10.9635,
+        "scans": 600,
+        "unitRecords": 5400
+      },
+      {
+        "acquisitionAggregationP95Ms": 1.879875,
+        "chargedRecords": 40518,
+        "chargedTextBytes": 1872864,
+        "elapsedMs": 4953.21075,
+        "peakRSSAfter": 108232704,
+        "peakRSSBefore": 54001664,
+        "processes": 613,
+        "projectionP95Ms": 84.854583,
+        "scans": 600,
+        "unitRecords": 36780
+      }
+    ]
+  },
+  "provenance": {
+    "date": "2026-10-24",
+    "baseCommit": "8b597ca",
+    "implementation": "uncommitted overview implementation validated in this commit",
+    "method": "600 synthetic scans at nominal 100 ms cadence; 60 closed units; no native/provider reads; whole-test-process peak RSS includes allocator retention and preceding fixture work",
+    "releaseCommand": "RECENT_OVERVIEW_PERFORMANCE_PATH=<output> swift test -c release --filter compactRecentHistoryFitsOneMinuteAtTenScansPerSecond",
+    "limits": "Stable one-category lifetimes with nil commands; no churn, provider delay, native drawing or sustained-energy measurement."
+  }
+}

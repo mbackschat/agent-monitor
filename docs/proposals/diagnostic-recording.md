@@ -4,7 +4,7 @@ Status: **unapproved**, 2026-10-23. Dependent on [independent acquisition and hi
 
 ## Recommendation
 
-The [resource overview and recent activity addendum](resource-overview-and-recent-activity.md) proposes always-available bounded in-memory worker statistics and an exploration view. Live history does not require recording. Longer recording-backed exploration would consume this proposal's authoritative observations, attribution revisions and gap semantics, but remains an explicit analysis-UI extension beyond the recording scope below.
+The implemented [resource overview and recent activity contract](../architecture.md#contributor-overview-and-recent-activity) provides always-available bounded in-memory worker statistics and an exploration view. Live history does not require recording. Longer recording-backed exploration would consume this proposal's authoritative observations, attribution revisions and gap semantics, but remains an explicit analysis-UI extension beyond the recording scope below.
 
 Use versioned UTF-8 JSON Lines in independently completed gzip members, through the system zlib, as the initial interoperability baseline. Multiple members form a chunk; multiple chunks form a capture. Raw counter observations and recorded attribution/evidence revisions have separate authority, and a reference reader re-derives CPU with the collector's versioned counter-acceptance rules and consumes recorded attribution revisions as authoritative labels. Do not also store authoritative derived CPU totals that can disagree with replay. Preserve raw integer values exactly; 64-bit counters/timestamps use documented decimal strings rather than requiring tools to round through floating-point JSON numbers.
 

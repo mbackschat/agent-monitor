@@ -30,6 +30,7 @@ public enum LiveReportLayout {
             ).map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
         }
         if let panel = state.actionPanel { return panel.lines(width: width, height: height) }
+        if state.showsOverview { return ContributorLayout.lines(state: state, width: width, height: height) }
         var lines = headerLines(state: state, width: width)
         lines.append(historyLine(state: state, width: width))
         let footer = helpLines(

@@ -112,7 +112,7 @@ public enum RuntimeContext: String, Codable, Sendable {
     case terminal, nonterminal, unverified
 }
 
-public enum ProcessScope: Sendable {
+public enum ProcessScope: Equatable, Sendable {
     case agentsOnly, allProcesses
 
     func includes(_ attribution: Attribution) -> Bool {

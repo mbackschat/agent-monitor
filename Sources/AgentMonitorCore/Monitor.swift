@@ -276,6 +276,10 @@ public struct Monitor: Sendable {
 
     /// The primary label's actual point-observation time, never a claim of interval support.
     /// Cached markers retain their original time under the resource-accounting contract.
+    var agentRuntimeIdentities: Set<ProcessIdentity> {
+        Set(live.filter { !(nodes[$0]?.runtimeProviders.isEmpty ?? true) })
+    }
+
     func attributionObservationTimes() -> [ProcessIdentity: Double] {
         var result: [ProcessIdentity: Double] = [:]
         for id in live {

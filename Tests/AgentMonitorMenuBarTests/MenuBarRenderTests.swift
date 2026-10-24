@@ -165,13 +165,12 @@ private struct DisclosureChevronFixture: View {
         row.layer?.backgroundColor = (dark ? NSColor.black : NSColor.white).cgColor
         row.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         view.addSubview(row)
-        for (index, label) in ["Starting", "0 heavy", "1 observed", "12 heavy", "99+ heavy"].enumerated() {
+        for (index, label) in ["Starting", "Idle", "Below 25%", "25–50%", "50%+"].enumerated() {
             let button = NSButton(frame: NSRect(x: index * 60 + 18, y: 20, width: 24, height: 24))
             button.isBordered = false
             button.imagePosition = .imageOnly
             button.image = MenuBarStatusImage.make(
-                level: index == 0 ? nil : index - 1,
-                processCount: [nil, 0, 1, 12, 100][index])
+                level: index == 0 ? nil : index - 1)
             button.contentTintColor = dark ? .white : .black
             row.addSubview(button)
             let title = NSTextField(labelWithString: label)

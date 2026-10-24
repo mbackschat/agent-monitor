@@ -34,6 +34,16 @@ public struct CPUContribution: Equatable, Sendable {
     public let cpuSeconds: Double
     public let startedAt: Double
     public let endedAt: Double
+    public let executableChanged: Bool
+
+    init(id: ID, cpuSeconds: Double, startedAt: Double, endedAt: Double, executableChanged: Bool = false) {
+        self.id = id
+        self.cpuSeconds = cpuSeconds
+        self.startedAt = startedAt
+        self.endedAt = endedAt
+        self.executableChanged = executableChanged
+    }
+
     public var observedSeconds: Double { endedAt - startedAt }
     public var cpuPercent: Double { 100 * cpuSeconds / observedSeconds }
     public var spansMissingScans: Bool { id.closing.scan.sequence - id.opening.scan.sequence > 1 }
@@ -76,6 +86,8 @@ struct CounterLedger: Sendable {
         let sampledAt: Double
         let cpu: Double
         let raw: NativeCPUCounters?
+        let executable: String
+        let name: String
     }
 
     private struct State: Sendable {
@@ -159,7 +171,9 @@ struct CounterLedger: Sendable {
             return .failure(.invalidCounter)
         }
         guard sample.sampledAt.isFinite else { return .failure(.invalidTime) }
-        let next = Baseline(id: observation.id, sampledAt: sample.sampledAt, cpu: cpu, raw: sample.rawCPU)
+        let next = Baseline(
+            id: observation.id, sampledAt: sample.sampledAt, cpu: cpu, raw: sample.rawCPU,
+            executable: sample.executable, name: sample.name)
         if let old = state.baseline {
             guard sample.sampledAt > old.sampledAt, observation.id.scan.sequence > old.id.scan.sequence else {
                 return .failure(.invalidTime)
@@ -183,7 +197,8 @@ struct CounterLedger: Sendable {
             return .success(
                 CPUContribution(
                     id: .init(opening: .observation(old.id), closing: observation.id), cpuSeconds: delta,
-                    startedAt: old.sampledAt, endedAt: sample.sampledAt))
+                    startedAt: old.sampledAt, endedAt: sample.sampledAt,
+                    executableChanged: old.executable != sample.executable || old.name != sample.name))
         }
         let canUseNewbornOpening = state.canUseNewbornOpening
         state.baseline = next

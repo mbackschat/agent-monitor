@@ -19,7 +19,16 @@ enum TUIFixture {
                     reader: FixtureDiagnosisReader(), excluding: [99], monitorPID: 99
                 ).run()
             },
-            source: { currentThresholds, _, receive in
+            source: { currentThresholds, interval, receive in
+                if ProcessInfo.processInfo.environment["AGENT_MONITOR_OVERVIEW_FIXTURE"] == "1" {
+                    let session = MonitoringSession(
+                        configuration: try MonitoringConfiguration(
+                            intervalSeconds: 0.1, samples: 0, collectAgentLoad: true, reportIntervalSeconds: 1
+                        ),
+                        reader: FixtureOverviewReader(), recentActivity: RecentActivityStore())
+                    try await session.run(thresholds: currentThresholds, interval: interval, receive)
+                    return
+                }
                 var tick = 0
                 while !Task.isCancelled {
                     tick += 1
@@ -92,4 +101,26 @@ private final class FixtureDiagnosisReader: DiagnosisReading, Sendable {
     }
     func observation(for sample: ProcessSample) -> DiagnosisObservation { .observed(ProcessMetadata()) }
     func isCurrent(_ sample: ProcessSample) -> Bool { true }
+}
+
+private final class FixtureOverviewReader: ProcessReading, Sendable {
+    let tick = Mutex(0)
+    func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
+        let step = tick.withLock { value in
+            defer { value += 1 }
+            return value
+        }
+        let sample = ProcessSample(
+            identity: ProcessIdentity(pid: 42, startMicroseconds: 1), parentPID: 0,
+            executable: "/fixture/node", name: "fixture-worker", sampledAt: Double(step),
+            cpuSeconds: Double(step) * 0.2, footprintBytes: 400_000_000)
+        return ProcessSnapshot(
+            samples: [sample], enumeratedCount: 1, unreadableCount: 0,
+            listedAt: Double(step), scanSeconds: 0, hostCounters: nil, logicalCPUCount: 8)
+    }
+    func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
+        ProcessMetadata(
+            markers: [SessionMarker(threadID: "11111111-1111-4111-8111-111111111111", provider: .codex)],
+            status: .markerRead, cwd: "/fixture/overview-project")
+    }
 }

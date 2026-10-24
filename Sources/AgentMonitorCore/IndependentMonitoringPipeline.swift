@@ -59,6 +59,7 @@ private struct ResolutionState: Sendable {
     var cadence = SessionRegistryCadence()
     var window: AccountingWindow?
     var pending: ResolvedScan?
+    var recent: RecentActivityAccumulator?
 }
 
 private struct ResolvedScan: Sendable {
@@ -66,6 +67,7 @@ private struct ResolvedScan: Sendable {
     let accounting: CPUAccounting
     let findings: [HeavyProcess]
     let window: AccountingWindow?
+    var recent: RecentActivitySnapshot? = nil
 
     static func coalesced(_ old: ResolvedScan, _ new: ResolvedScan) throws -> (
         ResolvedScan, MonitoringPayloadSize
@@ -77,7 +79,7 @@ private struct ResolvedScan: Sendable {
         return (
             ResolvedScan(
                 acquired: new.acquired, accounting: new.accounting, findings: [],
-                window: window), window.payloadSize
+                window: window, recent: new.recent?.coalescing(old.recent)), window.payloadSize
         )
     }
 }
@@ -88,6 +90,7 @@ struct IndependentMonitoringPipeline: Sendable {
     let clock: any SamplingClock
     let registry: any SessionRegistryReading
     let excluded: Set<Int32>
+    var recentActivity: RecentActivityStore? = nil
 
     func run(
         thresholds currentThresholds: (@Sendable () async -> Thresholds)?, interval live: LiveInterval?,
@@ -164,7 +167,7 @@ struct IndependentMonitoringPipeline: Sendable {
                                     },
                                     agentLoad: configuration.collectAgentLoad
                                         ? AgentLoadSummary(processes: rows, window: summary) : nil,
-                                    observedFindings: rows, window: summary))
+                                    observedFindings: rows, window: summary, recentActivity: report.recent))
                             lastDelivery = .now
                         }
                         try await group.waitForAll()
@@ -271,6 +274,9 @@ struct IndependentMonitoringPipeline: Sendable {
                         if configuration.reportIntervalSeconds != nil {
                             state.window = AccountingWindow(baseline: scan.counters)
                             state.pending = nil
+                            if recentActivity != nil {
+                                state.recent = RecentActivityAccumulator(baseline: scan.counters)
+                            }
                         }
                         return nil
                     }
@@ -301,12 +307,21 @@ struct IndependentMonitoringPipeline: Sendable {
                         resolutionDelaySeconds: max(0, clock.monotonicNow() - scan.finishedAt),
                         promptCapture: PromptCaptureSummary(scan.snapshot.promptEvidence))
                     var window: AccountingWindow?
+                    var recent = state.recent
+                    recent?.append(
+                        scan.counters, rows: findings,
+                        runtimes: state.monitor.agentRuntimeIdentities,
+                        attributionTimes: state.monitor.attributionObservationTimes())
                     if let refresh = configuration.reportIntervalSeconds {
                         guard var accumulated = state.window else { return nil }
                         try accumulated.append(
                             scan.counters, rows: findings,
                             attributionTimes: state.monitor.attributionObservationTimes())
-                        let size = accumulated.payloadSize
+                        var size = accumulated.payloadSize
+                        if let extra = recent?.payloadSize {
+                            size.observations += extra.observations
+                            size.textBytes += extra.textBytes
+                        }
                         guard size.observations <= configuration.pipelineLimits.pendingObservations,
                             size.textBytes <= configuration.pipelineLimits.pendingTextBytes
                         else {
@@ -314,6 +329,7 @@ struct IndependentMonitoringPipeline: Sendable {
                                 stage: .presentation, rejectedScan: scan.counters.id.sequence)
                         }
                         state.window = accumulated
+                        state.recent = recent
                         state.pending = ResolvedScan(
                             acquired: scan, accounting: accounting.withAcquisition(timing), findings: [],
                             window: accumulated)
@@ -325,6 +341,12 @@ struct IndependentMonitoringPipeline: Sendable {
                             return nil
                         }
                         window = accumulated
+                        if let recent = state.recent {
+                            recentActivity?.append(
+                                recent.seal(scope: configuration.scope),
+                                current: recent.current, present: recent.present)
+                            state.recent = RecentActivityAccumulator(baseline: scan.counters)
+                        }
                         state.window = AccountingWindow(baseline: scan.counters)
                         state.pending = nil
                     }
@@ -332,7 +354,7 @@ struct IndependentMonitoringPipeline: Sendable {
                         acquired: scan, accounting: accounting.withAcquisition(timing),
                         findings: window == nil
                             ? findings.filter { configuration.scope.includes($0.attribution) } : [],
-                        window: window)
+                        window: window, recent: recentActivity?.snapshot())
                 }
                 if let result {
                     var size = MonitoringPayloadSize(result.findings)
@@ -349,7 +371,13 @@ struct IndependentMonitoringPipeline: Sendable {
         } catch {
             await scans.cancel()
             if let pending = try? await worker.perform({ state in
-                let pending = state.pending
+                var pending = state.pending
+                if let recent = state.recent, pending != nil {
+                    recentActivity?.append(
+                        recent.seal(scope: configuration.scope),
+                        current: recent.current, present: recent.present)
+                    pending?.recent = recentActivity?.snapshot()
+                }
                 state.pending = nil
                 return pending
             }), let window = pending.window {

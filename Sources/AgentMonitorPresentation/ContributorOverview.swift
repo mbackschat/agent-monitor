@@ -1,0 +1,571 @@
+import AgentMonitorCore
+import Foundation
+
+public enum ContributorSection: String, Sendable {
+    case recent = "Recent contributors"
+    case remainder = "More processes"
+    case uncertain = "Unresolved / uncertain"
+    case shared = "Shared agent runtimes"
+}
+
+public indirect enum ContributorID: Hashable, Sendable {
+    case section(ContributorSection)
+    case session(provider: String, session: String, root: String?)
+    case provider(parent: ContributorID, name: String)
+    case executable(parent: ContributorID, name: String)
+    case process(parent: ContributorID, identity: ProcessIdentity)
+}
+
+public struct ContributorStats: Equatable, Sendable {
+    public var processes: Set<ProcessIdentity> = []
+    public var current: Set<ProcessIdentity> = []
+    public var workers: Set<ProcessIdentity> = []
+    public var runtimes: Set<ProcessIdentity> = []
+    public var noLongerObserved: Set<ProcessIdentity> = []
+    public var membershipChanged: Set<ProcessIdentity> = []
+    public var filtered: Set<ProcessIdentity> = []
+    public var currentCPU = 0.0
+    public var currentMeasurements = 0
+    public var recentCPU = 0.0
+    public var recentMeasurements = 0
+    public var recoveredCPU = 0.0
+    public var memoryBytes: UInt64 = 0
+    public var missingMemory = 0
+    public var currentAvailable = true
+    public var exclusions = 0
+    public var maximumWorkerFootprint: RecentMemoryReading?
+
+    mutating func merge(_ other: Self) {
+        currentAvailable = currentAvailable && other.currentAvailable
+        processes.formUnion(other.processes)
+        current.formUnion(other.current)
+        workers.formUnion(other.workers)
+        runtimes.formUnion(other.runtimes)
+        noLongerObserved.formUnion(other.noLongerObserved)
+        membershipChanged.formUnion(other.membershipChanged)
+        filtered.formUnion(other.filtered)
+        currentCPU += other.currentCPU
+        currentMeasurements += other.currentMeasurements
+        recentCPU += other.recentCPU
+        recentMeasurements += other.recentMeasurements
+        recoveredCPU += other.recoveredCPU
+        memoryBytes += other.memoryBytes
+        missingMemory += other.missingMemory
+        exclusions += other.exclusions
+        if let reading = other.maximumWorkerFootprint,
+            maximumWorkerFootprint.map({
+                reading.bytes > $0.bytes || (reading.bytes == $0.bytes && reading.scan < $0.scan)
+            }) ?? true
+        {
+            maximumWorkerFootprint = reading
+        }
+    }
+
+    public func cpuText(duration: Double) -> String {
+        currentMeasurements > 0 && duration > 0 ? number(100 * currentCPU / duration) + "%" : "—"
+    }
+    public var memoryText: String {
+        guard currentAvailable else { return "Unavailable" }
+        let known =
+            memoryBytes >= 1_000_000_000
+            ? "\(number(Double(memoryBytes) / 1e9)) GB" : "\(number(Double(memoryBytes) / 1e6)) MB"
+        return (missingMemory > 0 ? "≥ " : "") + known
+    }
+    public var recentCPUText: String { recentMeasurements > 0 ? number(recentCPU) + " s" : "—" }
+    public func summary(duration: Double, cpuLabel: String = "CPU") -> String {
+        "\(cpuLabel) \(cpuText(duration: duration)) · Memory \(memoryText) · Recent CPU \(recentCPUText)"
+    }
+    public var compactCensus: String {
+        guard currentAvailable else { return "Current presence unavailable" }
+        var parts = ["\(current.count) now"]
+        if workers.count > current.count || !noLongerObserved.isEmpty {
+            parts.append("\(workers.count) recent workers")
+        }
+        if !noLongerObserved.isEmpty { parts.append("\(noLongerObserved.count) no longer observed") }
+        if !runtimes.isEmpty { parts.append("\(runtimes.count) agent runtimes") }
+        if !filtered.isEmpty { parts.append("\(filtered.count) filtered") }
+        return parts.joined(separator: " · ")
+    }
+
+    public var census: String {
+        (currentAvailable ? "\(current.count) processes now" : "Processes now unavailable")
+            + " · \(workers.count) recent workers"
+            + (runtimes.isEmpty ? "" : " · \(runtimes.count) agent runtimes") + " · "
+            + (currentAvailable ? "\(noLongerObserved.count) no longer observed" : "presence unavailable")
+    }
+}
+
+public struct ContributorNode: Equatable, Sendable, Identifiable {
+    public let id: ContributorID
+    public var title: String
+    public var stats = ContributorStats()
+    public var children: [ContributorID] = []
+    var labels: [String] = []
+    var evidence: [ContributorEvidence] = []
+    public var details: [String] { labels + evidence.flatMap(\.details) }
+    public var process: ProcessIdentity?
+    public func summary(duration: Double) -> String {
+        func candidate(_ id: ContributorID) -> Bool {
+            switch id {
+            case .session: true
+            case .executable(let parent, _), .process(let parent, _): candidate(parent)
+            case .section, .provider: false
+            }
+        }
+        return stats.summary(duration: duration, cpuLabel: candidate(id) ? "Candidate CPU" : "CPU")
+    }
+}
+
+public struct ContributorRow: Equatable, Sendable, Identifiable {
+    public let node: ContributorNode
+    public let depth: Int
+    public var id: ContributorID { node.id }
+}
+
+/// One immutable-category projection and disclosure policy for native and terminal hosts.
+public struct ContributorOverview: Equatable, Sendable {
+    public private(set) var nodes: [ContributorID: ContributorNode] = [:]
+    public private(set) var main: [ContributorID] = []
+    public private(set) var totals = ContributorStats()
+    public private(set) var duration = 0.0
+    public private(set) var coverage = ""
+    public private(set) var census = ""
+    public private(set) var runID: UUID?
+    private var scope: ProcessScope?
+    public private(set) var selection: ContributorID?
+    public private(set) var open: Set<ContributorID> = []
+    public var showAll = false
+    public var enabled = true
+    public private(set) var pinned: [ContributorID] = []
+    private var cpuRank: [ContributorID] = []
+    private var memoryRank: [ContributorID] = []
+    private var formerlySelected: [ContributorID: Double] = [:]
+    private var latestTime = 0.0
+    private var source: RecentActivitySnapshot?
+    public private(set) var detailOffset = 0
+
+    public init() {}
+    public var sourceDurationLabel: String {
+        guard let source else { return "unavailable" }
+        return "\(number(source.duration)) s" + (source.retentionLimited ? " (retention limit / gap)" : "")
+    }
+
+    public var topLevel: [ContributorID] {
+        let summaries: [ContributorID] = [
+            .section(.recent), .section(.remainder), .section(.uncertain), .section(.shared),
+        ]
+        return pinned + main.filter { !pinned.contains($0) }
+            + summaries.filter {
+                $0 == .section(.uncertain) || !(nodes[$0]?.stats.processes.isEmpty ?? true)
+            }
+    }
+
+    public var visibleRows: [ContributorRow] {
+        var rows: [ContributorRow] = []
+        func visit(_ id: ContributorID, depth: Int) {
+            guard let node = nodes[id] else { return }
+            if node.process != nil && !node.stats.filtered.isEmpty { return }
+            rows.append(ContributorRow(node: node, depth: depth))
+            if open.contains(id) || (showAll && (id == .section(.remainder) || id == .section(.recent))) {
+                for child in node.children where !pinned.contains(child) { visit(child, depth: depth + 1) }
+            }
+        }
+        for id in topLevel { visit(id, depth: 0) }
+        return rows
+    }
+
+    public mutating func resetInspection() {
+        source = nil
+        nodes = [:]
+        totals = ContributorStats()
+        selection = nil
+        open = []
+        detailOffset = 0
+    }
+
+    public mutating func toggle(_ id: ContributorID) {
+        selection = id
+        detailOffset = 0
+        if !open.insert(id).inserted { open.remove(id) }
+    }
+    public mutating func select(_ id: ContributorID) { if nodes[id] != nil { selection = id } }
+    public mutating func scroll(by delta: Int) { detailOffset = max(0, detailOffset + delta) }
+    public mutating func move(by delta: Int) {
+        detailOffset = 0
+        let ids = visibleRows.map(\.id)
+        guard !ids.isEmpty else { return }
+        let index = selection.flatMap { ids.firstIndex(of: $0) } ?? 0
+        selection = ids[min(ids.count - 1, max(0, index + delta))]
+    }
+    public mutating func disclose(_ expanded: Bool) {
+        guard let selection else { return }
+        detailOffset = 0
+        if expanded { open.insert(selection) } else { open.remove(selection) }
+    }
+    public mutating func togglePin() {
+        func session(_ id: ContributorID) -> ContributorID? {
+            switch id {
+            case .session(let provider, let id, let root):
+                return .session(provider: provider, session: root ?? id, root: nil)
+            case .executable(let parent, _), .process(let parent, _): return session(parent)
+            case .provider, .section: return nil
+            }
+        }
+        guard let selection, let id = session(selection) else { return }
+        if let index = pinned.firstIndex(of: id) { pinned.remove(at: index) } else { pinned.append(id) }
+        partition()
+    }
+
+    public mutating func receive(_ snapshot: MonitoringSnapshot) {
+        guard let recent = snapshot.recentActivity else { return }
+        if runID != recent.runID || scope != recent.scope {
+            let enabled = enabled
+            let showAll = showAll
+            let pinned = pinned
+            self = Self()
+            self.enabled = enabled
+            self.showAll = showAll
+            self.pinned = pinned
+            scope = recent.scope
+            runID = recent.runID
+        }
+        latestTime = recent.endedAt
+        let displayBaseline = recent.displayUnits.first?.baselineScan ?? recent.finalScan
+        duration =
+            snapshot.window?.durationSeconds
+            ?? recent.displayUnits.first.map { recent.endedAt - $0.startedAt } ?? 0
+        var entries: [RecentWorkerCategory: ContributorStats] = [:]
+        var metadata: [RecentWorkerCategory: RecentWorkerRecord] = [:]
+        var peaks: [RecentWorkerCategory: RecentMemoryReading] = [:]
+        var first: [RecentWorkerCategory: Double] = [:]
+        var changes: [RecentWorkerCategory: Int] = [:]
+        var evidence: [RecentWorkerCategory: Set<String>] = [:]
+        func remember(_ record: RecentWorkerRecord) {
+            let key = record.category
+            if metadata[key].map({ $0.lastScan < record.lastScan }) ?? true { metadata[key] = record }
+            first[key] = min(first[key] ?? record.firstObservedAt, record.firstObservedAt)
+            if let peak = record.kernelPeak, peaks[key].map({ $0.scan < peak.scan }) ?? true {
+                peaks[key] = peak
+            }
+        }
+        for unit in recent.units {
+            for record in unit.records {
+                let key = record.category
+                remember(record)
+                changes[key, default: 0] += record.executableChangedIntervals
+                evidence[key, default: []].formUnion(record.evidenceKinds.map(\.rawValue))
+                var stats = entries[key] ?? ContributorStats()
+                if stats.processes.isEmpty {
+                    stats.processes.insert(key.process)
+                    if key.isAgentRuntime {
+                        stats.runtimes.insert(key.process)
+                    } else {
+                        stats.workers.insert(key.process)
+                    }
+                }
+                stats.recentCPU += record.cpuSeconds
+                stats.recentMeasurements += record.measuredIntervals
+                stats.exclusions += record.excludedObservations
+                if !key.isAgentRuntime, let reading = record.maximumFootprint,
+                    stats.maximumWorkerFootprint.map({ reading.bytes > $0.bytes }) ?? true
+                {
+                    stats.maximumWorkerFootprint = reading
+                }
+                entries[key] = stats
+            }
+            for crossing in unit.crossings {
+                if crossing.contribution.id.opening.scan.sequence >= recent.baselineScan {
+                    entries[crossing.category, default: ContributorStats()].recentCPU +=
+                        crossing.contribution.cpuSeconds
+                    entries[crossing.category, default: ContributorStats()].recentMeasurements += 1
+                } else {
+                    entries[crossing.category, default: ContributorStats()].recoveredCPU +=
+                        crossing.contribution.cpuSeconds
+                }
+            }
+        }
+        for unit in recent.displayUnits {
+            for record in unit.records {
+                let key = record.category
+                remember(record)
+                entries[key, default: ContributorStats()].processes.insert(key.process)
+                entries[key, default: ContributorStats()].currentCPU += record.cpuSeconds
+                entries[key, default: ContributorStats()].currentMeasurements += record.measuredIntervals
+            }
+            for crossing in unit.crossings
+            where crossing.contribution.id.opening.scan.sequence >= displayBaseline {
+                entries[crossing.category, default: ContributorStats()].currentCPU +=
+                    crossing.contribution.cpuSeconds
+                entries[crossing.category, default: ContributorStats()].currentMeasurements += 1
+            }
+        }
+        let currentCategories = Set(recent.current.map(\.category))
+        for record in recent.current {
+            let key = record.category
+            remember(record)
+            entries[key, default: ContributorStats()].processes.insert(key.process)
+            entries[key, default: ContributorStats()].current.insert(key.process)
+            if let bytes = record.latestFootprint {
+                entries[key, default: ContributorStats()].memoryBytes += bytes
+            } else {
+                entries[key, default: ContributorStats()].missingMemory += 1
+            }
+        }
+        let thresholds = Thresholds(
+            cpuPercent: snapshot.cpuThresholdPercent, memoryBytes: snapshot.memoryThresholdBytes)
+        var perProcess: [ProcessIdentity: ContributorStats] = [:]
+        for (key, entry) in entries { perProcess[key.process, default: ContributorStats()].merge(entry) }
+        var lastFootprints: [ProcessIdentity: RecentWorkerRecord] = [:]
+        for record in metadata.values {
+            if lastFootprints[record.category.process].map({ $0.lastScan < record.lastScan }) ?? true {
+                lastFootprints[record.category.process] = record
+            }
+        }
+        let filtered = Set(
+            perProcess.compactMap { identity, stats -> ProcessIdentity? in
+                let cpu =
+                    stats.currentMeasurements > 0 && duration > 0 ? 100 * stats.currentCPU / duration : nil
+                return thresholds.includes(
+                    cpu: cpu,
+                    footprint: stats.current.isEmpty
+                        ? lastFootprints[identity]?.latestFootprint
+                        : (stats.missingMemory > 0 ? nil : stats.memoryBytes)) ? nil : identity
+            })
+        nodes = [:]
+        totals = ContributorStats()
+        for section in [ContributorSection.recent, .remainder, .uncertain, .shared] {
+            let id = ContributorID.section(section)
+            nodes[id] = ContributorNode(id: id, title: section.rawValue)
+        }
+        var projects: [ContributorID: Set<String>] = [:]
+        var exact: Set<ContributorID> = []
+        for (key, var stats) in entries {
+            stats.currentAvailable = recent.currentContextAvailable
+            if recent.currentContextAvailable {
+                stats.noLongerObserved = stats.workers.subtracting(recent.present)
+                if recent.present.contains(key.process) && !currentCategories.contains(key) {
+                    stats.membershipChanged.insert(key.process)
+                }
+            }
+            if filtered.contains(key.process) { stats.filtered.insert(key.process) }
+            totals.merge(stats)
+            let path = path(for: key)
+            if case .session = path[0].0 { exact.insert(path[0].0) }
+            for (index, item) in path.enumerated() {
+                let (id, title) = item
+                if nodes[id] == nil { nodes[id] = ContributorNode(id: id, title: title) }
+                nodes[id]?.stats.merge(stats)
+                if case .session = id, !key.isAgentRuntime, let cwd = metadata[key]?.cwd {
+                    projects[id, default: []].insert(URL(fileURLWithPath: cwd).lastPathComponent)
+                }
+                if index + 1 < path.count, !(nodes[id]?.children.contains(path[index + 1].0) ?? false) {
+                    nodes[id]?.children.append(path[index + 1].0)
+                }
+            }
+            let leaf = path.last!.0
+            nodes[leaf]?.process = key.process
+            if let record = metadata[key] {
+                nodes[leaf]?.evidence.append(
+                    ContributorEvidence(
+                        record: record, stats: stats,
+                        first: first[key], peak: peaks[key], currentAvailable: recent.currentContextAvailable,
+                        present: recent.present.contains(key.process), changes: changes[key] ?? 0,
+                        evidence: evidence[key] ?? []))
+            }
+        }
+        for (id, projects) in projects {
+            if case .session(let provider, let session, _) = id {
+                nodes[id]?.title =
+                    "\(projects.sorted().joined(separator: ", ")) · \(provider)/\(session.prefix(8))"
+                nodes[id]?.labels = ["Exact session: \(provider)/\(session)"]
+            }
+        }
+        for id in Array(nodes.keys) { nodes[id]?.children.sort { identity($0) < identity($1) } }
+        for id in exact {
+            if let child = nodes[id]?.children, child.count == 1, case .session = child[0],
+                let nested = nodes[child[0]]
+            {
+                nodes[id]?.children = nested.children
+            }
+        }
+        let eligible = exact.filter { !(nodes[$0]?.stats.processes.subtracting(filtered).isEmpty ?? true) }
+        cpuRank = rank(cpuRank, candidates: eligible, floor: 1) {
+            guard duration > 0, let stats = nodes[$0]?.stats, stats.currentMeasurements > 0 else {
+                return nil
+            }
+            return 100 * stats.currentCPU / duration
+        }
+        memoryRank = rank(memoryRank, candidates: eligible, floor: 100_000_000) {
+            nodes[$0].map { Double($0.stats.memoryBytes) }
+        }
+        let selected = Set(cpuRank + memoryRank)
+        let previous = main
+        for id in previous where !selected.contains(id) { formerlySelected[id] = latestTime }
+        formerlySelected = formerlySelected.filter { latestTime - $0.value <= 60 && nodes[$0.key] != nil }
+        main = previous.filter { selected.contains($0) }
+        main += selected.subtracting(main).sorted { identity($0) < identity($1) }
+        partition()
+        for id in pinned where nodes[id] == nil {
+            nodes[id] = ContributorNode(id: id, title: "Pinned · outside retained range")
+        }
+        open.formIntersection(nodes.keys)
+        if !visibleRows.contains(where: { $0.id == selection }) { selection = visibleRows.first?.id }
+        if !recent.currentContextAvailable {
+            totals.currentAvailable = false
+            for id in nodes.keys { nodes[id]?.stats.currentAvailable = false }
+        }
+        let observed = Set(snapshot.observedFindings.map(\.process))
+        let historical = snapshot.observedFindings.filter(\.isHistorical).count
+        census =
+            "\(observed.count) observed \(recent.scope == .allProcesses ? "same-user" : "agent-associated") processes in this window, including \(historical) no longer observed"
+        source = recent
+        coverage =
+            "Recent \(number(recent.duration)) s"
+            + (recent.retentionLimited ? " (retention limit / gap)" : "")
+            + " · \(recent.units.reduce(0) { $0 + $1.unreadableObservationCount }) unreadable observations"
+            + " · \(totals.exclusions) excluded readings · \(number(totals.recoveredCPU)) s older-opening recovery"
+            + (recent.currentContextAvailable ? "" : " · current presence unavailable")
+            + " · run \(recent.runID.uuidString.prefix(6))"
+    }
+
+    private mutating func partition() {
+        for section in [ContributorSection.recent, .remainder] {
+            nodes[.section(section)]?.stats = ContributorStats()
+            nodes[.section(section)]?.children = []
+        }
+        for (id, node) in nodes {
+            guard case .session(_, _, nil) = id, !main.contains(id), !pinned.contains(id) else { continue }
+            let section: ContributorSection =
+                node.stats.recentCPU >= 0.5
+                    || (node.stats.maximumWorkerFootprint?.bytes ?? 0) >= 100_000_000
+                    || formerlySelected[id] != nil ? .recent : .remainder
+            nodes[.section(section)]?.children.append(id)
+            nodes[.section(section)]?.stats.merge(node.stats)
+        }
+        for section in [ContributorSection.recent, .remainder] {
+            nodes[.section(section)]?.children.sort { identity($0) < identity($1) }
+        }
+    }
+
+    private func rank(
+        _ previous: [ContributorID], candidates: Set<ContributorID>, floor: Double,
+        metric: (ContributorID) -> Double?
+    ) -> [ContributorID] {
+        let values = Dictionary(
+            uniqueKeysWithValues: candidates.compactMap { id -> (ContributorID, Double)? in
+                guard let value = metric(id), value >= floor else { return nil }
+                return (id, value)
+            })
+        var result = previous.filter { values[$0] != nil }
+        let challengers = values.keys.sorted {
+            values[$0] == values[$1] ? identity($0) < identity($1) : values[$0]! > values[$1]!
+        }
+        for id in challengers where !result.contains(id) {
+            if result.count < 5 {
+                result.append(id)
+            } else if let weakest = result.min(by: {
+                values[$0] == values[$1] ? identity($0) > identity($1) : values[$0]! < values[$1]!
+            }), values[id]! > 1.2 * values[weakest]! {
+                result[result.firstIndex(of: weakest)!] = id
+            }
+        }
+        return result
+    }
+
+    private func path(for key: RecentWorkerCategory) -> [(ContributorID, String)] {
+        let owner = key.owner
+        let provider = owner.provider?.rawValue ?? "unknown provider"
+        var result: [(ContributorID, String)] = []
+        if let session = owner.sessionID, owner.resolution == .candidate {
+            let top = ContributorID.session(
+                provider: provider, session: owner.rootSessionID ?? session, root: nil)
+            result.append((top, "\(provider) · \(owner.rootSessionID ?? session)"))
+            if let root = owner.rootSessionID {
+                result.append(
+                    (.session(provider: provider, session: session, root: root), "Thread · \(session)"))
+            }
+        } else {
+            let section = ContributorID.section(owner.resolution == .shared ? .shared : .uncertain)
+            result.append(
+                (section, owner.resolution == .shared ? "Shared agent runtimes" : "Unresolved / uncertain"))
+            result.append(
+                (
+                    .provider(parent: section, name: provider + "/" + owner.resolution.rawValue),
+                    "\(provider) · \(owner.resolution.rawValue)"
+                ))
+        }
+        let family = ContributorID.executable(parent: result.last!.0, name: key.executableName)
+        result.append((family, "executable \(key.executableName)"))
+        result.append(
+            (
+                .process(parent: family, identity: key.process),
+                "\(key.executableName) · PID \(key.process.pid)"
+            ))
+        return result
+    }
+
+}
+
+struct ContributorEvidence: Equatable, Sendable {
+    let record: RecentWorkerRecord
+    let stats: ContributorStats
+    let first: Double?
+    let peak: RecentMemoryReading?
+    let currentAvailable: Bool
+    let present: Bool
+    let changes: Int
+    let evidence: Set<String>
+
+    var details: [String] {
+        let key = record.category
+        let state =
+            currentAvailable
+            ? (present
+                ? (stats.current.isEmpty
+                    ? "Observed elsewhere; membership changed" : "Observed in final scan")
+                : "No longer observed; exit unconfirmed")
+            : "Final-scan presence unavailable"
+        var result = [
+            state, "Lifetime: PID \(key.process.pid), start µs \(key.process.startMicroseconds)",
+            "\(key.isAgentRuntime ? "Adapter-recognised agent runtime" : "Worker") · \(key.executable)",
+            "First/last observed: \(number(first ?? record.firstObservedAt))–\(number(record.lastObservedAt)) monotonic s",
+            "Ownership: \(key.owner.resolution.rawValue); \(evidence.sorted().joined(separator: ", "))",
+            "Frozen root: \(key.owner.rootSessionID ?? "not corroborated") · \(stats.membershipChanged.count) changed memberships",
+            "\(stats.recentMeasurements) accepted intervals · \(stats.exclusions) excluded readings",
+        ]
+        if let maximum = stats.maximumWorkerFootprint {
+            result.append(
+                "Largest sampled worker footprint: \(number(Double(maximum.bytes) / 1e6)) MB at \(number(maximum.observedAt)) s, scan \(maximum.scan), \(maximum.evidence.rawValue)"
+            )
+        }
+        if let peak {
+            result.append(
+                "Last observed kernel task peak: \(number(Double(peak.bytes) / 1e6)) MB at \(number(peak.observedAt)) s, scan \(peak.scan), \(peak.evidence.rawValue)\(record.kernelPeakUnavailable ? "; later reading unavailable" : "")"
+            )
+            result.append("Kernel peak time/exec epoch unverified; may predate this range and reset on exec")
+        }
+        if !key.owner.candidates.isEmpty {
+            result.append("Conflicting candidates: " + key.owner.candidates.joined(separator: ", "))
+        }
+        if changes > 0 {
+            result.append("Executable changed across interval (\(changes)); exec time unverified")
+        }
+        if let cwd = record.cwd { result.append("Directory: " + cwd) }
+        if let command = record.command { result.append("Command: " + command.joined(separator: " ")) }
+        return result
+    }
+}
+
+private func number(_ value: Double) -> String { String(format: "%.1f", value) }
+private func identity(_ id: ContributorID) -> String {
+    func field(_ value: String) -> String { "\(value.utf8.count):" + value }
+    switch id {
+    case .section(let section): return "s" + section.rawValue
+    case .session(let provider, let session, let root):
+        return "g" + field(provider) + field(session) + field(root ?? "")
+    case .provider(let parent, let name): return identity(parent) + "p" + field(name)
+    case .executable(let parent, let name): return identity(parent) + "e" + field(name)
+    case .process(let parent, let process):
+        return identity(parent) + "i\(process.pid):\(process.startMicroseconds)"
+    }
+}

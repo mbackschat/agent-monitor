@@ -1,5 +1,7 @@
 /// Browsing controls shared by native and terminal hosts; text entry and action confirmation stay local.
 public enum ReportShortcut: String, CaseIterable, Sendable {
+    case overview = "v"
+    case allContributors = "a"
     case pause = "p"
     case pin = "."
     case stable = "o"
@@ -22,14 +24,26 @@ extension LiveReportState {
     public mutating func apply(_ shortcut: ReportShortcut) {
         guard actionPanel == nil else { return }
         switch shortcut {
+        case .overview: overview.enabled.toggle()
+        case .allContributors: overview.showAll.toggle()
         case .pause: toggleFreeze()
         case .pin: toggleSelectedPin()
-        case .stable: sort(by: .stable)
-        case .cpu: sort(by: .cpu)
-        case .memory: sort(by: .memory)
-        case .pid: sort(by: .pid)
+        case .stable:
+            overview.enabled = false
+            sort(by: .stable)
+        case .cpu:
+            overview.enabled = false
+            sort(by: .cpu)
+        case .memory:
+            overview.enabled = false
+            sort(by: .memory)
+        case .pid:
+            overview.enabled = false
+            sort(by: .pid)
         case .reverse: reverseSort()
-        case .grouping: toggleGrouping()
+        case .grouping:
+            overview.enabled = false
+            toggleGrouping()
         case .cpuDown: adjustThreshold(.cpuDown)
         case .cpuUp: adjustThreshold(.cpuUp)
         case .memoryDown: adjustThreshold(.memoryDown)

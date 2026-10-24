@@ -55,10 +55,12 @@ struct MenuBarView: View {
             }
             .padding(.vertical, 16).padding(.trailing, 16).padding(.leading, 32)
             if !model.diagnosis.state.isVisible {
-                Text(DiagnosisViewState.purpose)
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal).padding(.bottom, 6)
+                if !model.report.showsOverview {
+                    Text(DiagnosisViewState.purpose)
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal).padding(.bottom, 6)
+                }
                 Text(CPUContext.text(model.report.snapshot?.cpuAccounting))
                     .font(.caption).foregroundStyle(.secondary).monospacedDigit()
                     .fixedSize(horizontal: false, vertical: true)
@@ -82,6 +84,9 @@ struct MenuBarView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .scrollBounceBehavior(.basedOnSize)
+                .onChange(of: model.report.overview.selection) { _, row in
+                    if model.report.showsOverview, let row { proxy.scrollTo(row, anchor: .center) }
+                }
                 .onChange(of: focusedRow) { _, row in
                     if let row { proxy.scrollTo(row, anchor: .center) }
                 }
@@ -122,6 +127,10 @@ struct MenuBarView: View {
             focus = .row(row)
         }
         .onKeyPress(keys: [.leftArrow, .rightArrow], phases: .down) { key in
+            if model.report.showsOverview {
+                model.report.overview.disclose(key.key == .rightArrow)
+                return .handled
+            }
             guard model.isOpen, !model.diagnosis.state.isVisible, model.report.actionPanel == nil,
                 focus != nil, MenuBarKeyboard.isBulkDisclosure(modifiers: key.modifiers),
                 model.report.setSessionDisclosure(
@@ -132,8 +141,20 @@ struct MenuBarView: View {
             }
             return .handled
         }
-        .onKeyPress(.downArrow) { moveFocus(by: 1) }
-        .onKeyPress(.upArrow) { moveFocus(by: -1) }
+        .onKeyPress(.downArrow) {
+            if model.report.showsOverview {
+                model.report.overview.move(by: 1)
+                return .handled
+            }
+            return moveFocus(by: 1)
+        }
+        .onKeyPress(.upArrow) {
+            if model.report.showsOverview {
+                model.report.overview.move(by: -1)
+                return .handled
+            }
+            return moveFocus(by: -1)
+        }
         .onKeyPress(keys: MenuBarKeyboard.keys, phases: .down) { key in
             guard !model.diagnosis.state.isVisible, model.report.actionPanel == nil,
                 MenuBarKeyboard.accepts(key.characters, modifiers: key.modifiers)
@@ -161,7 +182,7 @@ struct MenuBarView: View {
         let pinned = projection.pinnedRows
         let unpinned = projection.unpinnedRows
         let sessions = model.rowIndex.sessions
-        return VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: model.report.showsOverview ? 8 : 12) {
             if let saved = model.savedMessage {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Unsent message to \(saved.process.name)").font(.subheadline.bold())
@@ -184,16 +205,26 @@ struct MenuBarView: View {
                 Divider()
             }
             HStack {
-                Text(model.observedProcessCount.map { "Observed processes · \($0)" } ?? "Observed processes")
-                    .font(.subheadline.bold())
+                Text(
+                    model.report.showsOverview
+                        ? "Main contributors"
+                        : (model.observedProcessCount.map { "Observed processes · \($0)" }
+                            ?? "Observed processes")
+                )
+                .font(.subheadline.bold())
                 Spacer()
+                if model.report.showsOverview {
+                    Button(model.report.overview.showAll ? "Compact" : "Show all") {
+                        model.report.overview.showAll.toggle()
+                    }.controlSize(.small)
+                }
                 MenuBarViewOptions(model: model)
             }
             Text(
-                "\(model.report.sortDescription) · \(ThresholdContext.text(model.report.thresholds)) · \(resource(model.report.interval, unit: " s")) acquisition · 1 s display"
+                "\(model.report.showsOverview ? "" : model.report.sortDescription + " · ")\(model.report.showsOverview && model.report.thresholds.isUnfiltered ? "Resource filters off" : ThresholdContext.text(model.report.thresholds)) · \(resource(model.report.interval, unit: " s")) acquisition · 1 s display"
             )
             .font(.caption).foregroundStyle(.secondary)
-            if let window = model.report.snapshot?.window {
+            if !model.report.showsOverview, let window = model.report.snapshot?.window {
                 Text(AccountingContext.window(window)).font(.caption2).foregroundStyle(.secondary)
             }
             if let error = model.error, model.report.snapshot != nil {
@@ -216,6 +247,8 @@ struct MenuBarView: View {
                         ProgressView().controlSize(.small)
                         Text("Measuring activity…").foregroundStyle(.secondary)
                     }.frame(maxWidth: .infinity).padding(.vertical, 20)
+                } else if model.report.showsOverview {
+                    MenuBarContributorOverview(model: model)
                 } else if pinned.isEmpty && unpinned.isEmpty {
                     ContentUnavailableView(
                         "No matching agent processes", systemImage: "checkmark.circle",

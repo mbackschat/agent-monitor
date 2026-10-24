@@ -65,36 +65,20 @@ public struct SessionGroup: Equatable, Sendable {
 }
 
 public enum SessionGrouping {
-    private struct RootEvidence: Hashable {
-        let provider: String
-        let id: String
-        let runtime: ProcessIdentity
-    }
-
     public static func groups(_ findings: [HeavyProcess]) -> [SessionGroup] {
         var seen: Set<ProcessIdentity> = []
         let rows = findings.filter { seen.insert($0.process).inserted }
-        let roots = Set(
-            rows.compactMap { row -> RootEvidence? in
-                let owner = row.attribution
-                guard isExact(owner), let provider = owner.provider, let thread = owner.threadID,
-                    owner.rootSessionID == thread, let runtime = owner.runtime,
-                    owner.context != .unverified
-                else { return nil }
-                return RootEvidence(provider: provider.rawValue, id: thread, runtime: runtime)
-            })
+        let roots = SessionCorroboration(rows)
         var order: [SessionGroupID] = []
         var members: [SessionGroupID: [HeavyProcess]] = [:]
         var rootGroups: Set<SessionGroupID> = []
         for row in rows {
             let owner = row.attribution
             let key: SessionGroupID
-            if isExact(owner), let provider = owner.provider, let thread = owner.threadID {
+            if SessionCorroboration.isExact(owner), let provider = owner.provider, let thread = owner.threadID
+            {
                 var target = thread
-                if let root = owner.rootSessionID, let runtime = owner.runtime,
-                    owner.context != .unverified,
-                    roots.contains(RootEvidence(provider: provider.rawValue, id: root, runtime: runtime))
-                {
+                if let root = roots.root(for: owner) {
                     target = root
                     rootGroups.insert(.session(provider: provider.rawValue, id: root))
                 }
@@ -118,12 +102,6 @@ public enum SessionGrouping {
         }
     }
 
-    private static func isExact(_ owner: Attribution) -> Bool {
-        switch owner.evidence {
-        case .marker, .inheritedMarker, .writerLock, .sessionRegistry: true
-        case .unknown, .ambiguous, .runtimeOnly: false
-        }
-    }
 }
 
 public enum LiveReportRowID: Hashable, Sendable {

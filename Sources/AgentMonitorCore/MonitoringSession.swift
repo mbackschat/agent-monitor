@@ -162,12 +162,14 @@ public struct MonitoringSnapshot: Equatable, Sendable {
     public let observedFindings: [HeavyProcess]
     public let agentLoad: AgentLoadSummary?
     public let window: ReportWindowSummary?
+    public let recentActivity: RecentActivitySnapshot?
 
     public init(
         cpuAccounting: CPUAccounting, timestamp: Date, intervalSeconds: Double, cpuThresholdPercent: Double,
         memoryThresholdBytes: UInt64, sampledProcessCount: Int, unreadableProcessCount: Int,
         findings: [HeavyProcess], agentLoad: AgentLoadSummary? = nil,
-        observedFindings: [HeavyProcess]? = nil, window: ReportWindowSummary? = nil
+        observedFindings: [HeavyProcess]? = nil, window: ReportWindowSummary? = nil,
+        recentActivity: RecentActivitySnapshot? = nil
     ) {
         self.cpuAccounting = cpuAccounting
         self.timestamp = timestamp
@@ -180,6 +182,7 @@ public struct MonitoringSnapshot: Equatable, Sendable {
         self.observedFindings = observedFindings ?? findings
         self.agentLoad = agentLoad
         self.window = window
+        self.recentActivity = recentActivity
     }
 }
 
@@ -189,26 +192,30 @@ public struct MonitoringSession: Sendable {
     private let clock: any SamplingClock
     private let registry: any SessionRegistryReading
     private let excluded: Set<Int32>
+    private let recentActivity: RecentActivityStore?
 
     public init(
         configuration: MonitoringConfiguration, reader: any ProcessReading,
-        clock: any SamplingClock = ContinuousSamplingClock(), excluding: Set<Int32> = []
+        clock: any SamplingClock = ContinuousSamplingClock(), excluding: Set<Int32> = [],
+        recentActivity: RecentActivityStore? = nil
     ) {
         self.init(
             configuration: configuration, reader: reader, clock: clock,
             registry: CommandSessionRegistryReader(),
-            excluding: excluding)
+            excluding: excluding, recentActivity: recentActivity)
     }
 
     package init(
         configuration: MonitoringConfiguration, reader: any ProcessReading, clock: any SamplingClock,
-        registry: any SessionRegistryReading, excluding: Set<Int32> = []
+        registry: any SessionRegistryReading, excluding: Set<Int32> = [],
+        recentActivity: RecentActivityStore? = nil
     ) {
         self.configuration = configuration
         self.reader = reader
         self.clock = clock
         self.registry = registry
         self.excluded = excluding
+        self.recentActivity = recentActivity
     }
 
     public var initialThresholds: Thresholds { configuration.thresholds }
@@ -221,7 +228,8 @@ public struct MonitoringSession: Sendable {
         _ receive: @Sendable (MonitoringSnapshot) async throws -> Void
     ) async throws {
         try await IndependentMonitoringPipeline(
-            configuration: configuration, reader: reader, clock: clock, registry: registry, excluded: excluded
+            configuration: configuration, reader: reader, clock: clock, registry: registry,
+            excluded: excluded, recentActivity: recentActivity
         ).run(thresholds: currentThresholds, interval: live, receive)
     }
 }

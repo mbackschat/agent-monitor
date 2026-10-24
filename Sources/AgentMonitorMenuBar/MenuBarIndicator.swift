@@ -10,6 +10,7 @@ struct MenuBarIndicator {
     private var cpuAccounting: CPUAccounting?
     private var sampledAt: Date?
     private var unreadableCount = 0
+    private var historicalCount = 0
     private var thresholds = Thresholds()
     private var paused = false
     private(set) var availability = Availability.waiting
@@ -39,6 +40,7 @@ struct MenuBarIndicator {
         self.paused = paused
         sampledAt = snapshot.timestamp
         unreadableCount = snapshot.unreadableProcessCount
+        historicalCount = snapshot.observedFindings.filter(\.isHistorical).count
         availability = .current
     }
 
@@ -62,7 +64,7 @@ struct MenuBarIndicator {
         let memory = (Double(load.footprintBytes) / 1e9).formatted(.number.precision(.fractionLength(1)))
         let partial = load.missingCPUCount > 0 || load.missingFootprintCount > 0
         return [
-            "Agent Monitor — \(load.processCount) observed agent processes",
+            "Agent Monitor — \(load.processCount) observed agent-associated processes in this window, including \(historicalCount) no longer observed",
             paused ? "Paused — matching the displayed table" : nil,
             "Observed agents: CPU \(load.missingCPUCount > 0 ? "≥ " : "")\(cpu)% (100% = one core)",
             CPUContext.text(cpuAccounting),

@@ -54,7 +54,8 @@ struct AgentMonitorCommand: AsyncParsableCommand {
             scope: options.allProcesses ? .allProcesses : .agentsOnly, collectAgentLoad: options.tui,
             reportIntervalSeconds: 1)
         let session = MonitoringSession(
-            configuration: configuration, reader: try NativeProcessReader(), excluding: [getpid()])
+            configuration: configuration, reader: try NativeProcessReader(), excluding: [getpid()],
+            recentActivity: options.tui ? RecentActivityStore() : nil)
         if options.tui {
             try await TerminalReport.run(
                 session: session, grouping: options.grouping, color: !options.noColor)

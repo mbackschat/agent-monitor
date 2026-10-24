@@ -451,3 +451,49 @@ private func dividerRow(_ text: String) -> Int? {
     try writeAllBytes(Array("q".utf8), to: terminal.master)
     try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
 }
+
+@Test func terminalOverviewDisclosesRecentWorkersAndSwitchesToProcessInspection() async throws {
+    let binary =
+        ProcessInfo.processInfo.environment["AGENT_MONITOR_TUI_FIXTURE"]
+        ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().appendingPathComponent(".build/debug/monitor-tui-fixture").path
+    let terminal = try RealTerminalPTYPair.open(size: .init(width: 120, height: 32), stallBudget: nil)
+    defer { terminal.close() }
+    var original = termios()
+    try #require(tcgetattr(terminal.slave, &original) == 0)
+    let pid = try launch(
+        binary, terminal: terminal.slave, environment: ["AGENT_MONITOR_OVERVIEW_FIXTURE": "1"])
+    var reaped = false
+    defer {
+        if !reaped {
+            kill(pid, SIGKILL)
+            waitpid(pid, nil, 0)
+        }
+    }
+    var screen = ANSIVisibleScreen(size: .init(width: 120, height: 32))
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(10)
+    ) {
+        $0.contains("Main contributors") && $0.contains("overview-project")
+    }
+    try writeAllBytes(Array("\u{1b}[C\u{1b}[B\u{1b}[C\u{1b}[B\u{1b}[C".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("Lifetime: PID 42") && $0.contains("/fixture/node")
+    }
+    try writeAllBytes(Array("p".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("PAUSED") && $0.contains("Lifetime: PID 42")
+    }
+    try writeAllBytes(Array("\r".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("PID 42 |") && !$0.contains("Main contributors")
+    }
+    try writeAllBytes(Array("q".utf8), to: terminal.master)
+    try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
+}

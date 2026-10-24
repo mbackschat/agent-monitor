@@ -33,6 +33,9 @@ public struct LiveReportState: Equatable, Sendable {
     }
     mutating func setActionNotice(_ text: String) { notice = text }
 
+    public var overview = ContributorOverview()
+    public var showsOverview: Bool { overview.enabled && snapshot?.recentActivity != nil }
+
     public var historyMetric: HistoryMetric = .cpu
     public var historyWindow: HistoryWindow = .tenMinutes
     private var collectedHistory = ReportHistory()
@@ -83,6 +86,16 @@ public struct LiveReportState: Equatable, Sendable {
         self.grouping = grouping
         self.thresholds = thresholds
         self.interval = interval
+    }
+
+    public mutating func inspectOverviewProcess() {
+        guard let id = overview.selection, let identity = overview.nodes[id]?.process,
+            snapshot?.findings.contains(where: { $0.process == identity && !$0.isHistorical }) == true
+        else { return }
+        overview.enabled = false
+        if grouping == .session { toggleGrouping() }
+        select(.process(identity))
+        setDisclosure(expanded: true)
     }
 
     public mutating func adjustInterval(_ adjustment: IntervalAdjustment) {
@@ -186,11 +199,17 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func toggleSelectedPin() {
+        if showsOverview {
+            overview.togglePin()
+            return
+        }
         if let selection { togglePin(selection) }
     }
 
     public mutating func resetCollection() {
         var fresh = LiveReportState(grouping: grouping, thresholds: thresholds, interval: interval)
+        fresh.overview = overview
+        fresh.overview.resetInspection()
         fresh.collectedHistory = collectedHistory
         fresh.historyMetric = historyMetric
         fresh.historyWindow = historyWindow
@@ -231,11 +250,20 @@ public struct LiveReportState: Equatable, Sendable {
 
     public mutating func receive(_ snapshot: MonitoringSnapshot) {
         recordHistory(snapshot)
+        if frozen, let previous = self.snapshot?.recentActivity,
+            let next = snapshot.recentActivity,
+            previous.runID != next.runID || previous.scope != next.scope
+        {
+            frozen = false
+            heldSnapshot = nil
+            pausedHistory = nil
+        }
         guard !frozen else {
             heldSnapshot = snapshot
             return
         }
         self.snapshot = snapshot
+        overview.receive(snapshot)
         if sortKey == .stable { rememberOrder() }
         updates += 1
         if let selected, !snapshot.findings.contains(where: { $0.process == selected }) {
@@ -294,6 +322,10 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func moveSelection(by delta: Int) {
+        if showsOverview {
+            overview.move(by: delta)
+            return
+        }
         let ordered = visibleRows
         guard !ordered.isEmpty else { return }
         let index = ordered.firstIndex { $0.id == selection } ?? 0
@@ -310,6 +342,10 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func setDisclosure(expanded: Bool) {
+        if showsOverview {
+            overview.disclose(expanded)
+            return
+        }
         returningDetails = nil
         let isExpanded: Bool
         if let group = selectedGroup {

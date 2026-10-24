@@ -33,7 +33,7 @@ enum MenuBarOption: Equatable {
     case interval(Double)
     case historyMetric(HistoryMetric)
     case historyWindow(HistoryWindow)
-    case liveIcon, keyboardHelp
+    case liveIcon, keyboardHelp, overview, allContributors
 }
 
 @MainActor final class MenuBarOptionsController: NSObject, NSMenuDelegate {
@@ -110,10 +110,15 @@ enum MenuBarOption: Equatable {
         case .submenu: break
         }
         menu.addItem(.sectionHeader(title: "Show"))
+        add("Main contributors", .overview, checked: model.report.overview.enabled, to: menu)
+        add("Show all contributors", .allContributors, checked: model.report.overview.showAll, to: menu)
         add(
-            "Group by agent session", .grouping(.session), checked: model.report.grouping == .session,
+            "Group by agent session", .grouping(.session),
+            checked: !model.report.overview.enabled && model.report.grouping == .session,
             to: menu)
-        add("Processes", .grouping(.none), checked: model.report.grouping == .none, to: menu)
+        add(
+            "Processes", .grouping(.none),
+            checked: !model.report.overview.enabled && model.report.grouping == .none, to: menu)
         menu.addItem(.separator())
         menu.addItem(.sectionHeader(title: "Sort by"))
         for sort in ReportSort.allCases {
@@ -172,9 +177,15 @@ enum MenuBarOption: Equatable {
     @objc private func choose(_ item: NSMenuItem) {
         guard let option = item.representedObject as? MenuBarOption else { return }
         switch option {
+        case .overview: model.report.overview.enabled = true
+        case .allContributors:
+            model.report.overview.enabled = true
+            model.report.overview.showAll.toggle()
         case .grouping(let grouping):
+            model.report.overview.enabled = false
             if model.report.grouping != grouping { model.report.toggleGrouping() }
         case .sort(let sort):
+            model.report.overview.enabled = false
             if model.report.sortKey != sort { model.report.sort(by: sort) }
         case .ascending: model.report.reverseSort()
         case .cpu(let value):

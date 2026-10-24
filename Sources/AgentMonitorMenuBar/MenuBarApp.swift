@@ -51,11 +51,11 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
         let description: String
         if model.liveIcon {
             button.image = MenuBarStatusImage.make(
-                level: model.indicator.level, processCount: model.indicator.processCount)
+                level: model.indicator.level)
             button.contentTintColor = nil
             description = model.indicator.statusDescription
         } else {
-            button.image = MenuBarStatusImage.make(level: nil, processCount: nil)
+            button.image = MenuBarStatusImage.make(level: nil)
             button.contentTintColor = nil
             description = "Agent Monitor — static icon; updates only while open"
         }

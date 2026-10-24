@@ -47,6 +47,10 @@ extension MenuBarModel {
                 guard report.snapshot != nil else { return false }
                 toggleFreeze()
             case .pin:
+                if report.showsOverview {
+                    report.overview.togglePin()
+                    return true
+                }
                 guard let row else { return false }
                 return togglePin(row)
             default:
@@ -56,7 +60,7 @@ extension MenuBarModel {
             }
             return true
         }
-        guard let row else { return false }
+        guard !report.showsOverview, let row else { return false }
         let kind: ProcessActionKind
         switch key {
         case "y": return copyPID(row: row, using: writeClipboard)

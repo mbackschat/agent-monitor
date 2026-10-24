@@ -82,7 +82,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
 @Test @MainActor func loadIconsKeepSizeAndIncreaseFilledAreaAtActualResolution() throws {
     var areas: [Int] = []
     for level in 0...3 {
-        let image = MenuBarStatusImage.make(level: level, processCount: nil)
+        let image = MenuBarStatusImage.make(level: level)
         #expect(image.size == NSSize(width: 18, height: 18))
         #expect(image.isTemplate)
         let bitmap = try #require(
@@ -116,36 +116,17 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(indicator.statusDescription.contains("50"))
 }
 
-@Test @MainActor func numericBadgeOverlaysTheCornerWithoutWideningTheIcon() throws {
-    let startup = try iconBitmap(MenuBarStatusImage.make(level: nil, processCount: nil))
-    let quiet = try iconBitmap(MenuBarStatusImage.make(level: 0, processCount: nil))
+@Test @MainActor func statusBarsKeepTheTemplateSizeAndNeutralStartup() throws {
+    let startup = try iconBitmap(MenuBarStatusImage.make(level: nil))
+    let quiet = try iconBitmap(MenuBarStatusImage.make(level: 0))
     #expect(
         startup.representation(using: .png, properties: [:])
             == quiet.representation(using: .png, properties: [:]))
-    let normal = try iconBitmap(MenuBarStatusImage.make(level: 3, processCount: nil))
-    for count in [0, 1, 12, 99, 100, 1234] {
-        let image = MenuBarStatusImage.make(level: 3, processCount: count)
+    for level in 0...3 {
+        let image = MenuBarStatusImage.make(level: level)
         #expect(image.isTemplate)
         #expect(image.size == NSSize(width: 18, height: 18))
-        let bitmap = try iconBitmap(image)
-        for x in 0..<18 {
-            #expect((bitmap.colorAt(x: x, y: 10)?.alphaComponent ?? 0) < 0.1)
-        }
-        for y in 12..<18 {
-            for x in 0..<18 {
-                #expect(bitmap.colorAt(x: x, y: y) == normal.colorAt(x: x, y: y))
-            }
-        }
     }
-    let one = try iconBitmap(MenuBarStatusImage.make(level: 1, processCount: 1))
-    let two = try iconBitmap(MenuBarStatusImage.make(level: 1, processCount: 2))
-    #expect(
-        one.representation(using: .png, properties: [:]) != two.representation(using: .png, properties: [:]))
-    let hundred = try iconBitmap(MenuBarStatusImage.make(level: 1, processCount: 100))
-    let thousand = try iconBitmap(MenuBarStatusImage.make(level: 1, processCount: 1000))
-    #expect(
-        hundred.representation(using: .png, properties: [:])
-            == thousand.representation(using: .png, properties: [:]))
 }
 
 @MainActor private func iconBitmap(_ image: NSImage) throws -> NSBitmapImageRep {
@@ -259,7 +240,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     await model.stop()
 }
 
-@Test func tableFindingsDriveBarsAndBadgeEvenWithoutAHistorySummary() throws {
+@Test func tableFindingsDriveBarsAndQualifiedCensusEvenWithoutAHistorySummary() throws {
     var indicator = MenuBarIndicator(processorCount: 8)
     indicator.receive(try loadSample(400))
     #expect(indicator.processCount == 1)
@@ -276,7 +257,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
             agentLoad: AgentLoadSummary(processes: (try loadSample(2000)).findings)))
     #expect(indicator.processCount == 2)
     #expect(indicator.level == 1)
-    #expect(indicator.statusDescription.contains("2 observed agent processes"))
+    #expect(indicator.statusDescription.contains("2 observed agent-associated processes in this window"))
     #expect(!indicator.statusDescription.contains("CPU > 25%"))
     indicator.receive(try loadSample(0, time: 3))
     #expect(indicator.availability == .current)
@@ -354,4 +335,9 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
             $0.hasPrefix("Observed agents: CPU ") && $0.hasSuffix("% (100% = one core)")
         })
     #expect(indicator.statusLines.filter { $0.hasPrefix("CPU") } == [CPUContext.text(snapshot.cpuAccounting)])
+}
+
+@Test @MainActor func statusBarsUseTheFullIconHeight() throws {
+    let bitmap = try iconBitmap(MenuBarStatusImage.make(level: 3))
+    #expect((bitmap.colorAt(x: 15, y: 3)?.alphaComponent ?? 0) > 0.5)
 }

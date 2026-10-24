@@ -230,6 +230,7 @@ public struct ActionPanel: Equatable, Sendable {
 
 extension LiveReportState {
     public mutating func beginAction(_ kind: ProcessActionKind) -> ActionEffect? {
+        guard !showsOverview else { return nil }
         guard actionPanel == nil else { return nil }
         if visibleRows.contains(where: {
             if case .unavailable(let pin) = $0 { return pin.id == selection }

@@ -11,4 +11,5 @@ The table is generated from each record's `Status:` line; do not edit it by hand
 | [Codex session registry integration](codex-session-registry.md) | deferred | 2026-10-16 |
 | [Menu bar app: login item, distribution and shared collector](menubar-product-scope.md) | deferred | 2026-10-15 |
 | [Recovering CPU of exited descendants](exited-descendant-cpu.md) | deferred | 2026-10-16 |
+| [Resource overview extensions](resource-overview-extensions.md) | deferred | 2026-10-24 |
 <!-- status-table:end -->

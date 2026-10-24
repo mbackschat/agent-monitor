@@ -16,6 +16,8 @@ This README describes the current source build, which can be ahead of the [lates
 
 ## Features
 
+- **Main contributors** — Mac and TUI start with the sessions contributing most CPU or memory. Recent bursts, unresolved work and quieter processes remain in quantified expandable summaries; filters never change totals.
+- **Recent worker activity** — inspect a rolling 60-second target range of measured CPU, distinct workers, disappeared workers, sampled memory maxima and kernel-peak evidence. Expand session → executable → exact process; `java` and `node` workers group by observed executable basename, independent of PID.
 - **Live terminal view** — request a 100 ms acquisition period by default (scan overruns remain visible); watch CPU and memory usage, sort processes, and open details without leaving your terminal. Stable order keeps existing rows in place and appends newcomers. Acquisition defaults to 100 ms; the display refreshes independently once per second, retaining CPU from workers that disappear between refreshes. Freeze the view to inspect a window.
 - **Native menu bar app** — open a compact macOS panel for resource usage and session actions, with Pause/Resume and a separate **Diagnose CPU** investigation; three bold load bars keep collecting at the selected interval even while the panel is closed. Available from a source build.
 - **Finite CPU diagnosis** — start with **d** in the TUI or **Diagnose CPU** in the Mac app. Rank a new observation window by measured CPU-seconds, recover compatible counters across temporary read gaps, and retain contributors that leave before it ends, without changing live-table values. The Mac app can copy the completed report for further investigation.
@@ -48,28 +50,31 @@ Prefer a direct download or a source build? See the [installation guide](docs/in
 
 For a finite CPU answer, use `agent-monitor diagnose cpu --json` (or omit `--json` for text). It takes a baseline and three one-second waits, then ranks the top ten current-user lifetimes by measured CPU-seconds, with independent host context and explicit coverage limits. Scans and session lookup add time. Start with `agent-monitor guide` for interpretation; [finite diagnosis](docs/usage.md#finite-cpu-diagnosis-and-local-guides) describes the output and exit codes.
 
-The **TUI (terminal user interface)** is a live, full-window dashboard that runs inside your terminal. It refreshes in place and is controlled with the keyboard. Launch it grouped by session from any directory:
+The **TUI (terminal user interface)** is a live, full-window dashboard that runs inside your terminal. It refreshes in place and is controlled with the keyboard. Launch it from any directory:
 
 ```sh
-agent-monitor --tui --group session
+agent-monitor --tui
 ```
 
-Switch between individual processes and session groups to see which agent launch they belong to. Open a process to inspect its full session ID, executable path, project directory, and attribution evidence in the lower pane. The layout adapts when you resize the terminal, and the footer keeps the available keys visible.
+The default **Main contributors** overview combines aligned CPU, memory and recent CPU columns with resource-share meters on wide terminals. Expand sessions into executable groups and individual workers. **Recent contributors** retains observed short-lived work; **More processes** accounts for the quieter population. Press **v** for the process view shown below, or **g** for session grouping there. The layout adapts to terminal width and the footer shows the available keys.
 
 ![Agent Monitor terminal UI showing five synthetic processes, CPU and memory usage, Codex and Claude sessions, and details for the selected process](docs/assets/tui-preview.svg)
 
 *Illustrative process view with the selected process pinned (`@`) and details open. The text comes from the real layout renderer using entirely synthetic data; terminal colors and window decoration are illustrative. Press `g` to switch between this view and session groups.*
 
-Use **↑ / ↓** to select, **← / →** to collapse/expand a session or process details, **Shift+← / Shift+→** to collapse/expand session groups at the current level, **g** to toggle grouping, **o** for Stable order, **h** to change the history metric, **t** for 10-minute/hour history, **< / >** to update less or more often, **.** to pin/unpin the selected row, **p** to pause/resume the view, **d** for a finite CPU diagnosis, and **q** to quit. The controls and current filters are shown in the terminal.
+In the overview, use **↑ / ↓** to select, **← / →** to disclose details, **a** to show all session groups, **.** to pin a session, **Enter** to inspect a current process, and **Page Up / Down** to scroll detail. **v** switches between overview and process inspection.
 
-By default, the monitor shows **all observed agent-associated processes**, including idle processes and missing resource measurements. Display filters start disabled (both thresholds are zero); session totals and the Mac icon include observed processes even when you hide their rows. CPU at 100% means one fully occupied core.
+In the process view, use **↑ / ↓** to select, **← / →** to collapse/expand a session or process details, **Shift+← / Shift+→** to collapse/expand session groups at the current level, **g** to toggle grouping, **o** for Stable order, **h** to change the history metric, **t** for 10-minute/hour history, **< / >** to update less or more often, **.** to pin/unpin the selected row, **p** to pause/resume the view, **d** for a finite CPU diagnosis, and **q** to quit. The controls and current filters are shown in the terminal.
+
+By default, totals include **all observed agent-associated processes**, including idle processes and missing resource measurements. The overview collapses quieter entries into quantified summaries; process and text views show individual rows. Display thresholds start at zero and never change totals. CPU at 100% means one fully occupied core.
 
 ## Choose what to show
 
-In the Mac app, open **View options** and choose **Processes** or **Group by agent session** under **Show**. An agent session is one coding-agent conversation/run and the processes attributed to it. In the TUI, press **g** to switch; `--group none` starts in Processes and `--group session` starts in Sessions. The Mac app starts with grouping enabled; the CLI/TUI defaults to Processes unless you specify grouping.
+Both interactive interfaces start in **Main contributors**. In the Mac app, **View options → Processes / Group by agent session** opens process inspection. In the TUI, **v** opens process inspection and **g** switches its grouping. `--group none|session` selects the text/process-view grouping; it does not disable the interactive overview. A session is one coding-agent conversation/run and the processes attributed to it.
 
 | Setting | What it changes |
 |---|---|
+| **Main contributors** | Compact session overview with recent activity, executable groups and a quantified remainder. |
 | **Processes** | A flat list of individual observed processes, each with its own CPU and memory values and session attribution. Use it to find the specific command consuming resources. Pinned session groups remain grouped at the top. |
 | **Group by agent session** | Groups observed processes by attributed agent session or corroborated root session. Expand a group to inspect its processes. Counts and CPU/memory totals include all observed session members, independent of display filters; sampling can still miss work. The Mac app shows an unpinned one-process session directly as a process row. |
 | **Sort** | Stable order keeps surviving rows in place and appends newcomers. CPU/Footprint/PID order ranks individual processes, or session groups by their totals/minimum PID. It does not change which processes qualify. |
@@ -82,7 +87,7 @@ Shift+←/→ affects all displayed session groups when on a top-level row, or o
 
 ## Process actions
 
-Select a process and press **k** to review a termination request or **s** to compose a message to its Codex or Claude Code session, or **f** to bring the session's terminal to the front. **Ctrl-Y** confirms the reviewed action; **Esc** cancels or returns to editing. Termination sends SIGTERM to that process only.
+In the process view (`v` in TUI), select a process and press **k** to review a termination request or **s** to compose a message to its Codex or Claude Code session, or **f** to bring the session's terminal to the front. **Ctrl-Y** confirms the reviewed action; **Esc** cancels or returns to editing. Termination sends SIGTERM to that process only.
 
 The monitor automatically includes the selected workload's PID, name, CPU, memory footprint and sample time, marking unavailable measurements explicitly, then shows the exact message before sending. Codex messages default to the verified **root agent**; **Tab** can select the attributed agent when it is distinct and reachable. Codex CLI must be on PATH with the session loaded on its default local app server; standalone Codex sessions and remote/custom app servers are not supported. Claude Code messages go to the attributed session's local inbox; Claude Code 2.1.224 or later must be on PATH, and the session may hold or refuse messages from other processes under its own settings. Acceptance does not confirm delivery or action. Focus selects the session's tab in Terminal.app; other terminal apps are only brought to the front, and macOS asks once for Automation permission. See [action controls and limits](docs/usage.md#process-actions).
 
@@ -108,15 +113,17 @@ See the [usage guide](docs/usage.md) for all keyboard controls, filters, session
 
 Text, TUI and native headers show host occupancy beside measured CPU from your listed processes, including a count without CPU data. Newborn processes contribute their first observed interval; work never observed or after the last observation remains uncounted. “No data” means host occupancy is unavailable. See [measurement semantics](docs/usage.md#filters-and-measurements).
 
-The maintained, source-built native menu bar app runs with `bash scripts/menubar.sh run`. Click its load icon for session groups, resource usage and process details; keyboard focus starts on the table so arrow keys navigate rows immediately; expand a process to focus its terminal, review a termination request or compose a message. It uses the same monitoring and verified action services as the TUI, with a native popover that can be detached by dragging. The app follows the system light/dark appearance. The live icon’s bars and count include all observed agents, independent of table filters, including Pause. Its small monochrome process-count badge sits above shorter bars, keeping the menu-bar item’s width fixed. New rows and their parent session headers briefly receive a gray background highlight, including collapsed parents. Stable order is the default in both GUI and TUI; CPU, footprint and PID sorting remain available. Row context menus offer pinning, Copy PID, terminal focus, messaging and termination, with unavailable actions dimmed. Right-click the icon for load details, View options and Quit. Choose a static icon in View options to stop closed-panel sampling. See [menu bar usage](docs/usage.md#menu-bar-app) and [build and validation limits](docs/development.md#menu-bar-app).
+The source-built Mac app runs with `bash scripts/menubar.sh run`. Its default **Main contributors** view highlights meaningful CPU and memory use, with **Recent contributors**, **More processes** and **Unresolved / uncertain** summaries. Small CPU/memory share bars make contributors comparable; tooltips and expandable coverage carry the explanations. Expand a session to inspect executable groups and individual workers, including workers no longer observed. **Show all** opens the remaining session population. **View options → Group by agent session / Processes** opens the existing process inspection view and verified actions.
 
-<p><img src="docs/assets/menubar-preview.webp" width="420" height="560" alt="Light appearance: Agent Monitor panel paused with an expanded pinned Claude session, a shared Codex runtime, process totals, history, and resource usage."></p>
+Acquisition defaults to 100 ms and display updates independently once per second. Recent activity targets 60 seconds within bounded memory; coverage explains shorter ranges and missing observations. Pause holds summary and worker detail. With the live icon enabled, history continues while closed; static mode starts a new history when reopened. The three status bars show unfiltered observed agent CPU; right-click for the qualified process census. The unqualified numeric badge has been removed. See [overview usage](docs/usage.md#main-contributors-and-recent-activity), [menu bar controls](docs/usage.md#menu-bar-app), and [validation limits](docs/development.md#menu-bar-app).
 
-*Native panel captured from the production view with synthetic data. The expanded session is pinned; its count badge distinguishes it from process rows with info controls. Pinning keeps values live; Pause holds the displayed sample. View options contains checked sampling values, display choices and optional keyboard help (`.` to pin, p to pause, y to copy the focused process PID), and the size menu changes the fixed panel height. The capture excludes menu bar anchoring and desktop chrome.*
+<p><img src="docs/assets/menubar-preview.webp" width="420" height="560" alt="Agent Monitor Main contributors view with current session CPU and memory, retained recent workers, and quantified collapsed population summaries."></p>
+
+*Production native view with synthetic data. Coverage is expandable; process details and actions remain available through inspection. This offscreen capture does not establish live menu anchoring or physical keyboard/mouse behavior.*
 
 ## Options and defaults
 
-With no options, `agent-monitor` prints one text report after a one-second accounting window, requesting a 100 ms acquisition period. Resolution and delivery can arrive later. With both thresholds zero, every observed process in scope appears, including unavailable measurements. With filters enabled, **CPU OR memory must exceed an enabled threshold**; zero disables that resource filter. Only your user's agent-associated processes are included by default.
+With no options, `agent-monitor` prints one text report after a one-second accounting window, requesting a 100 ms acquisition period. Resolution and delivery can arrive later. With both thresholds zero, every observed process in scope is included, including unavailable measurements; interactive views can collapse lower contributors into quantified summaries. With filters enabled, **CPU OR memory must exceed an enabled threshold**; zero disables that resource filter. Only your user's agent-associated processes are included by default.
 
 The following options control reports; diagnosis has fixed defaults and its own output flags.
 
