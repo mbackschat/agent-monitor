@@ -85,7 +85,12 @@ struct MenuBarView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .scrollBounceBehavior(.basedOnSize)
                 .onChange(of: model.report.overview.selection) { _, row in
-                    if model.report.showsOverview, let row { proxy.scrollTo(row, anchor: .center) }
+                    if model.isOpen, model.report.showsOverview, !model.diagnosis.state.isVisible,
+                        model.report.actionPanel == nil, let row
+                    {
+                        proxy.scrollTo(row, anchor: .center)
+                        if focus != nil { focus = .contributor(row) }
+                    }
                 }
                 .onChange(of: focusedRow) { _, row in
                     if let row { proxy.scrollTo(row, anchor: .center) }
@@ -120,7 +125,8 @@ struct MenuBarView: View {
             if inspecting { focus = nil }
         }
         .onChange(of: model.visibleRowIDs) { _, rows in
-            guard model.isOpen, !model.diagnosis.state.isVisible, model.report.actionPanel == nil,
+            guard model.isOpen, !model.report.showsOverview, !model.diagnosis.state.isVisible,
+                model.report.actionPanel == nil,
                 let row = initialFocus.rowsChanged(rows, focus: focus)
             else { return }
             model.selectRow(row)
@@ -128,8 +134,8 @@ struct MenuBarView: View {
         }
         .onKeyPress(keys: [.leftArrow, .rightArrow], phases: .down) { key in
             if model.report.showsOverview {
-                model.report.overview.disclose(key.key == .rightArrow)
-                return .handled
+                return model.handleOverviewArrow(key.key, focus: focus, modifiers: key.modifiers)
+                    ? .handled : .ignored
             }
             guard model.isOpen, !model.diagnosis.state.isVisible, model.report.actionPanel == nil,
                 focus != nil, MenuBarKeyboard.isBulkDisclosure(modifiers: key.modifiers),
@@ -141,19 +147,23 @@ struct MenuBarView: View {
             }
             return .handled
         }
-        .onKeyPress(.downArrow) {
-            if model.report.showsOverview {
-                model.report.overview.move(by: 1)
-                return .handled
+        .onKeyPress(keys: [.upArrow, .downArrow], phases: .down) { key in
+            guard MenuBarKeyboard.accepts(String(key.key.character), modifiers: key.modifiers) else {
+                return .ignored
             }
-            return moveFocus(by: 1)
+            if model.report.showsOverview {
+                return model.handleOverviewArrow(key.key, focus: focus, modifiers: key.modifiers)
+                    ? .handled : .ignored
+            }
+            return moveFocus(by: key.key == .upArrow ? -1 : 1)
         }
-        .onKeyPress(.upArrow) {
-            if model.report.showsOverview {
-                model.report.overview.move(by: -1)
-                return .handled
+        .onChange(of: model.report.showsOverview) { _, overview in
+            guard model.isOpen, !model.diagnosis.state.isVisible, model.report.actionPanel == nil else {
+                return
             }
-            return moveFocus(by: -1)
+            focus =
+                overview
+                ? .table : initialFocus.open(rows: model.visibleRowIDs, preferred: model.report.selection)
         }
         .onKeyPress(keys: MenuBarKeyboard.keys, phases: .down) { key in
             guard !model.diagnosis.state.isVisible, model.report.actionPanel == nil,
@@ -248,7 +258,7 @@ struct MenuBarView: View {
                         Text("Measuring activity…").foregroundStyle(.secondary)
                     }.frame(maxWidth: .infinity).padding(.vertical, 20)
                 } else if model.report.showsOverview {
-                    MenuBarContributorOverview(model: model)
+                    MenuBarContributorOverview(model: model, focus: $focus)
                 } else if pinned.isEmpty && unpinned.isEmpty {
                     ContentUnavailableView(
                         "No matching agent processes", systemImage: "checkmark.circle",
@@ -290,7 +300,9 @@ struct MenuBarView: View {
                 return
             }
             // Action review and diagnosis remove these focus targets; restore after the table remounts.
-            focus = initialFocus.open(rows: model.visibleRowIDs, preferred: model.report.selection)
+            focus =
+                model.report.showsOverview
+                ? .table : initialFocus.open(rows: model.visibleRowIDs, preferred: model.report.selection)
             if let focusedRow { model.selectRow(focusedRow) }
         }
     }

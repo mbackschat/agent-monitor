@@ -89,11 +89,13 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func inspectOverviewProcess() {
-        guard let id = overview.selection, let identity = overview.nodes[id]?.process,
+        guard showsOverview, let id = overview.selection, let identity = overview.nodes[id]?.process,
             snapshot?.findings.contains(where: { $0.process == identity && !$0.isHistorical }) == true
         else { return }
         overview.enabled = false
-        if grouping == .session { toggleGrouping() }
+        if let group = groups.first(where: { $0.processes.contains { $0.process == identity } }) {
+            setGroupDisclosure(group.id, expanded: true)
+        }
         select(.process(identity))
         setDisclosure(expanded: true)
     }

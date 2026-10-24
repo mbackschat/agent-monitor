@@ -18,6 +18,9 @@ public enum ContributorLayout {
                     + " · CPU over \(String(format: "%.1f", overview.duration)) s · point candidates",
                 style: .muted),
         ]
+        if !overview.coverageWarning.isEmpty {
+            header.insert(ReportLine(overview.coverageWarning, style: .warning), at: 2)
+        }
         if !state.thresholds.isUnfiltered {
             header.append(ReportLine(ThresholdContext.text(state.thresholds), style: .muted))
         }
@@ -28,7 +31,9 @@ public enum ContributorLayout {
                     now: "NOW"), style: .heading))
         let footer = [
             ReportLine("↑/↓ select  ←/→ fold  a show all  . pin session  Enter inspect", style: .muted),
-            ReportLine("PgUp/PgDn details  v processes  p pause/resume  q quit", style: .muted),
+            ReportLine(
+                "c/m CPU/memory order  i details  PgUp/PgDn scroll  v processes  p pause  q quit",
+                style: .muted),
         ]
         var content: [(ContributorID, ReportLine)] = []
         for row in overview.visibleRows {
@@ -39,11 +44,8 @@ public enum ContributorLayout {
             let marker = pinned ? (selected ? "@" : "+") : (selected ? ">" : " ")
             let label = "\(marker)\(indent)\(folded) \(row.node.title)"
             let stats = row.node.stats
-            let cpuBar = columns.bar(
-                overview.totals.currentCPU > 0 ? stats.currentCPU / overview.totals.currentCPU : 0)
-            let memoryBar = columns.bar(
-                overview.totals.memoryBytes > 0
-                    ? Double(stats.memoryBytes) / Double(overview.totals.memoryBytes) : 0)
+            let cpuBar = columns.bar(overview.cpuMeterFraction(stats))
+            let memoryBar = columns.bar(overview.memoryMeterFraction(stats))
             content.append(
                 (
                     row.id,
@@ -54,13 +56,18 @@ public enum ContributorLayout {
                             now: stats.currentAvailable ? String(stats.current.count) : "—"),
                         style: selected ? .selected : .normal)
                 ))
-            if overview.open.contains(row.id) {
+            if selected,
+                overview.detailsVisible
+                    || (overview.open.contains(row.id)
+                        && (row.node.process != nil || row.id == .section(.uncertain)))
+            {
                 let details =
-                    [stats.census + " · \(stats.filtered.count) filtered"] + row.node.details
+                    [stats.census + " · \(stats.filtered.count) filtered", overview.meterScale]
+                    + row.node.details
                     + (row.id == .section(.uncertain)
                         ? [
                             overview.coverage,
-                            "Bars compare shares of measured CPU/current memory. Session CPU is point evidence. Sampling can miss workers and final exit CPU.",
+                            "Session CPU is point evidence. Sampling can miss workers and final exit CPU.",
                         ] : [])
                 for detail in details {
                     for line in TerminalCells.wrapped(

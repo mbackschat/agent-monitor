@@ -36,8 +36,14 @@ public struct RecentWorkerCategory: Hashable, Sendable {
     public let owner: RecentSession
     public let executable: String
     public let isAgentRuntime: Bool
-    public var executableName: String {
-        executable.isEmpty ? "Unknown executable" : URL(fileURLWithPath: executable).lastPathComponent
+    public let executableName: String
+
+    init(process: ProcessIdentity, owner: RecentSession, executable: String, isAgentRuntime: Bool) {
+        self.process = process
+        self.owner = owner
+        self.executable = executable
+        self.isAgentRuntime = isAgentRuntime
+        executableName = executable.split(separator: "/").last.map(String.init) ?? "Unknown executable"
     }
 }
 
@@ -118,7 +124,8 @@ public struct RecentWorkerRecord: Equatable, Sendable {
     var payloadSize: MonitoringPayloadSize {
         let owner = category.owner
         let strings =
-            [category.executable, name, cwd, owner.sessionID, owner.rootSessionID].compactMap { $0 }
+            [category.executable, category.executableName, name, cwd, owner.sessionID, owner.rootSessionID]
+            .compactMap { $0 }
             + owner.candidates + (command ?? [])
         return MonitoringPayloadSize(
             observations: 1 + owner.candidates.count + (command?.count ?? 0),
@@ -168,7 +175,7 @@ public final class RecentActivityUnit: Sendable {
         for crossing in crossings {
             size.observations += crossing.category.owner.candidates.count
             size.textBytes +=
-                crossing.category.executable.utf8.count
+                crossing.category.executable.utf8.count + crossing.category.executableName.utf8.count
                 + (crossing.category.owner.sessionID?.utf8.count ?? 0)
                 + (crossing.category.owner.rootSessionID?.utf8.count ?? 0)
                 + crossing.category.owner.candidates.reduce(0) { $0 + $1.utf8.count }

@@ -87,11 +87,42 @@
     ]
   },
   "provenance": {
-    "date": "2026-10-24",
     "baseCommit": "8b597ca",
+    "date": "2026-10-24",
     "implementation": "uncommitted overview implementation validated in this commit",
+    "limits": "Stable one-category lifetimes with nil commands; no churn, provider delay, native drawing or sustained-energy measurement.",
     "method": "600 synthetic scans at nominal 100 ms cadence; 60 closed units; no native/provider reads; whole-test-process peak RSS includes allocator retention and preceding fixture work",
-    "releaseCommand": "RECENT_OVERVIEW_PERFORMANCE_PATH=<output> swift test -c release --filter compactRecentHistoryFitsOneMinuteAtTenScansPerSecond",
-    "limits": "Stable one-category lifetimes with nil commands; no churn, provider delay, native drawing or sustained-energy measurement."
+    "releaseCommand": "RECENT_OVERVIEW_PERFORMANCE_PATH=<output> swift test -c release --filter compactRecentHistoryFitsOneMinuteAtTenScansPerSecond"
+  },
+  "reviewOptimized": {
+    "baseCommit": "52dc828",
+    "date": "2026-10-24",
+    "runs": [
+      {
+        "acquisitionAggregationP95Ms": 0.428792,
+        "chargedRecords": 6000,
+        "chargedTextBytes": 297423,
+        "elapsedMs": 669.49275,
+        "peakRSSAfter": 53149696,
+        "peakRSSBefore": 40747008,
+        "processes": 90,
+        "projectionP95Ms": 10.206458,
+        "scans": 600,
+        "unitRecords": 5400
+      },
+      {
+        "acquisitionAggregationP95Ms": 2.529792,
+        "chargedRecords": 40518,
+        "chargedTextBytes": 2027340,
+        "elapsedMs": 5119.255167,
+        "peakRSSAfter": 98254848,
+        "peakRSSBefore": 53297152,
+        "processes": 613,
+        "projectionP95Ms": 84.933292,
+        "scans": 600,
+        "unitRecords": 36780
+      }
+    ],
+    "scope": "Synthetic stable populations after review corrections; excludes native sampling, provider calls, and UI drawing."
   }
 }

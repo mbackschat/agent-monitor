@@ -32,11 +32,9 @@ extension LiveReportState {
             overview.enabled = false
             sort(by: .stable)
         case .cpu:
-            overview.enabled = false
-            sort(by: .cpu)
+            if showsOverview { overview.sort(by: .cpu) } else { sort(by: .cpu) }
         case .memory:
-            overview.enabled = false
-            sort(by: .memory)
+            if showsOverview { overview.sort(by: .memory) } else { sort(by: .memory) }
         case .pid:
             overview.enabled = false
             sort(by: .pid)

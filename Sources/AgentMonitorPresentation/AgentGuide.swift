@@ -105,12 +105,12 @@ public enum AgentGuide {
             Requires interactive stdin/stdout. Defaults: 100 ms requested acquisition period with visible overruns, unlimited reports; explicit --interval and --samples override them.
             ↑/↓ select; ←/→ collapse/expand session or process details.
             Shift+←/→ collapse/expand session groups at the current level; g toggles grouping.
-            c/m/n sort CPU/footprint/PID; o stable arrival order (default); r reverses numeric sorts.
+            c/m order CPU/memory in the current view; n/o enter process PID/stable ordering; r reverses process numeric sorts.
             h cycles history CPU/memory/heavy count; t switches 10 minutes/one hour.
             1/2 lower/raise CPU by 10 percentage points; 3/4 lower/raise footprint by 1 GB.
             </> update less/more often: 0.1, 0.25, 0.5, 1, 2, 5, 10, 30 or 60 seconds.
             Main contributors is the default: v switches to the process view; a opens recent/remainder groups.
-            Arrows disclose session → executable → process; Page Up/Down scroll detail; Return inspects a current process.
+            Arrows disclose session → executable → process; i toggles overview details; Page Up/Down scroll detail; Return inspects a current worker without changing grouping.
             . pins the owning overview session (or selected process/session in process view); p pauses/resumes the view while sampling continues.
             [/] scroll details; -/+ shrink/grow details by 5 percentage points (10–90%).
             0 minimizes; 9 maximizes; = restores the chosen split (initially 50%).

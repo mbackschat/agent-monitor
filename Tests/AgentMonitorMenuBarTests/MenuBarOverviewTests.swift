@@ -14,8 +14,14 @@ import Testing
     let output = try #require(ProcessInfo.processInfo.environment["MENUBAR_OVERVIEW_PREVIEW_PATH"])
     let snapshot = try nativeOverviewFixture()
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.report.overview = ContributorOverview(memoryCapacityBytes: 16_000_000_000)
     model.open()
     await model.waitForCollection()
+    var terminal = LiveReportState()
+    terminal.receive(snapshot)
+    #expect(model.report.overview.totals == terminal.overview.totals)
+    #expect(model.report.overview.main == terminal.overview.main)
+    #expect(model.report.overview.nodes == terminal.overview.nodes)
     #expect(model.report.showsOverview)
     #expect(model.report.overview.main.count == 2)
     #expect(model.report.overview.nodes[.section(.recent)]?.stats.noLongerObserved.count == 1)
@@ -39,7 +45,7 @@ import Testing
     await model.stop()
 }
 
-private func nativeOverviewFixture() throws -> MonitoringSnapshot {
+func nativeOverviewFixture() throws -> MonitoringSnapshot {
     var ledger = CounterLedger()
     func values(_ tick: Int) -> [ProcessSample] {
         var result: [ProcessSample] = []

@@ -122,7 +122,12 @@ enum MenuBarOption: Equatable {
         menu.addItem(.separator())
         menu.addItem(.sectionHeader(title: "Sort by"))
         for sort in ReportSort.allCases {
-            add(sort.rawValue, .sort(sort), checked: model.report.sortKey == sort, to: menu)
+            add(
+                sort.rawValue, .sort(sort),
+                checked: model.report.showsOverview
+                    ? (sort == .cpu && model.report.overview.order == .cpu
+                        || sort == .memory && model.report.overview.order == .memory)
+                    : model.report.sortKey == sort, to: menu)
         }
         add("Ascending", .ascending, checked: model.report.ascending, to: menu)
         menu.items.last?.isEnabled = model.report.sortKey != .stable
@@ -185,8 +190,12 @@ enum MenuBarOption: Equatable {
             model.report.overview.enabled = false
             if model.report.grouping != grouping { model.report.toggleGrouping() }
         case .sort(let sort):
-            model.report.overview.enabled = false
-            if model.report.sortKey != sort { model.report.sort(by: sort) }
+            if model.report.showsOverview, sort == .cpu || sort == .memory {
+                model.report.overview.sort(by: sort == .cpu ? .cpu : .memory)
+            } else {
+                model.report.overview.enabled = false
+                if model.report.sortKey != sort { model.report.sort(by: sort) }
+            }
         case .ascending: model.report.reverseSort()
         case .cpu(let value):
             model.report.setThresholds(

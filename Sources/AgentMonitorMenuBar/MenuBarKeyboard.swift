@@ -19,6 +19,25 @@ enum MenuBarKeyboard {
 }
 
 extension MenuBarModel {
+    @discardableResult
+    func handleOverviewArrow(_ key: KeyEquivalent, focus: MenuBarFocus?, modifiers: EventModifiers = [])
+        -> Bool
+    {
+        guard isOpen, report.showsOverview, !diagnosis.state.isVisible,
+            report.actionPanel == nil, focus != nil,
+            MenuBarKeyboard.accepts(String(key.character), modifiers: modifiers)
+        else { return false }
+        if case .contributor(let id) = focus { report.overview.select(id) }
+        switch key {
+        case .upArrow: report.overview.move(by: -1)
+        case .downArrow: report.overview.move(by: 1)
+        case .leftArrow: report.overview.disclose(false)
+        case .rightArrow: report.overview.disclose(true)
+        default: return false
+        }
+        return true
+    }
+
     func pidToCopy(for row: LiveReportRowID) -> String? {
         guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, rowIndex.visible.contains(row),
             case .process(let identity) = row,

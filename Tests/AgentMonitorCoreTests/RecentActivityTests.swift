@@ -231,3 +231,66 @@ extension RecentActivityTests {
             activity.payloadSize.observations == unit.size.observations + current + activity.present.count)
     }
 }
+
+extension RecentActivityTests {
+    @Test(arguments: [false, true])
+    func lossQualifierExpiresAfterTheAffectedRange(gap: Bool) throws {
+        let store = RecentActivityStore(limits: RecentActivityLimits(records: 160, textBytes: 100_000))
+        var ledger = CounterLedger()
+        var baseline = ledger.ingest([], listedAt: 0)
+        for tick in 1...125 {
+            let count = !gap && tick == 2 ? 200 : 1
+            let values = (1...count).map { sample(Int32($0), at: Double(tick), cpu: Double(tick)) }
+            let scan = ledger.ingest(values, listedAt: Double(tick))
+            var activity = RecentActivityAccumulator(baseline: baseline)
+            activity.append(scan, rows: values.map { recentRow($0, session: sessionA) })
+            if !gap || tick != 2 { store.append(activity.seal(scope: .agentsOnly)) }
+            if tick == 3 { #expect(store.snapshot()?.retentionLimited == true) }
+            baseline = scan
+        }
+        let result = try #require(store.snapshot())
+        #expect(result.duration == 60)
+        #expect(!result.retentionLimited)
+        #expect(store.retainedPayloadSize.observations <= 160)
+    }
+}
+
+extension RecentActivityTests {
+    @Test(arguments: [50, 613])
+    func historyRemainsBoundedWithChurnOrALongAllProcessPause(population: Int) throws {
+        let churn = population == 50
+        var ledger = CounterLedger()
+        var baseline = ledger.ingest([], listedAt: 0)
+        let store = RecentActivityStore()
+        var paused: RecentActivitySnapshot?
+        var heldCPU: Double?
+        for tick in 1...185 {
+            let values = (1...population).map { index in
+                sample(
+                    Int32(churn ? tick * population + index : index), at: Double(tick), cpu: Double(tick) / 10
+                )
+            }
+            let scan = ledger.ingest(values, listedAt: Double(tick))
+            var activity = RecentActivityAccumulator(baseline: baseline)
+            activity.append(scan, rows: values.map { recentRow($0, session: sessionA) })
+            store.append(
+                activity.seal(scope: .allProcesses), current: activity.current, present: activity.present)
+            if !churn && tick == 60 {
+                paused = store.snapshot()
+                heldCPU = paused?.cpuSeconds
+            }
+            if !churn && tick == 120 {
+                #expect(paused?.cpuSeconds == heldCPU)
+                #expect(store.snapshot()?.retentionLimited == true)
+                paused = nil
+            }
+            #expect(store.retainedPayloadSize.observations <= 65_536)
+            #expect(store.retainedPayloadSize.textBytes <= 16_777_216)
+            baseline = scan
+        }
+        let latest = try #require(store.snapshot())
+        #expect(latest.duration == 60)
+        #expect(!latest.retentionLimited)
+        if churn { #expect(Set(latest.units.flatMap(\.records).map(\.category.process)).count == 3000) }
+    }
+}

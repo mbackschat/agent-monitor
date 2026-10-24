@@ -477,6 +477,14 @@ private func dividerRow(_ text: String) -> Int? {
     ) {
         $0.contains("Main contributors") && $0.contains("overview-project")
     }
+    try writeAllBytes(Array("i".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("Exact session:") }
+    try writeAllBytes(Array("i".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { !$0.contains("Exact session:") }
     try writeAllBytes(Array("\u{1b}[C\u{1b}[B\u{1b}[C\u{1b}[B\u{1b}[C".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)

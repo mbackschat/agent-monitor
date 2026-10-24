@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MenuBarContributorOverview: View {
     @Bindable var model: MenuBarModel
+    var focus: FocusState<MenuBarFocus?>.Binding
 
     var body: some View {
         let overview = model.report.overview
@@ -22,6 +23,9 @@ struct MenuBarContributorOverview: View {
             if overview.duration > 1.05 {
                 Text("CPU over \(overview.duration.formatted(.number.precision(.fractionLength(1)))) s")
                     .font(.caption2).foregroundStyle(.secondary)
+            }
+            if !overview.coverageWarning.isEmpty {
+                Text(overview.coverageWarning).font(.caption2).foregroundStyle(.orange)
             }
             DisclosureGroup("Recent coverage · \(overview.sourceDurationLabel)") {
                 Text(overview.census).font(.caption2)
@@ -66,18 +70,15 @@ struct MenuBarContributorOverview: View {
                         HStack(spacing: 12) {
                             metric(
                                 "CPU", value: node.stats.cpuText(duration: overview.duration),
-                                share: overview.totals.currentCPU > 0
-                                    ? node.stats.currentCPU / overview.totals.currentCPU : 0,
+                                share: overview.cpuMeterFraction(node.stats),
                                 help:
-                                    "Point-evidence candidate CPU for exact sessions, measured over \(overview.duration.formatted()) s. The bar shows this row's share of measured CPU; unresolved work remains separate."
+                                    "Point-evidence candidate CPU for exact sessions, measured over \(overview.duration.formatted()) s. Bar: 100% is one core. Share of observed CPU: \(overview.totals.currentCPU > 0 ? (100 * node.stats.currentCPU / overview.totals.currentCPU).formatted(.number.precision(.fractionLength(1))) : "0")%. Unresolved work remains separate."
                             )
                             metric(
                                 "Memory", value: node.stats.memoryText,
-                                share: overview.totals.memoryBytes > 0
-                                    ? Double(node.stats.memoryBytes) / Double(overview.totals.memoryBytes)
-                                    : 0,
+                                share: overview.memoryMeterFraction(node.stats),
                                 help:
-                                    "Latest observed footprint; \(node.stats.missingMemory) readings unavailable. The bar shows this row's share of observed current memory. Historical peaks are in details."
+                                    "Latest observed footprint; \(node.stats.missingMemory) readings unavailable. Bar: full scale is \((Double(overview.memoryCapacityBytes) / 1e9).formatted(.number.precision(.fractionLength(1)))) GB physical RAM. Share of observed memory: \(overview.totals.memoryBytes > 0 ? (100 * Double(node.stats.memoryBytes) / Double(overview.totals.memoryBytes)).formatted(.number.precision(.fractionLength(1))) : "0")%. Historical peaks are in details."
                             )
                             VStack(alignment: .trailing, spacing: 2) {
                                 Text(node.stats.recentCPUText).font(.caption).monospacedDigit()
@@ -100,6 +101,7 @@ struct MenuBarContributorOverview: View {
                 }.contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .focused(focus, equals: .contributor(row.id))
             .accessibilityLabel(node.title + ". " + node.summary(duration: overview.duration))
             .contextMenu {
                 Button("Pin / unpin session") {

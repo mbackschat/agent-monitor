@@ -31,12 +31,7 @@ public struct SessionGroup: Equatable, Sendable {
         if isSharedRuntime { return "Shared runtime" }
         let workloads = processes.filter { $0.process != $0.attribution.runtime }
         let members = workloads.isEmpty ? processes : workloads
-        let directories = Set(members.compactMap(\.cwd))
-        if directories.count > 1 { return "Multiple directories" }
-        guard members.allSatisfy({ $0.cwd != nil }), let directory = directories.first else {
-            return "Unknown project"
-        }
-        return URL(fileURLWithPath: directory).lastPathComponent
+        return ProjectLabel.make(members.map(\.cwd))
     }
 
     private var isSharedRuntime: Bool {
@@ -126,4 +121,15 @@ public enum LiveReportRow: Equatable, Sendable {
 public struct ReportPin: Equatable, Sendable {
     public let id: LiveReportRowID
     public let label: String
+}
+
+enum ProjectLabel {
+    static func make(_ directories: [String?]) -> String {
+        let known = Set(directories.compactMap { $0 })
+        if known.count > 1 { return "Multiple directories" }
+        guard directories.allSatisfy({ $0 != nil }), let directory = known.first else {
+            return "Unknown project"
+        }
+        return directory.split(separator: "/").last.map(String.init) ?? "/"
+    }
 }

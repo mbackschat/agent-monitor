@@ -124,6 +124,8 @@ public enum TerminalReport {
                 case .character("s"): begin(.message)
                 case .character("f"): begin(.focus)
                 case .return: state.mutate { $0.inspectOverviewProcess() }
+                case .character("i"):
+                    state.mutate { if $0.showsOverview { $0.overview.toggleDetails() } }
                 case .pageUp: state.mutate { $0.overview.scroll(by: -5) }
                 case .pageDown: state.mutate { $0.overview.scroll(by: 5) }
                 case .arrowUp: state.mutate { $0.moveSelection(by: -1) }

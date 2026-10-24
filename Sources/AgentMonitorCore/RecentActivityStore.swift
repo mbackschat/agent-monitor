@@ -94,7 +94,7 @@ public final class RecentActivityStore: Sendable {
         var leases: [UUID: Lease] = [:]
         var current: [RecentWorkerRecord] = []
         var present: Set<ProcessIdentity> = []
-        var limited = false
+        var lossBoundary: Double?
         var currentAvailable = true
     }
     private let limits: RecentActivityLimits
@@ -112,13 +112,13 @@ public final class RecentActivityStore: Sendable {
                 value.scope = unit.scope
                 value.units.removeAll()
                 value.lastScan = nil
-                value.limited = false
+                value.lossBoundary = nil
             }
             if let last = value.lastScan {
                 precondition(unit.baselineScan >= last && unit.finalScan > last)
                 if unit.baselineScan > last {
                     value.units.removeAll()
-                    value.limited = true
+                    value.lossBoundary = unit.startedAt
                 }
             }
             value.lastScan = unit.finalScan
@@ -134,14 +134,14 @@ public final class RecentActivityStore: Sendable {
             value.units.removeAll { $0.startedAt < unit.endedAt - limits.seconds }
             value.units.append(unit)
             while !fits(value), !value.units.isEmpty {
-                value.units.removeFirst()
-                value.limited = true
+                let removed = value.units.removeFirst()
+                value.lossBoundary = max(value.lossBoundary ?? removed.endedAt, removed.endedAt)
             }
             if !fits(value) {
                 value.current = []
                 value.present = []
                 value.currentAvailable = false
-                value.limited = true
+                value.lossBoundary = unit.endedAt
             }
         }
     }
@@ -154,7 +154,8 @@ public final class RecentActivityStore: Sendable {
             return publishLocked(
                 &value, run: run, scope: scope, units: value.units, display: value.units.suffix(1).map { $0 },
                 current: value.current, present: value.present, final: final, end: value.endedAt,
-                limited: value.limited, currentAvailable: value.currentAvailable)
+                limited: value.lossBoundary.map { $0 > value.endedAt - limits.seconds } ?? false,
+                currentAvailable: value.currentAvailable)
         }
     }
 
@@ -189,7 +190,10 @@ public final class RecentActivityStore: Sendable {
         value.leases[id] = lease()
         while !fits(value), !retained.isEmpty {
             let removed = retained.removeFirst()
-            value.units.removeAll { $0.id == removed.id }
+            if value.units.contains(where: { $0.id == removed.id }) {
+                value.units.removeAll { $0.id == removed.id }
+                value.lossBoundary = max(value.lossBoundary ?? removed.endedAt, removed.endedAt)
+            }
             shortened = true
             value.leases[id] = lease()
         }
@@ -198,9 +202,11 @@ public final class RecentActivityStore: Sendable {
             rows = []
             identities = []
             shortened = true
+            if value.runID == run && value.scope == scope {
+                value.lossBoundary = max(value.lossBoundary ?? end, end)
+            }
             value.leases[id] = lease()
         }
-        value.limited = value.limited || shortened
         return RecentActivitySnapshot(
             id: id, runID: run, scope: scope, units: retained, current: rows,
             present: identities, finalScan: final, endedAt: end, limited: shortened,

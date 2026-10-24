@@ -122,6 +122,8 @@ public struct ContributorRow: Equatable, Sendable, Identifiable {
     public var id: ContributorID { node.id }
 }
 
+public enum ContributorOrder: String, Sendable { case cpu, memory }
+
 /// One immutable-category projection and disclosure policy for native and terminal hosts.
 public struct ContributorOverview: Equatable, Sendable {
     public private(set) var nodes: [ContributorID: ContributorNode] = [:]
@@ -130,6 +132,9 @@ public struct ContributorOverview: Equatable, Sendable {
     public private(set) var duration = 0.0
     public private(set) var coverage = ""
     public private(set) var census = ""
+    public private(set) var coverageWarning = ""
+    public private(set) var order: ContributorOrder = .cpu
+    public let memoryCapacityBytes: UInt64
     public private(set) var runID: UUID?
     private var scope: ProcessScope?
     public private(set) var selection: ContributorID?
@@ -143,8 +148,37 @@ public struct ContributorOverview: Equatable, Sendable {
     private var latestTime = 0.0
     private var source: RecentActivitySnapshot?
     public private(set) var detailOffset = 0
+    public private(set) var detailsVisible = false
 
-    public init() {}
+    public init(memoryCapacityBytes: UInt64 = ProcessInfo.processInfo.physicalMemory) {
+        self.memoryCapacityBytes = memoryCapacityBytes
+    }
+
+    public func cpuMeterFraction(_ stats: ContributorStats) -> Double {
+        duration > 0 ? min(1, max(0, stats.currentCPU / duration)) : 0
+    }
+    public func memoryMeterFraction(_ stats: ContributorStats) -> Double {
+        memoryCapacityBytes > 0 ? min(1, Double(stats.memoryBytes) / Double(memoryCapacityBytes)) : 0
+    }
+    public var meterScale: String {
+        "Bars: CPU 100% = one core; memory 100% = \(number(Double(memoryCapacityBytes) / 1e9)) GB RAM"
+    }
+    public mutating func sort(by order: ContributorOrder) {
+        self.order = order
+        main = contributionOrder(main)
+    }
+    private func contributionOrder(_ ids: [ContributorID], by metric: ContributorOrder? = nil)
+        -> [ContributorID]
+    {
+        let metric = metric ?? order
+        return ids.sorted {
+            let first = nodes[$0]?.stats
+            let second = nodes[$1]?.stats
+            let a = metric == .cpu ? first?.currentCPU ?? 0 : Double(first?.memoryBytes ?? 0)
+            let b = metric == .cpu ? second?.currentCPU ?? 0 : Double(second?.memoryBytes ?? 0)
+            return a == b ? identity($0) < identity($1) : a > b
+        }
+    }
     public var sourceDurationLabel: String {
         guard let source else { return "unavailable" }
         return "\(number(source.duration)) s" + (source.retentionLimited ? " (retention limit / gap)" : "")
@@ -176,6 +210,9 @@ public struct ContributorOverview: Equatable, Sendable {
 
     public mutating func resetInspection() {
         source = nil
+        detailsVisible = false
+        main = []
+        formerlySelected = [:]
         nodes = [:]
         totals = ContributorStats()
         selection = nil
@@ -189,9 +226,14 @@ public struct ContributorOverview: Equatable, Sendable {
         if !open.insert(id).inserted { open.remove(id) }
     }
     public mutating func select(_ id: ContributorID) { if nodes[id] != nil { selection = id } }
+    public mutating func toggleDetails() {
+        detailsVisible.toggle()
+        detailOffset = 0
+    }
     public mutating func scroll(by delta: Int) { detailOffset = max(0, detailOffset + delta) }
     public mutating func move(by delta: Int) {
         detailOffset = 0
+        detailsVisible = false
         let ids = visibleRows.map(\.id)
         guard !ids.isEmpty else { return }
         let index = selection.flatMap { ids.firstIndex(of: $0) } ?? 0
@@ -222,7 +264,9 @@ public struct ContributorOverview: Equatable, Sendable {
             let enabled = enabled
             let showAll = showAll
             let pinned = pinned
-            self = Self()
+            let order = order
+            self = Self(memoryCapacityBytes: memoryCapacityBytes)
+            self.order = order
             self.enabled = enabled
             self.showAll = showAll
             self.pinned = pinned
@@ -337,7 +381,7 @@ public struct ContributorOverview: Equatable, Sendable {
             let id = ContributorID.section(section)
             nodes[id] = ContributorNode(id: id, title: section.rawValue)
         }
-        var projects: [ContributorID: Set<String>] = [:]
+        var projects: [ContributorID: Set<String?>] = [:]
         var exact: Set<ContributorID> = []
         for (key, var stats) in entries {
             stats.currentAvailable = recent.currentContextAvailable
@@ -355,8 +399,8 @@ public struct ContributorOverview: Equatable, Sendable {
                 let (id, title) = item
                 if nodes[id] == nil { nodes[id] = ContributorNode(id: id, title: title) }
                 nodes[id]?.stats.merge(stats)
-                if case .session = id, !key.isAgentRuntime, let cwd = metadata[key]?.cwd {
-                    projects[id, default: []].insert(URL(fileURLWithPath: cwd).lastPathComponent)
+                if case .session = id, !key.isAgentRuntime {
+                    projects[id, default: []].insert(metadata[key]?.cwd)
                 }
                 if index + 1 < path.count, !(nodes[id]?.children.contains(path[index + 1].0) ?? false) {
                     nodes[id]?.children.append(path[index + 1].0)
@@ -376,7 +420,7 @@ public struct ContributorOverview: Equatable, Sendable {
         for (id, projects) in projects {
             if case .session(let provider, let session, _) = id {
                 nodes[id]?.title =
-                    "\(projects.sorted().joined(separator: ", ")) · \(provider)/\(session.prefix(8))"
+                    "\(ProjectLabel.make(Array(projects))) · \(provider)/\(session.prefix(8))"
                 nodes[id]?.labels = ["Exact session: \(provider)/\(session)"]
             }
         }
@@ -403,7 +447,15 @@ public struct ContributorOverview: Equatable, Sendable {
         for id in previous where !selected.contains(id) { formerlySelected[id] = latestTime }
         formerlySelected = formerlySelected.filter { latestTime - $0.value <= 60 && nodes[$0.key] != nil }
         main = previous.filter { selected.contains($0) }
-        main += selected.subtracting(main).sorted { identity($0) < identity($1) }
+        let newcomers = selected.subtracting(main)
+        let preferred = order == .cpu ? cpuRank : memoryRank
+        let secondary = order == .cpu ? memoryRank : cpuRank
+        let primaryArrivals = contributionOrder(preferred.filter { newcomers.contains($0) })
+        main +=
+            primaryArrivals
+            + contributionOrder(
+                secondary.filter { newcomers.contains($0) && !primaryArrivals.contains($0) },
+                by: order == .cpu ? .memory : .cpu)
         partition()
         for id in pinned where nodes[id] == nil {
             nodes[id] = ContributorNode(id: id, title: "Pinned · outside retained range")
@@ -419,6 +471,13 @@ public struct ContributorOverview: Equatable, Sendable {
         census =
             "\(observed.count) observed \(recent.scope == .allProcesses ? "same-user" : "agent-associated") processes in this window, including \(historical) no longer observed"
         source = recent
+        var warnings: [String] = []
+        let unreadable = recent.units.reduce(0) { $0 + $1.unreadableObservationCount }
+        if unreadable > 0 { warnings.append("\(unreadable) unreadable") }
+        if totals.exclusions > 0 { warnings.append("\(totals.exclusions) excluded") }
+        if totals.missingMemory > 0 { warnings.append("\(totals.missingMemory) memory unavailable") }
+        if !recent.currentContextAvailable { warnings.append("current data unavailable") }
+        coverageWarning = warnings.isEmpty ? "" : "⚠ " + warnings.joined(separator: " · ")
         coverage =
             "Recent \(number(recent.duration)) s"
             + (recent.retentionLimited ? " (retention limit / gap)" : "")
