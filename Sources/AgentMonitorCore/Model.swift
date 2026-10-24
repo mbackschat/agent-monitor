@@ -178,7 +178,9 @@ public struct Thresholds: Equatable, Sendable {
     public var isUnfiltered: Bool { cpuPercent == 0 && memoryBytes == 0 }
 
     public func includes(cpu: Double?, footprint: UInt64?) -> Bool {
-        isUnfiltered || cpu.map { $0 > cpuPercent } == true || footprint.map { $0 > memoryBytes } == true
+        isUnfiltered
+            || (cpuPercent > 0 && cpu.map { $0 > cpuPercent } == true)
+            || (memoryBytes > 0 && footprint.map { $0 > memoryBytes } == true)
     }
 
     public init(cpuPercent: Double = 0, memoryBytes: UInt64 = 0) {

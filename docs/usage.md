@@ -32,7 +32,7 @@ agent-monitor --json --all-processes --memory-gb 1 --samples 1
 agent-monitor --json --all-processes --samples 3 --interval 2
 ```
 
-With at least one nonzero threshold, report display filters are strict CPU **or** physical footprint in decimal GB, not RSS. Locate a known PID by its PID/start record in the returned findings; there is no PID-report filter. See [report output](#text-and-jsonl-output) for the separate report controls.
+With at least one nonzero threshold, report display filters match strictly above any enabled threshold: CPU **or** physical footprint in decimal GB, not RSS. Zero disables that resource filter. Locate a known PID by its PID/start record in the returned findings; there is no PID-report filter. See [report output](#text-and-jsonl-output) for the separate report controls.
 
 ## Live terminal view
 
@@ -134,7 +134,7 @@ JSONL output has no action commands.
 
 The current report is not a complete accounting of agent CPU or memory. Short-lived workers can run entirely between scans, and their final CPU after the last observation is unavailable. Lower thresholds reveal more observed processes; shorter intervals can capture more workers, but neither guarantees complete coverage. These are gaps against the project's [resource visibility requirements](architecture.md#resource-visibility-requirements), not acceptable evidence that a busy agent is idle.
 
-By default, **both display thresholds are zero and all observed processes in scope are shown**, including idle processes and unavailable resource measurements. With either threshold nonzero, findings must strictly exceed CPU OR physical footprint. Filters change process rows, never session totals or the Mac icon. Only agent-associated processes appear; `--all-processes` also includes unrelated and unattributed processes owned by your user. Unknown or ambiguous agent sessions remain visible.
+By default, **both display thresholds are zero and all observed processes in scope are shown**, including idle processes and unavailable resource measurements. Zero disables each resource filter independently. With either threshold nonzero, findings must strictly exceed at least one enabled threshold. Filters change visible rows, never session totals or the Mac icon. Only agent-associated processes appear; `--all-processes` also includes unrelated and unattributed processes owned by your user. Unknown or ambiguous agent sessions remain visible.
 
 - CPU is averaged over the elapsed interval between snapshots. **100% means one fully occupied core**, so a multithreaded process can exceed 100%.
 - Memory is a snapshot of physical footprint in **decimal GB**. Footprint includes memory accounting that RSS omits. Process inspection also shows the kernel footprint peak when available, which can reveal earlier allocation bursts. That counter can reset on exec; it is separate from current memory and must not be summed as a simultaneous session peak. Report JSONL v5 exposes it as optional `kernelPeakFootprintBytes`.
@@ -161,7 +161,7 @@ Both interactive views also restore the inspected process's details when that ex
 
 **Shift+←/→** changes session disclosure at the current level in both live views. On a top-level row (or with no row selected), it collapses/expands all displayed session groups, including pinned groups. On a child process inside an expanded group, it changes only the containing session, hiding/revealing siblings; collapsing moves selection/focus to the parent. Individually pinned processes count as top-level rows. The Mac app's flattened single-process rows also count as top-level and have no group disclosure to change. Missing groups are unaffected, repeat presses are idempotent, and choices use the same sticky expansion rules. Process details remain single-target; in Processes view without pinned session groups, the bulk command has no effect. It is disabled in action panels and editors.
 
-Groups show the project, session, process count, and CPU/memory totals of **all observed session members**, including processes hidden by display filters. These totals do not recover work missed between scans. `~` marks a partial total when measurements are missing. CPU/memory sorting orders groups by their totals; PID sorting uses each group's lowest observed PID.
+Unpinned groups appear only when at least one member passes the display filters and is not separately pinned. Explicitly pinned groups remain visible even when all their children are filtered. Groups show the project, session, process count, and CPU/memory totals of **all observed session members**, including processes hidden by display filters. These totals do not recover work missed between scans. `~` marks a partial total when measurements are missing. CPU/memory sorting orders groups by their totals; PID sorting uses each group's lowest observed PID.
 
 Unresolved or ambiguous processes stay separate even when they share a project or runtime. Session evidence identifies launch origin: a shared Gradle, Kotlin, or MCP daemon may later serve other sessions. See [attribution evidence](architecture.md#attribution-evidence-and-inspection-scope) for the exact interpretation and inspection scope.
 

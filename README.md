@@ -73,7 +73,7 @@ In the Mac app, open **View options** and choose **Processes** or **Sessions** u
 | **Processes** | A flat list of individual observed processes, each with its own CPU and memory values and session attribution. Use it to find the specific command consuming resources. Pinned session groups remain grouped at the top. |
 | **Sessions** | Groups observed processes by attributed agent session or corroborated root session. Expand a group to inspect its processes. Counts and CPU/memory totals include all observed session members, independent of display filters; sampling can still miss work. The Mac app shows an unpinned one-process session directly as a process row. |
 | **Sort** | Stable order keeps surviving rows in place and appends newcomers. CPU/Footprint/PID order ranks individual processes, or session groups by their totals/minimum PID. It does not change which processes qualify. |
-| **CPU / Footprint thresholds** | Both zero disables display filtering. Otherwise a process qualifies when it exceeds either threshold. Lower them to reveal lighter workloads; switching between Processes and Sessions does not change these filters. |
+| **CPU / Footprint thresholds** | Zero disables each filter independently. With both off, every observed process appears; otherwise a process must exceed at least one enabled threshold. Lower them to reveal lighter workloads; switching between Processes and Sessions does not change these filters. |
 | **Interval** | Requested acquisition period, 100 ms by default. Scans run independently of resolution and display; overruns delay collection. This controls sampling cadence, not filtering. |
 
 Sessions are not projects: two sessions in the same directory remain separate, and one session can contain workloads in multiple directories. Unknown or ambiguous ownership stays separate rather than being guessed.
@@ -116,14 +116,14 @@ The maintained, source-built native menu bar app runs with `bash scripts/menubar
 
 ## Options and defaults
 
-With no options, `agent-monitor` prints one text report after a baseline and the next acquisition, requesting a 100 ms period. Resolution and delivery can arrive later. With both thresholds zero, every observed process in scope appears, including unavailable measurements. With filters enabled, **CPU OR memory must exceed its threshold**; only your user's agent-associated processes are included by default.
+With no options, `agent-monitor` prints one text report after a baseline and the next acquisition, requesting a 100 ms period. Resolution and delivery can arrive later. With both thresholds zero, every observed process in scope appears, including unavailable measurements. With filters enabled, **CPU OR memory must exceed an enabled threshold**; zero disables that resource filter. Only your user's agent-associated processes are included by default.
 
 The following options control reports; diagnosis has fixed defaults and its own output flags.
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--cpu <percent>` | CPU threshold; 100% means one occupied core. Accepts nonnegative values. | `0` (%) |
-| `--memory-gb <gb>` | Physical memory footprint threshold in decimal GB. Accepts nonnegative values. | `0` (GB) |
+| `--cpu <percent>` | CPU threshold; 100% means one occupied core. Zero disables this filter. Accepts nonnegative values. | `0` (%) |
+| `--memory-gb <gb>` | Physical memory footprint threshold in decimal GB. Zero disables this filter. Accepts nonnegative values. | `0` (GB) |
 | `--interval <seconds>` | Requested acquisition period, from 0.1 to 60 seconds; overruns delay collection. | `0.1` (seconds) |
 | `--samples <count>` | Number of reports; `0` runs until you quit. | `1`; `0` with `--tui` |
 | `--tui`, `-tui` | Open the live terminal UI in Stable order; requires interactive input and output. | Off; text reports |

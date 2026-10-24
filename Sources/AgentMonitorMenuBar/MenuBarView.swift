@@ -190,7 +190,7 @@ struct MenuBarView: View {
                 MenuBarViewOptions(model: model)
             }
             Text(
-                "\(model.report.sortDescription) · \(model.report.thresholds.isUnfiltered ? "All observed processes" : "CPU > " + resource(model.report.thresholds.cpuPercent, unit: "%") + " or footprint > " + resource(Double(model.report.thresholds.memoryBytes) / 1e9, unit: " GB")) · \(resource(model.report.interval, unit: " s"))"
+                "\(model.report.sortDescription) · \(ThresholdContext.text(model.report.thresholds)) · \(resource(model.report.interval, unit: " s"))"
             )
             .font(.caption).foregroundStyle(.secondary)
             MenuBarHistoryStrip(model: model)

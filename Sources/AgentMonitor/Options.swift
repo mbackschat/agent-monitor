@@ -13,7 +13,7 @@ struct ReportOptions: ParsableArguments {
     @Option(
         name: .customLong("cpu"),
         help:
-            "Show CPU above this percentage; 100 means one occupied core. Default: 0. Both thresholds at zero show every observed process."
+            "Show CPU above this percentage; 100 means one occupied core. Default: 0 (this filter is off). With both filters off, show every observed process."
     )
     var requestedCPU: Double?
 
@@ -22,7 +22,7 @@ struct ReportOptions: ParsableArguments {
     @Option(
         name: .customLong("memory-gb"),
         help:
-            "Show physical footprint above this many decimal GB. Default: 0. Both thresholds at zero show every observed process."
+            "Show physical footprint above this many decimal GB. Default: 0 (this filter is off). With both filters off, show every observed process."
     )
     var requestedMemoryGB: Double?
 

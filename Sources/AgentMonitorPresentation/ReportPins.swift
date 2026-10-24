@@ -9,6 +9,12 @@ extension LiveReportState {
     public var projection: ReportProjection {
         let processes = rows
         let sessions = groups
+        let displayed = Set(processes.map(\.process))
+        let unpinnedProcesses = displayed.subtracting(
+            pins.compactMap { pin in
+                if case .process(let identity) = pin.id { return identity }
+                return nil
+            })
         let pinned: [LiveReportRow] = pins.map { pin in
             switch pin.id {
             case .process(let identity):
@@ -27,10 +33,9 @@ extension LiveReportState {
                 .map(LiveReportRow.process)
         case .session:
             unpinned = sessions.filter {
-                !isPinned(.group($0.id)) && $0.processes.contains { !isPinned(.process($0.process)) }
+                !isPinned(.group($0.id)) && $0.containsDisplayedProcess(in: unpinnedProcesses)
             }.map(LiveReportRow.group)
         }
-        let displayed = Set(processes.map(\.process))
         let pinnedIDs = Set(pins.map(\.id))
         let children = Dictionary(
             uniqueKeysWithValues: sessions.map { group in

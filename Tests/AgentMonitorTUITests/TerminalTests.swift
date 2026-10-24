@@ -153,17 +153,17 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     ) {
         $0.contains("fixture-42") && $0.contains("fixture-84") && !$0.contains("launch groups")
     }
-    for (keys, cpu, memory, empty) in [
-        ("44" + String(repeating: "2", count: 10), "100.00", "2.00", true),
-        (String(repeating: "1", count: 10), "0.00", "2.00", false),
-        ("3", "0.00", "1.00", false),
+    for (keys, filter, empty) in [
+        ("44" + String(repeating: "2", count: 10), "CPU > 100.00% OR footprint > 2.00 GB", true),
+        (String(repeating: "1", count: 10), "footprint > 2.00 GB", true),
+        ("3", "footprint > 1.00 GB", false),
+        ("3", "All observed processes", false),
     ] {
         try writeAllBytes(Array(keys.utf8), to: terminal.master)
         _ = try await waitForANSIVisibleScreen(
             on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
         ) {
-            (cpu == "0.00" && memory == "0.00"
-                ? $0.contains("All observed processes") : $0.contains("CPU > \(cpu)% OR GB > \(memory)"))
+            $0.components(separatedBy: "\n").contains(filter)
                 && !$0.contains("pending")
                 && $0.contains("No processes match") == empty
                 && (empty || ($0.contains("fixture-42") && $0.contains("fixture-84")))

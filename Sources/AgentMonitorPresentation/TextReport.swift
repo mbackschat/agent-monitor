@@ -13,11 +13,8 @@ public enum TextReport {
     }
 
     public static func lines(_ report: MonitoringSnapshot, grouping: ReportGrouping = .none) -> [ReportLine] {
-        let unfiltered = report.cpuThresholdPercent == 0 && report.memoryThresholdBytes == 0
-        let filter =
-            unfiltered
-            ? "All observed processes"
-            : "CPU > \(ReportNumber.text(report.cpuThresholdPercent))% OR footprint > \(ReportNumber.text(Double(report.memoryThresholdBytes) / 1e9)) GB"
+        let filter = ThresholdContext.text(
+            Thresholds(cpuPercent: report.cpuThresholdPercent, memoryBytes: report.memoryThresholdBytes))
         var lines = [
             ReportLine(""),
             ReportLine(String(repeating: "=", count: 72), style: .muted),
@@ -41,7 +38,8 @@ public enum TextReport {
                     "Grouped by launch session; totals include all observed members, independent of filters. Sampling may miss short-lived work.",
                     style: .muted))
             let displayed = Set(report.findings.map(\.process))
-            for group in SessionGrouping.groups(report.observedFindings) {
+            for group in SessionGrouping.groups(report.observedFindings)
+            where group.containsDisplayedProcess(in: displayed) {
                 let cpu = group.cpuTotal.map { ReportNumber.text($0) + "%" } ?? "unavailable"
                 let memory = group.memoryGBTotal.map { ReportNumber.text($0) + " GB" } ?? "unavailable"
                 lines.append(ReportLine(""))

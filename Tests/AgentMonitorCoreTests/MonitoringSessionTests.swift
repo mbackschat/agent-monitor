@@ -135,14 +135,14 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
     let thresholds: @Sendable () async -> Thresholds = {
         switch fixture.collected.withLock({ $0.count }) {
         case 1: Thresholds(cpuPercent: 40, memoryBytes: 1)
-        case 2: Thresholds(cpuPercent: 60, memoryBytes: 0)
+        case 2: Thresholds()
         default: Thresholds(cpuPercent: 60, memoryBytes: 1)
         }
     }
     try await session.run(thresholds: thresholds) { fixture.receive($0) }
     let snapshots = fixture.collected.withLock { $0 }
     #expect(snapshots.map(\.findings.count) == [0, 1, 1, 0])
-    #expect(snapshots.map(\.cpuThresholdPercent) == [60, 40, 60, 60])
+    #expect(snapshots.map(\.cpuThresholdPercent) == [60, 40, 0, 60])
     #expect(snapshots.map(\.memoryThresholdBytes) == [1, 1, 0, 1])
     #expect(snapshots[1].findings.first?.cpuPercent == 50)
     #expect(snapshots[1].findings.first?.attribution.threadID == sessionA)

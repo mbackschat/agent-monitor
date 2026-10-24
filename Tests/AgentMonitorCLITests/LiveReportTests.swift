@@ -297,11 +297,11 @@ func keyboardHelpSeparatesControlsWithoutClipping(width: Int) {
     var state = LiveReportState(thresholds: Thresholds(cpuPercent: 15, memoryBytes: 0))
     state.receive(liveSnapshot([liveRow(42)]))
     let pending = LiveReportLayout.lines(state: state, width: 100, height: 24)
-    #expect(pending.contains { $0.text.contains("CPU > 15.00% OR GB > 0.00 (pending)") })
+    #expect(pending.contains { $0.text.contains("CPU > 15.00% (pending)") })
     state.adjustThreshold(.cpuUp)
     state.adjustThreshold(.memoryUp)
     let applied = LiveReportLayout.lines(state: state, width: 100, height: 24)
-    #expect(applied.contains { $0.text == "CPU > 25.00% OR GB > 1.00" })
+    #expect(applied.contains { $0.text == "CPU > 25.00% OR footprint > 1.00 GB" })
     #expect(!applied.contains { $0.text.contains("pending") })
 }
 
@@ -690,4 +690,11 @@ func diagnosisHintFitsNormalFooterBudget(dimensions: (Int, Int)) throws {
     let lines = LiveReportLayout.lines(state: LiveReportState(), width: width, height: 24)
     let start = try #require(lines.firstIndex { $0.text.contains("↑/↓ select") })
     #expect(lines.count - start == expectedRows)
+}
+
+@Test func filterLabelsOnlyDescribeEnabledResourceFilters() {
+    #expect(ThresholdContext.text(Thresholds()) == "All observed processes")
+    #expect(ThresholdContext.text(Thresholds(cpuPercent: 25)) == "CPU > 25.00%")
+    #expect(ThresholdContext.text(Thresholds(memoryBytes: 1_000_000_000)) == "footprint > 1.00 GB")
+    #expect(ThresholdContext.text(.heavy) == "CPU > 25.00% OR footprint > 1.00 GB")
 }

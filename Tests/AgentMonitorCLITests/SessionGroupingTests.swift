@@ -23,9 +23,35 @@ func sessionTotalsIncludeProcessesHiddenByDisplayFilters(showBusy: Bool) throws 
     #expect(state.rows.map(\.process) == (showBusy ? [busy.process] : []))
     #expect(state.children(of: group).map(\.process) == (showBusy ? [busy.process] : []))
     let text = TextReport.render(snapshot, grouping: .session)
-    #expect(text.contains("60.00%"))
-    #expect(text.contains("0.30 GB"))
+    #expect(state.projection.unpinnedRows.count == (showBusy ? 1 : 0))
+    #expect(text.contains("60.00%") == showBusy)
+    #expect(text.contains("0.30 GB") == showBusy)
     #expect(text.contains("Kernel footprint peak: 4.00 GB") == showBusy)
+}
+
+@Test func filteredSessionsRemainVisibleOnlyWhenExplicitlyPinned() throws {
+    let busy = groupedRow(1, thread: "busy", cpu: 50)
+    let quiet = groupedRow(2, thread: "quiet", cpu: 0)
+    let fixture = groupedSnapshot([busy, quiet])
+    var state = LiveReportState(grouping: .session)
+    state.receive(fixture)
+    let quietGroup = try #require(state.groups.first { $0.sessionID == "quiet" })
+    state.togglePin(.group(quietGroup.id))
+    let filtered = MonitoringSnapshot(
+        cpuAccounting: fixture.cpuAccounting, timestamp: fixture.timestamp,
+        intervalSeconds: fixture.intervalSeconds, cpuThresholdPercent: 25,
+        memoryThresholdBytes: 0, sampledProcessCount: 2, unreadableProcessCount: 0,
+        findings: [busy], observedFindings: [busy, quiet])
+    state.receive(filtered)
+    #expect(state.projection.pinnedRows.map(\.id) == [.group(quietGroup.id)])
+    #expect(state.projection.unpinnedRows.count == 1)
+    #expect(state.children(of: quietGroup).isEmpty)
+    state.togglePin(.group(quietGroup.id))
+    #expect(state.visibleRows.count == 1)
+    #expect(!TextReport.render(filtered, grouping: .session).contains("Session: quiet"))
+    state.togglePin(.process(busy.process))
+    #expect(state.projection.unpinnedRows.isEmpty)
+    #expect(state.projection.pinnedRows.map(\.id) == [.process(busy.process)])
 }
 
 @Test func groupingUsesCorroboratedRootsAndNeverSharedDirectories() throws {

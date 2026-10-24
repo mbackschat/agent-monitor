@@ -123,19 +123,22 @@ enum MenuBarOption: Equatable {
         menu.addItem(.sectionHeader(title: "Sampling"))
         add("Live menu bar icon", .liveIcon, checked: model.liveIcon, to: menu)
         let cpu = model.report.thresholds.cpuPercent
-        let cpuMenu = submenu("CPU > \(cpu.formatted())%", in: menu)
+        let cpuMenu = submenu(cpu == 0 ? "CPU filter: Off" : "CPU > \(cpu.formatted())%", in: menu)
         for value in Set([0, 5, 10, 25, 50, 100, 200, 400, 800, cpu]).sorted() {
-            add("\(value.formatted())%", .cpu(value), checked: value == cpu, to: cpuMenu)
+            add(value == 0 ? "Off" : "\(value.formatted())%", .cpu(value), checked: value == cpu, to: cpuMenu)
         }
         let memory = model.report.thresholds.memoryBytes
-        let memoryMenu = submenu("Footprint > \((Double(memory) / 1e9).formatted()) GB", in: menu)
+        let memoryMenu = submenu(
+            memory == 0 ? "Footprint filter: Off" : "Footprint > \((Double(memory) / 1e9).formatted()) GB",
+            in: menu)
         let memorySteps: [UInt64] = [
             0, 250_000_000, 500_000_000, 1_000_000_000, 2_000_000_000, 4_000_000_000, 8_000_000_000,
             16_000_000_000,
         ]
         for value in Set(memorySteps + [memory]).sorted() {
             add(
-                "\((Double(value) / 1e9).formatted()) GB", .memory(value), checked: value == memory,
+                value == 0 ? "Off" : "\((Double(value) / 1e9).formatted()) GB", .memory(value),
+                checked: value == memory,
                 to: memoryMenu)
         }
         let interval = model.report.interval

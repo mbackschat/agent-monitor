@@ -89,9 +89,7 @@ public enum LiveReportLayout {
                     || $0.memoryThresholdBytes != state.thresholds.memoryBytes
             } ?? false
         let filters =
-            (state.thresholds.isUnfiltered
-                ? "All observed processes"
-                : "CPU > \(ReportNumber.text(state.thresholds.cpuPercent))% OR GB > \(ReportNumber.text(Double(state.thresholds.memoryBytes) / 1e9))")
+            ThresholdContext.text(state.thresholds)
             + (pending ? " (pending)" : "")
         let context = ReportLine(CPUContext.text(state.snapshot?.cpuAccounting), style: .muted)
         // Width-based row counts preserve pane geometry across changing status text; see docs/architecture.md.

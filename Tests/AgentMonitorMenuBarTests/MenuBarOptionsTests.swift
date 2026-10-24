@@ -25,6 +25,8 @@ import Testing
     #expect(menu.item(withTitle: "Footprint")?.state == .off)
     #expect(menu.item(withTitle: "PID")?.state == .off)
     #expect(menu.items.filter { $0.submenu != nil }.count == 3)
+    #expect(menu.item(withTitle: "CPU filter: Off")?.submenu?.item(withTitle: "Off")?.state == .on)
+    #expect(menu.item(withTitle: "Footprint filter: Off")?.submenu?.item(withTitle: "Off")?.state == .on)
 }
 
 @MainActor private func findOptionsButton(in view: NSView) -> NSPopUpButton? {

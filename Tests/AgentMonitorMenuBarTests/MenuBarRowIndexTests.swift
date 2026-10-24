@@ -95,11 +95,12 @@ import Testing
     await model.stop()
 }
 
-@Test @MainActor func filteredLookupKeepsFullTotalsWithoutEnablingHiddenProcessActions() async throws {
+@Test(arguments: [10, 150]) @MainActor
+func filteredLookupKeepsFullTotalsWithoutEnablingHiddenProcessActions(sessionCount: Int) async throws {
     let observed = try (0..<150).flatMap { index in
         try menuBarFixture(
             pids: [Int32(42001 + index)], cpu: index < 10 ? 50 : 0, memoryBytes: 1_000_000,
-            sessionID: String(format: "11111111-1111-4111-8111-%012d", index % 10)
+            sessionID: String(format: "11111111-1111-4111-8111-%012d", index % sessionCount)
         ).findings
     }
     let base = try menuBarFixture()

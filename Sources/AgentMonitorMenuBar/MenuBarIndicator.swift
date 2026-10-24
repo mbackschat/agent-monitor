@@ -71,7 +71,7 @@ struct MenuBarIndicator {
             "Totals include filtered processes; sampling can miss short-lived work",
             thresholds.isUnfiltered
                 ? "Display: all observed processes"
-                : "Filter: CPU > \(thresholds.cpuPercent.formatted())% of one core or footprint > \((Double(thresholds.memoryBytes) / 1e9).formatted()) GB",
+                : "Filter: \(ThresholdContext.text(thresholds))",
             partial ? "Some resource measurements are unavailable" : nil,
             unreadableCount > 0 ? "\(unreadableCount) processes could not be read" : nil,
             "Sampled \(sampledAt.formatted(date: .omitted, time: .standard))",

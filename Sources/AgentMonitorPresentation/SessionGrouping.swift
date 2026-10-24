@@ -15,6 +15,10 @@ public struct SessionGroup: Equatable, Sendable {
     public let isRoot: Bool
     public let processes: [HeavyProcess]
 
+    public func containsDisplayedProcess(in identities: Set<ProcessIdentity>) -> Bool {
+        processes.contains { identities.contains($0.process) }
+    }
+
     public var cpuTotal: Double? { sum(processes.map(\.cpuPercent)) }
     public var memoryGBTotal: Double? { sum(processes.map { $0.footprintBytes.map { Double($0) / 1e9 } }) }
     public var cpuPartial: Bool { processes.contains { $0.cpuPercent == nil } }

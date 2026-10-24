@@ -28,8 +28,7 @@ enum TUIFixture {
                     ]
                     let thresholds = await currentThresholds()
                     let findings = rows.filter {
-                        ($0.cpuPercent ?? 0) > thresholds.cpuPercent
-                            || ($0.footprintBytes ?? 0) > thresholds.memoryBytes
+                        thresholds.includes(cpu: $0.cpuPercent, footprint: $0.footprintBytes)
                     }
                     try await receive(
                         MonitoringSnapshot(
@@ -40,7 +39,7 @@ enum TUIFixture {
                             cpuThresholdPercent: thresholds.cpuPercent,
                             memoryThresholdBytes: thresholds.memoryBytes,
                             sampledProcessCount: 2, unreadableProcessCount: 0, findings: findings,
-                            agentLoad: AgentLoadSummary(processes: rows)))
+                            agentLoad: AgentLoadSummary(processes: rows), observedFindings: rows))
                     try await Task.sleep(for: .seconds(1))
                 }
             })
