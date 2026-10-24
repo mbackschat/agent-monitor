@@ -36,8 +36,12 @@ final class MenuBarRowIndex {
         visible = Set(visibleIDs)
         groupFocusTargets = Dictionary(
             uniqueKeysWithValues: projection.groups.compactMap { group in
-                guard Set(group.processes.compactMap(\.attribution.runtime)).count == 1,
-                    let process = group.processes.first(where: { $0.attribution.runtime != nil })
+                guard
+                    Set(group.processes.filter { !$0.isHistorical }.compactMap(\.attribution.runtime)).count
+                        == 1,
+                    let process = group.processes.first(where: {
+                        !$0.isHistorical && $0.attribution.runtime != nil
+                    })
                 else { return nil }
                 return (group.id, process)
             })

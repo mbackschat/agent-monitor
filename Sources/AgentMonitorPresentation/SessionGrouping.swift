@@ -20,9 +20,12 @@ public struct SessionGroup: Equatable, Sendable {
     }
 
     public var cpuTotal: Double? { sum(processes.map(\.cpuPercent)) }
-    public var memoryGBTotal: Double? { sum(processes.map { $0.footprintBytes.map { Double($0) / 1e9 } }) }
+    public var memoryGBTotal: Double? {
+        let current = processes.filter { !$0.isHistorical }
+        return current.isEmpty ? 0 : sum(current.map { $0.footprintBytes.map { Double($0) / 1e9 } })
+    }
     public var cpuPartial: Bool { processes.contains { $0.cpuPercent == nil } }
-    public var memoryPartial: Bool { processes.contains { $0.footprintBytes == nil } }
+    public var memoryPartial: Bool { processes.contains { !$0.isHistorical && $0.footprintBytes == nil } }
     public var minimumPID: Int32 { processes.map(\.process.pid).min() ?? 0 }
     public var project: String {
         if isSharedRuntime { return "Shared runtime" }
@@ -47,9 +50,12 @@ public struct SessionGroup: Equatable, Sendable {
     public var label: String {
         let session = sessionID.map { String($0.prefix(8)) } ?? sessionDescription
         let kind = isSharedRuntime ? "" : (isRoot ? " root" : " session")
+        let evidence =
+            processes.contains { $0.accounting != nil }
+            ? (sessionID == nil ? " | uncertain CPU" : " | point-candidate CPU") : ""
         let partial = cpuPartial || memoryPartial ? " | partial totals" : ""
         return
-            "\(provider?.rawValue ?? "unknown")/\(session)\(kind) | \(processes.count) observed | \(project)\(partial)"
+            "\(provider?.rawValue ?? "unknown")/\(session)\(kind) | \(processes.count) observed | \(project)\(partial)\(evidence)"
     }
 
     private func sum(_ values: [Double?]) -> Double? {

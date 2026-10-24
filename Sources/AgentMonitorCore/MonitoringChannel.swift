@@ -65,14 +65,15 @@ struct MonitoringPayloadSize: Sendable {
     }
 }
 
-/// A single-consumer FIFO. Pressure terminates visibly after accepted entries drain;
-/// replacing snapshots here would discard CPU intervals (resource-accounting proposal).
+/// Bounded single-consumer delivery; accounting windows may merge by unique endpoints.
+/// Raw acquisition remains FIFO because replacing raw scans loses evidence.
 actor MonitoringChannel<Element: Sendable> {
     private struct Entry {
         let value: Element
         let size: MonitoringPayloadSize
     }
 
+    private let coalesce: (@Sendable (Element, Element) throws -> (Element, MonitoringPayloadSize))?
     private let stage: MonitoringStage
     private let limits: MonitoringPipelineLimits
     private var queue: [Entry?] = []
@@ -83,13 +84,27 @@ actor MonitoringChannel<Element: Sendable> {
     private var failure: (any Error)?
     private var waiter: CheckedContinuation<Element?, any Error>?
 
-    init(stage: MonitoringStage, limits: MonitoringPipelineLimits) {
+    init(
+        stage: MonitoringStage, limits: MonitoringPipelineLimits,
+        coalesce: (@Sendable (Element, Element) throws -> (Element, MonitoringPayloadSize))? = nil
+    ) {
+        self.coalesce = coalesce
         self.stage = stage
         self.limits = limits
     }
 
     func send(_ value: Element, size: MonitoringPayloadSize, sequence: UInt64) throws {
         guard !ended else { throw failure ?? CancellationError() }
+        if let coalesce, head < queue.count, let previous = queue[head] {
+            let (merged, mergedSize) = try coalesce(previous.value, value)
+            guard mergedSize.observations <= limits.pendingObservations,
+                mergedSize.textBytes <= limits.pendingTextBytes
+            else { throw MonitoringError.overloaded(stage: stage, rejectedScan: sequence) }
+            queue[head] = Entry(value: merged, size: mergedSize)
+            observations = mergedSize.observations
+            textBytes = mergedSize.textBytes
+            return
+        }
         guard queue.count - head < limits.pendingScans,
             size.observations <= limits.pendingObservations - observations,
             size.textBytes <= limits.pendingTextBytes - textBytes
@@ -121,6 +136,8 @@ actor MonitoringChannel<Element: Sendable> {
         textBytes = 0
         if !ended { finish(throwing: CancellationError()) }
     }
+
+    var isDrained: Bool { ended && head == queue.count }
 
     func next() async throws -> Element? {
         try Task.checkCancellation()

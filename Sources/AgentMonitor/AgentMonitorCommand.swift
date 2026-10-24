@@ -16,8 +16,9 @@ struct AgentMonitorCommand: AsyncParsableCommand {
             Learn the workflow and limits: agent-monitor guide
 
             Without a subcommand, print one report after a one-second baseline interval.
-            Reports show agent-associated processes above strict CPU OR footprint thresholds.
-            CPU is averaged between snapshots; memory is physical footprint in decimal GB.
+            Reports include all observed agent-associated processes unless display filters are enabled.
+            Acquisition defaults to 100 ms; reports refresh independently every second.
+            CPU is accumulated across each report window; memory is physical footprint in decimal GB.
             Headers show host occupancy beside your measured processes.
             Use --tui for a live view, --json for report JSONL, or guide tui for all keys.
             kill, message and focus are separate verified actions; see guide actions.
@@ -50,7 +51,8 @@ struct AgentMonitorCommand: AsyncParsableCommand {
             thresholds: Thresholds(
                 cpuPercent: options.cpu, memoryBytes: UInt64(options.memoryGB * 1_000_000_000)),
             intervalSeconds: options.interval, samples: options.samples, includeCommands: options.commands,
-            scope: options.allProcesses ? .allProcesses : .agentsOnly, collectAgentLoad: options.tui)
+            scope: options.allProcesses ? .allProcesses : .agentsOnly, collectAgentLoad: options.tui,
+            reportIntervalSeconds: 1)
         let session = MonitoringSession(
             configuration: configuration, reader: try NativeProcessReader(), excluding: [getpid()])
         if options.tui {

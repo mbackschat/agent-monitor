@@ -1,0 +1,86 @@
+{
+  "initial": {
+    "build": "debug",
+    "date": "2026-10-24",
+    "runs": [
+      {
+        "historicalProcesses": 30,
+        "maximumMilliseconds": 200,
+        "milliseconds": [
+          19.302375,
+          18.165958,
+          17.704458
+        ],
+        "processes": 150,
+        "scansPerWindow": 10
+      },
+      {
+        "historicalProcesses": 200,
+        "maximumMilliseconds": 200,
+        "milliseconds": [
+          122.969209,
+          224.529875,
+          334.399875
+        ],
+        "processes": 1000,
+        "scansPerWindow": 10
+      }
+    ]
+  },
+  "repeatBeforeOptimization": {
+    "build": "debug",
+    "date": "2026-10-24",
+    "runs": [
+      {
+        "historicalProcesses": 30,
+        "maximumMilliseconds": 200,
+        "milliseconds": [
+          18.411958,
+          17.525958,
+          17.031375
+        ],
+        "processes": 150,
+        "scansPerWindow": 10
+      },
+      {
+        "historicalProcesses": 200,
+        "maximumMilliseconds": 200,
+        "milliseconds": [
+          116.370875,
+          115.831625,
+          121.359791
+        ],
+        "processes": 1000,
+        "scansPerWindow": 10
+      }
+    ]
+  },
+  "final": {
+    "build": "debug",
+    "date": "2026-10-24",
+    "runs": [
+      {
+        "historicalProcesses": 30,
+        "maximumMilliseconds": 200,
+        "milliseconds": [
+          16.374209,
+          16.262167,
+          16.271542
+        ],
+        "processes": 150,
+        "scansPerWindow": 10
+      },
+      {
+        "historicalProcesses": 200,
+        "maximumMilliseconds": 200,
+        "milliseconds": [
+          113.28425,
+          110.001541,
+          110.800375
+        ],
+        "processes": 1000,
+        "scansPerWindow": 10
+      }
+    ]
+  }
+}

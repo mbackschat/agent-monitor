@@ -5,6 +5,8 @@ public struct Monitor: Sendable {
         var sample: ProcessSample
         var parent: ProcessIdentity?
         var metadata = ProcessMetadata(status: .unavailable)
+        var markerObservedAt: Double?
+        var metadataObservedAt: Double?
         var cpuContribution: CPUContribution?
         var cpuPercent: Double? {
             guard let cpuContribution, !cpuContribution.spansMissingScans else { return nil }
@@ -31,6 +33,7 @@ public struct Monitor: Sendable {
     private var runtimes: [AgentProvider: Set<ProcessIdentity>] = [:]
     /// Sessions that runtime lifetimes host according to their harness's latest listing.
     private var listedSessions: [ProcessIdentity: String] = [:]
+    private var registryObservedAt: [ProcessIdentity: Double] = [:]
     private let adapters: AttributionAdapters
 
     public init() { adapters = .builtIn }
@@ -81,6 +84,8 @@ public struct Monitor: Sendable {
             node.cpuContribution = contributions[sample.identity]
             if node.sample.executable != sample.executable {
                 node.metadata = ProcessMetadata(status: .unavailable)
+                node.markerObservedAt = nil
+                node.metadataObservedAt = nil
                 node.recognizedProviders = adapters.runtimeProviders(for: sample.executable)
                 node.runtimeProviders = node.recognizedProviders
                 listedSessions[sample.identity] = nil
@@ -96,6 +101,7 @@ public struct Monitor: Sendable {
         runtimes = [:]
         for identity in live { indexRuntime(identity) }
         listedSessions = listedSessions.filter { live.contains($0.key) }
+        registryObservedAt = registryObservedAt.filter { live.contains($0.key) }
 
         // Retain departed ancestors only while a live descendant needs them; see
         // docs/research/macos-process-attribution.md for reparenting and PID reuse.
@@ -106,8 +112,13 @@ public struct Monitor: Sendable {
         nodes = nodes.filter { retained.contains($0.key) }
     }
 
-    public mutating func enrich(_ metadata: ProcessMetadata, for identity: ProcessIdentity) {
+    public mutating func enrich(
+        _ metadata: ProcessMetadata, for identity: ProcessIdentity,
+        observedAt: Double? = nil, launchObservedAt: Double? = nil
+    ) {
         guard var node = nodes[identity] else { return }
+        if !metadata.markers.isEmpty { node.markerObservedAt = launchObservedAt ?? observedAt }
+        node.metadataObservedAt = observedAt
         var updated = metadata
         switch metadata.status {
         case .unavailable, .notObserved:
@@ -159,7 +170,8 @@ public struct Monitor: Sendable {
     /// Replaces the provider's bindings with its listing; nil (a failed listing) or an unparsable
     /// one removes them. Each live runtime binds only to the single active entry naming its PID.
     @discardableResult package mutating func bindSessions(
-        _ output: Data?, provider: AgentProvider, restrictingTo verified: Set<ProcessIdentity>? = nil
+        _ output: Data?, provider: AgentProvider, restrictingTo verified: Set<ProcessIdentity>? = nil,
+        observedAt: Double? = nil
     ) -> Bool {
         let parsed = output.flatMap { try? adapters.runtimeSessions(provider, fromRegistry: $0) }
         let sessions = parsed ?? []
@@ -170,8 +182,10 @@ public struct Monitor: Sendable {
                 listed.count == 1, let session = listed.first, session.active, let id = session.sessionID
             {
                 listedSessions[runtime] = id
+                registryObservedAt[runtime] = observedAt
             } else {
                 listedSessions[runtime] = nil
+                registryObservedAt[runtime] = nil
             }
         }
         return parsed != nil
@@ -258,6 +272,28 @@ public struct Monitor: Sendable {
             kernelPeakFootprintBytes: node.sample.kernelPeakFootprintBytes,
             cwd: node.metadata.cwd, command: node.metadata.command, metadataStatus: node.metadata.status,
             attribution: resolve(identity).attribution)
+    }
+
+    /// The primary label's actual point-observation time, never a claim of interval support.
+    /// Cached markers retain their original time under the resource-accounting contract.
+    func attributionObservationTimes() -> [ProcessIdentity: Double] {
+        var result: [ProcessIdentity: Double] = [:]
+        for id in live {
+            let owner = resolve(id).attribution
+            switch owner.evidence {
+            case .marker, .inheritedMarker:
+                let source = owner.ancestry.first { ancestor in
+                    nodes[ancestor]?.metadata.markers.contains {
+                        $0.threadID == owner.threadID && $0.provider == owner.provider
+                    } == true
+                }
+                result[id] = source.flatMap { nodes[$0]?.markerObservedAt }
+            case .writerLock: result[id] = owner.runtime.flatMap { nodes[$0]?.metadataObservedAt }
+            case .sessionRegistry: result[id] = owner.runtime.flatMap { registryObservedAt[$0] }
+            case .runtimeOnly, .ambiguous, .unknown: break
+            }
+        }
+        return result
     }
 
     /// The session marker behind a live process's resolved attribution. Action routing reads

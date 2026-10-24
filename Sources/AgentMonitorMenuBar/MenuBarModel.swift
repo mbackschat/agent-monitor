@@ -246,7 +246,7 @@ final class MenuBarModel {
             else { return false }
             return SessionActions.canFocusTerminal(process)
         case .process(let id):
-            guard let process = rowIndex.processes[id] else { return false }
+            guard let process = rowIndex.processes[id], !process.isHistorical else { return false }
             switch kind {
             case .terminate: return true
             case .focus: return SessionActions.canFocusTerminal(process)

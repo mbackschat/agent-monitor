@@ -121,6 +121,9 @@ public enum NativeActions {
     }
 
     static func validate(_ expected: HeavyProcess) throws {
+        guard !expected.isHistorical else {
+            throw ActionFailure("Historical contributors cannot initiate actions.")
+        }
         let pid = expected.process.pid
         guard pid > 1, pid != getpid() else { throw ActionFailure("Refusing this protected PID.") }
         guard let info = bsdInfo(pid) else { throw ActionFailure("Process exited or cannot be inspected.") }

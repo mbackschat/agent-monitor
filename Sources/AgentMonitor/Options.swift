@@ -39,7 +39,9 @@ struct ReportOptions: ParsableArguments {
 
     @Option(
         name: .customLong("samples"),
-        help: "Number of reports; 0 watches until Ctrl-C. Default: 1, or unlimited with --tui.")
+        help:
+            "Number of accounting windows; slow readers may receive combined reports. 0 watches until Ctrl-C. Default: 1, or unlimited with --tui."
+    )
     var sampleLimit: Int?
 
     var samples: Int { sampleLimit ?? (tui ? 0 : 1) }
@@ -103,7 +105,7 @@ struct ReportOptions: ParsableArguments {
 struct JSONOptions: ParsableArguments {
     @Flag(
         help:
-            "Emit machine JSON: reports use JSONL schema version 5; CPU diagnosis uses one version 1 document."
+            "Emit machine JSON: reports use JSONL schema version 6; CPU diagnosis uses one version 1 document."
     )
     var json = false
 

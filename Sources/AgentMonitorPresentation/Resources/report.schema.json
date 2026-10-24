@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:agent-monitor:report:5",
-  "title": "Agent Monitor report v5",
+  "$id": "urn:agent-monitor:report:6",
+  "title": "Agent Monitor report v6",
   "description": "One JSONL report. Optional unavailable values are omitted, not zero. Associations describe launch origin, not current shared-daemon causality, except evidence sessionRegistry: the session a runtime hosted when its harness listed it.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 5
+      "const": 6
     },
     "attributionMeaning": {
       "const": "launchOrigin"
@@ -49,10 +49,14 @@
     },
     "observedFindings": {
       "type": "array",
-      "description": "All observed processes in the requested scope, independent of display thresholds. Sampling may miss short-lived processes.",
+      "description": "Unfiltered contributors in scope during the display window, including historical lifetimes no longer observed in its final scan. Historical memory never enters current totals. Polling can miss workers and final exit CPU.",
       "items": {
         "$ref": "#/$defs/heavyProcess"
       }
+    },
+    "window": {
+      "$ref": "#/$defs/reportWindow",
+      "description": "Measured CPU uses unique contributions opening at or after baselineScan and closing in (baselineScan, finalScan], divided by endedAt-startedAt. Earlier openings are recovered CPU-seconds only. Monotonic times use the acquisition run clock. Point labels are frozen per contribution; no interval-supported ownership is asserted. Contributions cover row lifetimes in the requested scope; cpuAccounting.measuredUserPercent separately covers all sampled same-user lifetimes."
     }
   },
   "required": [
@@ -202,6 +206,9 @@
           "type": "integer",
           "minimum": 0,
           "description": "Kernel-reported maximum physical footprint in bytes for the current task. Can reset on exec. Not current memory or a simultaneous session peak. Omitted when unavailable."
+        },
+        "accounting": {
+          "$ref": "#/$defs/processWindowAccounting"
         }
       },
       "required": [
@@ -333,6 +340,159 @@
         "unsupported",
         "reservedBytes",
         "readSeconds"
+      ]
+    },
+    "processWindowAccounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cpuSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "recoveredCPUSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "pointCandidateCPUSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "uncertainCPUSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "isHistorical": {
+          "type": "boolean"
+        },
+        "lastObservedAt": {
+          "type": "number"
+        },
+        "lastObservedFootprintBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currentAttribution": {
+          "$ref": "#/$defs/attribution"
+        }
+      },
+      "required": [
+        "recoveredCPUSeconds",
+        "pointCandidateCPUSeconds",
+        "uncertainCPUSeconds",
+        "isHistorical",
+        "lastObservedAt"
+      ]
+    },
+    "frozenCPUContribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "runID": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "openingScan": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "closingScan": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "process": {
+          "$ref": "#/$defs/processIdentity"
+        },
+        "newbornOpening": {
+          "type": "boolean"
+        },
+        "verifiedBirth": {
+          "type": "number"
+        },
+        "cpuSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "startedAt": {
+          "type": "number"
+        },
+        "endedAt": {
+          "type": "number"
+        },
+        "attribution": {
+          "$ref": "#/$defs/attribution"
+        },
+        "pointEvidenceObservedAt": {
+          "type": "number"
+        },
+        "revision": {
+          "const": 1
+        }
+      },
+      "required": [
+        "runID",
+        "openingScan",
+        "closingScan",
+        "process",
+        "newbornOpening",
+        "cpuSeconds",
+        "startedAt",
+        "endedAt",
+        "attribution",
+        "revision"
+      ]
+    },
+    "reportWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "runID": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "baselineScan": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "finalScan": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "startedAt": {
+          "type": "number"
+        },
+        "endedAt": {
+          "type": "number"
+        },
+        "contributions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/frozenCPUContribution"
+          }
+        },
+        "excludedObservationCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evictedBaselineCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmeasuredLifetimeCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "runID",
+        "baselineScan",
+        "finalScan",
+        "startedAt",
+        "endedAt",
+        "contributions",
+        "excludedObservationCount",
+        "evictedBaselineCount",
+        "unmeasuredLifetimeCount"
       ]
     }
   }

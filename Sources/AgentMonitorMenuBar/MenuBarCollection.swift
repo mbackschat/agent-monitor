@@ -12,7 +12,7 @@ enum MenuBarCollection {
             let session = MonitoringSession(
                 configuration: try MonitoringConfiguration(
                     thresholds: await thresholds(), intervalSeconds: interval.seconds, samples: 0,
-                    collectAgentLoad: true),
+                    collectAgentLoad: true, reportIntervalSeconds: 1),
                 reader: try reader(), clock: clock, registry: registry, excluding: excluding)
             try await session.run(
                 thresholds: thresholds, interval: interval, receive)

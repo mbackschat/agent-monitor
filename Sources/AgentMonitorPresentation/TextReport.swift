@@ -26,12 +26,15 @@ public enum TextReport {
                 style: .muted),
         ]
         lines.append(ReportLine(CPUContext.text(report.cpuAccounting), style: .muted))
+        if let window = report.window {
+            lines.append(ReportLine(AccountingContext.window(window), style: .muted))
+        }
         if report.findings.isEmpty {
             lines.append(ReportLine("No processes match the display filters in this scope."))
         }
         switch grouping {
         case .none:
-            for row in report.findings { lines += processLines(row) }
+            for row in report.findings { lines += processLines(row, window: report.window) }
         case .session:
             lines.append(
                 ReportLine(
@@ -52,14 +55,14 @@ public enum TextReport {
                         "  Observed totals: CPU \(cpu)\(group.cpuPartial ? " (partial)" : "")  footprint \(memory)\(group.memoryPartial ? " (partial)" : "")"
                     ))
                 for row in group.processes where displayed.contains(row.process) {
-                    lines += processLines(row)
+                    lines += processLines(row, window: report.window)
                 }
             }
         }
         return lines
     }
 
-    private static func processLines(_ row: HeavyProcess) -> [ReportLine] {
+    private static func processLines(_ row: HeavyProcess, window: ReportWindowSummary?) -> [ReportLine] {
         var lines: [ReportLine] = []
         let owner = row.attribution
         let provider =
@@ -75,6 +78,10 @@ public enum TextReport {
             ReportLine(
                 "PID \(row.process.pid)  CPU \(cpu)  footprint \(memory)  \(row.executable.isEmpty ? row.name : row.executable)",
                 style: .heavy))
+        if let window {
+            lines.append(ReportLine("  " + AccountingContext.evidence(row, in: window), style: .muted))
+        }
+        lines += AccountingContext.process(row).map { ReportLine("  " + $0, style: .muted) }
         if let peak = FootprintContext.kernelPeak(row) { lines.append(ReportLine("  " + peak)) }
         if let thread = owner.threadID {
             let relation = owner.evidence == .sessionRegistry ? "current" : "launch"

@@ -31,8 +31,8 @@ import Testing
         #expect(help.contains(option))
     }
     let normalized = help.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
-    #expect(normalized.contains("CPU is averaged between snapshots"))
-    #expect(normalized.contains("JSONL schema version 5"))
+    #expect(normalized.contains("CPU is accumulated across each report window"))
+    #expect(normalized.contains("JSONL schema version 6"))
     #expect(normalized.contains("Requested acquisition period"))
     #expect(normalized.contains("host occupancy beside your measured processes"))
     #expect(AgentGuide.render(.tui).contains("0 minimizes; 9 maximizes; = restores the chosen split"))

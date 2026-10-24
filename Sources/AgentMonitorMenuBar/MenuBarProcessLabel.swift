@@ -12,6 +12,10 @@ struct MenuBarProcessLabel: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(process.name).lineLimit(1).truncationMode(.middle)
+                if process.isHistorical {
+                    Text("Past").font(.caption2).foregroundStyle(.secondary).help(
+                        "No longer observed; measured CPU remains in this window")
+                }
                 if session != nil { pid }
                 Spacer(minLength: 4)
                 Text(cpuText).monospacedDigit().fixedSize()

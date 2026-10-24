@@ -245,6 +245,10 @@ extension LiveReportState {
             setActionNotice("Expand a group and select a process first.")
             return nil
         }
+        guard !row.isHistorical else {
+            setActionNotice("Historical contributors cannot initiate actions.")
+            return nil
+        }
         switch kind {
         case .terminate:
             actionPanel = ActionPanel(process: row, phase: .confirmTermination)
@@ -259,7 +263,7 @@ extension LiveReportState {
 
     /// Starts fresh recipient verification for a frozen target, including a restored UI draft.
     public mutating func beginMessage(for process: HeavyProcess, sampledAt: Date? = nil) -> ActionEffect? {
-        guard actionPanel == nil else { return nil }
+        guard actionPanel == nil, !process.isHistorical else { return nil }
         actionPanel = ActionPanel(process: process, phase: .loading, sampledAt: sampledAt)
         return .prepare(process)
     }
@@ -267,8 +271,9 @@ extension LiveReportState {
     /// A launch group names one session, which is all focus needs: it targets the group's runtime
     /// when its processes agree on exactly one.
     private mutating func beginFocus(on group: SessionGroup) -> ActionEffect? {
-        let runtimes = Set(group.processes.compactMap(\.attribution.runtime))
-        guard runtimes.count == 1, let row = group.processes.first(where: { $0.attribution.runtime != nil })
+        let runtimes = Set(group.processes.filter { !$0.isHistorical }.compactMap(\.attribution.runtime))
+        guard runtimes.count == 1,
+            let row = group.processes.first(where: { !$0.isHistorical && $0.attribution.runtime != nil })
         else {
             setActionNotice(
                 runtimes.isEmpty

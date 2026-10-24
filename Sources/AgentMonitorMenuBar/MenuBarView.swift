@@ -190,9 +190,15 @@ struct MenuBarView: View {
                 MenuBarViewOptions(model: model)
             }
             Text(
-                "\(model.report.sortDescription) · \(ThresholdContext.text(model.report.thresholds)) · \(resource(model.report.interval, unit: " s"))"
+                "\(model.report.sortDescription) · \(ThresholdContext.text(model.report.thresholds)) · \(resource(model.report.interval, unit: " s")) acquisition · 1 s display"
             )
             .font(.caption).foregroundStyle(.secondary)
+            if let window = model.report.snapshot?.window {
+                Text(AccountingContext.window(window)).font(.caption2).foregroundStyle(.secondary)
+            }
+            if let error = model.error, model.report.snapshot != nil {
+                Text(error).font(.caption).foregroundStyle(.orange)
+            }
             MenuBarHistoryStrip(model: model)
             if let snapshot = model.report.snapshot,
                 snapshot.cpuThresholdPercent != model.report.thresholds.cpuPercent
@@ -202,7 +208,7 @@ struct MenuBarView: View {
                     .secondary)
             }
             VStack(alignment: .leading, spacing: 12) {
-                if let error = model.error {
+                if let error = model.error, model.report.snapshot == nil {
                     ContentUnavailableView(
                         "Unable to sample", systemImage: "exclamationmark.triangle", description: Text(error))
                 } else if model.report.snapshot == nil {
@@ -393,6 +399,10 @@ struct MenuBarView: View {
                     }.controlSize(.small).help("Copy this process ID (y when its row is focused)")
                 }
                 Text(process.executable)
+                ForEach(AccountingContext.process(process), id: \.self) { Text($0) }
+                if let window = model.report.snapshot?.window {
+                    Text(AccountingContext.evidence(process, in: window))
+                }
                 if let peak = FootprintContext.kernelPeak(process) { Text(peak) }
                 Text(
                     "Session: \(process.attribution.threadID ?? (process.isSharedRuntime ? "shared runtime" : "unresolved"))"

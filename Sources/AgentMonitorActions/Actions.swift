@@ -116,6 +116,9 @@ public struct SessionActions: ProcessActions {
 
     @concurrent public func terminate(_ process: HeavyProcess) async throws {
         try Task.checkCancellation()
+        guard !process.isHistorical else {
+            throw ActionFailure("Historical contributors cannot initiate actions.")
+        }
         let current = try inspect(process)
         try validateProcess(process, current)
         try Task.checkCancellation()
@@ -125,6 +128,9 @@ public struct SessionActions: ProcessActions {
     @concurrent public func prepareMessage(for process: HeavyProcess) async throws -> MessageDraft {
         try Task.checkCancellation()
         let target = try Self.validateMessaging(process)
+        guard !process.isHistorical else {
+            throw ActionFailure("Historical contributors cannot initiate actions.")
+        }
         let current = try inspect(process)
         try validateAttribution(process, current)
         let recipients = try messaging(for: process).recipients(for: target)
@@ -159,6 +165,9 @@ public struct SessionActions: ProcessActions {
     /// Focus follows the runtime rather than the workload, which may have exited or have no terminal.
     @concurrent public func focusTerminal(of process: HeavyProcess) async throws -> FocusOutcome {
         try Task.checkCancellation()
+        guard !process.isHistorical else {
+            throw ActionFailure("Historical contributors cannot initiate actions.")
+        }
         return try focus.focus(runtime: Self.focusRuntime(for: process))
     }
 
@@ -173,6 +182,9 @@ public struct SessionActions: ProcessActions {
     }
 
     private static func focusRuntime(for process: HeavyProcess) throws -> ProcessIdentity {
+        guard !process.isHistorical else {
+            throw ActionFailure("Historical contributors cannot initiate actions.")
+        }
         switch process.attribution.context {
         case .terminal:
             if let runtime = process.attribution.runtime { return runtime }
@@ -213,6 +225,9 @@ public struct SessionActions: ProcessActions {
     }
 
     private static func validateMessaging(_ process: HeavyProcess) throws -> MessageTarget {
+        guard !process.isHistorical else {
+            throw ActionFailure("Historical contributors cannot initiate actions.")
+        }
         guard process.attribution.provider != nil, let thread = process.attribution.threadID,
             UUID(uuidString: thread) != nil, let runtime = process.attribution.runtime,
             process.attribution.context != .unverified

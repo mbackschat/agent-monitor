@@ -1,3 +1,4 @@
+import AgentMonitorActions
 import AgentMonitorPresentation
 import Foundation
 import Testing
@@ -128,4 +129,56 @@ func filteredLookupKeepsFullTotalsWithoutEnablingHiddenProcessActions(sessionCou
         #expect(model.pidToCopy(for: .process(process.process)) == nil)
     }
     await model.stop()
+}
+
+@Test @MainActor func historicalRowsCannotActOrInflateCurrentMemory() async throws {
+    let snapshot = try accountingMenuBarFixture()
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let id = LiveReportRowID.process(try #require(snapshot.findings.first).process)
+    #expect(model.visibleRowIDs.contains(id))
+    let historical = try #require(snapshot.findings.first)
+    #expect(!SessionActions.canMessage(historical))
+    #expect(!SessionActions.canFocusTerminal(historical))
+    #expect(!model.canBegin(.terminate, row: id))
+    #expect(!model.canBegin(.message, row: id))
+    #expect(!model.canBegin(.focus, row: id))
+    #expect(model.report.groups.first?.memoryGBTotal == 0)
+    #expect(model.indicator.statusDescription.contains("Footprint 0"))
+    #expect(model.indicator.level == 1)
+    await model.stop()
+}
+
+func accountingMenuBarFixture() throws -> MonitoringSnapshot {
+    let fixture = try menuBarFixture()
+    let original = try #require(fixture.findings.first)
+    let historical = HeavyProcess(
+        process: original.process, executable: original.executable,
+        name: original.name, cpuPercent: 8, footprintBytes: nil, cwd: original.cwd, command: original.command,
+        metadataStatus: original.metadataStatus, attribution: original.attribution,
+        accounting: ProcessWindowAccounting(
+            cpuSeconds: 0.08, recoveredCPUSeconds: 0,
+            pointCandidateCPUSeconds: 0.08, uncertainCPUSeconds: 0, isHistorical: true,
+            lastObservedAt: 0.3, lastObservedFootprintBytes: original.footprintBytes))
+    let run = UUID()
+    let opening = CounterObservationID(
+        scan: AcquisitionScanID(runID: run, sequence: 0), process: original.process)
+    let closing = CounterObservationID(
+        scan: AcquisitionScanID(runID: run, sequence: 1), process: original.process)
+    let contribution = FrozenCPUContribution(
+        CPUContribution(
+            id: .init(opening: .observation(opening), closing: closing),
+            cpuSeconds: 0.08, startedAt: 0, endedAt: 0.3), attribution: original.attribution, observedAt: 0.2)
+    let window = ReportWindowSummary(
+        runID: run, baselineScan: 0, finalScan: 10, startedAt: 0, endedAt: 1,
+        contributions: [contribution], excludedObservationCount: 0, evictedBaselineCount: 0,
+        unmeasuredLifetimeCount: 0)
+    return MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 8, unmeasuredLifetimeCount: 0,
+            previousScanSeconds: 0.01), timestamp: fixture.timestamp,
+        intervalSeconds: 0.1, cpuThresholdPercent: 0, memoryThresholdBytes: 0,
+        sampledProcessCount: 0, unreadableProcessCount: 0, findings: [historical],
+        agentLoad: AgentLoadSummary(processes: [historical], window: window), window: window)
 }

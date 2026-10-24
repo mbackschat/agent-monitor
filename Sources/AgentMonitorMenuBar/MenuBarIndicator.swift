@@ -32,7 +32,7 @@ struct MenuBarIndicator {
     }
 
     mutating func receive(_ snapshot: MonitoringSnapshot, paused: Bool = false) {
-        load = AgentLoadSummary(processes: snapshot.observedFindings)
+        load = AgentLoadSummary(processes: snapshot.observedFindings, window: snapshot.window)
         cpuAccounting = snapshot.cpuAccounting
         thresholds = Thresholds(
             cpuPercent: snapshot.cpuThresholdPercent, memoryBytes: snapshot.memoryThresholdBytes)
@@ -68,7 +68,8 @@ struct MenuBarIndicator {
             CPUContext.text(cpuAccounting),
             "Footprint \(load.missingFootprintCount > 0 ? "≥ " : "")\(memory) GB",
             "Bars: share of all cores · boundaries at 25% and 50%",
-            "Totals include filtered processes; sampling can miss short-lived work",
+            "Totals include filtered and historical contributors; sampling can miss short-lived work",
+            "Display window: measured CPU; session ownership is point evidence",
             thresholds.isUnfiltered
                 ? "Display: all observed processes"
                 : "Filter: \(ThresholdContext.text(thresholds))",

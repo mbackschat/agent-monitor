@@ -29,7 +29,7 @@ import Testing
     let schema = try #require(JSONSerialization.jsonObject(with: JSONReport.schema()) as? [String: Any])
     #expect(schema["$schema"] as? String == "https://json-schema.org/draft/2020-12/schema")
     let properties = try #require(schema["properties"] as? [String: [String: Any]])
-    #expect(properties["schemaVersion"]?["const"] as? Int == 5)
+    #expect(properties["schemaVersion"]?["const"] as? Int == 6)
 }
 
 @Test func jsonlContainsOneCompleteRecordPerLineEvenWhenArgumentsContainNewlines() throws {
@@ -51,7 +51,7 @@ import Testing
     #expect(rows[0]["cpuPercent"] == nil)
 }
 
-@Test func jsonlV5CarriesTypedCPUAccountingAndOmitsUnavailableValues() throws {
+@Test func jsonlV6CarriesTypedCPUAccountingAndOmitsUnavailableValues() throws {
     var records: [Data] = []
     for host: Double? in [210.9, nil] {
         let snapshot = MonitoringSnapshot(
@@ -74,7 +74,7 @@ import Testing
         let data = try JSONReport.encodeLine(snapshot)
         records.append(data)
         let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        #expect(json["schemaVersion"] as? Int == 5)
+        #expect(json["schemaVersion"] as? Int == 6)
         let accounting = try #require(json["cpuAccounting"] as? [String: Any])
         #expect(accounting["hostBusyPercent"] as? Double == host)
         #expect(accounting["logicalCPUCount"] as? Int == 8)
@@ -139,4 +139,58 @@ private func jsonProcess() -> HeavyProcess {
     let peak = try #require(row["kernelPeakFootprintBytes"] as? NSNumber).uint64Value
     #expect(peak >= before.ri_lifetime_max_phys_footprint)
     #expect(peak == observed.samples.first?.kernelPeakFootprintBytes)
+}
+
+@Test func windowJSONAndTextRetainHistoricalCPUAndReplayEvidence() throws {
+    let original = jsonProcess()
+    let run = UUID()
+    let opening = AcquisitionScanID(runID: run, sequence: 0)
+    let closing = CounterObservationID(
+        scan: AcquisitionScanID(runID: run, sequence: 1), process: original.process)
+    let contribution = FrozenCPUContribution(
+        CPUContribution(
+            id: .init(opening: .newbornZero(listing: opening, verifiedBirth: 0.2), closing: closing),
+            cpuSeconds: 0.08, startedAt: 0, endedAt: 0.3), attribution: original.attribution, observedAt: 0.25
+    )
+    let usage = ProcessWindowAccounting(
+        cpuSeconds: 0.08, recoveredCPUSeconds: 0,
+        pointCandidateCPUSeconds: 0, uncertainCPUSeconds: 0.08, isHistorical: true,
+        lastObservedAt: 0.3, lastObservedFootprintBytes: 2_000_000_000)
+    let row = HeavyProcess(
+        process: original.process, executable: original.executable,
+        name: original.name, cpuPercent: 8, footprintBytes: nil, cwd: nil, command: nil,
+        metadataStatus: original.metadataStatus, attribution: original.attribution, accounting: usage)
+    let window = ReportWindowSummary(
+        runID: run, baselineScan: 0, finalScan: 10, startedAt: 0,
+        endedAt: 1, contributions: [contribution], excludedObservationCount: 0, evictedBaselineCount: 0,
+        unmeasuredLifetimeCount: 0)
+    let snapshot = MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8,
+            measuredUserPercent: 8, unmeasuredLifetimeCount: 0, previousScanSeconds: 0.01),
+        timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 0.1, cpuThresholdPercent: 0,
+        memoryThresholdBytes: 0, sampledProcessCount: 0, unreadableProcessCount: 0,
+        findings: [row], window: window)
+    let data = try JSONReport.encodeLine(snapshot)
+    let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let encodedWindow = try #require(json["window"] as? [String: Any])
+    let records = try #require(encodedWindow["contributions"] as? [[String: Any]])
+    #expect(records[0]["verifiedBirth"] as? Double == 0.2)
+    #expect(records[0]["pointEvidenceObservedAt"] as? Double == 0.25)
+    #expect(records[0]["revision"] as? Int == 1)
+    let text = TextReport.render(snapshot, grouping: .session)
+    #expect(text.contains("No longer observed"))
+    #expect(text.contains("excluded from current totals"))
+    #expect(text.contains("CPU over 1.00 s"))
+    #expect(text.contains("0.08 s"))
+    var state = LiveReportState(grouping: .none)
+    state.receive(snapshot)
+    #expect(state.beginAction(.terminate) == nil)
+    #expect(state.actionPanel == nil)
+    #expect(state.beginMessage(for: row) == nil)
+    #expect(
+        LiveReportLayout.lines(state: state, width: 120, height: 24).contains { $0.text.contains("[past]") })
+    if let path = ProcessInfo.processInfo.environment["JSON_WINDOW_FIXTURE_PATH"] {
+        try data.write(to: URL(fileURLWithPath: path))
+    }
 }

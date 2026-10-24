@@ -147,11 +147,14 @@ public struct HeavyProcess: Equatable, Codable, Sendable {
     public let command: [String]?
     public let metadataStatus: MetadataStatus
     public let attribution: Attribution
+    public let accounting: ProcessWindowAccounting?
+    public var isHistorical: Bool { accounting?.isHistorical == true }
 
     init(
         process: ProcessIdentity, executable: String, name: String, cpuPercent: Double?,
         footprintBytes: UInt64?, kernelPeakFootprintBytes: UInt64? = nil, cwd: String?,
-        command: [String]?, metadataStatus: MetadataStatus, attribution: Attribution
+        command: [String]?, metadataStatus: MetadataStatus, attribution: Attribution,
+        accounting: ProcessWindowAccounting? = nil
     ) {
         self.process = process
         self.executable = executable
@@ -163,6 +166,7 @@ public struct HeavyProcess: Equatable, Codable, Sendable {
         self.command = command
         self.metadataStatus = metadataStatus
         self.attribution = attribution
+        self.accounting = accounting
     }
 
     /// Provider evidence identifies shared runtime usage without assigning it to one thread.

@@ -142,7 +142,7 @@ enum MenuBarOption: Equatable {
                 to: memoryMenu)
         }
         let interval = model.report.interval
-        let intervalMenu = submenu("Every \(interval.formatted()) seconds", in: menu)
+        let intervalMenu = submenu("Acquire every \(interval.formatted()) seconds", in: menu)
         for value in Set(LiveReportState.intervalSteps + [15, interval]).sorted() {
             add("\(value.formatted()) s", .interval(value), checked: value == interval, to: intervalMenu)
         }

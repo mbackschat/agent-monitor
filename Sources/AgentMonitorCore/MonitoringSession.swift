@@ -123,17 +123,19 @@ public struct MonitoringConfiguration: Sendable {
     public let scope: ProcessScope
     public let collectAgentLoad: Bool
     public let pipelineLimits: MonitoringPipelineLimits
+    public let reportIntervalSeconds: Double?
     public let promptCaptureLimits: PromptCaptureLimits
 
     public init(
         thresholds: Thresholds = Thresholds(), intervalSeconds: Double = 1, samples: Int = 1,
         includeCommands: Bool = false, scope: ProcessScope = .agentsOnly, collectAgentLoad: Bool = false,
         pipelineLimits: MonitoringPipelineLimits = MonitoringPipelineLimits(),
-        promptCaptureLimits: PromptCaptureLimits = PromptCaptureLimits()
+        promptCaptureLimits: PromptCaptureLimits = PromptCaptureLimits(), reportIntervalSeconds: Double? = nil
     ) throws {
         guard intervalSeconds.isFinite, (0.1...60).contains(intervalSeconds), samples >= 0,
             thresholds.cpuPercent.isFinite, thresholds.cpuPercent >= 0, pipelineLimits.isValid,
-            promptCaptureLimits.isValid
+            promptCaptureLimits.isValid,
+            reportIntervalSeconds.map({ $0.isFinite && (0.1...60).contains($0) }) ?? true
         else { throw MonitoringError.invalidConfiguration }
         self.thresholds = thresholds
         self.intervalSeconds = intervalSeconds
@@ -143,6 +145,7 @@ public struct MonitoringConfiguration: Sendable {
         self.collectAgentLoad = collectAgentLoad
         self.pipelineLimits = pipelineLimits
         self.promptCaptureLimits = promptCaptureLimits
+        self.reportIntervalSeconds = reportIntervalSeconds
     }
 }
 
@@ -158,12 +161,13 @@ public struct MonitoringSnapshot: Equatable, Sendable {
     /// Unfiltered observations in the requested scope: display thresholds must not change resource totals.
     public let observedFindings: [HeavyProcess]
     public let agentLoad: AgentLoadSummary?
+    public let window: ReportWindowSummary?
 
     public init(
         cpuAccounting: CPUAccounting, timestamp: Date, intervalSeconds: Double, cpuThresholdPercent: Double,
         memoryThresholdBytes: UInt64, sampledProcessCount: Int, unreadableProcessCount: Int,
         findings: [HeavyProcess], agentLoad: AgentLoadSummary? = nil,
-        observedFindings: [HeavyProcess]? = nil
+        observedFindings: [HeavyProcess]? = nil, window: ReportWindowSummary? = nil
     ) {
         self.cpuAccounting = cpuAccounting
         self.timestamp = timestamp
@@ -175,6 +179,7 @@ public struct MonitoringSnapshot: Equatable, Sendable {
         self.findings = findings
         self.observedFindings = observedFindings ?? findings
         self.agentLoad = agentLoad
+        self.window = window
     }
 }
 

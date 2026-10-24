@@ -505,3 +505,28 @@ private struct DisclosureChevronFixture: View {
         #expect(MenuBarLogo.image?.representations.first === bitmap)
     }
 }
+
+@Test(
+    .enabled(if: ProcessInfo.processInfo.environment["MENUBAR_ACCOUNTING_PREVIEW_PATH"] != nil),
+    arguments: [false, true])
+@MainActor func historicalAccountingWindowRenders(dark: Bool) async throws {
+    let base = try #require(ProcessInfo.processInfo.environment["MENUBAR_ACCOUNTING_PREVIEW_PATH"])
+    let output = dark ? URL(fileURLWithPath: base).deletingPathExtension().path + "-dark.png" : base
+    let snapshot = try accountingMenuBarFixture()
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    model.toggleFreeze()
+    model.setDetails(for: try #require(snapshot.findings.first).process, expanded: true)
+    _ = NSApplication.shared
+    let host = NSHostingView(
+        rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
+    host.layoutSubtreeIfNeeded()
+    let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    try #require(bitmap.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: output))
+    #expect(host.bounds.height == 560)
+    await model.stop()
+}

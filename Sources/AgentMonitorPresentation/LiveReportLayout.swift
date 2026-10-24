@@ -69,8 +69,9 @@ public enum LiveReportLayout {
             state.frozen
             ? "PAUSED" + (state.snapshot.map { " at " + clockTime($0.timestamp) } ?? "")
                 + " | p resume | " : ""
-        let activity =
-            "\(state.sortDescription) | every \(seconds) s"
+        let cadence =
+            state.snapshot?.window == nil ? "every \(seconds) s" : "acquire \(seconds) s / display 1 s"
+        let activity = "\(state.sortDescription) | \(cadence)"
         let title =
             state.frozen ? frozen + activity : "Agent Monitor | \(activity) | Updates: \(state.updates)"
         let status: String
@@ -91,7 +92,11 @@ public enum LiveReportLayout {
         let filters =
             ThresholdContext.text(state.thresholds)
             + (pending ? " (pending)" : "")
-        let context = ReportLine(CPUContext.text(state.snapshot?.cpuAccounting), style: .muted)
+        let context = ReportLine(
+            CPUContext.text(state.snapshot?.cpuAccounting)
+                + (state.snapshot?.window.map {
+                    " · window " + ReportNumber.text($0.durationSeconds) + " s; point candidates"
+                } ?? ""), style: .muted)
         // Width-based row counts preserve pane geometry across changing status text; see docs/architecture.md.
         switch width {
         case 120...:
@@ -252,7 +257,7 @@ public enum LiveReportLayout {
             ? "  \(row.name) \(agent) [\(row.attribution.evidence.rawValue), \(row.attribution.context.rawValue)]"
             : flatDescription(row, agent: agent, columns: columns)
         return ReportLine(
-            prefix + description,
+            prefix + (row.isHistorical ? "[past] " : "") + description,
             style: row.process == state.selected
                 ? .selected : (state.isPinned(.process(row.process)) ? .heading : .heavy))
     }
@@ -331,6 +336,8 @@ public enum LiveReportLayout {
             "Runtime directory: \(attribution.runtimeDirectory ?? "unavailable")",
             "Observed chain: \(attribution.ancestry.map { String($0.pid) }.joined(separator: " ← "))",
         ]
+        values += AccountingContext.process(row)
+        if let window = state.snapshot?.window { values.append(AccountingContext.evidence(row, in: window)) }
         if let peak = FootprintContext.kernelPeak(row) { values.append(peak) }
         if let root = attribution.rootSessionID { values.append("Root session: \(root)") }
         if !attribution.candidateThreadIDs.isEmpty {

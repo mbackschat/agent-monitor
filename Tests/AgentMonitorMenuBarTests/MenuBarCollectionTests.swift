@@ -123,7 +123,7 @@ private final class NativeCollectionFixture: ProcessReading, SamplingClock, Sess
 
     func wait(seconds: Double) async throws {
         try await ticks.wait()
-        elapsed.withLock { $0 += seconds }
+        elapsed.withLock { $0 += max(1, seconds) }
     }
 }
 
