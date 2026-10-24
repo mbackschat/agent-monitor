@@ -4,6 +4,8 @@ Status: **approved**, 2026-10-24. First-delivery implementation authorized on 20
 
 ## Recommendation
 
+The [resource overview and recent activity addendum](resource-overview-and-recent-activity.md) captures the user's subsequent 2026-10-24 requirements for Main contributors, session/worker-family navigation and retained recent statistics across Mac and TUI. It is a separate proposed extension; its defaults, historical-memory additions and exploration UI are not part of this proposal's original approved first delivery.
+
 Require independent acquisition at a fixed, selectable cadence, prompt bounded evidence capture, automatic background attribution and retained interval measurements. The smallest useful scope is counter acquisition with retained point-in-time launch-origin labels; interval-supported attribution is a separate capability gated on generation access and adapter semantics. This establishes a measurable baseline before enabling adaptation. Keep global adaptation as a proposed, validation-gated option, preserving the user's requested direction. Scheduler tracing is a separate optional investigation because its conservation tests failed. Deeper inspection may be on demand; identifying responsible agents must not depend on opening a row.
 
 ## Required contract

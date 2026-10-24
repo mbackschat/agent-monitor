@@ -62,3 +62,29 @@ Before running the probe, the guard was set to 200 ms per ten-scan window for bo
 The initial 1,000-lifetime run measured 122.97–334.40 ms and failed the preselected guard. An unchanged repeat measured 115.83–121.36 ms, so the first failure alone does not establish a stable code bottleneck. Inspection also identified repeated window validation in report delivery and redundant contribution identity sets; the final path builds the validated projection once and groups accepted contributions by process. All final repetitions passed the same guard. The runs were not isolated from other machine activity and do not support a controlled whole-app speedup ratio.
 
 This probe excludes native collection, provider resolution, serialization, SwiftUI rendering and sustained memory/wakeup costs. Separate light/dark offscreen renders exercised the production native view with a historical contributor, measured CPU, last footprint, evidence age and disabled process actions. Deterministic pipeline tests cover 100 ms acquisition with one-second delivery, coalescing through a delayed consumer, a worker gone before first publication, memory-only historical filters and accepted partial-window delivery before collection failure. These tests do not measure never-observed workers or final exit CPU loss, and do not close the native user smoke-test or accounting coverage gates.
+
+## Population and overview feedback — 2026-10-24
+
+The user supplied `Bildschirmfoto 2026-10-24 um 14.00.47.png` in the conversation and reported a `99+` badge and information overload. The supplied crop shows multiple `node_repl`/`node` rows with distinct PIDs, rounded `0,0%`/`0,0 GB` values and `codex · unresolved` labels across two workload-directory labels. The badge itself is outside the crop. This is evidence of the reported presentation problem, not evidence that those processes were dead or that the complete observed population was misclassified. The local screenshot is not copied into the repository; these observations preserve the relevant content without requiring its desktop path.
+
+Source inspection at `8244fe3` established the following mechanisms:
+
+- [Thresholds and ProcessScope](../../Sources/AgentMonitorCore/Model.swift) default resource thresholds to zero and admit agent scope when provider or runtime evidence is present. Exact session resolution is not required, and zero CPU is not a liveness test.
+- [Native collection](../../Sources/AgentMonitorMenuBar/MenuBarCollection.swift) uses that default agent scope. [AgentLoadSummary](../../Sources/AgentMonitorCore/AgentLoadSummary.swift) deduplicates observed agent-associated process lifetimes, and [MenuBarIndicator](../../Sources/AgentMonitorMenuBar/MenuBarIndicator.swift) derives its count from unfiltered observations and the current window. The badge is a population count, not a count of busy processes or independent sessions; historical contributors in that window can count too.
+- [AccountingWindow](../../Sources/AgentMonitorCore/AccountingWindow.swift) retains historical contributors for the enclosing delivered window; a subsequent window need not retain them. [ReportHistory](../../Sources/AgentMonitorPresentation/ReportHistory.swift) stores scalar trends rather than browsable per-session/per-worker history. This explains why a measured burst can disappear from process inspection on the next update without proving that its measured CPU was discarded from the earlier window.
+- Rounded display values do not establish exact zero. A low CPU value can round to `0.0%`, and a footprint below approximately 50 MB can round to `0.0 GB`; unavailable footprint is represented separately. The crop does not expose underlying readings or exit evidence.
+
+A single read-only process-table check during the same discussion ran `/bin/ps -axo pid=,ppid=,uid=,comm=` and retained only aggregate output. It selected the current UID, took the basename of `comm`, seeded a set with names equal to `codex` or `claude`, and repeatedly added processes whose parent PID belonged to that set. No arguments, environments, transcripts or provider listings were read. The table below transcribes that tool output; a complete process-table capture was not retained, and no new measurement was run while documenting it.
+
+| Population in that check | Count |
+| --- | ---: |
+| All same-user processes | 613 |
+| Processes named `codex` or `claude` | 14 |
+| Those named processes plus their current descendants | 83 |
+| `node` within those trees | 15 |
+| `node_repl` within those trees | 30 |
+| All same-user `node`/`node_repl` processes | 65 |
+
+The tree contained seven names each of `codex` and `claude`, and four entries reported as `<defunct>`. Those names are not an exact-session inventory. This check did not exclude its own probing descendants, validate native PID/start lifetimes, identify detached workers, inspect app-held observations or reconcile the exact badge at the screenshot's time. Parent relationships can also change during enumeration. Inference: a large helper population is plausible, but neither the app's complete population nor each attribution is validated by these counts.
+
+The user subsequently requested retained recent-worker statistics, session resource/count summaries, Java/Node family aggregation and comparable TUI behavior. The proposed response and its rationale are in the [resource overview addendum](../proposals/resource-overview-and-recent-activity.md); those designs are not outcomes established by this evidence.
