@@ -6,7 +6,7 @@ import Testing
 @testable import AgentMonitorMenuBar
 
 @Test(.timeLimit(.minutes(1)))
-@MainActor func nativeCollectionListsOnlyWhileOpenAndRefreshesDueBindingsOnReopen() async throws {
+@MainActor func nativeCollectionResolvesAndRefreshesSessionsWhilePanelIsClosed() async throws {
     let fixture = NativeCollectionFixture()
     let source = MenuBarCollection.source(
         reader: {
@@ -15,28 +15,26 @@ import Testing
         },
         clock: fixture, registry: fixture, excluding: [])
     let (snapshots, observed) = AsyncStream<MonitoringSnapshot>.makeStream()
-    let (steps, advance) = AsyncStream<Void>.makeStream()
-    let model = MenuBarModel { thresholds, interval, resolveSessions, receive in
+    let model = MenuBarModel { thresholds, interval, receive in
         defer { observed.finish() }
-        try await source(thresholds, interval, resolveSessions) { snapshot in
+        try await source(thresholds, interval) { snapshot in
             try await receive(snapshot)
             observed.yield(snapshot)
-            var iterator = steps.makeAsyncIterator()
-            guard await iterator.next() != nil else { throw CancellationError() }
         }
     }
     var snapshotsIterator = snapshots.makeAsyncIterator()
     do {
         model.start()
+        fixture.ticks.advance()
         let closed = try #require(await snapshotsIterator.next())
         #expect(closed.findings.count == 2)
-        #expect(closed.findings.allSatisfy { $0.attribution.evidence == .runtimeOnly })
-        #expect(fixture.listings.withLock { $0 } == 0)
+        expectListedSession(closed, session: NativeCollectionFixture.firstSession)
+        #expect(fixture.listings.withLock { $0 } == 1)
         #expect(model.report.snapshot == nil)
         #expect(model.indicator.processCount == 2)
 
         model.open()
-        advance.yield(())
+        fixture.ticks.advance()
         let opened = try #require(await snapshotsIterator.next())
         expectListedSession(opened, session: NativeCollectionFixture.firstSession)
         #expect(model.report.snapshot == opened)
@@ -46,14 +44,14 @@ import Testing
         model.close()
         fixture.session.withLock { $0 = NativeCollectionFixture.secondSession }
         fixture.elapsed.withLock { $0 += 61 }
-        advance.yield(())
+        fixture.ticks.advance()
         let closedAgain = try #require(await snapshotsIterator.next())
-        expectListedSession(closedAgain, session: NativeCollectionFixture.firstSession)
-        #expect(fixture.listings.withLock { $0 } == 1)
+        expectListedSession(closedAgain, session: NativeCollectionFixture.secondSession)
+        #expect(fixture.listings.withLock { $0 } == 2)
         #expect(model.report.snapshot == nil)
 
         model.open()
-        advance.yield(())
+        fixture.ticks.advance()
         let reopened = try #require(await snapshotsIterator.next())
         expectListedSession(reopened, session: NativeCollectionFixture.secondSession)
         #expect(model.report.snapshot == reopened)
@@ -61,11 +59,9 @@ import Testing
         #expect(fixture.listings.withLock { $0 } == 2)
         #expect(fixture.readerCreations.withLock { $0 } == 1)
     } catch {
-        advance.finish()
         await model.stop()
         throw error
     }
-    advance.finish()
     await model.stop()
     #expect(model.error == nil)
 }
@@ -88,6 +84,9 @@ private final class NativeCollectionFixture: ProcessReading, SamplingClock, Sess
     let listings = Mutex(0)
     let elapsed = Mutex(0.0)
     let session = Mutex(firstSession)
+    let ticks = CollectionTicks()
+
+    func isCurrent(_ sample: ProcessSample) -> Bool { true }
 
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
         let at = elapsed.withLock { $0 }
@@ -119,10 +118,51 @@ private final class NativeCollectionFixture: ProcessReading, SamplingClock, Sess
         ])
     }
 
+    func monotonicNow() -> Double { now().timeIntervalSinceReferenceDate }
     func now() -> Date { Date(timeIntervalSince1970: elapsed.withLock { $0 }) }
 
     func wait(seconds: Double) async throws {
-        try Task.checkCancellation()
+        try await ticks.wait()
         elapsed.withLock { $0 += seconds }
+    }
+}
+
+private final class CollectionTicks: Sendable {
+    private struct State {
+        var permits = 0
+        var waiters: [UUID: CheckedContinuation<Void, any Error>] = [:]
+    }
+    private let state = Mutex(State())
+
+    func advance() {
+        let waiter = state.withLock { state -> CheckedContinuation<Void, any Error>? in
+            guard let id = state.waiters.keys.first else {
+                state.permits += 1
+                return nil
+            }
+            return state.waiters.removeValue(forKey: id)
+        }
+        waiter?.resume()
+    }
+
+    func wait() async throws {
+        let id = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<Void, any Error>) in
+                state.withLock { state in
+                    if Task.isCancelled {
+                        continuation.resume(throwing: CancellationError())
+                    } else if state.permits > 0 {
+                        state.permits -= 1
+                        continuation.resume()
+                    } else {
+                        state.waiters[id] = continuation
+                    }
+                }
+            }
+        } onCancel: {
+            state.withLock { $0.waiters.removeValue(forKey: id) }?.resume(throwing: CancellationError())
+        }
     }
 }

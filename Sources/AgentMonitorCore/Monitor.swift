@@ -41,6 +41,12 @@ public struct Monitor: Sendable {
         let accounting = counterLedger.ingest(
             snapshot.samples, listedAt: snapshot.listedAt, scanSeconds: snapshot.scanSeconds,
             source: snapshot)
+        return ingest(snapshot, accounting: accounting)
+    }
+
+    @discardableResult mutating func ingest(_ snapshot: ProcessSnapshot, accounting: CounterScan)
+        -> CPUAccounting
+    {
         ingest(snapshot.samples, accounting: accounting)
         let measured = live.compactMap { nodes[$0]?.cpuPercent }
         defer {
@@ -268,8 +274,7 @@ public struct Monitor: Sendable {
     private func heavyIdentities(thresholds: Thresholds) -> [ProcessIdentity] {
         live.filter { identity in
             guard let node = nodes[identity] else { return false }
-            return thresholds.isUnfiltered || node.cpuPercent.map { $0 > thresholds.cpuPercent } == true
-                || node.sample.footprintBytes.map { $0 > thresholds.memoryBytes } == true
+            return thresholds.includes(cpu: node.cpuPercent, footprint: node.sample.footprintBytes)
         }
     }
 

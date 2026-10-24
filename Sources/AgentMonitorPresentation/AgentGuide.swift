@@ -70,7 +70,7 @@ public enum AgentGuide {
             Finite memory report: agent-monitor --json --all-processes --memory-gb 1 --samples 1
             Repeated observation: agent-monitor --json --all-processes --samples 3 --interval 2
             Locate a known PID by its PID/start record in these reports; there is no PID-report filter.
-            Report JSONL uses schema version 4; diagnose cpu has independent schema version 1.
+            Report JSONL uses schema version 5; diagnose cpu has independent schema version 1.
             """
         case .diagnostics:
             DiagnosisDiagnostic.allCases.map { "\($0.rawValue): \($0.explanation)" }.joined(separator: "\n\n")
@@ -102,7 +102,7 @@ public enum AgentGuide {
         case .tui:
             """
             agent-monitor --tui [--group session]
-            Requires interactive stdin/stdout. Defaults: 100 ms waits plus collection time, unlimited reports; explicit --interval and --samples override them.
+            Requires interactive stdin/stdout. Defaults: 100 ms requested acquisition period with visible overruns, unlimited reports; explicit --interval and --samples override them.
             ↑/↓ select; ←/→ collapse/expand session or process details.
             Shift+←/→ collapse/expand session groups at the current level; g toggles grouping.
             c/m/n sort CPU/footprint/PID; o stable arrival order (default); r reverses numeric sorts.

@@ -15,7 +15,7 @@ private let emptySnapshot = MonitoringSnapshot(
 
 @Test @MainActor func closedPanelDoesNotStartCollection() async {
     let calls = Mutex(0)
-    let model = MenuBarModel { _, _, _, _ in calls.withLock { $0 += 1 } }
+    let model = MenuBarModel { _, _, _ in calls.withLock { $0 += 1 } }
     await model.stop()
     #expect(calls.withLock { $0 } == 0)
     #expect(model.report.snapshot == nil)
@@ -23,7 +23,7 @@ private let emptySnapshot = MonitoringSnapshot(
 
 @Test @MainActor func closingCancelsCollectionAndRejectsLateSnapshots() async {
     let (events, continuation) = AsyncStream<Void>.makeStream()
-    let model = MenuBarModel { _, _, _, receive in
+    let model = MenuBarModel { _, _, receive in
         try await receive(emptySnapshot)
         continuation.yield(())
         do { try await Task.sleep(for: .seconds(3600)) } catch {}
@@ -42,7 +42,7 @@ private let emptySnapshot = MonitoringSnapshot(
 @Test @MainActor func rapidReopeningWaitsForPreviousCollectorToFinish() async {
     let (events, continuation) = AsyncStream<String>.makeStream()
     let calls = Mutex(0)
-    let model = MenuBarModel { _, _, _, _ in
+    let model = MenuBarModel { _, _, _ in
         let call = calls.withLock { value in
             value += 1
             return value
@@ -69,7 +69,7 @@ private let emptySnapshot = MonitoringSnapshot(
     struct Failure: LocalizedError {
         var errorDescription: String? { "Fixture collection failed" }
     }
-    let model = MenuBarModel { _, _, _, _ in throw Failure() }
+    let model = MenuBarModel { _, _, _ in throw Failure() }
     model.open()
     await model.waitForCollection()
     #expect(model.error == "Fixture collection failed")
@@ -86,7 +86,7 @@ private let emptySnapshot = MonitoringSnapshot(
     let latest = try menuBarFixture(pids: [42004])
     let (samples, input) = AsyncStream<MonitoringSnapshot>.makeStream()
     let (received, output) = AsyncStream<Void>.makeStream()
-    let model = MenuBarModel { _, _, _, receive in
+    let model = MenuBarModel { _, _, receive in
         for await sample in samples {
             try await receive(sample)
             output.yield(())
@@ -134,13 +134,13 @@ private let emptySnapshot = MonitoringSnapshot(
 
 @Test @MainActor func nativeSamplingOptionsReachTheRunningSourceWithoutRestarting() async {
     let (requests, trigger) = AsyncStream<Void>.makeStream()
-    let (observations, observed) = AsyncStream<(Double, Double, Bool)>.makeStream()
+    let (observations, observed) = AsyncStream<(Double, Double)>.makeStream()
     let calls = Mutex(0)
-    let model = MenuBarModel { thresholds, interval, resolveSessions, receive in
+    let model = MenuBarModel { thresholds, interval, receive in
         calls.withLock { $0 += 1 }
         try await receive(emptySnapshot)
         for await _ in requests {
-            observed.yield((await thresholds().cpuPercent, interval.seconds, await resolveSessions()))
+            observed.yield((await thresholds().cpuPercent, interval.seconds))
         }
     }
     model.open()
@@ -151,8 +151,6 @@ private let emptySnapshot = MonitoringSnapshot(
     let values = await iterator.next()
     #expect(values?.0 == 10)
     #expect(values?.1 == 0.25)
-    // Session names are shown only in the open panel; the closed icon needs counts alone.
-    #expect(values?.2 == true)
     model.adjustInterval(.faster)
     trigger.yield(())
     #expect(await iterator.next()?.1 == 0.1)
@@ -167,14 +165,13 @@ private let emptySnapshot = MonitoringSnapshot(
     trigger.yield(())
     let closedValues = await iterator.next()
     #expect(closedValues?.1 == 2)
-    #expect(closedValues?.2 == false)
     #expect(calls.withLock { $0 } == 1)
     await model.stop()
 }
 
 @Test @MainActor func closedPanelSamplesFeedHistoryWithoutRetainingReportSnapshots() async throws {
     let fixture = try menuBarFixture()
-    let source: MenuBarSource = { _, _, _, receive in
+    let source: MenuBarSource = { _, _, receive in
         for second in [1.0, 16.0] {
             try await receive(
                 MonitoringSnapshot(
@@ -201,6 +198,6 @@ private let emptySnapshot = MonitoringSnapshot(
 }
 
 @Test @MainActor func nativeTableDefaultsToFastCollection() {
-    let model = MenuBarModel { _, _, _, _ in }
+    let model = MenuBarModel { _, _, _ in }
     #expect(model.report.interval == 0.1)
 }

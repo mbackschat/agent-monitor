@@ -3,24 +3,55 @@ import Foundation
 public protocol ProcessReading: Sendable {
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata
+    func isCurrent(_ sample: ProcessSample) -> Bool
+    func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata?
+    func metadata(for sample: ProcessSample, includeCommand: Bool, capturedLaunch: ProcessMetadata?)
+        -> ProcessMetadata
 }
 
 extension NativeProcessReader: ProcessReading {}
 
+extension ProcessReading {
+    public func isCurrent(_ sample: ProcessSample) -> Bool { false }
+    public func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
+        nil
+    }
+    public func metadata(
+        for sample: ProcessSample, includeCommand: Bool, capturedLaunch: ProcessMetadata?
+    ) -> ProcessMetadata {
+        capturedLaunch ?? metadata(for: sample, includeCommand: includeCommand)
+    }
+}
+
 public protocol SamplingClock: Sendable {
     func wait(seconds: Double) async throws
     func now() -> Date
+    func monotonicNow() -> Double
 }
 
 public struct ContinuousSamplingClock: SamplingClock {
     public init() {}
     public func wait(seconds: Double) async throws { try await Task.sleep(for: .seconds(seconds)) }
     public func now() -> Date { Date() }
+    public func monotonicNow() -> Double { Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000 }
 }
 
 /// Runs a harness's declared session listing; injected so tests never start a provider CLI.
 package protocol SessionRegistryReading: Sendable {
     func output(of query: SessionRegistryQuery) throws -> Data
+    func output(of query: SessionRegistryQuery, checking: @escaping @Sendable () throws -> Void) throws
+        -> Data
+}
+
+extension SessionRegistryReading {
+    package func output(of query: SessionRegistryQuery, checking: @escaping @Sendable () throws -> Void)
+        throws -> Data
+    {
+        try checking()
+        let result = try output(of: query)
+        try checking()
+        return result
+    }
 }
 
 package struct CommandSessionRegistryReader: SessionRegistryReading {
@@ -40,9 +71,15 @@ package struct CommandSessionRegistryReader: SessionRegistryReading {
     }
 
     package func output(of query: SessionRegistryQuery) throws -> Data {
+        try output(of: query, checking: { try Task.checkCancellation() })
+    }
+
+    package func output(of query: SessionRegistryQuery, checking: @escaping @Sendable () throws -> Void)
+        throws -> Data
+    {
         let command = try BoundedCommand(
             executable: executable, arguments: prefix + query.command, environment: query.environment,
-            timeout: timeout, tool: query.tool)
+            timeout: timeout, tool: query.tool, checkCancellation: checking)
         defer { command.close() }
         return try command.readOutput()
     }
@@ -51,7 +88,7 @@ package struct CommandSessionRegistryReader: SessionRegistryReading {
 /// When each provider's listing is due: immediately for a runtime the previous listing did not
 /// cover, otherwise once a minute so bindings follow `/clear` or `/resume`. Failures wait the same
 /// minute because a listing costs a provider CLI start (docs/research/claude-runtime-attribution.md).
-struct SessionRegistryCadence {
+struct SessionRegistryCadence: Sendable {
     private var previous: [AgentProvider: (at: Date, runtimes: Set<ProcessIdentity>)] = [:]
 
     mutating func due(_ provider: AgentProvider, runtimes: Set<ProcessIdentity>, at now: Date) -> Bool {
@@ -65,7 +102,18 @@ struct SessionRegistryCadence {
     }
 }
 
-public enum MonitoringError: Error { case invalidConfiguration }
+public enum MonitoringError: Error, Equatable, LocalizedError {
+    case invalidConfiguration
+    case overloaded(stage: MonitoringStage, rejectedScan: UInt64)
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidConfiguration: "Invalid monitoring configuration."
+        case .overloaded(let stage, let scan):
+            "Monitoring stopped: the \(stage.rawValue) queue reached its retention limit before scan \(scan). Accepted reports were drained; later measurements are unavailable."
+        }
+    }
+}
 
 public struct MonitoringConfiguration: Sendable {
     public let thresholds: Thresholds
@@ -74,13 +122,18 @@ public struct MonitoringConfiguration: Sendable {
     public let includeCommands: Bool
     public let scope: ProcessScope
     public let collectAgentLoad: Bool
+    public let pipelineLimits: MonitoringPipelineLimits
+    public let promptCaptureLimits: PromptCaptureLimits
 
     public init(
         thresholds: Thresholds = Thresholds(), intervalSeconds: Double = 1, samples: Int = 1,
-        includeCommands: Bool = false, scope: ProcessScope = .agentsOnly, collectAgentLoad: Bool = false
+        includeCommands: Bool = false, scope: ProcessScope = .agentsOnly, collectAgentLoad: Bool = false,
+        pipelineLimits: MonitoringPipelineLimits = MonitoringPipelineLimits(),
+        promptCaptureLimits: PromptCaptureLimits = PromptCaptureLimits()
     ) throws {
         guard intervalSeconds.isFinite, (0.1...60).contains(intervalSeconds), samples >= 0,
-            thresholds.cpuPercent.isFinite, thresholds.cpuPercent >= 0
+            thresholds.cpuPercent.isFinite, thresholds.cpuPercent >= 0, pipelineLimits.isValid,
+            promptCaptureLimits.isValid
         else { throw MonitoringError.invalidConfiguration }
         self.thresholds = thresholds
         self.intervalSeconds = intervalSeconds
@@ -88,6 +141,8 @@ public struct MonitoringConfiguration: Sendable {
         self.includeCommands = includeCommands
         self.scope = scope
         self.collectAgentLoad = collectAgentLoad
+        self.pipelineLimits = pipelineLimits
+        self.promptCaptureLimits = promptCaptureLimits
     }
 }
 
@@ -154,113 +209,14 @@ public struct MonitoringSession: Sendable {
     public var initialThresholds: Thresholds { configuration.thresholds }
     public var initialInterval: Double { configuration.intervalSeconds }
 
-    /// Waits one interval and returns it. Changing a live interval wakes the wait, which then
-    /// counts the time already waited against the new interval; CPU uses measured times,
-    /// including the newborn listing boundary defined in docs/architecture.md#cpu-accounting.
-    private func wait(_ live: LiveInterval?) async throws -> Double {
-        guard let live else {
-            try await clock.wait(seconds: configuration.intervalSeconds)
-            return configuration.intervalSeconds
-        }
-        let start = clock.now()
-        while true {
-            let (interval, generation) = live.current()
-            guard interval.isFinite, (0.1...60).contains(interval) else {
-                throw MonitoringError.invalidConfiguration
-            }
-            let remaining = interval - clock.now().timeIntervalSince(start)
-            guard remaining > 0 else { return interval }
-            let changed = try await withThrowingTaskGroup(of: Bool.self) { group in
-                group.addTask {
-                    try await clock.wait(seconds: remaining)
-                    return false
-                }
-                group.addTask {
-                    await live.changed(after: generation)
-                    return true
-                }
-                defer { group.cancelAll() }
-                return try await group.next() ?? false
-            }
-            try Task.checkCancellation()
-            guard changed else { return interval }
-        }
-    }
-
-    /// Runs the harness listings due for `findings` and reports whether any ran.
-    /// A failed listing clears its provider's bindings; cancellation still ends the session.
-    private func listSessions(
-        for findings: [HeavyProcess], in monitor: inout Monitor, cadence: inout SessionRegistryCadence,
-        at now: Date
-    ) throws -> Bool {
-        var listed = false
-        for (provider, runtimes) in monitor.sessionRegistryRuntimes(in: findings)
-        where cadence.due(provider, runtimes: runtimes, at: now) {
-            guard let query = monitor.sessionRegistry(for: provider) else { continue }
-            let output: Data?
-            do {
-                output = try registry.output(of: query)
-            } catch is CancellationError {
-                throw CancellationError()
-            } catch {
-                output = nil
-            }
-            monitor.bindSessions(output, provider: provider)
-            listed = true
-        }
-        return listed
-    }
-
-    /// Delivers snapshots sequentially, awaiting each consumer without buffering reports.
-    /// Reads updated thresholds once per sample, preserving the CPU baseline. `resolveSessions`
-    /// lets a consumer that currently shows no session identities, such as a closed menu bar
-    /// panel, skip harness listings while keeping existing bindings; nil always resolves.
+    /// Acquisition and blocking resolution use separate serial threads and bounded FIFOs.
     @concurrent public func run(
         thresholds currentThresholds: (@Sendable () async -> Thresholds)? = nil,
         interval live: LiveInterval? = nil,
-        resolveSessions: (@Sendable () async -> Bool)? = nil,
         _ receive: @Sendable (MonitoringSnapshot) async throws -> Void
     ) async throws {
-        try Task.checkCancellation()
-        var monitor = Monitor()
-        monitor.ingest(try reader.snapshot(excluding: excluded))
-        var count = 0
-        var cadence = SessionRegistryCadence()
-        while configuration.samples == 0 || count < configuration.samples {
-            let interval = try await wait(live)
-            try Task.checkCancellation()
-            let thresholds = await currentThresholds?() ?? configuration.thresholds
-            guard thresholds.cpuPercent.isFinite, thresholds.cpuPercent >= 0 else {
-                throw MonitoringError.invalidConfiguration
-            }
-            try Task.checkCancellation()
-            let snapshot = try reader.snapshot(excluding: excluded)
-            let cpuAccounting = monitor.ingest(snapshot)
-            let sampledAt = clock.now()
-            for sample in snapshot.samples {
-                try Task.checkCancellation()
-                monitor.enrich(
-                    reader.metadata(for: sample, includeCommand: configuration.includeCommands),
-                    for: sample.identity)
-            }
-            var observedFindings = monitor.findings(scope: configuration.scope)
-            if await resolveSessions?() ?? true,
-                try listSessions(for: observedFindings, in: &monitor, cadence: &cadence, at: sampledAt)
-            {
-                observedFindings = monitor.findings(scope: configuration.scope)
-            }
-            try await receive(
-                MonitoringSnapshot(
-                    cpuAccounting: cpuAccounting,
-                    timestamp: sampledAt, intervalSeconds: interval,
-                    cpuThresholdPercent: thresholds.cpuPercent,
-                    memoryThresholdBytes: thresholds.memoryBytes,
-                    sampledProcessCount: snapshot.samples.count,
-                    unreadableProcessCount: snapshot.unreadableCount,
-                    findings: monitor.findings(thresholds: thresholds, scope: configuration.scope),
-                    agentLoad: configuration.collectAgentLoad ? monitor.agentLoad() : nil,
-                    observedFindings: observedFindings))
-            count += 1
-        }
+        try await IndependentMonitoringPipeline(
+            configuration: configuration, reader: reader, clock: clock, registry: registry, excluded: excluded
+        ).run(thresholds: currentThresholds, interval: live, receive)
     }
 }

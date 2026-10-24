@@ -71,7 +71,7 @@ func menuBarFixture(
 
 @MainActor private func readyModel(_ actions: FakeActions) async throws -> MenuBarModel {
     let snapshot = try menuBarFixture()
-    let model = MenuBarModel(actions: actions) { _, _, _, receive in try await receive(snapshot) }
+    let model = MenuBarModel(actions: actions) { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     return model
@@ -165,7 +165,7 @@ func menuBarFixture(
 @Test @MainActor func multiProcessSessionRequiresDisclosureAndTargetsTheChosenChild() async throws {
     let actions = FakeActions()
     let snapshot = try menuBarFixture(pids: [42001, 42002])
-    let model = MenuBarModel(actions: actions) { _, _, _, receive in try await receive(snapshot) }
+    let model = MenuBarModel(actions: actions) { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     let process = try #require(model.report.rows.last)
@@ -284,7 +284,7 @@ func menuBarFixture(
 @Test @MainActor func nativeSessionFocusUsesTheSharedVerifiedAction() async throws {
     let actions = FakeActions()
     let snapshot = try menuBarFixture(pids: [42001, 42002])
-    let model = MenuBarModel(actions: actions) { _, _, _, receive in try await receive(snapshot) }
+    let model = MenuBarModel(actions: actions) { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
     let group = try #require(model.report.groups.first)
@@ -368,7 +368,7 @@ func menuBarFixture(
     let actions = FakeActions()
     let model = MenuBarModel(
         actions: actions, diagnosisSource: { try await menuBarDiagnosisFixture() },
-        source: { _, _, _, receive in try await receive(snapshot) })
+        source: { _, _, receive in try await receive(snapshot) })
     model.report.toggleGrouping()
     model.open()
     await model.waitForCollection()

@@ -8,14 +8,14 @@ enum MenuBarCollection {
         registry: any SessionRegistryReading = CommandSessionRegistryReader(),
         excluding: Set<Int32> = [ProcessInfo.processInfo.processIdentifier]
     ) -> MenuBarSource {
-        { thresholds, interval, resolveSessions, receive in
+        { thresholds, interval, receive in
             let session = MonitoringSession(
                 configuration: try MonitoringConfiguration(
                     thresholds: await thresholds(), intervalSeconds: interval.seconds, samples: 0,
                     collectAgentLoad: true),
                 reader: try reader(), clock: clock, registry: registry, excluding: excluding)
             try await session.run(
-                thresholds: thresholds, interval: interval, resolveSessions: resolveSessions, receive)
+                thresholds: thresholds, interval: interval, receive)
         }
     }
 }

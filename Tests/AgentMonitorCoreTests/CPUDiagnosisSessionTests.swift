@@ -52,6 +52,7 @@ final class DiagnosisFixture: DiagnosisReading, SamplingClock, SessionRegistryRe
     }
     func isCurrent(_ sample: ProcessSample) -> Bool { !missing.contains(sample.identity) }
     func wait(seconds: Double) async throws { state.withLock { $0.waits.append(seconds) } }
+    func monotonicNow() -> Double { now().timeIntervalSinceReferenceDate }
     func now() -> Date { Date(timeIntervalSince1970: Double(state.withLock { $0.scans }) * 100) }
     func output(of query: SessionRegistryQuery) throws -> Data {
         state.withLock { $0.lookups += 1 }

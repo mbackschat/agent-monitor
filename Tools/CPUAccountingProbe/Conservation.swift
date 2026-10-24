@@ -31,6 +31,18 @@ private final class RecordingReader: ProcessReading, Sendable {
         return snapshot
     }
 
+    func isCurrent(_ sample: ProcessSample) -> Bool { native.isCurrent(sample) }
+
+    func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
+        native.captureLaunchEvidence(for: sample, maximumBytes: maximumBytes)
+    }
+
+    func metadata(for sample: ProcessSample, includeCommand: Bool, capturedLaunch: ProcessMetadata?)
+        -> ProcessMetadata
+    {
+        native.metadata(for: sample, includeCommand: includeCommand, capturedLaunch: capturedLaunch)
+    }
+
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
         native.metadata(for: sample, includeCommand: includeCommand)
     }
@@ -84,8 +96,9 @@ private final class RecordingReader: ProcessReading, Sendable {
                 let session = MonitoringSession(
                     configuration: try MonitoringConfiguration(
                         intervalSeconds: interval, samples: interval < 1 ? 50 : 8, collectAgentLoad: true),
-                    reader: reader, excluding: [getpid()])
-                try await session.run(resolveSessions: { false }, { _ in })
+                    reader: reader, clock: ContinuousSamplingClock(), registry: ProbeRegistry(),
+                    excluding: [getpid()])
+                try await session.run({ _ in })
             }
             worker.waitUntilExit()
             guard worker.terminationStatus == 0 else { fatalError("Owned fixture failed") }
@@ -117,4 +130,8 @@ private final class RecordingReader: ProcessReading, Sendable {
             try FileHandle.standardOutput.write(contentsOf: data)
         }
     }
+}
+
+private struct ProbeRegistry: SessionRegistryReading {
+    func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
 }

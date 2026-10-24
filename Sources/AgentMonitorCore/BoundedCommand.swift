@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 
-/// A provider CLI run confined to one task; deadlines and output limits also bound a broken one.
+/// A provider CLI run confined to one serial owner; deadlines and output limits also bound a broken one.
 /// Shared by verified actions and harness session listings.
 package final class BoundedCommand {
     private let process = Process()
@@ -12,14 +12,17 @@ package final class BoundedCommand {
     private var bytesRead = 0
     private var closed = false
     private let tool: String
+    private let checkCancellation: @Sendable () throws -> Void
 
     /// `environment` overlays the inherited environment.
     package init(
         executable: URL, arguments: [String], environment: [String: String] = [:], timeout: TimeInterval,
-        tool: String
+        tool: String,
+        checkCancellation: @escaping @Sendable () throws -> Void = { try Task.checkCancellation() }
     ) throws {
         deadline = .now.advanced(by: .seconds(timeout))
         self.tool = tool
+        self.checkCancellation = checkCancellation
         process.executableURL = executable
         process.arguments = arguments
         if !environment.isEmpty {
@@ -28,6 +31,7 @@ package final class BoundedCommand {
         process.standardInput = input
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
+        try checkCancellation()
         do { try process.run() } catch {
             throw BoundedCommandFailure("Cannot start \(tool). Ensure its CLI is on PATH.")
         }
@@ -87,7 +91,7 @@ package final class BoundedCommand {
     }
 
     private func checkDeadline() throws {
-        try Task.checkCancellation()
+        try checkCancellation()
         guard ContinuousClock.now < deadline else {
             throw BoundedCommandFailure("\(tool) request timed out.")
         }

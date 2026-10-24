@@ -16,7 +16,7 @@ This README describes the current source build, which can be ahead of the [lates
 
 ## Features
 
-- **Live terminal view** — use a 100 ms sampling wait by default (collection adds time); watch CPU and memory usage, sort processes, and open details without leaving your terminal. Stable order keeps existing rows in place and appends newcomers. Change the update interval or freeze the view while you look.
+- **Live terminal view** — request a 100 ms acquisition period by default (scan overruns remain visible); watch CPU and memory usage, sort processes, and open details without leaving your terminal. Stable order keeps existing rows in place and appends newcomers. Change the update interval or freeze the view while you look.
 - **Native menu bar app** — open a compact macOS panel for resource usage and session actions, with Pause/Resume and a separate **Diagnose CPU** investigation; three bold load bars keep collecting at the selected interval even while the panel is closed. Available from a source build.
 - **Finite CPU diagnosis** — start with **d** in the TUI or **Diagnose CPU** in the Mac app. Rank a new observation window by measured CPU-seconds, recover compatible counters across temporary read gaps, and retain contributors that leave before it ends, without changing live-table values. The Mac app can copy the completed report for further investigation.
 - **Compact history** — one strip for agent CPU, memory or heavy-process count, covering the last 10 minutes or one hour in both live views, updated with every collected report.
@@ -29,7 +29,7 @@ This README describes the current source build, which can be ahead of the [lates
 - **Stop a runaway process** — review and send SIGTERM to one process only.
 - **Actions from scripts** — the same actions as `kill`, `message`, and `focus` commands, with confirmation or `--yes`.
 - **Responsive layout** — use narrow or wide terminals, resize the details pane, and copy text with normal terminal selection.
-- **Scriptable output** — print a colored report or stream JSONL schema version 4 to other tools.
+- **Scriptable output** — print a colored report or stream JSONL schema version 5 to other tools.
 - **Explicit uncertainty** — unknown or ambiguous sessions stay visible instead of being guessed.
 
 ## Install
@@ -74,7 +74,7 @@ In the Mac app, open **View options** and choose **Processes** or **Sessions** u
 | **Sessions** | Groups observed processes by attributed agent session or corroborated root session. Expand a group to inspect its processes. Counts and CPU/memory totals include all observed session members, independent of display filters; sampling can still miss work. The Mac app shows an unpinned one-process session directly as a process row. |
 | **Sort** | Stable order keeps surviving rows in place and appends newcomers. CPU/Footprint/PID order ranks individual processes, or session groups by their totals/minimum PID. It does not change which processes qualify. |
 | **CPU / Footprint thresholds** | Both zero disables display filtering. Otherwise a process qualifies when it exceeds either threshold. Lower them to reveal lighter workloads; switching between Processes and Sessions does not change these filters. |
-| **Interval** | How often the open panel or TUI samples, with a 100 ms wait by default. Collection and rendering add time. This controls sampling cadence, not filtering. |
+| **Interval** | Requested acquisition period, 100 ms by default. Scans run independently of resolution and display; overruns delay collection. This controls sampling cadence, not filtering. |
 
 Sessions are not projects: two sessions in the same directory remain separate, and one session can contain workloads in multiple directories. Unknown or ambiguous ownership stays separate rather than being guessed.
 
@@ -116,7 +116,7 @@ The maintained, source-built native menu bar app runs with `bash scripts/menubar
 
 ## Options and defaults
 
-With no options, `agent-monitor` prints one text report after a 100 ms baseline wait plus collection. With both thresholds zero, every observed process in scope appears, including unavailable measurements. With filters enabled, **CPU OR memory must exceed its threshold**; only your user's agent-associated processes are included by default.
+With no options, `agent-monitor` prints one text report after a baseline and the next acquisition, requesting a 100 ms period. Resolution and delivery can arrive later. With both thresholds zero, every observed process in scope appears, including unavailable measurements. With filters enabled, **CPU OR memory must exceed its threshold**; only your user's agent-associated processes are included by default.
 
 The following options control reports; diagnosis has fixed defaults and its own output flags.
 
@@ -124,11 +124,11 @@ The following options control reports; diagnosis has fixed defaults and its own 
 | --- | --- | --- |
 | `--cpu <percent>` | CPU threshold; 100% means one occupied core. Accepts nonnegative values. | `0` (%) |
 | `--memory-gb <gb>` | Physical memory footprint threshold in decimal GB. Accepts nonnegative values. | `0` (GB) |
-| `--interval <seconds>` | Wait between samples, from 0.1 to 60 seconds. | `0.1` (seconds) |
+| `--interval <seconds>` | Requested acquisition period, from 0.1 to 60 seconds; overruns delay collection. | `0.1` (seconds) |
 | `--samples <count>` | Number of reports; `0` runs until you quit. | `1`; `0` with `--tui` |
 | `--tui`, `-tui` | Open the live terminal UI in Stable order; requires interactive input and output. | Off; text reports |
 | `--group <mode>` | `none` shows individual processes; `session` groups by launch session and totals all observed members. | `none` |
-| `--json` | Emit JSONL schema version 4: one complete JSON object per report, including CPU context. | Off |
+| `--json` | Emit JSONL schema version 5: one complete JSON object per report, including CPU context. | Off |
 | `--json-schema` | Print the report's JSON Schema and exit without sampling. | Off |
 | `--all-processes` | Include unrelated and unattributed processes; same-user scope and display thresholds still apply. | Off |
 | `--commands` | Include command arguments in reports and details; arguments can contain secrets. | Off |

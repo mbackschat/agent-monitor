@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:agent-monitor:report:4",
-  "title": "Agent Monitor report v4",
+  "$id": "urn:agent-monitor:report:5",
+  "title": "Agent Monitor report v5",
   "description": "One JSONL report. Optional unavailable values are omitted, not zero. Associations describe launch origin, not current shared-daemon causality, except evidence sessionRegistry: the session a runtime hosted when its harness listed it.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 4
+      "const": 5
     },
     "attributionMeaning": {
       "const": "launchOrigin"
@@ -20,7 +20,7 @@
       "type": "number",
       "minimum": 0.1,
       "maximum": 60,
-      "description": "Configured wait between scans, not the per-process elapsed CPU denominator."
+      "description": "Requested start-to-start acquisition period. Overruns delay the next scan without overlapping or catch-up scans; achieved timing is reported separately."
     },
     "cpuThresholdPercent": {
       "type": "number",
@@ -239,12 +239,100 @@
           "type": "number",
           "minimum": 0,
           "description": "Previous scan duration, bounding newborn window skew. Omitted without a previous scan."
+        },
+        "acquisition": {
+          "$ref": "#/$defs/acquisitionTiming"
         }
       },
       "required": [
         "logicalCPUCount",
         "measuredUserPercent",
         "unmeasuredLifetimeCount"
+      ]
+    },
+    "acquisitionTiming": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "runID": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scanSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "qualityOfService": {
+          "enum": [
+            "userInitiated"
+          ]
+        },
+        "requestedPeriodSeconds": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 60
+        },
+        "achievedPeriodSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "scanWorkSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "resolutionDelaySeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "promptCapture": {
+          "$ref": "#/$defs/promptCaptureSummary"
+        }
+      },
+      "required": [
+        "runID",
+        "scanSequence",
+        "qualityOfService",
+        "requestedPeriodSeconds",
+        "scanWorkSeconds",
+        "resolutionDelaySeconds"
+      ]
+    },
+    "promptCaptureSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "captured": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unavailable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deferred": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reservedBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "readSeconds": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "captured",
+        "unavailable",
+        "deferred",
+        "unsupported",
+        "reservedBytes",
+        "readSeconds"
       ]
     }
   }

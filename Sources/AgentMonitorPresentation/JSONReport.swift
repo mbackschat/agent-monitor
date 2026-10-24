@@ -2,7 +2,7 @@ import AgentMonitorCore
 import Foundation
 
 public struct JSONReport: Encodable {
-    public let schemaVersion = 4
+    public let schemaVersion = 5
     public let cpuAccounting: CPUAccountingFields
     public let attributionMeaning = "launchOrigin"
     public let timestamp: Date
@@ -49,6 +49,7 @@ public struct CPUAccountingFields: Encodable {
     public let measuredUserPercent: Double
     public let unmeasuredLifetimeCount: Int
     public let previousScanSeconds: Double?
+    public let acquisition: AcquisitionTiming?
 
     init(_ value: CPUAccounting) {
         hostBusyPercent = value.hostBusyPercent
@@ -56,5 +57,6 @@ public struct CPUAccountingFields: Encodable {
         measuredUserPercent = value.measuredUserPercent
         unmeasuredLifetimeCount = value.unmeasuredLifetimeCount
         previousScanSeconds = value.previousScanSeconds
+        acquisition = value.acquisition
     }
 }

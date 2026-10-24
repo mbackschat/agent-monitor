@@ -19,7 +19,8 @@ public final class LiveInterval: Sendable {
     public var seconds: Double { state.withLock { $0.seconds } }
 
     public func set(_ seconds: Double) {
-        let waiters = state.withLock { state in
+        let waiters = state.withLock { state -> [CheckedContinuation<Void, Never>] in
+            guard state.seconds != seconds else { return [] }
             state.seconds = seconds
             state.generation += 1
             defer { state.waiters = [:] }

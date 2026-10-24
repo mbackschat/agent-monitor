@@ -55,6 +55,7 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
         }
     }
 
+    func monotonicNow() -> Double { now().timeIntervalSinceReferenceDate }
     func now() -> Date { Date(timeIntervalSince1970: 0) }
 
     func receive(_ snapshot: MonitoringSnapshot) {
@@ -63,16 +64,17 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
     }
 }
 
-@Test func sessionTakesBaselineAndPublishesNeutralSnapshotsWithBackpressure() async throws {
+@Test func sessionTakesBaselineAndPublishesNeutralSnapshotsInScanOrder() async throws {
     let fixture = SessionFixture()
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(intervalSeconds: 2, samples: 2, includeCommands: true),
         reader: fixture, clock: fixture)
     try await session.run { snapshot in fixture.receive(snapshot) }
-    #expect(
-        fixture.events.withLock { $0 } == [
-            "scan", "wait:2.0", "scan", "metadata", "emit", "wait:2.0", "scan", "metadata", "emit",
-        ])
+    let events = fixture.events.withLock { $0 }
+    #expect(events.filter { $0 == "scan" }.count == 3)
+    #expect(events.filter { $0 == "wait:2.0" }.count == 2)
+    #expect(events.filter { $0 == "metadata" }.count == 2)
+    #expect(events.filter { $0 == "emit" }.count == 2)
     let snapshots = fixture.collected.withLock { $0 }
     #expect(snapshots.count == 2)
     let first = try #require(snapshots.first)
@@ -115,7 +117,10 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
     await #expect(throws: SessionFixtureError.self) {
         try await session.run { _ in throw SessionFixtureError.consumer }
     }
-    #expect(fixture.scans.withLock { $0 } == 2)
+    let finishedScans = fixture.scans.withLock { $0 }
+    #expect(finishedScans >= 2)
+    await Task.yield()
+    #expect(fixture.scans.withLock { $0 } == finishedScans)
 }
 
 @Test func sessionRejectsInvalidCadenceAndLimits() {
@@ -164,6 +169,13 @@ func sessionRejectsInvalidLiveThresholds(cpu: Double) async throws {
         clock: fixture)
     try await session.run(interval: LiveInterval(30), { fixture.receive($0) })
     #expect(fixture.events.withLock { $0 }.filter { $0.hasPrefix("wait") } == ["wait:30.0"])
+}
+
+@Test func settingTheSameIntervalDoesNotInvalidateAnInFlightWait() {
+    let interval = LiveInterval(0.1)
+    let generation = interval.current().generation
+    interval.set(0.1)
+    #expect(interval.current().generation == generation)
 }
 
 // The TUI can change the interval at any time; the change wakes the waiting session, so a shorter
@@ -248,8 +260,24 @@ func sessionRejectsInvalidLiveThresholds(cpu: Double) async throws {
 
 private final class SummaryClock: SamplingClock, Sendable {
     let time = Mutex(0.0)
+    let elapsed = Mutex(0.0)
+    let waits = Mutex(0)
+    let rollbackAtWait: Int?
+    init(rollbackAtWait: Int? = nil) { self.rollbackAtWait = rollbackAtWait }
     func now() -> Date { Date(timeIntervalSince1970: time.withLock { $0 }) }
-    func wait(seconds: Double) async throws { time.withLock { $0 += seconds } }
+    func monotonicNow() -> Double { elapsed.withLock { $0 } }
+    func wait(seconds: Double) async throws {
+        try Task.checkCancellation()
+        let count = waits.withLock {
+            $0 += 1
+            return $0
+        }
+        elapsed.withLock { $0 += seconds }
+        time.withLock {
+            if count == rollbackAtWait { $0 = -10 }
+            $0 += seconds
+        }
+    }
 }
 
 @Test func resourceTotalsRefreshOnEverySample() async throws {
@@ -319,14 +347,11 @@ func agentLoadEnrichmentRunsOnEverySample(interval: Double) async throws {
 
 @Test func summaryCadenceRecoversAfterAWallClockRollback() async throws {
     let fixture = SessionFixture()
-    let clock = SummaryClock()
+    let clock = SummaryClock(rollbackAtWait: 3)
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(samples: 4, collectAgentLoad: true),
         reader: fixture, clock: clock)
-    try await session.run { snapshot in
-        fixture.receive(snapshot)
-        if snapshot.timestamp == Date(timeIntervalSince1970: 2) { clock.time.withLock { $0 = -10 } }
-    }
+    try await session.run { fixture.receive($0) }
     #expect(
         fixture.collected.withLock { $0 }.filter { $0.agentLoad != nil }.map(\.timestamp)
             == [1.0, 2, -9, -8].map { Date(timeIntervalSince1970: $0) })

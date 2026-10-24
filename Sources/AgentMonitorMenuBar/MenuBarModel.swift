@@ -4,11 +4,10 @@ import AgentMonitorPresentation
 import Foundation
 import Observation
 
-/// Live inputs: thresholds, interval, whether session identities are shown (the panel is open),
-/// and the snapshot consumer.
+/// Live display thresholds, acquisition interval and snapshot consumer.
 typealias MenuBarSource =
     @Sendable (
-        @escaping @Sendable () async -> Thresholds, LiveInterval, @escaping @Sendable () async -> Bool,
+        @escaping @Sendable () async -> Thresholds, LiveInterval,
         @escaping @Sendable (MonitoringSnapshot) async throws -> Void
     ) async throws -> Void
 
@@ -110,8 +109,7 @@ final class MenuBarModel {
             do {
                 try Task.checkCancellation()
                 try await source(
-                    { [weak self] in await self?.report.thresholds ?? Thresholds() }, liveInterval,
-                    { [weak self] in await self?.isOpen ?? false }
+                    { [weak self] in await self?.report.thresholds ?? Thresholds() }, liveInterval
                 ) { [weak self] snapshot in
                     try Task.checkCancellation()
                     await self?.receive(snapshot, generation: token)

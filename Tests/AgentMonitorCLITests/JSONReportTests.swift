@@ -29,7 +29,7 @@ import Testing
     let schema = try #require(JSONSerialization.jsonObject(with: JSONReport.schema()) as? [String: Any])
     #expect(schema["$schema"] as? String == "https://json-schema.org/draft/2020-12/schema")
     let properties = try #require(schema["properties"] as? [String: [String: Any]])
-    #expect(properties["schemaVersion"]?["const"] as? Int == 4)
+    #expect(properties["schemaVersion"]?["const"] as? Int == 5)
 }
 
 @Test func jsonlContainsOneCompleteRecordPerLineEvenWhenArgumentsContainNewlines() throws {
@@ -51,27 +51,43 @@ import Testing
     #expect(rows[0]["cpuPercent"] == nil)
 }
 
-@Test func jsonlV4CarriesTypedCPUAccountingAndOmitsUnavailableValues() throws {
+@Test func jsonlV5CarriesTypedCPUAccountingAndOmitsUnavailableValues() throws {
     var records: [Data] = []
     for host: Double? in [210.9, nil] {
         let snapshot = MonitoringSnapshot(
             cpuAccounting: CPUAccounting(
                 hostBusyPercent: host, logicalCPUCount: 8,
                 measuredUserPercent: 169.1, unmeasuredLifetimeCount: 3,
-                previousScanSeconds: host == nil ? nil : 0.041),
+                previousScanSeconds: host == nil ? nil : 0.041,
+                acquisition: host == nil
+                    ? nil
+                    : AcquisitionTiming(
+                        runID: try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001")),
+                        scanSequence: 1,
+                        qualityOfService: .userInitiated, requestedPeriodSeconds: 0.1,
+                        achievedPeriodSeconds: 0.102,
+                        scanWorkSeconds: 0.008, resolutionDelaySeconds: 0.02,
+                        promptCapture: PromptCaptureSummary([]))),
             timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1, cpuThresholdPercent: 25,
             memoryThresholdBytes: 1_000_000_000, sampledProcessCount: 10, unreadableProcessCount: 2,
             findings: [jsonProcess()])
         let data = try JSONReport.encodeLine(snapshot)
         records.append(data)
         let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        #expect(json["schemaVersion"] as? Int == 4)
+        #expect(json["schemaVersion"] as? Int == 5)
         let accounting = try #require(json["cpuAccounting"] as? [String: Any])
         #expect(accounting["hostBusyPercent"] as? Double == host)
         #expect(accounting["logicalCPUCount"] as? Int == 8)
         #expect(accounting["measuredUserPercent"] as? Double == 169.1)
         #expect(accounting["unmeasuredLifetimeCount"] as? Int == 3)
         #expect((accounting["previousScanSeconds"] == nil) == (host == nil))
+        #expect((accounting["acquisition"] == nil) == (host == nil))
+        if host != nil {
+            let acquisition = try #require(accounting["acquisition"] as? [String: Any])
+            #expect(acquisition["qualityOfService"] as? String == "userInitiated")
+            #expect(acquisition["achievedPeriodSeconds"] as? Double == 0.102)
+            #expect(acquisition["scanSequence"] as? Int == 1)
+        }
     }
     let schema = try #require(JSONSerialization.jsonObject(with: JSONReport.schema()) as? [String: Any])
     #expect(schema["additionalProperties"] as? Bool == false)

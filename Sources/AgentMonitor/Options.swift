@@ -30,7 +30,9 @@ struct ReportOptions: ParsableArguments {
 
     @Option(
         name: .customLong("interval"),
-        help: "Seconds to wait between samples, from 0.1 to 60. Default: 0.1; scans and enrichment add time.")
+        help:
+            "Requested acquisition period in seconds, from 0.1 to 60. Default: 0.1; scan overruns delay collection."
+    )
     var requestedInterval: Double?
 
     var interval: Double { requestedInterval ?? 0.1 }
@@ -101,7 +103,7 @@ struct ReportOptions: ParsableArguments {
 struct JSONOptions: ParsableArguments {
     @Flag(
         help:
-            "Emit machine JSON: reports use JSONL schema version 4; CPU diagnosis uses one version 1 document."
+            "Emit machine JSON: reports use JSONL schema version 5; CPU diagnosis uses one version 1 document."
     )
     var json = false
 

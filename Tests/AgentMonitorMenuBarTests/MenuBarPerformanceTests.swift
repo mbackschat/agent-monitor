@@ -74,10 +74,11 @@ func measureNativeAgentLoadSampling() async throws {
     let reader = try MeasuredProcessReader()
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(intervalSeconds: 15, samples: 4, collectAgentLoad: true),
-        reader: reader, excluding: [ProcessInfo.processInfo.processIdentifier])
+        reader: reader, clock: ContinuousSamplingClock(), registry: ProbeRegistry(),
+        excluding: [ProcessInfo.processInfo.processIdentifier])
     let start = ContinuousClock.now
     let cpuStart = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
-    try await session.run(resolveSessions: { false }, { snapshot in #expect(snapshot.agentLoad != nil) })
+    try await session.run({ snapshot in #expect(snapshot.agentLoad != nil) })
     let cpuMilliseconds = Double(clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID) - cpuStart) / 1e6
     let duration = start.duration(to: .now).components
     let elapsedSeconds = Double(duration.seconds) + Double(duration.attoseconds) / 1e18
@@ -105,6 +106,22 @@ private final class MeasuredProcessReader: ProcessReading, Sendable {
         return try reader.snapshot(excluding: excluding)
     }
 
+    func isCurrent(_ sample: ProcessSample) -> Bool { reader.isCurrent(sample) }
+
+    func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
+        let start = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
+        defer { record("promptCapture", start: start) }
+        return reader.captureLaunchEvidence(for: sample, maximumBytes: maximumBytes)
+    }
+
+    func metadata(for sample: ProcessSample, includeCommand: Bool, capturedLaunch: ProcessMetadata?)
+        -> ProcessMetadata
+    {
+        let start = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
+        defer { record("metadata", start: start) }
+        return reader.metadata(for: sample, includeCommand: includeCommand, capturedLaunch: capturedLaunch)
+    }
+
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
         let start = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
         defer { record("metadata", start: start) }
@@ -118,4 +135,8 @@ private final class MeasuredProcessReader: ProcessReading, Sendable {
             $0["\(operation)Calls", default: 0] += 1
         }
     }
+}
+
+private struct ProbeRegistry: SessionRegistryReading {
+    func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
 }

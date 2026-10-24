@@ -12,7 +12,7 @@ import Testing
     let snapshot = try menuBarFixture(pids: [42])
     let model = MenuBarModel(
         diagnosisSource: { try await menuBarDiagnosisFixture() },
-        source: { _, _, _, receive in
+        source: { _, _, receive in
             try await receive(snapshot)
         })
     model.setLiveIcon(false)
@@ -42,7 +42,7 @@ import Testing
 
 @Test @MainActor func nativeDismissReopenCannotReceiveAnOldDiagnosis() async throws {
     let gate = NativeDiagnosisGate()
-    let model = MenuBarModel(diagnosisSource: { try await gate.run() }, source: { _, _, _, _ in })
+    let model = MenuBarModel(diagnosisSource: { try await gate.run() }, source: { _, _, _ in })
     model.open()
     #expect(model.beginDiagnosis())
     await gate.waitUntilStarted()
@@ -59,7 +59,7 @@ import Testing
 
 @Test @MainActor func detachmentKeepsDiagnosisButClosingTheDetachedWindowCancelsIt() async throws {
     let gate = NativeDiagnosisGate()
-    let model = MenuBarModel(diagnosisSource: { try await gate.run() }, source: { _, _, _, _ in })
+    let model = MenuBarModel(diagnosisSource: { try await gate.run() }, source: { _, _, _ in })
     let delegate = MenuBarDelegate(model: model)
     model.open()
     #expect(model.beginDiagnosis())
@@ -110,6 +110,7 @@ private final class NativeDiagnosisFixture: DiagnosisReading, SamplingClock, Sen
     func observation(for sample: ProcessSample) -> DiagnosisObservation { .observed(ProcessMetadata()) }
     func isCurrent(_ sample: ProcessSample) -> Bool { true }
     func wait(seconds: Double) async throws { try Task.checkCancellation() }
+    func monotonicNow() -> Double { now().timeIntervalSinceReferenceDate }
     func now() -> Date { Date(timeIntervalSince1970: 100 + Double(index.withLock { $0 })) }
 }
 
@@ -143,7 +144,7 @@ private actor NativeDiagnosisGate {
             case .failed: throw CPUDiagnosisError.collectionFailed
             default: return try await gate.run()
             }
-        }, source: { _, _, _, _ in })
+        }, source: { _, _, _ in })
     model.open()
     #expect(model.beginDiagnosis())
     switch phase {
@@ -173,7 +174,7 @@ private actor NativeDiagnosisGate {
 
 @Test @MainActor func diagnosisCopiesOnlyTheCompletedFixedReportAndClearsStatusOnRerun() async throws {
     let gate = NativeDiagnosisGate()
-    let model = MenuBarModel(diagnosisSource: { try await gate.run() }, source: { _, _, _, _ in })
+    let model = MenuBarModel(diagnosisSource: { try await gate.run() }, source: { _, _, _ in })
     var copied: [String] = []
     func copy() -> Bool {
         model.copyDiagnosisReport(using: {

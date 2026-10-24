@@ -11,11 +11,13 @@ public struct ProcessSnapshot: Sendable {
     public let logicalCPUCount: Int
     public let nativeOutcomes: [NativeCounterOutcome]
     public let nativeTiming: NativeScanTiming?
+    public let promptEvidence: [PromptEvidence]
 
     public init(
         samples: [ProcessSample], enumeratedCount: Int, unreadableCount: Int,
         listedAt: Double, scanSeconds: Double, hostCounters: HostCPUCounters?, logicalCPUCount: Int,
-        nativeOutcomes: [NativeCounterOutcome] = [], nativeTiming: NativeScanTiming? = nil
+        nativeOutcomes: [NativeCounterOutcome] = [], nativeTiming: NativeScanTiming? = nil,
+        promptEvidence: [PromptEvidence] = []
     ) {
         self.samples = samples
         self.enumeratedCount = enumeratedCount
@@ -26,6 +28,7 @@ public struct ProcessSnapshot: Sendable {
         self.logicalCPUCount = logicalCPUCount
         self.nativeOutcomes = nativeOutcomes
         self.nativeTiming = nativeTiming
+        self.promptEvidence = promptEvidence
     }
 }
 
@@ -170,13 +173,34 @@ public struct NativeProcessReader: DiagnosisReading {
         }
     }
 
+    public func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
+        guard maximumBytes > 0, isCurrent(sample) else { return ProcessMetadata(status: .unavailable) }
+        let captured = arguments(sample.identity.pid, includeCommand: false, maximumBytes: maximumBytes)
+        guard isCurrent(sample) else { return ProcessMetadata(status: .unavailable) }
+        return captured
+    }
+
+    public func metadata(
+        for sample: ProcessSample, includeCommand: Bool, capturedLaunch: ProcessMetadata?
+    ) -> ProcessMetadata {
+        switch observation(for: sample, includeCommand: includeCommand, capturedLaunch: capturedLaunch) {
+        case .observed(let metadata): metadata
+        case .notObserved: capturedLaunch ?? ProcessMetadata(status: .unavailable)
+        }
+    }
+
     public func observation(for sample: ProcessSample) -> DiagnosisObservation {
         observation(for: sample, includeCommand: false)
     }
 
-    private func observation(for sample: ProcessSample, includeCommand: Bool) -> DiagnosisObservation {
+    private func observation(
+        for sample: ProcessSample, includeCommand: Bool, capturedLaunch: ProcessMetadata? = nil
+    ) -> DiagnosisObservation {
         guard isCurrent(sample) else { return .notObserved }
-        var metadata = arguments(sample.identity.pid, includeCommand: includeCommand)
+        var metadata = capturedLaunch ?? arguments(sample.identity.pid, includeCommand: includeCommand)
+        if includeCommand, capturedLaunch != nil {
+            metadata.command = arguments(sample.identity.pid, includeCommand: true).command
+        }
         metadata.cwd = currentDirectory(sample.identity.pid)
         let invocation = metadata.invocation
         if let device = sample.terminalDevice,
@@ -259,14 +283,17 @@ public struct NativeProcessReader: DiagnosisReading {
         return path.isEmpty ? nil : path
     }
 
-    private func arguments(_ pid: Int32, includeCommand: Bool) -> ProcessMetadata {
+    private func arguments(
+        _ pid: Int32, includeCommand: Bool, maximumBytes: Int = 16 * 1024 * 1024
+    ) -> ProcessMetadata {
         var maximum: Int32 = 0
         var size = MemoryLayout<Int32>.size
         var sizeMIB: [Int32] = [CTL_KERN, KERN_ARGMAX]
         guard sysctl(&sizeMIB, 2, &maximum, &size, nil, 0) == 0,
             maximum > 0, maximum <= 16 * 1024 * 1024
         else { return ProcessMetadata(status: .unavailable) }
-        return withUnsafeTemporaryAllocation(byteCount: Int(maximum), alignment: 1) { buffer in
+        return withUnsafeTemporaryAllocation(byteCount: min(Int(maximum), maximumBytes), alignment: 1) {
+            buffer in
             guard let base = buffer.baseAddress else { return ProcessMetadata(status: .unavailable) }
             // Bulk initialization avoids the bytewise debug-build cost measured in
             // docs/research/menu-bar-load-cost.md; parsing still sees only the returned bytes.

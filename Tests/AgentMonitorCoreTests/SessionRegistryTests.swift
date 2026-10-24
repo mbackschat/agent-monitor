@@ -112,10 +112,12 @@ private final class FakeRegistry: SessionRegistryReading, SamplingClock, Process
     let calls = Mutex(0)
     let times = Mutex<[Double]>([0])
     let fail: Bool
+    let identityCurrent: Bool
     let runtimes: [Int32]
 
-    init(fail: Bool = false, runtimes: [Int32] = [10]) {
+    init(fail: Bool = false, runtimes: [Int32] = [10], identityCurrent: Bool = true) {
         self.fail = fail
+        self.identityCurrent = identityCurrent
         self.runtimes = runtimes
     }
 
@@ -126,14 +128,13 @@ private final class FakeRegistry: SessionRegistryReading, SamplingClock, Process
     }
 
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
-        let count = calls.withLock { $0 }
         let at = times.withLock { times in
             defer { times.append((times.last ?? 0) + 20) }
             return times.last ?? 0
         }
-        // A second Claude runtime appears once the first listing has run.
+        // The second runtime arrives at the third scan, independently of resolver progress.
         let extra =
-            count > 0 && runtimes.count > 1 ? [sample(11, executable: claudeExecutable, at: at, cpu: at)] : []
+            at >= 40 && runtimes.count > 1 ? [sample(11, executable: claudeExecutable, at: at, cpu: at)] : []
         return ProcessSnapshot(
             samples: [sample(10, executable: claudeExecutable, at: at, cpu: at)] + extra,
             enumeratedCount: 2, unreadableCount: 0, listedAt: at, scanSeconds: 0, hostCounters: nil,
@@ -144,7 +145,10 @@ private final class FakeRegistry: SessionRegistryReading, SamplingClock, Process
         ProcessArguments.parse(argumentBuffer(arguments: ["claude"], environment: []))
     }
 
+    func isCurrent(_ sample: ProcessSample) -> Bool { identityCurrent }
+
     func wait(seconds: Double) async throws {}
+    func monotonicNow() -> Double { now().timeIntervalSinceReferenceDate }
     func now() -> Date { Date(timeIntervalSince1970: times.withLock { $0.last ?? 0 }) }
 }
 
@@ -183,21 +187,26 @@ private final class FakeRegistry: SessionRegistryReading, SamplingClock, Process
     #expect(evidence.withLock { $0 }.allSatisfy { $0 == .runtimeOnly })
 }
 
-@Test func listingWaitsWhileTheConsumerDoesNotResolveSessions() async throws {
+@Test func sessionListingIsAutomatic() async throws {
     let fake = FakeRegistry()
-    let wanted = Mutex(false)
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(samples: 3), reader: fake, clock: fake, registry: fake)
     let evidence = Mutex<[AttributionEvidence?]>([])
     let receive: @Sendable (MonitoringSnapshot) async throws -> Void = { snapshot in
-        let count = evidence.withLock { values in
-            values.append(snapshot.findings.first?.attribution.evidence)
-            return values.count
-        }
-        // A closed panel opens after the second sample.
-        if count == 2 { wanted.withLock { $0 = true } }
+        evidence.withLock { $0.append(snapshot.findings.first?.attribution.evidence) }
     }
-    try await session.run(resolveSessions: { wanted.withLock { $0 } }, receive)
+    try await session.run(receive)
     #expect(fake.calls.withLock { $0 } == 1)
-    #expect(evidence.withLock { $0 } == [.runtimeOnly, .runtimeOnly, .sessionRegistry])
+    #expect(evidence.withLock { $0 } == [.sessionRegistry, .sessionRegistry, .sessionRegistry])
+}
+
+@Test func sessionListingCannotBindAnUnverifiedRuntimeLifetime() async throws {
+    let fake = FakeRegistry(identityCurrent: false)
+    let session = MonitoringSession(
+        configuration: try MonitoringConfiguration(samples: 1), reader: fake, clock: fake, registry: fake)
+    let findings = Mutex<[HeavyProcess]>([])
+    try await session.run { snapshot in findings.withLock { $0 = snapshot.findings } }
+    #expect(fake.calls.withLock { $0 } == 1)
+    #expect(findings.withLock { $0.first?.attribution.evidence } == .runtimeOnly)
+    #expect(findings.withLock { $0.first?.attribution.threadID } == nil)
 }

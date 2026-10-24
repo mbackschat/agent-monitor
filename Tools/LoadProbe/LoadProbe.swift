@@ -22,12 +22,13 @@ import Synchronization
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(
                 intervalSeconds: interval, samples: samples, collectAgentLoad: collectAgentLoad),
-            reader: try NativeProcessReader(), excluding: [getpid()])
+            reader: try NativeProcessReader(), clock: ContinuousSamplingClock(), registry: ProbeRegistry(),
+            excluding: [getpid()])
         let summaries = Mutex(0)
         let start = ContinuousClock.now
         let cpu = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
         try await session.run(
-            resolveSessions: { false },
+
             { snapshot in
                 if snapshot.agentLoad != nil { summaries.withLock { $0 += 1 } }
             })
@@ -44,4 +45,8 @@ import Synchronization
         data.append(0x0A)
         try FileHandle.standardOutput.write(contentsOf: data)
     }
+}
+
+private struct ProbeRegistry: SessionRegistryReading {
+    func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
 }

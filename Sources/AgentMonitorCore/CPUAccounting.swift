@@ -4,16 +4,24 @@ public struct CPUAccounting: Equatable, Sendable {
     public let measuredUserPercent: Double
     public let unmeasuredLifetimeCount: Int
     public let previousScanSeconds: Double?
+    public let acquisition: AcquisitionTiming?
 
     public init(
         hostBusyPercent: Double?, logicalCPUCount: Int, measuredUserPercent: Double,
-        unmeasuredLifetimeCount: Int, previousScanSeconds: Double?
+        unmeasuredLifetimeCount: Int, previousScanSeconds: Double?, acquisition: AcquisitionTiming? = nil
     ) {
         self.hostBusyPercent = hostBusyPercent
         self.logicalCPUCount = logicalCPUCount
         self.measuredUserPercent = measuredUserPercent
         self.unmeasuredLifetimeCount = unmeasuredLifetimeCount
         self.previousScanSeconds = previousScanSeconds
+        self.acquisition = acquisition
+    }
+    func withAcquisition(_ timing: AcquisitionTiming) -> CPUAccounting {
+        CPUAccounting(
+            hostBusyPercent: hostBusyPercent, logicalCPUCount: logicalCPUCount,
+            measuredUserPercent: measuredUserPercent, unmeasuredLifetimeCount: unmeasuredLifetimeCount,
+            previousScanSeconds: previousScanSeconds, acquisition: timing)
     }
 }
 

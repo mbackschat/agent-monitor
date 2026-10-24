@@ -33,3 +33,15 @@ private let context = CPUAccounting(
     let lines = LiveReportLayout.lines(state: state, width: 120, height: 20)
     #expect(lines.prefix(3).contains { $0.text == CPUContext.text(context) })
 }
+
+@Test func cpuContextDistinguishesAchievedAcquisitionFromResolverDelay() {
+    let timing = AcquisitionTiming(
+        runID: UUID(), scanSequence: 1, qualityOfService: .userInitiated,
+        requestedPeriodSeconds: 0.1, achievedPeriodSeconds: 0.125,
+        scanWorkSeconds: 0.02, resolutionDelaySeconds: 0.4)
+    let value = CPUAccounting(
+        hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+        unmeasuredLifetimeCount: 0, previousScanSeconds: nil, acquisition: timing)
+    #expect(CPUContext.text(value).contains("period 125 ms"))
+    #expect(CPUContext.text(value).contains("resolution 0.4 s behind"))
+}
