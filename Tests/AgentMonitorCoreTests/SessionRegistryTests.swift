@@ -110,69 +110,74 @@ func listingThatDoesNotNameExactlyOneLiveSessionLeavesTheRuntimeUnbound(case nam
 
 private final class FakeRegistry: SessionRegistryReading, SamplingClock, ProcessReading, Sendable {
     let calls = Mutex(0)
+    let listingStarted = AsyncStream<Void>.makeStream()
+    let marked: Bool
     let times = Mutex<[Double]>([0])
     let fail: Bool
     let identityCurrent: Bool
     let runtimes: [Int32]
 
-    init(fail: Bool = false, runtimes: [Int32] = [10], identityCurrent: Bool = true) {
+    init(fail: Bool = false, runtimes: [Int32] = [10], identityCurrent: Bool = true, marked: Bool = false) {
         self.fail = fail
+        self.marked = marked
         self.identityCurrent = identityCurrent
         self.runtimes = runtimes
     }
 
     func output(of query: SessionRegistryQuery) throws -> Data {
         calls.withLock { $0 += 1 }
+        listingStarted.continuation.yield(())
         if fail { throw BoundedCommandFailure("Claude Code command failed.") }
         return try listing(runtimes.map { entry(pid: Int($0)) })
     }
 
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
-        let at = times.withLock { times in
-            defer { times.append((times.last ?? 0) + 20) }
-            return times.last ?? 0
-        }
+        let at = monotonicNow()
         // The second runtime arrives at the third scan, independently of resolver progress.
         let extra =
             at >= 40 && runtimes.count > 1 ? [sample(11, executable: claudeExecutable, at: at, cpu: at)] : []
         return ProcessSnapshot(
-            samples: [sample(10, executable: claudeExecutable, at: at, cpu: at)] + extra,
+            samples: [sample(10, executable: marked ? "/usr/bin/node" : claudeExecutable, at: at, cpu: at)]
+                + extra,
             enumeratedCount: 2, unreadableCount: 0, listedAt: at, scanSeconds: 0, hostCounters: nil,
             logicalCPUCount: 8)
     }
 
+    func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
+        metadata(for: sample, includeCommand: false)
+    }
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
-        ProcessArguments.parse(argumentBuffer(arguments: ["claude"], environment: []))
+        ProcessArguments.parse(
+            argumentBuffer(
+                arguments: [marked ? "node" : "claude"],
+                environment: marked ? ["CLAUDE_CODE_SESSION_ID=\(sessionA)"] : []))
     }
 
     func isCurrent(_ sample: ProcessSample) -> Bool { identityCurrent }
 
-    func wait(seconds: Double) async throws {}
-    func monotonicNow() -> Double { now().timeIntervalSinceReferenceDate }
-    func now() -> Date { Date(timeIntervalSince1970: times.withLock { $0.last ?? 0 }) }
-}
-
-@Test func sessionListingRunsOnlyForUnboundRuntimesAndAtMostOncePerMinute() async throws {
-    let fake = FakeRegistry()
-    let session = MonitoringSession(
-        configuration: try MonitoringConfiguration(samples: 5), reader: fake, clock: fake, registry: fake)
-    let evidence = Mutex<[AttributionEvidence?]>([])
-    try await session.run { snapshot in
-        evidence.withLock {
-            $0.append(snapshot.findings.first { $0.process.pid == 10 }?.attribution.evidence)
-        }
+    func wait(seconds: Double) async throws {
+        if !marked, monotonicNow() == 0 { for await _ in listingStarted.stream { break } }
+        times.withLock { $0.append(($0.last ?? 0) + seconds) }
+        await Task.yield()
     }
-    // Samples are 20 s apart: the first and fourth samples list sessions; the others reuse the binding.
-    #expect(fake.calls.withLock { $0 } == 2)
-    #expect(evidence.withLock { $0 }.allSatisfy { $0 == .sessionRegistry })
+    func monotonicNow() -> Double { times.withLock { $0.last ?? 0 } }
+    // Periodic listing is tested with explicit dates in the cadence guard; this integration
+    // isolates initial discovery from wall-clock progress while background workers finish.
+    func now() -> Date { Date(timeIntervalSince1970: 0) }
 }
 
-@Test func newUnboundRuntimeTriggersAnEarlierListing() async throws {
-    let fake = FakeRegistry(runtimes: [10, 11])
-    let session = MonitoringSession(
-        configuration: try MonitoringConfiguration(samples: 2), reader: fake, clock: fake, registry: fake)
-    try await session.run { _ in }
-    #expect(fake.calls.withLock { $0 } == 2)
+@Test func sessionListingCadenceIsIndependentOfAccountingScans() {
+    var cadence = SessionRegistryCadence()
+    let first = Set([ProcessIdentity(pid: 10, startMicroseconds: 1)])
+    let decisions = (0...60).map {
+        cadence.due(.claude, runtimes: first, at: Date(timeIntervalSince1970: Double($0)))
+    }
+    #expect(decisions.enumerated().filter(\.element).map(\.offset) == [0, 60])
+    let additional = first.union([ProcessIdentity(pid: 11, startMicroseconds: 2)])
+    let changed = cadence.due(.claude, runtimes: additional, at: Date(timeIntervalSince1970: 61))
+    let unchanged = cadence.due(.claude, runtimes: additional, at: Date(timeIntervalSince1970: 62))
+    #expect(changed)
+    #expect(!unchanged)
 }
 
 @Test func failedListingKeepsRuntimeUnresolvedWithoutRetryingEverySample() async throws {
@@ -187,17 +192,22 @@ private final class FakeRegistry: SessionRegistryReading, SamplingClock, Process
     #expect(evidence.withLock { $0 }.allSatisfy { $0 == .runtimeOnly })
 }
 
-@Test func sessionListingIsAutomatic() async throws {
+private enum RegistryTestCompletion: Error { case exactSession }
+
+@Test(.timeLimit(.minutes(1))) func sessionListingAutomaticallyResolvesLaterReports() async throws {
     let fake = FakeRegistry()
     let session = MonitoringSession(
-        configuration: try MonitoringConfiguration(samples: 3), reader: fake, clock: fake, registry: fake)
-    let evidence = Mutex<[AttributionEvidence?]>([])
-    let receive: @Sendable (MonitoringSnapshot) async throws -> Void = { snapshot in
-        evidence.withLock { $0.append(snapshot.findings.first?.attribution.evidence) }
+        configuration: try MonitoringConfiguration(samples: 0), reader: fake, clock: fake, registry: fake)
+    await #expect(throws: RegistryTestCompletion.self) {
+        try await session.run { snapshot in
+            if let row = snapshot.findings.first, row.attribution.evidence == .sessionRegistry {
+                #expect(row.attribution.threadID == sessionB)
+                #expect(row.attribution.runtime?.pid == 10)
+                throw RegistryTestCompletion.exactSession
+            }
+        }
     }
-    try await session.run(receive)
     #expect(fake.calls.withLock { $0 } == 1)
-    #expect(evidence.withLock { $0 } == [.sessionRegistry, .sessionRegistry, .sessionRegistry])
 }
 
 @Test func sessionListingCannotBindAnUnverifiedRuntimeLifetime() async throws {
@@ -209,4 +219,31 @@ private final class FakeRegistry: SessionRegistryReading, SamplingClock, Process
     #expect(fake.calls.withLock { $0 } == 1)
     #expect(findings.withLock { $0.first?.attribution.evidence } == .runtimeOnly)
     #expect(findings.withLock { $0.first?.attribution.threadID } == nil)
+}
+
+@Test func providerDiscoveryDoesNotRecursivelyListItsOwnHelpers() throws {
+    let ownPID: Int32 = 8000
+    let helper = sample(10, parent: ownPID, executable: claudeExecutable)
+    let runtime = sample(20, parent: 1, executable: claudeExecutable)
+    var monitor = Monitor()
+    monitor.ingest([helper, runtime])
+    let findings = monitor.findings(scope: .allProcesses)
+    #expect(findings.count == 2)
+    #expect(
+        monitor.sessionRegistryRuntimes(in: findings, excludingChildrenOf: ownPID) == [
+            .claude: [runtime.identity]
+        ])
+}
+
+@Test func markerResolvedWorkersDoNotStartProviderListing() async throws {
+    let fake = FakeRegistry(marked: true)
+    let session = MonitoringSession(
+        configuration: try MonitoringConfiguration(samples: 3),
+        reader: fake, clock: fake, registry: fake)
+    let sessions = Mutex<[String?]>([])
+    try await session.run { snapshot in
+        sessions.withLock { $0.append(snapshot.findings.first?.attribution.threadID) }
+    }
+    #expect(fake.calls.withLock { $0 } == 0)
+    #expect(sessions.withLock { $0 } == [sessionA, sessionA, sessionA])
 }

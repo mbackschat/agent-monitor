@@ -9,8 +9,8 @@ struct MenuBarPinButton: View {
             _ = action()
         } label: {
             Image(systemName: pinned ? "pin.fill" : "pin")
-                .font(.system(size: 16))
-                .frame(width: 32, height: 32).contentShape(Rectangle())
+                .font(.system(size: 12))
+                .frame(width: 24, height: 24).contentShape(Rectangle())
         }
         .buttonStyle(.plain).foregroundStyle(pinned ? Color.accentColor : .secondary)
         .accessibilityLabel(pinned ? "Unpin" : "Pin")

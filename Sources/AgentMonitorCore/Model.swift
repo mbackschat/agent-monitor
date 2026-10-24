@@ -68,7 +68,7 @@ public struct SessionMarker: Equatable, Codable, Sendable {
 }
 
 public enum MetadataStatus: String, Codable, Sendable {
-    case markerRead, notObserved, unavailable, malformed
+    case markerRead, notObserved, unavailable, malformed, truncated
 }
 
 public struct ProcessMetadata: Sendable {
@@ -123,7 +123,7 @@ public enum ProcessScope: Equatable, Sendable {
     }
 }
 
-public struct Attribution: Equatable, Codable, Sendable {
+public struct Attribution: Hashable, Codable, Sendable {
     public let provider: AgentProvider?
     public let evidence: AttributionEvidence
     public let context: RuntimeContext

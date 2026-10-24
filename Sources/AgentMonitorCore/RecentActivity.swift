@@ -1,7 +1,7 @@
 import Foundation
 
 public struct RecentSession: Hashable, Sendable {
-    public enum Resolution: String, Sendable { case candidate, unresolved, conflicting, shared }
+    public enum Resolution: String, Codable, Sendable { case candidate, unresolved, conflicting, shared }
     public let provider: AgentProvider?
     public let sessionID: String?
     public let rootSessionID: String?
@@ -29,6 +29,9 @@ public struct RecentSession: Hashable, Sendable {
     }
 
     var isAgent: Bool { provider != nil || runtime != nil }
+    var textBytes: Int {
+        ([sessionID, rootSessionID].compactMap { $0 } + candidates).reduce(0) { $0 + $1.utf8.count }
+    }
 }
 
 public struct RecentWorkerCategory: Hashable, Sendable {
@@ -47,7 +50,7 @@ public struct RecentWorkerCategory: Hashable, Sendable {
     }
 }
 
-public struct RecentMemoryReading: Equatable, Sendable {
+public struct RecentMemoryReading: Equatable, Codable, Sendable {
     public let bytes: UInt64
     public let scan: UInt64
     public let observedAt: Double
@@ -56,7 +59,7 @@ public struct RecentMemoryReading: Equatable, Sendable {
 }
 
 public struct RecentWorkerRecord: Equatable, Sendable {
-    public let category: RecentWorkerCategory
+    public private(set) var category: RecentWorkerCategory
     public private(set) var name: String
     public private(set) var cwd: String?
     public private(set) var command: [String]?
@@ -114,22 +117,61 @@ public struct RecentWorkerRecord: Equatable, Sendable {
         }
     }
 
-    mutating func addCPU(_ seconds: Double) {
+    mutating func addCPU(_ seconds: Double, intervals: Int = 1) {
         cpuSeconds += seconds
-        measuredIntervals += 1
+        measuredIntervals += intervals
     }
+
+    mutating func merge(_ other: RecentWorkerRecord) {
+        precondition(category == other.category)
+        firstObservedAt = min(firstObservedAt, other.firstObservedAt)
+        if other.lastScan >= lastScan {
+            name = other.name
+            cwd = other.cwd
+            command = other.command
+            lastObservedAt = other.lastObservedAt
+            lastScan = other.lastScan
+            latestFootprint = other.latestFootprint
+            kernelPeakUnavailable = other.kernelPeakUnavailable
+        }
+        if let peak = other.maximumFootprint,
+            maximumFootprint.map({
+                peak.bytes > $0.bytes || (peak.bytes == $0.bytes && peak.observedAt < $0.observedAt)
+            }) ?? true
+        {
+            maximumFootprint = peak
+        }
+        if let peak = other.kernelPeak, kernelPeak.map({ peak.scan > $0.scan }) ?? true { kernelPeak = peak }
+        cpuSeconds += other.cpuSeconds
+        measuredIntervals += other.measuredIntervals
+        excludedObservations += other.excludedObservations
+        executableChangedIntervals += other.executableChangedIntervals
+        evidenceKinds.formUnion(other.evidenceKinds)
+        if let time = other.earliestEvidenceAt { earliestEvidenceAt = min(earliestEvidenceAt ?? time, time) }
+        if let time = other.latestEvidenceAt { latestEvidenceAt = max(latestEvidenceAt ?? time, time) }
+        missingEvidenceTimes += other.missingEvidenceTimes
+    }
+    func sharingOwner(_ owner: RecentSession) -> Self {
+        var copy = self
+        copy.category = RecentWorkerCategory(
+            process: category.process, owner: owner,
+            executable: category.executable, isAgentRuntime: category.isAgentRuntime)
+        return copy
+    }
+
     mutating func executableChanged() { executableChangedIntervals += 1 }
     mutating func exclude() { excludedObservations += 1 }
 
     var payloadSize: MonitoringPayloadSize {
         let owner = category.owner
-        let strings =
-            [category.executable, category.executableName, name, cwd, owner.sessionID, owner.rootSessionID]
-            .compactMap { $0 }
-            + owner.candidates + (command ?? [])
+        var bytes = category.executable.utf8.count + category.executableName.utf8.count + name.utf8.count
+        bytes +=
+            (cwd?.utf8.count ?? 0) + (owner.sessionID?.utf8.count ?? 0)
+            + (owner.rootSessionID?.utf8.count ?? 0)
+        for value in owner.candidates { bytes += value.utf8.count }
+        for value in command ?? [] { bytes += value.utf8.count }
         return MonitoringPayloadSize(
-            observations: 1 + owner.candidates.count + (command?.count ?? 0),
-            textBytes: strings.reduce(0) { $0 + $1.utf8.count })
+            observations: 1 + owner.candidates.count + (command?.count ?? 0), textBytes: bytes)
     }
 }
 
@@ -149,13 +191,14 @@ public final class RecentActivityUnit: Sendable {
     public let records: [RecentWorkerRecord]
     public let crossings: [RecentCrossing]
     public let excludedObservationCount: Int
-    public let unreadableObservationCount: Int
+    public let readCoverage: ReadCoverage
+    public let collapsedContributions: [CollapsedContribution]
     let size: MonitoringPayloadSize
 
     init(
         runID: UUID, baseline: UInt64, final: UInt64, start: Double, end: Double,
         scope: ProcessScope, records: [RecentWorkerRecord], crossings: [RecentCrossing],
-        excluded: Int, unreadable: Int
+        excluded: Int, coverage: ReadCoverage = ReadCoverage(), collapsed: [CollapsedContribution] = []
     ) {
         self.runID = runID
         baselineScan = baseline
@@ -163,114 +206,95 @@ public final class RecentActivityUnit: Sendable {
         startedAt = start
         endedAt = end
         self.scope = scope
-        self.records = records
-        self.crossings = crossings
-        excludedObservationCount = excluded
-        unreadableObservationCount = unreadable
-        var size = MonitoringPayloadSize(observations: 1 + crossings.count, textBytes: 0)
-        for record in records {
-            size.observations += record.payloadSize.observations
-            size.textBytes += record.payloadSize.textBytes
+        // Writer-candidate lists are shared context, not a fresh allocation for every worker.
+        // CPU-01's retention bound must charge the actual shared array once per closed unit.
+        var owners: [RecentSession: RecentSession] = [:]
+        func sharedOwner(_ owner: RecentSession) -> RecentSession {
+            if let shared = owners[owner] { return shared }
+            owners[owner] = owner
+            return owner
         }
-        for crossing in crossings {
-            size.observations += crossing.category.owner.candidates.count
+        self.records = records.map { $0.sharingOwner(sharedOwner($0.category.owner)) }
+        self.crossings = crossings.map {
+            RecentCrossing(
+                contribution: $0.contribution,
+                category: RecentWorkerCategory(
+                    process: $0.category.process,
+                    owner: sharedOwner($0.category.owner), executable: $0.category.executable,
+                    isAgentRuntime: $0.category.isAgentRuntime))
+        }
+        excludedObservationCount = excluded
+        readCoverage = coverage
+        collapsedContributions = collapsed
+        var size = MonitoringPayloadSize(
+            observations: 1 + crossings.count + coverage.retainedCount
+                + collapsed.reduce(0) { $0 + 1 + $1.category.candidates.count },
+            textBytes: collapsed.reduce(0) { $0 + $1.category.textBytes })
+        for record in self.records {
+            let payload = record.payloadSize
+            size.observations += payload.observations - record.category.owner.candidates.count
+            size.textBytes += payload.textBytes - record.category.owner.textBytes
+        }
+        for crossing in self.crossings {
             size.textBytes +=
                 crossing.category.executable.utf8.count + crossing.category.executableName.utf8.count
-                + (crossing.category.owner.sessionID?.utf8.count ?? 0)
-                + (crossing.category.owner.rootSessionID?.utf8.count ?? 0)
-                + crossing.category.owner.candidates.reduce(0) { $0 + $1.utf8.count }
+        }
+        for owner in owners.keys {
+            size.observations += owner.candidates.count
+            size.textBytes += owner.textBytes
         }
         self.size = size
     }
 }
 
-struct RecentActivityAccumulator: Sendable {
-    private let runID: UUID
-    private let baseline: UInt64
-    private let start: Double
-    private var final: UInt64
-    private var end: Double
-    private var records: [RecentWorkerCategory: RecentWorkerRecord] = [:]
-    private var crossings: [RecentCrossing] = []
-    private var excluded = 0
-    private var unreadable = 0
-    private(set) var current: [RecentWorkerRecord] = []
-    private(set) var present: Set<ProcessIdentity> = []
-
-    init(baseline: CounterScan) {
-        runID = baseline.id.runID
-        self.baseline = baseline.id.sequence
-        final = baseline.id.sequence
-        start = baseline.listedAt ?? baseline.observations.map(\.sample.sampledAt).min() ?? 0
-        end = baseline.endedAt ?? start
-    }
-
-    mutating func append(
-        _ scan: CounterScan, rows: [HeavyProcess],
-        runtimes: Set<ProcessIdentity> = [], attributionTimes: [ProcessIdentity: Double] = [:]
-    ) {
-        guard scan.id.sequence > final else { return }
-        precondition(scan.id.runID == runID)
-        final = scan.id.sequence
-        end = scan.endedAt ?? scan.listedAt ?? end
-        present = Set(scan.observations.map(\.id.process))
-        let roots = SessionCorroboration(rows)
-        let samples = Dictionary(uniqueKeysWithValues: scan.observations.map { ($0.id.process, $0.sample) })
-        var categories: [ProcessIdentity: RecentWorkerCategory] = [:]
-        current = rows.compactMap { row in
-            guard let sample = samples[row.process] else { return nil }
-            let category = RecentWorkerCategory(
-                process: row.process,
-                owner: RecentSession(row, roots: roots), executable: row.executable,
-                isAgentRuntime: runtimes.contains(row.process))
-            categories[row.process] = category
-            let observation = RecentWorkerRecord(
-                category: category, row: row, scan: final,
-                time: sample.sampledAt, evidenceAt: attributionTimes[row.process])
-            if var previous = records[category] {
-                previous.observe(
-                    row, scan: final, time: sample.sampledAt, evidenceAt: attributionTimes[row.process])
-                records[category] = previous
-            } else {
-                records[category] = observation
+extension RecentActivityUnit {
+    /// Published ranges never shrink: whole-unit eviction belongs to the store, not to a paused view.
+    /// Compact category sums keep snapshot leases independent of the number of original units.
+    static func compacted(_ units: [RecentActivityUnit]) -> [RecentActivityUnit] {
+        guard let first = units.first, let last = units.last else { return [] }
+        if units.count == 1 { return units }
+        var records: [RecentWorkerCategory: RecentWorkerRecord] = [:]
+        var crossings: [RecentCrossing] = []
+        var collapsed: [CollapsedCategory: CollapsedContribution] = [:]
+        var coverage = ReadCoverage()
+        var excluded = 0
+        for unit in units {
+            precondition(unit.runID == first.runID && unit.scope == first.scope)
+            for record in unit.records {
+                if records[record.category] == nil {
+                    records[record.category] = record
+                } else {
+                    records[record.category]?.merge(record)
+                }
             }
-            return observation
+            crossings += unit.crossings
+            for value in unit.collapsedContributions {
+                if collapsed[value.category] == nil {
+                    collapsed[value.category] = value
+                } else {
+                    collapsed[value.category]?.merge(value)
+                }
+            }
+            coverage.merge(unit.readCoverage)
+            excluded += unit.excludedObservationCount
         }
-        for value in scan.contributions {
-            guard let category = categories[value.id.closing.process] else { continue }
-            if value.executableChanged { records[category]?.executableChanged() }
-            if value.id.opening.scan.sequence < baseline {
-                crossings.append(RecentCrossing(contribution: value, category: category))
+        var recovered: [RecentCrossing] = []
+        for crossing in crossings {
+            if crossing.contribution.id.opening.scan.sequence >= first.baselineScan,
+                records[crossing.category] != nil
+            {
+                records[crossing.category]?.addCPU(
+                    crossing.contribution.cpuSeconds, intervals: crossing.contribution.intervalCount)
             } else {
-                records[category]?.addCPU(value.cpuSeconds)
+                recovered.append(crossing)
             }
         }
-        for value in scan.exclusions {
-            if let category = categories[value.observation.process] { records[category]?.exclude() }
-        }
-        excluded += scan.exclusions.count
-        unreadable += scan.source?.unreadableCount ?? 0
-    }
-
-    func seal(scope: ProcessScope) -> RecentActivityUnit {
-        let identities = Set(
-            records.keys.filter {
-                scope == .allProcesses || $0.owner.isAgent
-            }.map(\.process))
-        return RecentActivityUnit(
-            runID: runID, baseline: baseline, final: final, start: start, end: end,
-            scope: scope, records: records.values.filter { identities.contains($0.category.process) },
-            crossings: crossings.filter { identities.contains($0.category.process) },
-            excluded: excluded, unreadable: unreadable)
-    }
-
-    var payloadSize: MonitoringPayloadSize {
-        var size = seal(scope: .allProcesses).size
-        size.observations += present.count
-        for row in current {
-            size.observations += row.payloadSize.observations
-            size.textBytes += row.payloadSize.textBytes
-        }
-        return size
+        return [
+            RecentActivityUnit(
+                runID: first.runID, baseline: first.baselineScan, final: last.finalScan,
+                start: first.startedAt, end: last.endedAt, scope: first.scope,
+                records: Array(records.values), crossings: recovered, excluded: excluded,
+                coverage: coverage, collapsed: Array(collapsed.values))
+        ]
     }
 }

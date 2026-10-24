@@ -45,6 +45,21 @@ import Testing
     await model.stop()
 }
 
+@Test @MainActor func contributorSummaryFitsOneCompactRow() throws {
+    var overview = ContributorOverview()
+    overview.receive(try nativeOverviewFixture())
+    _ = NSApplication.shared
+    for row in overview.visibleRows {
+        let host = NSHostingView(
+            rootView:
+                MenuBarContributorSummary(node: row.node, overview: overview, expanded: false)
+                .frame(width: 376))
+        host.layoutSubtreeIfNeeded()
+        #expect(host.fittingSize.height <= 22)
+        #expect(host.fittingSize.width == 376)
+    }
+}
+
 func nativeOverviewFixture() throws -> MonitoringSnapshot {
     var ledger = CounterLedger()
     func values(_ tick: Int) -> [ProcessSample] {
@@ -84,8 +99,8 @@ func nativeOverviewFixture() throws -> MonitoringSnapshot {
         let samples = values(tick)
         let scan = ledger.ingest(samples, listedAt: Double(tick))
         let findings = rows(samples)
-        var activity = RecentActivityAccumulator(baseline: baseline)
-        activity.append(scan, rows: findings)
+        var activity = AccountingWindow(baseline: baseline)
+        try activity.append(scan, rows: findings)
         store.append(activity.seal(scope: .agentsOnly), current: activity.current, present: activity.present)
         window = AccountingWindow(baseline: baseline)
         try window.append(scan, rows: findings)

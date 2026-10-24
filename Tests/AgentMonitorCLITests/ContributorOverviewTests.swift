@@ -6,7 +6,7 @@ import Testing
 
 @Suite struct ContributorOverviewTests {
     @Test func quietMemoryAndBurstWorkersRemainDiscoverableWithoutIdleFlood() throws {
-        let snapshot = overviewFixture()
+        let snapshot = try overviewFixture()
         var overview = ContributorOverview()
         overview.receive(snapshot)
         #expect(overview.main.count == 1)
@@ -18,8 +18,8 @@ import Testing
         #expect(overview.totals.memoryBytes == 220_000_000)
     }
 
-    @Test func disclosureAndThresholdsDoNotChangePopulationTotals() {
-        let snapshot = overviewFixture()
+    @Test func disclosureAndThresholdsDoNotChangePopulationTotals() throws {
+        let snapshot = try overviewFixture()
         var overview = ContributorOverview()
         overview.receive(snapshot)
         let totals = overview.totals
@@ -31,7 +31,7 @@ import Testing
     }
 }
 
-func overviewFixture() -> MonitoringSnapshot {
+func overviewFixture() throws -> MonitoringSnapshot {
     var ledger = CounterLedger()
     func samples(_ time: Double, includeBurst: Bool) -> [ProcessSample] {
         var values: [ProcessSample] = []
@@ -64,9 +64,9 @@ func overviewFixture() -> MonitoringSnapshot {
     for tick in 1...2 {
         let values = samples(Double(tick), includeBurst: tick == 1)
         let scan = ledger.ingest(values, listedAt: Double(tick))
-        var accumulator = RecentActivityAccumulator(baseline: previous)
+        var accumulator = AccountingWindow(baseline: previous)
         let findings = rows(values)
-        accumulator.append(scan, rows: findings)
+        try accumulator.append(scan, rows: findings)
         store.append(
             accumulator.seal(scope: .agentsOnly), current: accumulator.current, present: accumulator.present)
         previous = scan
@@ -81,7 +81,7 @@ func overviewFixture() -> MonitoringSnapshot {
 
 extension ContributorOverviewTests {
     @Test func pinsImmediatelyConserveSectionsAndPauseSurvivesResetButNotANewRun() throws {
-        let snapshot = overviewFixture()
+        let snapshot = try overviewFixture()
         var state = LiveReportState()
         state.receive(snapshot)
         let recent = try #require(state.overview.nodes[.section(.recent)]?.children.first)
@@ -99,16 +99,16 @@ extension ContributorOverviewTests {
         #expect(state.overview.nodes.isEmpty)
         state.receive(snapshot)
         state.toggleFreeze()
-        state.receive(overviewFixture())
+        state.receive(try overviewFixture())
         #expect(!state.frozen)
         #expect(state.overview.runID != held.runID)
         #expect(state.overview.pinned == held.pinned)
     }
 
     @Test(arguments: [40, 80, 120])
-    func terminalOverviewFitsAndKeepsCoverageVisible(width: Int) {
+    func terminalOverviewFitsAndKeepsCoverageVisible(width: Int) throws {
         var state = LiveReportState()
-        state.receive(overviewFixture())
+        state.receive(try overviewFixture())
         let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
         #expect(lines.count <= 24)
         #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
@@ -130,7 +130,7 @@ extension ContributorOverviewTests {
         var baseline = ledger.ingest([sample(0)], listedAt: 0)
         let store = RecentActivityStore()
         for unit in 0..<2 {
-            var accumulator = RecentActivityAccumulator(baseline: baseline)
+            var accumulator = AccountingWindow(baseline: baseline)
             for offset in 1...2 {
                 let tick = unit * 2 + offset
                 let value = sample(tick)
@@ -146,14 +146,14 @@ extension ContributorOverviewTests {
                         rootSessionID: nil, runtime: nil, terminal: nil, runtimeDirectory: nil,
                         candidateThreadIDs: [], ancestry: []))
                 let scan = ledger.ingest([value], listedAt: Double(tick))
-                accumulator.append(scan, rows: [row], runtimes: tick >= 3 ? [identity] : [])
+                try accumulator.append(scan, rows: [row], runtimes: tick >= 3 ? [identity] : [])
                 baseline = scan
             }
             store.append(
                 accumulator.seal(scope: .agentsOnly), current: accumulator.current,
                 present: accumulator.present)
         }
-        let base = overviewFixture()
+        let base = try overviewFixture()
         let snapshot = MonitoringSnapshot(
             cpuAccounting: base.cpuAccounting, timestamp: base.timestamp,
             intervalSeconds: 0.1, cpuThresholdPercent: 0, memoryThresholdBytes: 0,
@@ -185,7 +185,7 @@ extension ContributorOverviewTests {
 }
 
 extension ContributorOverviewTests {
-    @Test func rankingKeepsIncumbentsUntilAChallengerExceedsTwentyPercent() {
+    @Test func rankingKeepsIncumbentsUntilAChallengerExceedsTwentyPercent() throws {
         var ledger = CounterLedger()
         let store = RecentActivityStore()
         var overview = ContributorOverview()
@@ -204,8 +204,8 @@ extension ContributorOverviewTests {
             for worker in 0..<6 { counters[worker] += rates[worker] / 100 }
             let samples = values(at: Double(index + 1))
             let scan = ledger.ingest(samples, listedAt: Double(index + 1))
-            var accumulator = RecentActivityAccumulator(baseline: baseline)
-            accumulator.append(
+            var accumulator = AccountingWindow(baseline: baseline)
+            try accumulator.append(
                 scan,
                 rows: samples.map { value in
                     HeavyProcess(
@@ -218,7 +218,7 @@ extension ContributorOverviewTests {
                             terminal: nil, runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []))
                 })
             store.append(accumulator.seal(scope: .agentsOnly))
-            let base = overviewFixture()
+            let base = try overviewFixture()
             overview.receive(
                 MonitoringSnapshot(
                     cpuAccounting: base.cpuAccounting, timestamp: base.timestamp, intervalSeconds: 0.1,
@@ -237,7 +237,7 @@ extension ContributorOverviewTests {
 
 extension ContributorOverviewTests {
     @Test func scopeReplacementEndsPausedInspectionWithinTheSameRun() throws {
-        let original = overviewFixture()
+        let original = try overviewFixture()
         let unit = try #require(original.recentActivity?.units.last)
         let store = RecentActivityStore()
         store.append(
@@ -245,7 +245,7 @@ extension ContributorOverviewTests {
                 runID: unit.runID, baseline: unit.baselineScan, final: unit.finalScan,
                 start: unit.startedAt, end: unit.endedAt, scope: .allProcesses,
                 records: unit.records, crossings: unit.crossings,
-                excluded: unit.excludedObservationCount, unreadable: unit.unreadableObservationCount))
+                excluded: unit.excludedObservationCount, coverage: unit.readCoverage))
         let replacement = MonitoringSnapshot(
             cpuAccounting: original.cpuAccounting, timestamp: original.timestamp, intervalSeconds: 0.1,
             cpuThresholdPercent: 0, memoryThresholdBytes: 0, sampledProcessCount: 21,

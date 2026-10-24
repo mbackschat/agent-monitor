@@ -110,7 +110,7 @@ public enum MonitoringError: Error, Equatable, LocalizedError {
         switch self {
         case .invalidConfiguration: "Invalid monitoring configuration."
         case .overloaded(let stage, let scan):
-            "Monitoring stopped: the \(stage.rawValue) queue reached its retention limit before scan \(scan). Accepted reports were drained; later measurements are unavailable."
+            "Monitoring stopped: \(stage.capacityDescription) reached its retention limit before scan \(scan). Coverage ends at the last delivered scan."
         }
     }
 }
@@ -221,7 +221,7 @@ public struct MonitoringSession: Sendable {
     public var initialThresholds: Thresholds { configuration.thresholds }
     public var initialInterval: Double { configuration.intervalSeconds }
 
-    /// Acquisition and blocking resolution use separate serial threads and bounded FIFOs.
+    /// Serial counter/accounting collection is independent of blocking enrichment and presentation.
     @concurrent public func run(
         thresholds currentThresholds: (@Sendable () async -> Thresholds)? = nil,
         interval live: LiveInterval? = nil,

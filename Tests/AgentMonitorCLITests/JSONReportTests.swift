@@ -29,7 +29,9 @@ import Testing
     let schema = try #require(JSONSerialization.jsonObject(with: JSONReport.schema()) as? [String: Any])
     #expect(schema["$schema"] as? String == "https://json-schema.org/draft/2020-12/schema")
     let properties = try #require(schema["properties"] as? [String: [String: Any]])
-    #expect(properties["schemaVersion"]?["const"] as? Int == 6)
+    let version = try #require(properties["schemaVersion"]?["const"] as? Int)
+    #expect(version == 1)
+    #expect(schema["$id"] as? String == "urn:agent-monitor:report:\(version)")
 }
 
 @Test func jsonlContainsOneCompleteRecordPerLineEvenWhenArgumentsContainNewlines() throws {
@@ -51,7 +53,7 @@ import Testing
     #expect(rows[0]["cpuPercent"] == nil)
 }
 
-@Test func jsonlV6CarriesTypedCPUAccountingAndOmitsUnavailableValues() throws {
+@Test func jsonlCarriesTypedCPUAccountingAndOmitsUnavailableValues() throws {
     var records: [Data] = []
     for host: Double? in [210.9, nil] {
         let snapshot = MonitoringSnapshot(
@@ -74,7 +76,7 @@ import Testing
         let data = try JSONReport.encodeLine(snapshot)
         records.append(data)
         let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        #expect(json["schemaVersion"] as? Int == 6)
+        #expect(json["schemaVersion"] as? Int == 1)
         let accounting = try #require(json["cpuAccounting"] as? [String: Any])
         #expect(accounting["hostBusyPercent"] as? Double == host)
         #expect(accounting["logicalCPUCount"] as? Int == 8)
@@ -176,8 +178,8 @@ private func jsonProcess() -> HeavyProcess {
     let encodedWindow = try #require(json["window"] as? [String: Any])
     let records = try #require(encodedWindow["contributions"] as? [[String: Any]])
     #expect(records[0]["verifiedBirth"] as? Double == 0.2)
-    #expect(records[0]["pointEvidenceObservedAt"] as? Double == 0.25)
-    #expect(records[0]["revision"] as? Int == 1)
+    #expect(records[0]["earliestEvidenceObservedAt"] as? Double == 0.25)
+    #expect(records[0]["revision"] == nil)
     let text = TextReport.render(snapshot, grouping: .session)
     #expect(text.contains("No longer observed"))
     #expect(text.contains("excluded from current totals"))

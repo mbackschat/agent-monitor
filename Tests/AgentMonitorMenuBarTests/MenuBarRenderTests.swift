@@ -13,7 +13,7 @@ import Testing
     _ = NSApplication.shared
     let host = NSHostingView(rootView: MenuBarPinButton(pinned: pinned) { true })
     host.layoutSubtreeIfNeeded()
-    #expect(host.fittingSize == NSSize(width: 32, height: 32))
+    #expect(host.fittingSize == NSSize(width: 24, height: 24))
 }
 
 @Test(arguments: [MenuBarRowDisclosure.process, .group(count: 6), .group(count: 60), .group(count: 600)])
@@ -212,7 +212,7 @@ private struct DisclosureChevronFixture: View {
 }
 
 @Test(arguments: [244.0, 280.0, 320.0, 376.0], [false, true])
-@MainActor func processSummaryFitsTwoLines(width: Double, showsSession: Bool) throws {
+@MainActor func processSummaryFitsOneLine(width: Double, showsSession: Bool) throws {
     let snapshot = try menuBarFixture(
         name: "swift-frontend-with-a-long-process-name", project: "a-project-with-a-long-directory-name")
     let process = try #require(snapshot.findings.first)
@@ -224,7 +224,7 @@ private struct DisclosureChevronFixture: View {
             footprintText: "1.4 GB"
         ).frame(width: width))
     host.layoutSubtreeIfNeeded()
-    #expect(host.fittingSize.height <= 36)
+    #expect(host.fittingSize.height <= 20)
     #expect(abs(host.fittingSize.width - width) < 0.5)
 }
 

@@ -57,6 +57,8 @@ Use installed `swiftui-view-refactor` for native structure/dependency/Observatio
 
 ## Implement and validate
 
+Before v1.0, backward compatibility is not required. Prefer a coherent current design over compatibility layers, legacy output modes or migrations solely to preserve pre-1.0 behavior. Keep only the current formats and update schemas, tests and documentation together when contracts change. Do not retain old schema versions or add version bumps solely for pre-1.0 compatibility.
+
 Use Xcode 27, Swift 6.4 and macOS 27. Follow four-space indentation, bundled `swift format`, Swift 6 concurrency checking and enum-based switches. Comments explain constraints and cite their basis. Use red/green TDD for behavior changes and descriptive Swift Testing tests; positive attribution fixtures must resolve exact sessions, not merely return unknown.
 
 Select checks using the [validation matrix](docs/development.md#choose-checks-for-the-change). Headless validation is the default: deterministic core/presentation/model inputs, fake transports, controlled clocks and synthetic offscreen AppKit renders. Reuse production composition across layers. Computer Use is disabled; do not request or enable it for routine review. The user owns live macOS smoke tests, which remain pending until reported. Automated results cannot prove physical input delivery, menu anchoring or live provider delivery.
@@ -80,6 +82,6 @@ Add root instructions only for recurring agent decisions or essential invariants
 
 ## Git and handback
 
-Automatically commit completed, validated checkpoints with related documentation; leave unrelated work untouched. This overrides the global preference to only propose fix commits, but does not authorize pushing. Use Conventional Commits with a concise body when rationale is non-obvious. Never create or switch worktrees without explicit instructions. Keep build outputs, caches and temporary evaluations ignored.
+Automatically commit completed, validated checkpoints with related documentation; leave unrelated work untouched. This overrides the global preference to only propose fix commits, but does not authorize pushing. Use Conventional Commits with a concise body when rationale is non-obvious. Never create or switch worktrees without explicit instructions. Keep build outputs, caches and temporary evaluations ignored. Treat `.build` as disposable: retain durable measurements in indexed docs and remove large raw traces/exports after analysis; follow [artifact retention](docs/development.md#build-and-probe-artifact-retention).
 
 PRs describe the problem, resulting behavior and validation, link applicable issues, and include screenshots for visible UI changes. Report material limitations and pending user checks without claiming unperformed validation.

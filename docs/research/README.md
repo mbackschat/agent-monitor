@@ -18,7 +18,7 @@ Checked dates are when the evidence was gathered; later editorial edits do not r
 | [Process signaling and messaging interfaces](session-actions.md) | 2026-10-14 | Signal races, queue/resume interfaces, recipient identity and acceptance versus delivery. |
 | [Terminal focus mechanisms](terminal-focus.md) | 2026-10-14; follow-up 2026-10-15 | Host identifiers, per-terminal APIs, macOS permission/activation behavior and untested desktop states. |
 | [Menu bar feasibility](menubar-app.md) | 2026-10-15 | UI/lifecycle APIs, launch environment, process access, signing and Homebrew evidence, with unverified inferences identified. |
-| [Menu bar load collection cost](menu-bar-load-cost.md) | 2026-10-15; follow-up 2026-10-24 | Native sampling breakdown, runtime-recognition and argument-buffer hotspots, the native row-command stall with synthetic before/after measurements, display-window aggregation costs, screenshot/source/aggregate-process evidence behind the population-overview feedback, and the overview addendum's external reviews including the capacity/compaction correction; immutable-history capacity/timing validation and attribution/energy limits. |
+| [Menu bar load collection cost](menu-bar-load-cost.md) | 2026-10-15; follow-up 2026-10-24 | Native sampling breakdown, runtime-recognition and argument-buffer hotspots, the native row-command stall with synthetic before/after measurements, display-window aggregation costs, screenshot/source/aggregate-process evidence behind the population-overview feedback, and the overview addendum's external reviews including the capacity/compaction correction; immutable-history capacity/timing validation, the [startup retention reproduction](menu-bar-load-cost.md#startup-retention-failure--2026-10-24), and attribution/energy limits. |
 | [Native menu design](native-menu-design.md) | 2026-10-15; follow-up 2026-10-24 | Apple interface guidance, pinned CodexBar/RepoBar/Trimmy source and screenshots, content-sizing API observations, iStat Menus/btop/htop resource-monitor references and unresolved live interaction questions. |
 | [Swift terminal UI findings](terminal-ui.md) | 2026-10-14 | Library observations, discovery-socket failure, direct runtime behavior and bounded probe measurements. |
 | [Local process observations](terminal-process-observations.md) | 2026-10-14 | Anonymized process topology, marker readability and synthetic orphan experiments. |
@@ -28,6 +28,10 @@ Checked dates are when the evidence was gathered; later editorial edits do not r
 | [Development tools](development-tools.md) | 2026-10-14 to 2026-10-15 | Skill contents, Peter Steinberger's SwiftUI/profiling candidates, host discovery differences and audit/benchmark gaps. |
 
 ## Retained measurements
+
+- [Docker workload observations on 2026-10-24](docker-workload-2026-10-24.json): user-authorized host/client/session attribution and container Lake/Lean CPU and memory readings; [method, limits and probe-design implications](menu-bar-load-cost.md#docker-workload-attribution-and-nested-resources--2026-10-24).
+
+- [Live heavy-load pipeline on 2026-10-24](live-pipeline-2026-10-24.json): user-requested system pressure and optimized five-second pipeline run; [method and limits](menu-bar-load-cost.md#live-heavy-load-pipeline-profile--2026-10-24) record successful finite draining but substantial resolution backlog.
 
 - [Native row commands on 2026-10-24](native-row-commands-2026-10-24.json): synthetic command-predicate timings in session/process views and aggregate observations from the reported UI stall; [method and limits](menu-bar-load-cost.md#native-row-command-stall--2026-10-24).
 
@@ -56,3 +60,5 @@ Short optimized TUI smoke runs on that date used approximately 1.9–4.2% of one
 - [Display-window aggregation measurements — 2026-10-24](display-window-accounting-2026-10-24.json): initial, repeated and final synthetic aggregation timings; [method and limits](menu-bar-load-cost.md#independent-display-windows--2026-10-24).
 
 - [Recent overview measurements — 2026-10-24](recent-overview-2026-10-24.json): synthetic 90/613-lifetime retention, aggregation/projection cost and whole-process RSS; [method and limits](menu-bar-load-cost.md#overview-implementation-validation--2026-10-24).
+
+- [Review-follow-up live pipeline measurement](live-pipeline-review-2026-10-24.json): intermediate optimized collector, real provider listings, full period distribution and retention diagnostics; interpretation in the [load-cost note](menu-bar-load-cost.md#review-follow-up-live-profile--2026-10-24).

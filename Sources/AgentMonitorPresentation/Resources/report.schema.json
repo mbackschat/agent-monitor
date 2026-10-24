@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:agent-monitor:report:6",
-  "title": "Agent Monitor report v6",
+  "$id": "urn:agent-monitor:report:1",
+  "title": "Agent Monitor report v1",
   "description": "One JSONL report. Optional unavailable values are omitted, not zero. Associations describe launch origin, not current shared-daemon causality, except evidence sessionRegistry: the session a runtime hosted when its harness listed it.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 6
+      "const": 1
     },
     "attributionMeaning": {
       "const": "launchOrigin"
@@ -196,7 +196,8 @@
             "markerRead",
             "notObserved",
             "unavailable",
-            "malformed"
+            "malformed",
+            "truncated"
           ]
         },
         "attribution": {
@@ -240,7 +241,7 @@
         "unmeasuredLifetimeCount": {
           "type": "integer",
           "minimum": 0,
-          "description": "Listed lifetimes without CPU data; does not count never-observed processes."
+          "description": "Exact unless a count range is present; then this scalar is its lower bound."
         },
         "previousScanSeconds": {
           "type": "number",
@@ -249,6 +250,9 @@
         },
         "acquisition": {
           "$ref": "#/$defs/acquisitionTiming"
+        },
+        "unmeasuredLifetimeCountRange": {
+          "$ref": "#/$defs/lifetimeCountRange"
         }
       },
       "required": [
@@ -331,6 +335,11 @@
         "readSeconds": {
           "type": "number",
           "minimum": 0
+        },
+        "truncated": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Argument areas exceeding the bounded prompt read; not parsed. Background metadata may retry at full size."
         }
       },
       "required": [
@@ -339,7 +348,8 @@
         "deferred",
         "unsupported",
         "reservedBytes",
-        "readSeconds"
+        "readSeconds",
+        "truncated"
       ]
     },
     "processWindowAccounting": {
@@ -404,10 +414,12 @@
           "$ref": "#/$defs/processIdentity"
         },
         "newbornOpening": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether the first accepted interval used a verified newborn-zero opening; does not describe every interval in this compact record."
         },
         "verifiedBirth": {
-          "type": "number"
+          "type": "number",
+          "description": "Verified birth for the first interval when newbornOpening is true."
         },
         "cpuSeconds": {
           "type": "number",
@@ -422,11 +434,28 @@
         "attribution": {
           "$ref": "#/$defs/attribution"
         },
-        "pointEvidenceObservedAt": {
+        "earliestEvidenceObservedAt": {
           "type": "number"
         },
-        "revision": {
-          "const": 1
+        "latestEvidenceObservedAt": {
+          "type": "number"
+        },
+        "intervalCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of accepted intervals, including accepted zero CPU intervals."
+        },
+        "missingReadIntervalCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "executableChangedIntervalCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missingEvidenceTimeCount": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [
@@ -439,8 +468,12 @@
         "startedAt",
         "endedAt",
         "attribution",
-        "revision"
-      ]
+        "intervalCount",
+        "missingReadIntervalCount",
+        "executableChangedIntervalCount",
+        "missingEvidenceTimeCount"
+      ],
+      "description": "Immutable sum of accepted CPU intervals for one process lifetime and frozen category. A category may recur (A to B to A), so endpoint scans and times bound a span that can contain gaps and intervals belonging to other categories. This is not continuous ownership or a per-scan record. Missing reads are counted explicitly; scan distance is not a missing-read count."
     },
     "reportWindow": {
       "type": "object",
@@ -476,11 +509,32 @@
         },
         "evictedBaselineCount": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Exact unless a count range is present; then this scalar is its lower bound."
         },
         "unmeasuredLifetimeCount": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Exact unless a count range is present; then this scalar is its lower bound."
+        },
+        "readCoverage": {
+          "$ref": "#/$defs/readCoverage"
+        },
+        "acquisitionCoverage": {
+          "$ref": "#/$defs/acquisitionCoverage"
+        },
+        "collapsedContributions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/collapsedContribution"
+          },
+          "description": "Always include these sums with eligible detailed contributions when computing window CPU. Entries explicitly disclose detail loss; an empty array means no such collapse."
+        },
+        "unmeasuredLifetimeCountRange": {
+          "$ref": "#/$defs/lifetimeCountRange"
+        },
+        "evictedBaselineCountRange": {
+          "$ref": "#/$defs/lifetimeCountRange"
         }
       },
       "required": [
@@ -492,8 +546,304 @@
         "contributions",
         "excludedObservationCount",
         "evictedBaselineCount",
-        "unmeasuredLifetimeCount"
+        "unmeasuredLifetimeCount",
+        "readCoverage",
+        "acquisitionCoverage",
+        "collapsedContributions"
       ]
+    },
+    "readCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "deniedPIDs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "integer"
+          }
+        },
+        "vanishedPIDs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "integer"
+          }
+        },
+        "mismatchedPIDs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "integer"
+          }
+        },
+        "otherFailedPIDs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "integer"
+          }
+        },
+        "unidentifiedFailureObservations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failedPIDObservations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scanCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximumFailedPIDsPerScan": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "releasedDenied": {
+          "$ref": "#/$defs/lifetimeCountRange"
+        },
+        "releasedVanished": {
+          "$ref": "#/$defs/lifetimeCountRange"
+        },
+        "releasedMismatched": {
+          "$ref": "#/$defs/lifetimeCountRange"
+        },
+        "releasedOther": {
+          "$ref": "#/$defs/lifetimeCountRange"
+        },
+        "releasedAll": {
+          "$ref": "#/$defs/lifetimeCountRange"
+        },
+        "startedAt": {
+          "type": "number"
+        },
+        "endedAt": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "deniedPIDs",
+        "vanishedPIDs",
+        "mismatchedPIDs",
+        "otherFailedPIDs",
+        "unidentifiedFailureObservations",
+        "failedPIDObservations",
+        "scanCount",
+        "maximumFailedPIDsPerScan"
+      ],
+      "description": "Same-user listing read coverage. PID values are not worker identities. When released ranges exist, union them with retained PID sets using max(lower bounds) and sum(upper bounds); the start/end range qualifies released detail. Observation totals and per-scan maximum remain exact."
+    },
+    "acquisitionCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scanCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timedPeriodCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "overrunCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of periods strictly above 1.5 times the period requested for that scan."
+        },
+        "maximumGapSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum observed start-to-start acquisition period over the window, including gaps. Omitted when timing is unavailable."
+        }
+      },
+      "required": [
+        "scanCount",
+        "timedPeriodCount",
+        "overrunCount"
+      ]
+    },
+    "lifetimeCountRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minimum": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximum": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "minimum",
+        "maximum"
+      ],
+      "description": "Proven inclusive bounds for distinct observed lifetimes. Reappearance after identity detail was released can widen the range; these are not confirmed exit counts."
+    },
+    "recentMemoryReading": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scan": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observedAt": {
+          "type": "number"
+        },
+        "evidence": {
+          "enum": [
+            "marker",
+            "inheritedMarker",
+            "writerLock",
+            "sessionRegistry",
+            "runtimeOnly",
+            "ambiguous",
+            "unknown"
+          ]
+        },
+        "evidenceObservedAt": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "bytes",
+        "scan",
+        "observedAt",
+        "evidence"
+      ]
+    },
+    "collapsedCategory": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "enum": [
+            "codex",
+            "claude"
+          ]
+        },
+        "sessionID": {
+          "type": "string"
+        },
+        "rootSessionID": {
+          "type": "string"
+        },
+        "resolution": {
+          "enum": [
+            "candidate",
+            "unresolved",
+            "conflicting",
+            "shared"
+          ]
+        },
+        "executable": {
+          "type": "string"
+        },
+        "isAgentRuntime": {
+          "type": "boolean"
+        },
+        "agentAssociated": {
+          "type": "boolean"
+        },
+        "categoryDetailsRetained": {
+          "type": "boolean"
+        },
+        "runtime": {
+          "$ref": "#/$defs/processIdentity"
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "includedInAgentScope": {
+          "type": "boolean",
+          "description": "Lifetime qualified for agent scope at collapse; does not assign unresolved CPU to an agent."
+        }
+      },
+      "required": [
+        "agentAssociated",
+        "categoryDetailsRetained",
+        "candidates",
+        "includedInAgentScope"
+      ],
+      "description": "A frozen resource category with process identities removed. If categoryDetailsRetained is false, this is a mixed older-work remainder whose original category labels are unavailable; it is not a reassignment to an unknown owner."
+    },
+    "collapsedContribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/collapsedCategory"
+        },
+        "cpuSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "intervalCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missingReadIntervalCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "executableChangedIntervalCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excludedObservationCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "startedAt": {
+          "type": "number"
+        },
+        "endedAt": {
+          "type": "number"
+        },
+        "maximumFootprint": {
+          "$ref": "#/$defs/recentMemoryReading"
+        },
+        "earliestEvidenceObservedAt": {
+          "type": "number"
+        },
+        "latestEvidenceObservedAt": {
+          "type": "number"
+        },
+        "missingEvidenceTimeCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "processCount": {
+          "$ref": "#/$defs/lifetimeCountRange"
+        },
+        "workerCount": {
+          "$ref": "#/$defs/lifetimeCountRange"
+        }
+      },
+      "required": [
+        "category",
+        "cpuSeconds",
+        "intervalCount",
+        "missingReadIntervalCount",
+        "executableChangedIntervalCount",
+        "excludedObservationCount",
+        "startedAt",
+        "endedAt",
+        "missingEvidenceTimeCount",
+        "processCount",
+        "workerCount"
+      ],
+      "description": "Exact eligible CPU sum, interval counts and sampled maximum footprint after delivery pressure released older detail. The time endpoints bound the observations/intervals and may enclose gaps. Current memory is not represented. Process/worker counts are proven ranges; workers exclude adapter-recognised agent runtimes. No process actions or exact-identity inspection are supported."
     }
   }
 }

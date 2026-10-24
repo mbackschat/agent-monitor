@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import Synchronization
 
 public struct ProcessSnapshot: Sendable {
     public let samples: [ProcessSample]
@@ -197,8 +198,14 @@ public struct NativeProcessReader: DiagnosisReading {
         for sample: ProcessSample, includeCommand: Bool, capturedLaunch: ProcessMetadata? = nil
     ) -> DiagnosisObservation {
         guard isCurrent(sample) else { return .notObserved }
-        var metadata = capturedLaunch ?? arguments(sample.identity.pid, includeCommand: includeCommand)
-        if includeCommand, capturedLaunch != nil {
+        let captured = capturedLaunch.flatMap { metadata -> ProcessMetadata? in
+            switch metadata.status {
+            case .truncated, .unavailable: nil
+            case .markerRead, .notObserved, .malformed: metadata
+            }
+        }
+        var metadata = captured ?? arguments(sample.identity.pid, includeCommand: includeCommand)
+        if includeCommand, captured != nil {
             metadata.command = arguments(sample.identity.pid, includeCommand: true).command
         }
         metadata.cwd = currentDirectory(sample.identity.pid)
@@ -238,13 +245,13 @@ public struct NativeProcessReader: DiagnosisReading {
     }
 
     private func processIDs() throws -> [Int32] {
-        let needed = proc_listpids(UInt32(PROC_ALL_PIDS), 0, nil, 0)
+        let needed = proc_listpids(UInt32(PROC_UID_ONLY), getuid(), nil, 0)
         guard needed > 0 else { throw NativeReadError.enumeration(errno) }
         var capacity = Int(needed) / MemoryLayout<pid_t>.stride + 256
         for _ in 0..<3 {
             var pids = [pid_t](repeating: 0, count: capacity)
             let length = Int32(pids.count * MemoryLayout<pid_t>.stride)
-            let read = proc_listpids(UInt32(PROC_ALL_PIDS), 0, &pids, length)
+            let read = proc_listpids(UInt32(PROC_UID_ONLY), getuid(), &pids, length)
             guard read > 0 else { throw NativeReadError.enumeration(errno) }
             if read < length { return pids.prefix(Int(read) / MemoryLayout<pid_t>.stride).filter { $0 > 0 } }
             capacity *= 2
@@ -266,13 +273,29 @@ public struct NativeProcessReader: DiagnosisReading {
         counterAccess.executablePath(pid).value
     }
 
+    private struct TerminalName: Sendable {
+        let value: String
+        let observedAt: Double
+    }
+    private static let terminalNames = Mutex<[UInt32: TerminalName]>([:])
+
     private func terminalName(_ device: UInt32) -> String? {
         guard device != UInt32.max, device != 0 else { return nil }
-        var buffer = [CChar](repeating: 0, count: 128)
-        guard devname_r(Int32(bitPattern: device), S_IFCHR, &buffer, Int32(buffer.count)) != nil else {
-            return "device:\(device)"
+        return Self.terminalNames.withLock { cache in
+            let now = Double(DispatchTime.now().uptimeNanoseconds) / 1e9
+            if let found = cache[device], now - found.observedAt < 60 { return found.value }
+            var buffer = [CChar](repeating: 0, count: 128)
+            guard devname_r(Int32(bitPattern: device), S_IFCHR, &buffer, Int32(buffer.count)) != nil else {
+                return "device:\(device)"
+            }
+            let name = buffer.withUnsafeBufferPointer { String(cString: $0.baseAddress!) }
+            if cache.count >= 256, let oldest = cache.min(by: { $0.value.observedAt < $1.value.observedAt }) {
+                cache[oldest.key] = nil
+            }
+            // devname_r scans /dev (2026-10-24 stack profile); cache only the device-to-name lookup.
+            cache[device] = TerminalName(value: name, observedAt: now)
+            return name
         }
-        return buffer.withUnsafeBufferPointer { String(cString: $0.baseAddress!) }
     }
 
     private func currentDirectory(_ pid: Int32) -> String? {
@@ -283,28 +306,43 @@ public struct NativeProcessReader: DiagnosisReading {
         return path.isEmpty ? nil : path
     }
 
+    private static let argumentCapacity: Int? = {
+        var maximum: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        var mib: [Int32] = [CTL_KERN, KERN_ARGMAX]
+        guard sysctl(&mib, 2, &maximum, &size, nil, 0) == 0,
+            maximum > 0, maximum <= 16 * 1024 * 1024
+        else { return nil }
+        return Int(maximum)
+    }()
+
     private func arguments(
         _ pid: Int32, includeCommand: Bool, maximumBytes: Int = 16 * 1024 * 1024
     ) -> ProcessMetadata {
-        var maximum: Int32 = 0
-        var size = MemoryLayout<Int32>.size
-        var sizeMIB: [Int32] = [CTL_KERN, KERN_ARGMAX]
-        guard sysctl(&sizeMIB, 2, &maximum, &size, nil, 0) == 0,
-            maximum > 0, maximum <= 16 * 1024 * 1024
-        else { return ProcessMetadata(status: .unavailable) }
-        return withUnsafeTemporaryAllocation(byteCount: min(Int(maximum), maximumBytes), alignment: 1) {
-            buffer in
+        guard let maximum = Self.argumentCapacity, maximumBytes > 0 else {
+            return ProcessMetadata(status: .unavailable)
+        }
+        var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
+        var needed = 0
+        guard sysctl(&mib, 3, nil, &needed, nil, 0) == 0, needed > MemoryLayout<Int32>.size else {
+            return ProcessMetadata(status: .unavailable)
+        }
+        guard needed <= min(maximum, maximumBytes) else { return ProcessMetadata(status: .truncated) }
+        // XNU sysctl_procargsx returns a successful tail fragment for undersized buffers.
+        // Query the complete size first; never parse a capped argument area (kern_sysctl.c).
+        return withUnsafeTemporaryAllocation(byteCount: needed, alignment: 1) { buffer in
             guard let base = buffer.baseAddress else { return ProcessMetadata(status: .unavailable) }
-            // Bulk initialization avoids the bytewise debug-build cost measured in
-            // docs/research/menu-bar-load-cost.md; parsing still sees only the returned bytes.
-            memset(base, 0, buffer.count)
-            size = buffer.count
-            var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
-            guard sysctl(&mib, 3, base, &size, nil, 0) == 0, size <= buffer.count else {
+            var count = buffer.count
+            guard sysctl(&mib, 3, base, &count, nil, 0) == 0, count <= buffer.count else {
                 return ProcessMetadata(status: .unavailable)
             }
+            var after = 0
+            guard sysctl(&mib, 3, nil, &after, nil, 0) == 0 else {
+                return ProcessMetadata(status: .unavailable)
+            }
+            guard after <= buffer.count else { return ProcessMetadata(status: .truncated) }
             return ProcessArguments.parse(
-                UnsafeRawBufferPointer(rebasing: buffer[..<size]), includeCommand: includeCommand,
+                UnsafeRawBufferPointer(rebasing: buffer[..<count]), includeCommand: includeCommand,
                 adapters: adapters)
         }
     }

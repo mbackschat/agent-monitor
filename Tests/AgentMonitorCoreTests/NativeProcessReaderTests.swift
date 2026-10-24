@@ -59,3 +59,60 @@ import Testing
     Thread.sleep(forTimeInterval: 0.1)
     #expect(try NativeProcessReader().listeningSockets(child.processIdentifier) == [path])
 }
+
+@Test func oversizedOwnedArgumentsAreCompleteOrExplicitlyTruncated() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let source = directory.appendingPathComponent("worker.c")
+    let executable = directory.appendingPathComponent("worker")
+    try """
+    #include <string.h>
+    #include <unistd.h>
+    int main(int argc, char **argv) {
+        if (argc == 1) {
+            char filler[102408];
+            memcpy(filler, "FILLER=", 7);
+            memset(filler + 7, 'x', 102400);
+            filler[102407] = 0;
+            char *env[] = {filler, "CODEX_THREAD_ID=\(sessionA)", 0};
+            char *args[] = {argv[0], "--hold", 0};
+            execve(argv[0], args, env);
+            return 1;
+        }
+        char byte;
+        if (write(1, "R", 1) != 1) return 2;
+        return read(0, &byte, 1) < 0;
+    }
+    """.write(to: source, atomically: true, encoding: .utf8)
+    let compiler = Process()
+    compiler.executableURL = URL(filePath: "/usr/bin/clang")
+    compiler.arguments = [source.path, "-o", executable.path]
+    try compiler.run()
+    compiler.waitUntilExit()
+    try #require(compiler.terminationStatus == 0)
+
+    let input = Pipe()
+    let ready = Pipe()
+    let child = Process()
+    child.executableURL = executable
+    child.standardInput = input
+    child.standardOutput = ready
+    try child.run()
+    defer {
+        try? input.fileHandleForWriting.close()
+        child.waitUntilExit()
+    }
+    try #require(ready.fileHandleForReading.readData(ofLength: 1) == Data("R".utf8))
+    let reader = try NativeProcessReader()
+    let process = try #require(reader.snapshot().samples.first { $0.identity.pid == child.processIdentifier })
+    let limited = try #require(reader.captureLaunchEvidence(for: process, maximumBytes: 65_536))
+    #expect(limited.status == .truncated)
+    #expect(limited.invocation == nil)
+    #expect(limited.markers.isEmpty)
+    let full = reader.metadata(for: process, includeCommand: true, capturedLaunch: limited)
+    #expect(full.status == .markerRead)
+    #expect(full.markers == [SessionMarker(threadID: sessionA, provider: .codex)])
+    #expect(full.invocation == executable.path)
+    #expect(full.command == [executable.path, "--hold"])
+}

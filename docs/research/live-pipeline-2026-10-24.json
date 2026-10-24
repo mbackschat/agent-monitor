@@ -1,0 +1,113 @@
+{
+  "date": "2026-10-24",
+  "build": "optimized core linked from source working tree after ab92744",
+  "sourceSHA256": {
+    "Sources/AgentMonitorCore/AccountingWindow.swift": "d0ad0672215010d71085dea13822b1a5dca5a31c02c2f5a67b27daaef6bd2bf7",
+    "Sources/AgentMonitorCore/MonitoringChannel.swift": "0bac65b0919acf283c19c01f03f2b24feb55feba6041449a062e8a067ece4d47",
+    "Sources/AgentMonitorCore/IndependentMonitoringPipeline.swift": "72c59609ef3264bd55082316fc5928e267753a3d0513109e9a54302f9999024f"
+  },
+  "systemProfile": {
+    "startedAtLocal": "2026-10-24T19:34:08+02:00",
+    "samples": 8,
+    "busyPercentRange": [
+      96.1,
+      99.71
+    ],
+    "totalProcessRange": [
+      886,
+      896
+    ]
+  },
+  "pipeline": {
+    "elapsedSeconds": 26.720610916,
+    "processCPUSeconds": 11.962928,
+    "providerListingsEnabled": false,
+    "reports": [
+      {
+        "acquisition": {
+          "achievedPeriodSeconds": 0.10290108295157552,
+          "promptCapture": {
+            "captured": 2,
+            "deferred": 0,
+            "readSeconds": 0.00033741677179932594,
+            "reservedBytes": 196608,
+            "unavailable": 1,
+            "unsupported": 0
+          },
+          "qualityOfService": "userInitiated",
+          "requestedPeriodSeconds": 0.1,
+          "resolutionDelaySeconds": 2.6543724169023335,
+          "runID": "740E99A5-3F07-4DD0-85E3-1CCE4A9F443F",
+          "scanSequence": 49,
+          "scanWorkSeconds": 0.0217572501860559
+        },
+        "contributions": 7148,
+        "duration": 5.1169662498869,
+        "finalScan": 49,
+        "hostBusyPercent": 650.1724987678659,
+        "logicalCPUs": 8,
+        "measuredUserPercent": 440.4847037147871,
+        "population": 659,
+        "recentUnits": 1,
+        "unreadableAtFinalScan": 238
+      },
+      {
+        "acquisition": {
+          "achievedPeriodSeconds": 0.10636187484487891,
+          "promptCapture": {
+            "captured": 0,
+            "deferred": 0,
+            "readSeconds": 1.6541220247745514e-05,
+            "reservedBytes": 65536,
+            "unavailable": 1,
+            "unsupported": 0
+          },
+          "qualityOfService": "userInitiated",
+          "requestedPeriodSeconds": 0.1,
+          "resolutionDelaySeconds": 11.07931754225865,
+          "runID": "740E99A5-3F07-4DD0-85E3-1CCE4A9F443F",
+          "scanSequence": 97,
+          "scanWorkSeconds": 0.010126874782145023
+        },
+        "contributions": 7600,
+        "duration": 5.023073333315551,
+        "finalScan": 97,
+        "hostBusyPercent": 799.8004987531172,
+        "logicalCPUs": 8,
+        "measuredUserPercent": 582.8167798353925,
+        "population": 661,
+        "recentUnits": 2,
+        "unreadableAtFinalScan": 242
+      },
+      {
+        "acquisition": {
+          "achievedPeriodSeconds": 0.10622245818376541,
+          "promptCapture": {
+            "captured": 0,
+            "deferred": 0,
+            "readSeconds": 0,
+            "reservedBytes": 0,
+            "unavailable": 0,
+            "unsupported": 0
+          },
+          "qualityOfService": "userInitiated",
+          "requestedPeriodSeconds": 0.1,
+          "resolutionDelaySeconds": 10.2424655421637,
+          "runID": "740E99A5-3F07-4DD0-85E3-1CCE4A9F443F",
+          "scanSequence": 145,
+          "scanWorkSeconds": 0.011027874890714884
+        },
+        "contributions": 7598,
+        "duration": 5.017602875363082,
+        "finalScan": 145,
+        "hostBusyPercent": 800,
+        "logicalCPUs": 8,
+        "measuredUserPercent": 594.4548852824141,
+        "population": 660,
+        "recentUnits": 3,
+        "unreadableAtFinalScan": 240
+      }
+    ],
+    "startedAt": "2026-10-24T17:38:11Z"
+  }
+}

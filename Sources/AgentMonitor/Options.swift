@@ -49,7 +49,7 @@ struct ReportOptions: ParsableArguments {
     @Flag(
         name: [.long, .customLong("tui", withSingleDash: true)],
         help:
-            "Live grouped contributor overview with a two-second display; requires an interactive terminal. See agent-monitor guide tui for all keys."
+            "Live grouped contributor overview with a five-second display; requires an interactive terminal. See agent-monitor guide tui for all keys."
     )
     var tui = false
 
@@ -105,7 +105,7 @@ struct ReportOptions: ParsableArguments {
 struct JSONOptions: ParsableArguments {
     @Flag(
         help:
-            "Emit machine JSON: reports use JSONL schema version 6; CPU diagnosis uses one version 1 document."
+            "Emit machine JSON: reports use JSONL schema version 1; CPU diagnosis uses one version 1 document."
     )
     var json = false
 

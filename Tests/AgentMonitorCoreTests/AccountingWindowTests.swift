@@ -25,7 +25,7 @@ import Testing
         #expect(window.summary.contributions.count == 1)
     }
 
-    @Test func coalescingDeduplicatesAndRecomputesRecoveryEligibility() throws {
+    @Test func coalescingRecomputesRecoveryAndRejectsOverlappingAdmission() throws {
         var ledger = CounterLedger()
         let zero = ledger.ingest([sample(42, at: 0, cpu: 0)], listedAt: 0)
         let missing = ledger.ingest([], listedAt: 1)
@@ -40,7 +40,7 @@ import Testing
         #expect(try later.findings(scope: .allProcesses).first?.cpuPercent == nil)
         #expect(try later.findings(scope: .allProcesses).first?.accounting?.recoveredCPUSeconds == 1)
         try earlier.merge(later)
-        try earlier.merge(later)
+        #expect(throws: CounterWindowError.self) { try earlier.merge(later) }
         let row = try #require(try earlier.findings(scope: .allProcesses).first)
         #expect(row.cpuPercent == 50)
         #expect(row.accounting?.recoveredCPUSeconds == 0)
@@ -109,6 +109,29 @@ import Testing
         #expect(projection.summary.contributions.map(\.process.pid) == [42])
         #expect(projection.counters.cpuSeconds == 0.2)
         #expect(try window.projection(scope: .allProcesses).summary.contributions.count == 2)
+    }
+
+    @Test func collapsedMixedLabelsKeepScopeWithoutReassigningUnknownCPU() throws {
+        var ledger = CounterLedger()
+        var monitor = Monitor()
+        var window = AccountingWindow(baseline: ledger.ingest([sample(42, at: 0, cpu: 0)], listedAt: 0))
+        for tick in 1...2 {
+            let source = diagnosisScan([sample(42, at: Double(tick), cpu: Double(tick))], at: Double(tick))
+            let scan = ledger.ingest(source.samples, listedAt: source.listedAt)
+            monitor.ingest(source, accounting: scan)
+            if tick == 2 {
+                monitor.enrich(
+                    ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]),
+                    for: source.samples[0].identity)
+            }
+            try window.append(scan, rows: monitor.findings(scope: .allProcesses))
+        }
+        try window.append(ledger.ingest([], listedAt: 3), rows: [])
+        window.compact(to: MonitoringPipelineLimits(pendingObservations: 2))
+        let summary = try window.projection(scope: .agentsOnly).summary
+        #expect(summary.collapsedContributions.reduce(0) { $0 + $1.cpuSeconds } == 2)
+        #expect(window.seal(scope: .agentsOnly).collapsedContributions.reduce(0) { $0 + $1.cpuSeconds } == 2)
+        #expect(abs(AgentLoadSummary(processes: [], window: summary).cpuPercent - 100.0 / 3) < 1e-9)
     }
 
 }

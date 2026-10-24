@@ -100,6 +100,10 @@ public enum LiveReportLayout {
                 + (state.snapshot?.window.map {
                     " · window " + ReportNumber.text($0.durationSeconds) + " s; point candidates"
                 } ?? ""), style: .muted)
+        let pressure =
+            state.snapshot?.window.flatMap(AccountingContext.pressure).map {
+                [ReportLine($0, style: .warning)]
+            } ?? []
         // Width-based row counts preserve pane geometry across changing status text; see docs/architecture.md.
         switch width {
         case 120...:
@@ -108,18 +112,18 @@ public enum LiveReportLayout {
                     title + " | " + abbreviated(status, width: width - title.count - filters.count - 6)
                         + " | " + filters, style: .title),
                 context,
-            ]
+            ] + pressure
         case 85..<120:
             return [
                 ReportLine(
                     title + " | " + abbreviated(status, width: width - title.count - 3), style: .title),
                 ReportLine(filters, style: .muted), context,
-            ]
+            ] + pressure
         default:
             return [
                 ReportLine(title, style: .title), ReportLine(status, style: .title),
                 ReportLine(filters, style: .muted), context,
-            ]
+            ] + pressure
         }
     }
 
@@ -340,7 +344,10 @@ public enum LiveReportLayout {
             "Observed chain: \(attribution.ancestry.map { String($0.pid) }.joined(separator: " ← "))",
         ]
         values += AccountingContext.process(row)
-        if let window = state.snapshot?.window { values.append(AccountingContext.evidence(row, in: window)) }
+        if let window = state.snapshot?.window {
+            values.append(AccountingContext.evidence(row, in: window))
+            values.append(AccountingContext.acquisition(window.acquisitionCoverage))
+        }
         if let peak = FootprintContext.kernelPeak(row) { values.append(peak) }
         if let root = attribution.rootSessionID { values.append("Root session: \(root)") }
         if !attribution.candidateThreadIDs.isEmpty {

@@ -2,7 +2,44 @@ import AgentMonitorCore
 
 public enum AccountingContext {
     public static func window(_ window: ReportWindowSummary) -> String {
-        "CPU over \(ReportNumber.text(window.durationSeconds)) s · point-evidence candidates; interval ownership unverified. Polling can miss workers and final exit CPU."
+        "CPU over \(ReportNumber.text(window.durationSeconds)) s · point-evidence candidates; interval ownership unverified. Polling can miss workers and final exit CPU. "
+            + acquisition(window.acquisitionCoverage)
+    }
+
+    public static func pressure(_ window: ReportWindowSummary) -> String? {
+        let values = window.collapsedContributions
+        guard let first = values.map(\.startedAt).min(), let last = values.map(\.endedAt).max() else {
+            return nil
+        }
+        return "Collapsed detail · "
+            + ReportNumber.text(max(0, window.endedAt - last)) + "–"
+            + ReportNumber.text(max(0, window.endedAt - first))
+            + " s before window end · group rows show retained detail"
+    }
+
+    public static func acquisition(_ coverage: AcquisitionCoverage) -> String {
+        let gap = coverage.maximumGapSeconds.map { ReportNumber.text($0 * 1_000) + " ms" } ?? "unavailable"
+        return
+            "Acquisition: \(coverage.scanCount) scans · max gap \(gap) · \(coverage.overrunCount) periods >1.5× requested"
+    }
+
+    public static func collapsed(_ value: CollapsedContribution) -> String {
+        let counts = value.workerCount
+        let workers =
+            counts.minimum == counts.maximum ? "\(counts.minimum)" : "\(counts.minimum)–\(counts.maximum)"
+        let owner =
+            value.category.sessionID.map { "\(value.category.provider?.rawValue ?? "agent")/\($0.prefix(8))" }
+            ?? (value.category.agentAssociated ? "Agent-associated work" : "Other observed work")
+        let executable = value.category.executable?.split(separator: "/").last.map(String.init)
+        let label = [owner, executable].compactMap { $0 }.joined(separator: " · ")
+        let peak =
+            value.maximumFootprint.map { " · sampled max \(ReportNumber.text(Double($0.bytes) / 1e6)) MB" }
+            ?? ""
+        return
+            "Collapsed · \(label) · \(ReportNumber.text(value.cpuSeconds)) CPU s · \(value.intervalCount) intervals · \(workers) workers · monotonic \(ReportNumber.text(value.startedAt))–\(ReportNumber.text(value.endedAt)) s"
+            + peak
+            + (value.category.categoryDetailsRetained
+                ? " · identity detail released" : " · category and identity detail released")
     }
 
     public static func process(_ process: HeavyProcess) -> [String] {
@@ -27,8 +64,9 @@ public enum AccountingContext {
     }
     public static func evidence(_ process: HeavyProcess, in window: ReportWindowSummary) -> String {
         let records = window.contributions.filter { $0.process == process.process }
-        let times = records.compactMap(\.pointEvidenceObservedAt)
-        guard let earliest = times.min(), let latest = times.max() else {
+        let earliestTimes = records.compactMap(\.earliestEvidenceObservedAt)
+        let latestTimes = records.compactMap(\.latestEvidenceObservedAt)
+        guard let earliest = earliestTimes.min(), let latest = latestTimes.max() else {
             return "Point-label observation time unavailable; interval ownership unverified"
         }
         let first = window.endedAt - earliest
@@ -38,7 +76,8 @@ public enum AccountingContext {
             ? "includes evidence collected after the CPU window"
             : "observed \(ReportNumber.text(last))–\(ReportNumber.text(first)) s before window end"
         return "Point labels: " + age
-            + (times.count < records.count ? "; some observation times unavailable" : "")
+            + (records.contains { $0.missingEvidenceTimeCount > 0 }
+                ? "; some observation times unavailable" : "")
             + "; interval ownership unverified"
     }
 

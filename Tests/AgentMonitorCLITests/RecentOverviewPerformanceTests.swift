@@ -45,14 +45,14 @@ func compactRecentHistoryFitsOneMinuteAtTenScansPerSecond() throws {
         let rssBefore = usage.ru_maxrss
         let begin = ContinuousClock.now
         for unit in 0..<60 {
-            var accumulator = RecentActivityAccumulator(baseline: baseline)
+            var accumulator = AccountingWindow(baseline: baseline)
             for offset in 1...10 {
                 let tick = unit * 10 + offset
                 let values = samples(tick)
                 let scan = ledger.ingest(values, listedAt: Double(tick) / 10)
                 let findings = rows(values)
                 let started = ContinuousClock.now
-                accumulator.append(scan, rows: findings)
+                try accumulator.append(scan, rows: findings)
                 _ = accumulator.payloadSize
                 elapsed.append(milliseconds(started.duration(to: .now)))
                 baseline = scan
@@ -73,8 +73,8 @@ func compactRecentHistoryFitsOneMinuteAtTenScansPerSecond() throws {
             projectionTimes.append(milliseconds(started.duration(to: .now)))
         }
         let recent = try #require(store.snapshot())
-        #expect(recent.units.count == 60)
-        #expect(recent.units.flatMap(\.records).count == 60 * count)
+        #expect(recent.duration == 60)
+        #expect(recent.units.flatMap(\.records).count == count)
         #expect(recent.duration == 60)
         #expect(!recent.retentionLimited)
         #expect(abs(recent.cpuSeconds - Double(count) * 0.6) < 1e-6)

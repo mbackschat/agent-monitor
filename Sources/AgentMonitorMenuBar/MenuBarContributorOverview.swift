@@ -38,10 +38,12 @@ struct MenuBarContributorOverview: View {
             if !model.liveIcon {
                 Text("Collected since panel opened").font(.caption2).foregroundStyle(.secondary)
             }
-            HStack(spacing: 12) {
-                Text("CPU").frame(maxWidth: .infinity, alignment: .trailing)
-                Text("Memory").frame(maxWidth: .infinity, alignment: .trailing)
-                Text("Recent CPU").frame(maxWidth: .infinity, alignment: .trailing)
+            HStack(spacing: 6) {
+                Text("Group / process").frame(maxWidth: .infinity, alignment: .leading)
+                Text("CPU").frame(width: 48, alignment: .trailing)
+                Text("Memory").frame(width: 62, alignment: .trailing)
+                Text("Recent").frame(width: 44, alignment: .trailing)
+                Text("Now").frame(width: 28, alignment: .trailing)
             }.font(.caption2).foregroundStyle(.secondary).padding(.leading, 26).padding(.trailing, 8)
             LazyVStack(alignment: .leading, spacing: 2) {
                 ForEach(overview.visibleRows) { row in
@@ -58,47 +60,8 @@ struct MenuBarContributorOverview: View {
             Button {
                 model.report.overview.toggle(row.id)
             } label: {
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: expanded ? "chevron.down" : "chevron.right").frame(width: 10)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Text(node.title).font(.subheadline.weight(.medium)).lineLimit(1)
-                            Spacer(minLength: 4)
-                            Text(node.stats.currentAvailable ? "\(node.stats.current.count) now" : "—")
-                                .font(.caption2).foregroundStyle(.secondary).fixedSize()
-                        }.help(node.title + ". " + node.stats.census)
-                        HStack(spacing: 12) {
-                            metric(
-                                "CPU", value: node.stats.cpuText(duration: overview.duration),
-                                share: overview.cpuMeterFraction(node.stats),
-                                help:
-                                    "Point-evidence candidate CPU for exact sessions, measured over \(overview.duration.formatted()) s. Bar: 100% is one core. Share of observed CPU: \(overview.totals.currentCPU > 0 ? (100 * node.stats.currentCPU / overview.totals.currentCPU).formatted(.number.precision(.fractionLength(1))) : "0")%. Unresolved work remains separate."
-                            )
-                            metric(
-                                "Memory", value: node.stats.memoryText,
-                                share: overview.memoryMeterFraction(node.stats),
-                                help:
-                                    "Latest observed footprint; \(node.stats.missingMemory) readings unavailable. Bar: full scale is \((Double(overview.memoryCapacityBytes) / 1e9).formatted(.number.precision(.fractionLength(1)))) GB physical RAM. Share of observed memory: \(overview.totals.memoryBytes > 0 ? (100 * Double(node.stats.memoryBytes) / Double(overview.totals.memoryBytes)).formatted(.number.precision(.fractionLength(1))) : "0")%. Historical peaks are in details."
-                            )
-                            VStack(alignment: .trailing, spacing: 2) {
-                                Text(node.stats.recentCPUText).font(.caption).monospacedDigit()
-                            }
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                            .help(
-                                "Measured CPU-seconds in the retained recent range, including workers no longer observed. Session ownership is point evidence."
-                            )
-                        }
-                        if !node.stats.noLongerObserved.isEmpty || !node.stats.filtered.isEmpty {
-                            Text(node.stats.compactCensus).font(.caption2).foregroundStyle(.secondary)
-                                .help(
-                                    node.stats.census
-                                        + ". Disappearance is not confirmed termination; filtered members remain in totals."
-                                )
-                        }
-                    }
-                    Spacer(minLength: 0)
-                    if overview.pinned.contains(row.id) { Image(systemName: "pin.fill").font(.caption) }
-                }.contentShape(Rectangle())
+                MenuBarContributorSummary(node: node, overview: overview, expanded: expanded)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .focused(focus, equals: .contributor(row.id))
@@ -127,7 +90,7 @@ struct MenuBarContributorOverview: View {
                 }.padding(.leading, 18)
             }
         }
-        .padding(.horizontal, 8).padding(.vertical, 3)
+        .padding(.horizontal, 8).padding(.vertical, 1)
         .padding(.leading, CGFloat(min(row.depth, 4) * 12))
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
@@ -136,20 +99,59 @@ struct MenuBarContributorOverview: View {
         )
         .id(row.id)
     }
-    private func metric(_ title: String, value: String, share: Double, help: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 4) {
-                Spacer(minLength: 0)
-                Text(value).monospacedDigit()
-            }.font(.caption)
+}
+
+struct MenuBarContributorSummary: View {
+    let node: ContributorNode
+    let overview: ContributorOverview
+    let expanded: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: expanded ? "chevron.down" : "chevron.right").frame(width: 12)
+            Text(node.title).font(.subheadline.weight(.medium)).lineLimit(1).truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .help(node.title + ". " + node.stats.census)
+            metric(
+                node.stats.cpuText(duration: overview.duration),
+                fraction: overview.cpuMeterFraction(node.stats)
+            )
+            .frame(width: 48)
+            .help(
+                "CPU over \(overview.duration.formatted()) s. Bar: 100% is one core. Session ownership is point evidence."
+            )
+            metric(node.stats.memoryText, fraction: overview.memoryMeterFraction(node.stats))
+                .frame(width: 62)
+                .help(
+                    "Current physical footprint; bar scale is physical RAM. \(node.stats.missingMemory) readings unavailable. Historical peaks are in details."
+                )
+            Text(node.stats.recentCPUText).monospacedDigit().frame(width: 44, alignment: .trailing)
+                .help("Measured CPU-seconds in the recent range, including workers no longer observed.")
+            Text(node.stats.currentAvailable ? String(node.stats.current.count) : "—")
+                .monospacedDigit().foregroundStyle(.secondary).frame(width: 28, alignment: .trailing)
+                .help(
+                    node.stats.census
+                        + ". Disappearance is not confirmed termination; filtered members remain in totals.")
+        }
+        .font(.caption)
+        .frame(minHeight: 22)
+        .overlay(alignment: .topLeading) {
+            if overview.pinned.contains(node.id) {
+                Image(systemName: "pin.fill").font(.system(size: 7)).offset(x: -6, y: -2)
+            }
+        }
+    }
+
+    private func metric(_ value: String, fraction: Double) -> some View {
+        VStack(alignment: .trailing, spacing: 1) {
+            Text(value).monospacedDigit()
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule().fill(.quaternary)
                     Capsule().fill(Color.accentColor.opacity(0.65))
-                        .frame(width: geometry.size.width * min(1, max(0, share)))
+                        .frame(width: geometry.size.width * min(1, max(0, fraction)))
                 }
-            }.frame(height: 3)
-        }.frame(maxWidth: .infinity).accessibilityLabel(title + ": " + value).help(help)
+            }.frame(height: 2)
+        }
     }
-
 }

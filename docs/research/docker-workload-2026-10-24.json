@@ -1,0 +1,238 @@
+{
+  "observedDate": "2026-10-24",
+  "purpose": "User-authorized read-only Docker workload inspection; not a monitor performance benchmark",
+  "containerID": "857080f96be6c0e9bf46ce5baef9aae34bc31a3e045cbdf82cc80048a163c8dc",
+  "containerName": "tender_agnesi",
+  "image": "bpmn-lean-audit:v4.34.1-arm64",
+  "project": "bpmn-lean-experiment",
+  "hostClientPID": 30307,
+  "claudeRuntimePID": 25388,
+  "sessionID": "65e551f5-eef6-48d0-9781-cfc1900abc53",
+  "sessionEvidence": "Production adapter marker on native Docker client; container association corroborated by matching image, command and unique scratch mount, not a captured engine creation event",
+  "cpuTicksPerSecond": 100,
+  "configuredCPUQuotaCores": 1,
+  "configuredMemoryLimitBytes": 6442450944,
+  "dockerStats": {
+    "BlockIO": "139kB / 45.1kB",
+    "CPUPerc": "99.42%",
+    "Container": "857080f96be6c0e9bf46ce5baef9aae34bc31a3e045cbdf82cc80048a163c8dc",
+    "ID": "857080f96be6",
+    "MemPerc": "7.28%",
+    "MemUsage": "285.1MiB / 3.825GiB",
+    "Name": "tender_agnesi",
+    "NetIO": "0B / 0B",
+    "PIDs": "17"
+  },
+  "samples": [
+    {
+      "at": "2026-10-24T18:41:24.665023+00:00",
+      "monotonic": 2143660.4034295,
+      "probeDurationSeconds": 0.2882618340663612,
+      "containerCPUUsec": 589964646,
+      "containerMemoryBytes": 643047424,
+      "containerPeakMemoryBytes": 834281472,
+      "processes": [
+        {
+          "pid": 1,
+          "name": "sh",
+          "parentPID": 0,
+          "startTicks": 258103,
+          "cpuTicks": 1,
+          "rssBytes": 1437696,
+          "pssBytes": 300032
+        },
+        {
+          "pid": 27,
+          "name": "lean-memory-bra",
+          "parentPID": 7,
+          "startTicks": 258110,
+          "cpuTicks": 31,
+          "rssBytes": 1462272,
+          "pssBytes": 324608
+        },
+        {
+          "pid": 28,
+          "name": "lake",
+          "parentPID": 7,
+          "startTicks": 258110,
+          "cpuTicks": 414,
+          "rssBytes": 142659584,
+          "pssBytes": 96811008
+        },
+        {
+          "pid": 4912,
+          "name": "lean",
+          "parentPID": 28,
+          "startTicks": 322837,
+          "cpuTicks": 588,
+          "rssBytes": 464539648,
+          "pssBytes": 418691072
+        },
+        {
+          "pid": 4948,
+          "name": "sleep",
+          "parentPID": 27,
+          "startTicks": 323376,
+          "cpuTicks": 0,
+          "rssBytes": 1134592,
+          "pssBytes": 250880
+        },
+        {
+          "pid": 7,
+          "name": "lake.sh",
+          "parentPID": 1,
+          "startTicks": 258107,
+          "cpuTicks": 0,
+          "rssBytes": 1437696,
+          "pssBytes": 310272
+        }
+      ]
+    },
+    {
+      "at": "2026-10-24T18:41:26.756818+00:00",
+      "monotonic": 2143662.494909958,
+      "probeDurationSeconds": 0.08831645781174302,
+      "containerCPUUsec": 591924134,
+      "containerMemoryBytes": 534216704,
+      "containerPeakMemoryBytes": 834281472,
+      "processes": [
+        {
+          "pid": 1,
+          "name": "sh",
+          "parentPID": 0,
+          "startTicks": 258103,
+          "cpuTicks": 1,
+          "rssBytes": 1437696,
+          "pssBytes": 300032,
+          "cpuPercent": 0.0
+        },
+        {
+          "pid": 27,
+          "name": "lean-memory-bra",
+          "parentPID": 7,
+          "startTicks": 258110,
+          "cpuTicks": 31,
+          "rssBytes": 1462272,
+          "pssBytes": 324608,
+          "cpuPercent": 0.0
+        },
+        {
+          "pid": 28,
+          "name": "lake",
+          "parentPID": 7,
+          "startTicks": 258110,
+          "cpuTicks": 416,
+          "rssBytes": 138788864,
+          "pssBytes": 96742400,
+          "cpuPercent": 0.9562604289231745
+        },
+        {
+          "pid": 4991,
+          "name": "sleep",
+          "parentPID": 27,
+          "startTicks": 323577,
+          "cpuTicks": 0,
+          "rssBytes": 1138688,
+          "pssBytes": 251904
+        },
+        {
+          "pid": 4992,
+          "name": "lean",
+          "parentPID": 28,
+          "startTicks": 323663,
+          "cpuTicks": 13,
+          "rssBytes": 205287424,
+          "pssBytes": 163314688
+        },
+        {
+          "pid": 7,
+          "name": "lake.sh",
+          "parentPID": 1,
+          "startTicks": 258107,
+          "cpuTicks": 0,
+          "rssBytes": 1437696,
+          "pssBytes": 310272,
+          "cpuPercent": 0.0
+        }
+      ],
+      "containerCPUPercent": 93.68904176749065
+    },
+    {
+      "at": "2026-10-24T18:41:28.861057+00:00",
+      "monotonic": 2143664.599087958,
+      "probeDurationSeconds": 0.10000691702589393,
+      "containerCPUUsec": 593860769,
+      "containerMemoryBytes": 648749056,
+      "containerPeakMemoryBytes": 834281472,
+      "processes": [
+        {
+          "pid": 1,
+          "name": "sh",
+          "parentPID": 0,
+          "startTicks": 258103,
+          "cpuTicks": 1,
+          "rssBytes": 1437696,
+          "pssBytes": 300032,
+          "cpuPercent": 0.0
+        },
+        {
+          "pid": 27,
+          "name": "lean-memory-bra",
+          "parentPID": 7,
+          "startTicks": 258110,
+          "cpuTicks": 31,
+          "rssBytes": 1462272,
+          "pssBytes": 324608,
+          "cpuPercent": 0.0
+        },
+        {
+          "pid": 28,
+          "name": "lake",
+          "parentPID": 7,
+          "startTicks": 258110,
+          "cpuTicks": 416,
+          "rssBytes": 138788864,
+          "pssBytes": 92940288,
+          "cpuPercent": 0.0
+        },
+        {
+          "pid": 4992,
+          "name": "lean",
+          "parentPID": 28,
+          "startTicks": 323663,
+          "cpuTicks": 203,
+          "rssBytes": 473456640,
+          "pssBytes": 427608064,
+          "cpuPercent": 90.29654334290719
+        },
+        {
+          "pid": 5041,
+          "name": "sleep",
+          "parentPID": 27,
+          "startTicks": 323778,
+          "cpuTicks": 0,
+          "rssBytes": 1138688,
+          "pssBytes": 251904
+        },
+        {
+          "pid": 7,
+          "name": "lake.sh",
+          "parentPID": 1,
+          "startTicks": 258107,
+          "cpuTicks": 0,
+          "rssBytes": 1437696,
+          "pssBytes": 310272,
+          "cpuPercent": 0.0
+        }
+      ],
+      "containerCPUPercent": 92.03760327204793
+    }
+  ],
+  "limitations": [
+    "Non-atomic sequential reads and probe overhead; CPU uses elapsed probe completion times.",
+    "Only same PID and startTicks endpoints produce process CPU; departed workers are not reconstructed.",
+    "cgroup memory, Docker CLI memory, process RSS/PSS and macOS physical footprint are different non-additive metrics.",
+    "Probe sh/awk/cat processes add small container CPU/memory overhead.",
+    "No provider listings, transcripts, workload signals or workload file writes."
+  ]
+}

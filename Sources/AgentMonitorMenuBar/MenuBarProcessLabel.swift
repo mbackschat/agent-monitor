@@ -9,41 +9,22 @@ struct MenuBarProcessLabel: View {
     let footprintText: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(process.name).lineLimit(1).truncationMode(.middle)
-                if process.isHistorical {
-                    Text("Past").font(.caption2).foregroundStyle(.secondary).help(
-                        "No longer observed; measured CPU remains in this window")
-                }
-                if session != nil { pid }
-                Spacer(minLength: 4)
-                Text(cpuText).monospacedDigit().fixedSize()
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(process.name).lineLimit(1).truncationMode(.middle)
+            Text(String(process.process.pid)).font(.caption2).foregroundStyle(.secondary).fixedSize()
+            if process.isHistorical {
+                Text("Past").font(.caption2).foregroundStyle(.secondary)
             }
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                if let session {
-                    if !process.isSharedRuntime {
-                        Text(session.project)
-                            .lineLimit(1).truncationMode(.middle).layoutPriority(-1)
-                            .help(session.project)
-                        Text("·")
-                    }
-                    Text(
-                        "\(session.provider?.rawValue ?? "unknown") · \(session.sessionID.map { String($0.prefix(8)) } ?? (process.isSharedRuntime ? "shared runtime" : "unresolved"))"
-                    )
-                    .fixedSize()
-                } else {
-                    pid
-                }
-                Spacer(minLength: 4)
-                Text(footprintText).monospacedDigit().fixedSize()
-            }
-            .font(.caption).foregroundStyle(.secondary)
+            Spacer(minLength: 2)
+            Text(cpuText).monospacedDigit().frame(width: 48, alignment: .trailing)
+            Text(footprintText).monospacedDigit().frame(width: 56, alignment: .trailing)
         }
-    }
-
-    private var pid: some View {
-        Text("PID \(String(process.process.pid))")
-            .font(.caption2).foregroundStyle(.secondary).fixedSize()
+        .font(.subheadline)
+        .help(
+            "\(process.name) · PID \(process.process.pid)"
+                + (session.map {
+                    " · \($0.project) · \($0.provider?.rawValue ?? "unknown") · \($0.sessionID ?? "unresolved")"
+                } ?? "")
+                + (process.isHistorical ? ". No longer observed; measured CPU remains in this window." : ""))
     }
 }

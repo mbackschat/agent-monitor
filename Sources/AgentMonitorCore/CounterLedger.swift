@@ -35,18 +35,46 @@ public struct CPUContribution: Equatable, Sendable {
     public let startedAt: Double
     public let endedAt: Double
     public let executableChanged: Bool
+    public let intervalCount: Int
+    public let missingReadIntervalCount: Int
+    public let executableChangedIntervalCount: Int
 
-    init(id: ID, cpuSeconds: Double, startedAt: Double, endedAt: Double, executableChanged: Bool = false) {
+    init(
+        id: ID, cpuSeconds: Double, startedAt: Double, endedAt: Double, executableChanged: Bool = false,
+        intervalCount: Int = 1, missingReadIntervalCount: Int? = nil,
+        executableChangedIntervalCount: Int? = nil
+    ) {
         self.id = id
         self.cpuSeconds = cpuSeconds
         self.startedAt = startedAt
         self.endedAt = endedAt
         self.executableChanged = executableChanged
+        self.intervalCount = intervalCount
+        self.missingReadIntervalCount =
+            missingReadIntervalCount
+            ?? (id.closing.scan.sequence - id.opening.scan.sequence > 1 ? 1 : 0)
+        self.executableChangedIntervalCount = executableChangedIntervalCount ?? (executableChanged ? 1 : 0)
     }
 
     public var observedSeconds: Double { endedAt - startedAt }
     public var cpuPercent: Double { 100 * cpuSeconds / observedSeconds }
-    public var spansMissingScans: Bool { id.closing.scan.sequence - id.opening.scan.sequence > 1 }
+    public var spansMissingScans: Bool { missingReadIntervalCount > 0 }
+
+    /// Endpoints enclose accepted intervals; they do not imply continuous ownership or reads.
+    /// Compact live accounting never cuts this sum inside its original unit (compact report schema contract).
+    func adding(_ other: CPUContribution) -> CPUContribution {
+        let first = id.opening.scan.sequence <= other.id.opening.scan.sequence ? self : other
+        let last = id.closing.scan.sequence >= other.id.closing.scan.sequence ? self : other
+        return CPUContribution(
+            id: ID(opening: first.id.opening, closing: last.id.closing),
+            cpuSeconds: cpuSeconds + other.cpuSeconds,
+            startedAt: min(startedAt, other.startedAt), endedAt: max(endedAt, other.endedAt),
+            executableChanged: executableChanged || other.executableChanged,
+            intervalCount: intervalCount + other.intervalCount,
+            missingReadIntervalCount: missingReadIntervalCount + other.missingReadIntervalCount,
+            executableChangedIntervalCount: executableChangedIntervalCount
+                + other.executableChangedIntervalCount)
+    }
 }
 
 public enum CounterExclusionReason: Error, Equatable, Sendable {

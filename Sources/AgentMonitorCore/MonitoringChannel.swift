@@ -1,6 +1,15 @@
 import Foundation
 
-public enum MonitoringStage: String, Sendable { case resolution, presentation }
+public enum MonitoringStage: String, Sendable {
+    case accounting, presentation
+
+    var capacityDescription: String {
+        switch self {
+        case .accounting: "the open accounting unit"
+        case .presentation: "the pending report"
+        }
+    }
+}
 
 public struct MonitoringPipelineLimits: Sendable {
     public let pendingScans: Int
@@ -27,53 +36,32 @@ struct MonitoringPayloadSize: Sendable {
         self.textBytes = textBytes
     }
 
-    init(_ snapshot: ProcessSnapshot) {
-        observations = snapshot.samples.count + snapshot.nativeOutcomes.count
-        textBytes = snapshot.samples.reduce(0) {
-            $0 + $1.executable.utf8.count + $1.name.utf8.count + ($1.terminal?.utf8.count ?? 0)
-        }
-        observations += snapshot.promptEvidence.count
-        for evidence in snapshot.promptEvidence {
-            guard let metadata = evidence.metadata else { continue }
-            let fields =
-                [metadata.cwd, metadata.invocation, metadata.terminal].compactMap { $0 }
-                + (metadata.command ?? []) + metadata.writerThreadIDs + metadata.listeningSockets
-                + metadata.markers.flatMap {
-                    [$0.threadID, $0.rootSessionID, $0.inboxSocket].compactMap { $0 }
-                }
-            observations += fields.count + metadata.markers.count
-            textBytes += fields.reduce(0) { $0 + $1.utf8.count }
-        }
-    }
-
     init(_ findings: [HeavyProcess]) {
         observations = findings.count
-        textBytes = findings.reduce(0) { total, finding in
-            let fields = [
-                finding.executable, finding.name, finding.cwd, finding.attribution.threadID,
-                finding.attribution.rootSessionID, finding.attribution.terminal,
-                finding.attribution.runtimeDirectory,
-            ]
-            return total + fields.compactMap { $0 }.reduce(0) { $0 + $1.utf8.count }
-                + (finding.command ?? []).reduce(0) { $0 + $1.utf8.count }
-                + finding.attribution.candidateThreadIDs.reduce(0) { $0 + $1.utf8.count }
-        }
-        observations += findings.reduce(0) {
-            $0 + $1.attribution.ancestry.count + $1.attribution.candidateThreadIDs.count
-                + ($1.command?.count ?? 0)
+        textBytes = 0
+        for finding in findings {
+            let owner = finding.attribution
+            textBytes += finding.executable.utf8.count + finding.name.utf8.count
+            textBytes += (finding.cwd?.utf8.count ?? 0) + (owner.threadID?.utf8.count ?? 0)
+            textBytes += (owner.rootSessionID?.utf8.count ?? 0) + (owner.terminal?.utf8.count ?? 0)
+            textBytes += owner.runtimeDirectory?.utf8.count ?? 0
+            for value in finding.command ?? [] { textBytes += value.utf8.count }
+            for value in owner.candidateThreadIDs { textBytes += value.utf8.count }
+            observations +=
+                owner.ancestry.count + owner.candidateThreadIDs.count + (finding.command?.count ?? 0)
         }
     }
 }
 
 /// Bounded single-consumer delivery; accounting windows may merge by unique endpoints.
-/// Raw acquisition remains FIFO because replacing raw scans loses evidence.
+/// Admission preserves the accepted value if coalescing cannot represent the next window.
 actor MonitoringChannel<Element: Sendable> {
     private struct Entry {
-        let value: Element
-        let size: MonitoringPayloadSize
+        var value: Element
+        var size: MonitoringPayloadSize
     }
 
-    private let coalesce: (@Sendable (Element, Element) throws -> (Element, MonitoringPayloadSize))?
+    private let coalesce: (@Sendable (inout Element, Element) throws -> MonitoringPayloadSize)?
     private let stage: MonitoringStage
     private let limits: MonitoringPipelineLimits
     private var queue: [Entry?] = []
@@ -86,7 +74,7 @@ actor MonitoringChannel<Element: Sendable> {
 
     init(
         stage: MonitoringStage, limits: MonitoringPipelineLimits,
-        coalesce: (@Sendable (Element, Element) throws -> (Element, MonitoringPayloadSize))? = nil
+        coalesce: (@Sendable (inout Element, Element) throws -> MonitoringPayloadSize)? = nil
     ) {
         self.coalesce = coalesce
         self.stage = stage
@@ -95,12 +83,15 @@ actor MonitoringChannel<Element: Sendable> {
 
     func send(_ value: Element, size: MonitoringPayloadSize, sequence: UInt64) throws {
         guard !ended else { throw failure ?? CancellationError() }
-        if let coalesce, head < queue.count, let previous = queue[head] {
-            let (merged, mergedSize) = try coalesce(previous.value, value)
+        if let coalesce, head < queue.count, var previous = queue[head] {
+            // An exceptional current-population overflow must not mutate already accepted work.
+            // Keep the rollback value until admission succeeds (CPU-01 pressure contract).
+            let mergedSize = try coalesce(&previous.value, value)
             guard mergedSize.observations <= limits.pendingObservations,
                 mergedSize.textBytes <= limits.pendingTextBytes
             else { throw MonitoringError.overloaded(stage: stage, rejectedScan: sequence) }
-            queue[head] = Entry(value: merged, size: mergedSize)
+            previous.size = mergedSize
+            queue[head] = previous
             observations = mergedSize.observations
             textBytes = mergedSize.textBytes
             return

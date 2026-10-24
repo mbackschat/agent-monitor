@@ -236,6 +236,13 @@ struct MenuBarView: View {
             .font(.caption).foregroundStyle(.secondary)
             if !model.report.showsOverview, let window = model.report.snapshot?.window {
                 Text(AccountingContext.window(window)).font(.caption2).foregroundStyle(.secondary)
+                if let pressure = AccountingContext.pressure(window) {
+                    Label(pressure, systemImage: "exclamationmark.triangle")
+                        .font(.caption2).foregroundStyle(.orange)
+                        .help(
+                            window.collapsedContributions.map(AccountingContext.collapsed).joined(
+                                separator: "\n"))
+                }
             }
             if let error = model.error, model.report.snapshot != nil {
                 Text(error).font(.caption).foregroundStyle(.orange)
@@ -288,7 +295,7 @@ struct MenuBarView: View {
             }
             if let snapshot = model.report.snapshot {
                 Text(
-                    "Session totals include all observed members, independent of filters. Sampling can miss short-lived work. CPU 100% = one core.\n\(snapshot.sampledProcessCount) sampled · \(snapshot.unreadableProcessCount) unreadable"
+                    "Totals are independent of filters; process groups show retained members. Sampling can miss short-lived work. CPU 100% = one core.\n\(snapshot.sampledProcessCount) sampled · \(snapshot.unreadableProcessCount) failed same-user PID reads in the latest scan"
                 )
                 .font(.caption2).foregroundStyle(.secondary)
             }
@@ -405,22 +412,17 @@ struct MenuBarView: View {
                 }
             }.padding(.top, 8)
         } label: {
-            VStack(alignment: .leading, spacing: 1) {
-                HStack {
-                    Text(group.project).font(.subheadline.bold()).lineLimit(1)
-                    Spacer(minLength: 8)
-                    Text(resource(group.cpuTotal, unit: "%", partial: group.cpuPartial)).monospacedDigit()
-                }
-                HStack {
-                    Text(
-                        "\(group.provider?.rawValue ?? "unknown") · \(group.sessionID.map { String($0.prefix(8)) } ?? (group.processes.first?.isSharedRuntime == true ? "shared runtime" : "unresolved"))"
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(group.project).font(.subheadline.bold()).lineLimit(1).truncationMode(.middle)
+                    .help(
+                        "\(group.project) · \(group.provider?.rawValue ?? "unknown") · \(group.sessionID ?? "unresolved")"
                     )
-                    .lineLimit(1)
-                    Spacer(minLength: 4)
-                    Text(resource(group.memoryGBTotal, unit: " GB", partial: group.memoryPartial))
-                        .monospacedDigit()
-                }.font(.caption).foregroundStyle(.secondary)
-            }
+                Spacer(minLength: 2)
+                Text(resource(group.cpuTotal, unit: "%", partial: group.cpuPartial))
+                    .monospacedDigit().frame(width: 48, alignment: .trailing)
+                Text(resource(group.memoryGBTotal, unit: " GB", partial: group.memoryPartial))
+                    .monospacedDigit().frame(width: 56, alignment: .trailing)
+            }.font(.subheadline)
         }
         .id(LiveReportRowID.group(group.id))
         .disclosureGroupStyle(

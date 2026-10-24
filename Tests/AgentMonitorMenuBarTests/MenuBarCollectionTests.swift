@@ -23,25 +23,37 @@ import Testing
         }
     }
     var snapshotsIterator = snapshots.makeAsyncIterator()
+    func nextResolved(_ session: String) async throws -> MonitoringSnapshot {
+        for _ in 0..<20 {
+            for _ in 0..<5 { fixture.ticks.advance() }
+            let received = await snapshotsIterator.next(isolation: MainActor.shared)
+            let next = try #require(received)
+            if next.findings.count == 2, next.findings.allSatisfy({ $0.attribution.threadID == session }) {
+                return next
+            }
+        }
+        throw NativeCollectionTestFailure.noResolvedReport
+    }
     do {
         model.start()
         fixture.ticks.advance()
-        fixture.ticks.advance()
-        let closed = try #require(await snapshotsIterator.next())
+        let received = await snapshotsIterator.next(isolation: MainActor.shared)
+        let first = try #require(received)
+        #expect(first.window?.durationSeconds == 1)
+        #expect(first.recentActivity?.units.count == 1)
+        let closed = try await nextResolved(NativeCollectionFixture.firstSession)
         #expect(closed.findings.count == 2)
-        #expect(closed.window?.durationSeconds == 2)
-        #expect(closed.recentActivity?.units.count == 1)
+        #expect(closed.window?.durationSeconds == 5)
         expectListedSession(closed, session: NativeCollectionFixture.firstSession)
         #expect(fixture.listings.withLock { $0 } == 1)
         #expect(model.report.snapshot == nil)
         #expect(model.indicator.processCount == 2)
 
         model.open()
-        fixture.ticks.advance()
-        fixture.ticks.advance()
-        let opened = try #require(await snapshotsIterator.next())
+        let opened = try await nextResolved(NativeCollectionFixture.firstSession)
         #expect(opened.recentActivity?.runID == closed.recentActivity?.runID)
-        #expect((opened.recentActivity?.units.count ?? 0) >= 2)
+        #expect(try #require(opened.recentActivity?.duration) > #require(closed.recentActivity?.duration))
+        #expect(opened.recentActivity?.baselineScan == closed.recentActivity?.baselineScan)
         expectListedSession(opened, session: NativeCollectionFixture.firstSession)
         #expect(model.report.snapshot == opened)
         #expect(model.report.groups.count == 1)
@@ -50,17 +62,13 @@ import Testing
         model.close()
         fixture.session.withLock { $0 = NativeCollectionFixture.secondSession }
         fixture.elapsed.withLock { $0 += 61 }
-        fixture.ticks.advance()
-        fixture.ticks.advance()
-        let closedAgain = try #require(await snapshotsIterator.next())
+        let closedAgain = try await nextResolved(NativeCollectionFixture.secondSession)
         expectListedSession(closedAgain, session: NativeCollectionFixture.secondSession)
         #expect(fixture.listings.withLock { $0 } == 2)
         #expect(model.report.snapshot == nil)
 
         model.open()
-        fixture.ticks.advance()
-        fixture.ticks.advance()
-        let reopened = try #require(await snapshotsIterator.next())
+        let reopened = try await nextResolved(NativeCollectionFixture.secondSession)
         expectListedSession(reopened, session: NativeCollectionFixture.secondSession)
         #expect(model.report.snapshot == reopened)
         #expect(model.report.groups.count == 1)
@@ -174,3 +182,5 @@ private final class CollectionTicks: Sendable {
         }
     }
 }
+
+private enum NativeCollectionTestFailure: Error { case noResolvedReport }

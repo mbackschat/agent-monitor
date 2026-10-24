@@ -36,6 +36,13 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
             hostCounters: nil, logicalCPUCount: 8)
     }
 
+    func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
+        events.withLock { $0.append("launch") }
+        return ProcessMetadata(
+            markers: [SessionMarker(threadID: sessionA, provider: .codex)], status: .markerRead,
+            command: ["worker"])
+    }
+
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
         events.withLock { $0.append("metadata") }
         return ProcessMetadata(
@@ -73,7 +80,7 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
     let events = fixture.events.withLock { $0 }
     #expect(events.filter { $0 == "scan" }.count == 3)
     #expect(events.filter { $0 == "wait:2.0" }.count == 2)
-    #expect(events.filter { $0 == "metadata" }.count == 2)
+    #expect(events.filter { $0 == "launch" }.count == 1)
     #expect(events.filter { $0 == "emit" }.count == 2)
     let snapshots = fixture.collected.withLock { $0 }
     #expect(snapshots.count == 2)
@@ -214,7 +221,7 @@ func sessionRejectsInvalidLiveThresholds(cpu: Double) async throws {
     #expect(load.cpuPercent == 50)
     #expect(load.footprintBytes == 1)
     #expect(load.heavyProcesses == [ProcessIdentity(pid: 42, startMicroseconds: 42)])
-    #expect(fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count == 1)
+    #expect(fixture.events.withLock { $0 }.filter { $0 == "launch" }.count == 1)
 }
 
 @Test func ordinarySamplingDoesNotCollectAnAgentLoadSummary() async throws {
@@ -225,7 +232,7 @@ func sessionRejectsInvalidLiveThresholds(cpu: Double) async throws {
         reader: fixture, clock: fixture)
     try await session.run { fixture.receive($0) }
     #expect(fixture.collected.withLock { $0.first?.agentLoad } == nil)
-    #expect(fixture.events.withLock { $0 }.contains("metadata"))
+    #expect(fixture.events.withLock { $0 }.contains("launch"))
     #expect(fixture.collected.withLock { $0.first?.observedFindings.count } == 1)
 }
 
@@ -313,7 +320,7 @@ func defaultReportIncludesIdleSmallAgent(measurementsAvailable: Bool) throws {
 }
 
 @Test(arguments: [0.25, 1.0, 15.0, 30.0])
-func agentLoadEnrichmentRunsOnEverySample(interval: Double) async throws {
+func resourceTotalsDoNotWaitForMetadataRefresh(interval: Double) async throws {
     let fixture = SessionFixture()
     let clock = SummaryClock()
     let count = Int(30 / interval) + 1
@@ -330,7 +337,8 @@ func agentLoadEnrichmentRunsOnEverySample(interval: Double) async throws {
             == stride(from: interval, through: Double(count) * interval, by: interval).map { $0 })
     #expect(snapshots.count == count)
     #expect(fixture.scans.withLock { $0 } == count + 1)
-    #expect(fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count == summaryTimes.count)
+    #expect(
+        fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count <= Int(Double(count) * interval) + 1)
 }
 
 @Test func summaryAndAttributionRefreshTogether() async throws {
@@ -342,7 +350,7 @@ func agentLoadEnrichmentRunsOnEverySample(interval: Double) async throws {
     let snapshots = fixture.collected.withLock { $0 }
     #expect(snapshots.filter { $0.agentLoad != nil }.count == 16)
     #expect(snapshots.allSatisfy { $0.findings.first?.attribution.threadID == sessionA })
-    #expect(fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count == 16)
+    #expect(fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count <= 17)
 }
 
 @Test func summaryCadenceRecoversAfterAWallClockRollback() async throws {

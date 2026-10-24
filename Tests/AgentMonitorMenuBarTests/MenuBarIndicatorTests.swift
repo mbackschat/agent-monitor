@@ -1,10 +1,10 @@
-import AgentMonitorCore
 import AgentMonitorPresentation
 import AppKit
 import Foundation
 import Synchronization
 import Testing
 
+@testable import AgentMonitorCore
 @testable import AgentMonitorMenuBar
 
 @Test func indicatorIncludesAgentResourcesHiddenByDisplayFilters() throws {
@@ -340,4 +340,30 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
 @Test @MainActor func statusBarsUseTheFullIconHeight() throws {
     let bitmap = try iconBitmap(MenuBarStatusImage.make(level: 3))
     #expect((bitmap.colorAt(x: 15, y: 3)?.alphaComponent ?? 0) > 0.5)
+}
+
+@Test func exactCollapsedCensusDoesNotReportZeroRetainedRows() throws {
+    let fixture = try menuBarFixture(pids: [42001, 42002], cpu: 100, memoryBytes: 100)
+    var ledger = CounterLedger()
+    func samples(_ time: Double) -> [ProcessSample] {
+        fixture.findings.map {
+            ProcessSample(
+                identity: $0.process, parentPID: 0, executable: $0.executable,
+                name: $0.name, sampledAt: time, cpuSeconds: time, footprintBytes: 100)
+        }
+    }
+    var window = AccountingWindow(baseline: ledger.ingest(samples(0), listedAt: 0))
+    try window.append(ledger.ingest(samples(1), listedAt: 1), rows: fixture.findings)
+    try window.append(ledger.ingest([], listedAt: 2), rows: [])
+    window.compact(to: MonitoringPipelineLimits(pendingObservations: 1))
+    var indicator = MenuBarIndicator()
+    indicator.receive(
+        MonitoringSnapshot(
+            cpuAccounting: fixture.cpuAccounting, timestamp: fixture.timestamp,
+            intervalSeconds: 0.1, cpuThresholdPercent: 0, memoryThresholdBytes: 0,
+            sampledProcessCount: 0, unreadableProcessCount: 0, findings: [], window: window.summary))
+    let bounds = AgentLoadSummary(processes: [], window: window.summary).processCountRange
+    #expect(bounds.maximum > 0)
+    #expect(indicator.statusDescription.contains("\(bounds.text) observed agent-associated processes"))
+    #expect(indicator.statusDescription.contains("older detail collapsed"))
 }

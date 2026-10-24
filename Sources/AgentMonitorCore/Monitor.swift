@@ -107,9 +107,13 @@ public struct Monitor: Sendable {
         // docs/research/macos-process-attribution.md for reparenting and PID reuse.
         var retained = live
         for identity in live {
-            retained.formUnion(chain(from: identity))
+            var next = nodes[identity]?.parent
+            while let ancestor = next, retained.insert(ancestor).inserted {
+                next = nodes[ancestor]?.parent
+            }
         }
-        nodes = nodes.filter { retained.contains($0.key) }
+        let departed = nodes.keys.filter { !retained.contains($0) }
+        for identity in departed { nodes[identity] = nil }
     }
 
     public mutating func enrich(
@@ -117,14 +121,26 @@ public struct Monitor: Sendable {
         observedAt: Double? = nil, launchObservedAt: Double? = nil
     ) {
         guard var node = nodes[identity] else { return }
-        if !metadata.markers.isEmpty { node.markerObservedAt = launchObservedAt ?? observedAt }
-        node.metadataObservedAt = observedAt
-        var updated = metadata
-        switch metadata.status {
-        case .unavailable, .notObserved:
-            if updated.markers.isEmpty { updated.markers = node.metadata.markers }
-        case .markerRead, .malformed:
-            break
+        let markerTime = launchObservedAt ?? observedAt
+        let olderMarker =
+            markerTime.flatMap { incoming in node.markerObservedAt.map { incoming < $0 } } ?? false
+        let olderMetadata =
+            observedAt.flatMap { incoming in node.metadataObservedAt.map { incoming < $0 } } ?? false
+        var updated = olderMetadata ? node.metadata : metadata
+        if !olderMetadata { node.metadataObservedAt = observedAt }
+        // Async refresh can finish after a newer launch read. Empty successful reads also revoke markers.
+        // Freshness follows observation time, not completion/delivery order (resource accounting contract).
+        if olderMarker {
+            updated.markers = node.metadata.markers
+        } else {
+            switch metadata.status {
+            case .unavailable where metadata.markers.isEmpty, .truncated where metadata.markers.isEmpty,
+                .notObserved where metadata.markers.isEmpty:
+                updated.markers = node.metadata.markers
+            case .unavailable, .notObserved, .markerRead, .malformed, .truncated:
+                updated.markers = metadata.markers
+                node.markerObservedAt = markerTime
+            }
         }
         updated.invocation = updated.invocation ?? node.metadata.invocation
         node.metadata = updated
@@ -145,8 +161,9 @@ public struct Monitor: Sendable {
 
     /// Live runtimes behind `findings` whose session only their harness's own listing can supply,
     /// by provider. Bound runtimes are included so a listing can follow `/clear` or `/resume`.
-    public func sessionRegistryRuntimes(in findings: [HeavyProcess]) -> [AgentProvider: Set<ProcessIdentity>]
-    {
+    public func sessionRegistryRuntimes(
+        in findings: [HeavyProcess], excludingChildrenOf collectorPID: Int32? = nil
+    ) -> [AgentProvider: Set<ProcessIdentity>] {
         var result: [AgentProvider: Set<ProcessIdentity>] = [:]
         for finding in findings {
             let owner = finding.attribution
@@ -155,6 +172,9 @@ public struct Monitor: Sendable {
                 guard let provider = owner.provider, let runtime = owner.runtime, live.contains(runtime),
                     adapters.sessionRegistry(for: provider) != nil
                 else { continue }
+                // A provider CLI spawned by the collector must not trigger its next listing.
+                // The 2026-10-24 live audit observed 12 helpers and 12 listings in six seconds.
+                if let collectorPID, nodes[runtime]?.sample.parentPID == collectorPID { continue }
                 result[provider, default: []].insert(runtime)
             case .marker, .inheritedMarker, .writerLock, .ambiguous, .unknown:
                 continue
@@ -280,10 +300,11 @@ public struct Monitor: Sendable {
         Set(live.filter { !(nodes[$0]?.runtimeProviders.isEmpty ?? true) })
     }
 
-    func attributionObservationTimes() -> [ProcessIdentity: Double] {
+    func attributionObservationTimes(for findings: [HeavyProcess]? = nil) -> [ProcessIdentity: Double] {
         var result: [ProcessIdentity: Double] = [:]
-        for id in live {
-            let owner = resolve(id).attribution
+        for row in findings ?? self.findings(scope: .allProcesses) {
+            let id = row.process
+            let owner = row.attribution
             switch owner.evidence {
             case .marker, .inheritedMarker:
                 let source = owner.ancestry.first { ancestor in

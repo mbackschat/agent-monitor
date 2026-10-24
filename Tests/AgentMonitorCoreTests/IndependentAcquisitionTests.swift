@@ -14,6 +14,7 @@ private final class IndependentReader: ProcessReading, SamplingClock, SessionReg
     let resolutionThreads = Mutex<[String]>([])
     let progressedDuringMetadata = Mutex(false)
     let thirdScan = DispatchSemaphore(value: 0)
+    let blockingStarted = AsyncStream<Void>.makeStream()
     let events = AsyncStream<Int>.makeStream()
 
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
@@ -36,6 +37,7 @@ private final class IndependentReader: ProcessReading, SamplingClock, SessionReg
             return names.isEmpty
         }
         if first, blockingStage == .metadata {
+            blockingStarted.continuation.yield(())
             let progressed = thirdScan.wait(timeout: .now() + 1) == .success
             progressedDuringMetadata.withLock { $0 = progressed }
         }
@@ -43,16 +45,34 @@ private final class IndependentReader: ProcessReading, SamplingClock, SessionReg
         return ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)])
     }
 
+    func metadata(for sample: ProcessSample, includeCommand: Bool, capturedLaunch: ProcessMetadata?)
+        -> ProcessMetadata
+    {
+        metadata(for: sample, includeCommand: includeCommand)
+    }
+
+    func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
+        blockingStage == .provider
+            ? ProcessMetadata(status: .markerRead, invocation: "claude")
+            : ProcessMetadata(
+                markers: [SessionMarker(threadID: sessionA, provider: .codex)], status: .markerRead)
+    }
     func isCurrent(_ sample: ProcessSample) -> Bool { true }
     func output(of query: SessionRegistryQuery) throws -> Data {
         providerCalls.withLock { $0 += 1 }
+        blockingStarted.continuation.yield(())
         resolutionThreads.withLock { $0.append(Thread.current.name ?? "unnamed") }
         let progressed = thirdScan.wait(timeout: .now() + 1) == .success
         progressedDuringMetadata.withLock { $0 = progressed }
         return Data("[{\"pid\":42,\"sessionId\":\"\(sessionB)\",\"status\":\"busy\"}]".utf8)
     }
 
-    func wait(seconds: Double) async throws { try Task.checkCancellation() }
+    func wait(seconds: Double) async throws {
+        if scans.withLock({ $0 }) == 1 {
+            for await _ in blockingStarted.stream { break }
+        }
+        try Task.checkCancellation()
+    }
     func monotonicNow() -> Double { now().timeIntervalSinceReferenceDate }
     func now() -> Date { Date(timeIntervalSince1970: 0) }
 }
@@ -69,10 +89,10 @@ private final class IndependentReader: ProcessReading, SamplingClock, SessionReg
         #expect(results.withLock { $0.count } == 3)
         #expect(results.withLock { $0.allSatisfy { $0.findings.first?.attribution.threadID == sessionA } })
         #expect(Set(fixture.acquisitionThreads.withLock { $0 }) == ["AgentMonitor acquisition"])
-        #expect(Set(fixture.resolutionThreads.withLock { $0 }) == ["AgentMonitor resolution"])
+        #expect(Set(fixture.resolutionThreads.withLock { $0 }) == ["AgentMonitor metadata"])
     }
 
-    @Test func blockedProviderCannotStopCountersAndStillResolvesTheExactSession() async throws {
+    @Test func blockedProviderCannotStopCountersOrAccounting() async throws {
         let fixture = IndependentReader(blockingStage: .provider)
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(samples: 3), reader: fixture, clock: fixture,
@@ -82,8 +102,11 @@ private final class IndependentReader: ProcessReading, SamplingClock, SessionReg
         #expect(fixture.progressedDuringMetadata.withLock { $0 })
         #expect(fixture.scans.withLock { $0 } == 4)
         #expect(fixture.providerCalls.withLock { $0 } == 1)
-        #expect(results.withLock { $0.allSatisfy { $0.findings.first?.attribution.threadID == sessionB } })
-        #expect(Set(fixture.resolutionThreads.withLock { $0 }) == ["AgentMonitor resolution"])
+        #expect(results.withLock { $0.count } == 3)
+        #expect(results.withLock { $0.allSatisfy { $0.cpuAccounting.measuredUserPercent == 100 } })
+        let threads = Set(fixture.resolutionThreads.withLock { $0 })
+        #expect(threads.contains("AgentMonitor providers"))
+        #expect(threads.isSubset(of: ["AgentMonitor metadata", "AgentMonitor providers"]))
     }
 
     @Test func waitingConsumerDoesNotHoldAcquisition() async throws {

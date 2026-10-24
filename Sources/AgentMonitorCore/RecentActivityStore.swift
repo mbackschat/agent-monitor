@@ -56,9 +56,8 @@ public final class RecentActivitySnapshot: Equatable, Sendable {
     }
 
     deinit { release(id) }
-    func coalescing(_ previous: RecentActivitySnapshot?) -> RecentActivitySnapshot {
-        guard let previous, previous.runID == runID, previous.scope == scope else { return self }
-        return publish(self, previous.displayUnits + displayUnits)
+    func displaying(_ unit: RecentActivityUnit) -> RecentActivitySnapshot {
+        publish(self, [unit])
     }
     public static func == (lhs: RecentActivitySnapshot, rhs: RecentActivitySnapshot) -> Bool {
         lhs.id == rhs.id
@@ -69,6 +68,7 @@ public final class RecentActivitySnapshot: Equatable, Sendable {
     public var cpuSeconds: Double {
         units.reduce(0) { total, unit in
             total + unit.records.reduce(0) { $0 + $1.cpuSeconds }
+                + unit.collapsedContributions.reduce(0) { $0 + $1.cpuSeconds }
                 + unit.crossings.filter { $0.contribution.id.opening.scan.sequence >= baselineScan }
                 .reduce(0) { $0 + $1.contribution.cpuSeconds }
         }
@@ -79,7 +79,23 @@ public final class RecentActivitySnapshot: Equatable, Sendable {
     }
 }
 
-/// Resolution admits ordered units; Mutex also permits snapshot leases to be released by UI tasks.
+public struct RecentActivityDiagnostics: Codable, Sendable {
+    public let retainedUnits: Int
+    public let chargedRecords: Int
+    public let chargedTextBytes: Int
+    public let leases: Int
+    public let lossBoundary: Double?
+    public let capacityEvictions: Int
+    public let discontinuities: Int
+    public let currentContextAvailable: Bool
+    public let categoryRecords: Int
+    public let candidateReferences: Int
+    public let sharedCandidateEntries: Int
+    public let crossingRecords: Int
+    public let coverageRecords: Int
+}
+
+/// Collection admits ordered units; Mutex also permits snapshot leases to be released by UI tasks.
 public final class RecentActivityStore: Sendable {
     private struct Lease: Sendable {
         let units: [UUID: MonitoringPayloadSize]
@@ -96,6 +112,8 @@ public final class RecentActivityStore: Sendable {
         var present: Set<ProcessIdentity> = []
         var lossBoundary: Double?
         var currentAvailable = true
+        var capacityEvictions = 0
+        var discontinuities = 0
     }
     private let limits: RecentActivityLimits
     private let state = Mutex(State())
@@ -113,10 +131,13 @@ public final class RecentActivityStore: Sendable {
                 value.units.removeAll()
                 value.lastScan = nil
                 value.lossBoundary = nil
+                value.capacityEvictions = 0
+                value.discontinuities = 0
             }
             if let last = value.lastScan {
                 precondition(unit.baselineScan >= last && unit.finalScan > last)
                 if unit.baselineScan > last {
+                    value.discontinuities += 1
                     value.units.removeAll()
                     value.lossBoundary = unit.startedAt
                 }
@@ -131,12 +152,8 @@ public final class RecentActivityStore: Sendable {
             }
             value.present = present ?? Set(value.current.map(\.category.process))
             value.currentAvailable = true
-            value.units.removeAll { $0.startedAt < unit.endedAt - limits.seconds }
             value.units.append(unit)
-            while !fits(value), !value.units.isEmpty {
-                let removed = value.units.removeFirst()
-                value.lossBoundary = max(value.lossBoundary ?? removed.endedAt, removed.endedAt)
-            }
+            evictUnitsToFit(&value)
             if !fits(value) {
                 value.current = []
                 value.present = []
@@ -178,23 +195,29 @@ public final class RecentActivityStore: Sendable {
     ) -> RecentActivitySnapshot {
         let id = UUID()
         var retained = units
+        var projected = RecentActivityUnit.compacted(retained)
         var displayed = display
         var rows = current
         var identities = present
         var shortened = limited
         func lease() -> Lease {
             var sizes: [UUID: MonitoringPayloadSize] = [:]
-            for unit in retained + displayed { sizes[unit.id] = unit.size }
+            for unit in projected + displayed { sizes[unit.id] = unit.size }
             return Lease(units: sizes, extra: extraSize(rows, present: identities))
         }
         value.leases[id] = lease()
+        // Published ranges own compact records, so evict original store units before reducing
+        // an immutable projection. Republishing must not try to free its own still-live input.
+        evictUnitsToFit(&value)
         while !fits(value), !retained.isEmpty {
             let removed = retained.removeFirst()
             if value.units.contains(where: { $0.id == removed.id }) {
                 value.units.removeAll { $0.id == removed.id }
+                value.capacityEvictions += 1
                 value.lossBoundary = max(value.lossBoundary ?? removed.endedAt, removed.endedAt)
             }
             shortened = true
+            projected = RecentActivityUnit.compacted(retained)
             value.leases[id] = lease()
         }
         if !fits(value) {
@@ -208,13 +231,21 @@ public final class RecentActivityStore: Sendable {
             value.leases[id] = lease()
         }
         return RecentActivitySnapshot(
-            id: id, runID: run, scope: scope, units: retained, current: rows,
+            id: id, runID: run, scope: scope, units: projected, current: rows,
             present: identities, finalScan: final, endedAt: end, limited: shortened,
             target: limits.seconds,
             currentContextAvailable: currentAvailable && rows.count == current.count
                 && identities.count == present.count, displayUnits: displayed,
             publish: { [self] source, display in republish(source, display: display) },
             release: { [self] id in state.withLock { $0.leases[id] = nil } })
+    }
+
+    private func evictUnitsToFit(_ value: inout State) {
+        while !fits(value), !value.units.isEmpty {
+            let removed = value.units.removeFirst()
+            value.capacityEvictions += 1
+            value.lossBoundary = max(value.lossBoundary ?? removed.endedAt, removed.endedAt)
+        }
     }
 
     private func extraSize(_ rows: [RecentWorkerRecord], present: Set<ProcessIdentity>)
@@ -224,6 +255,28 @@ public final class RecentActivityStore: Sendable {
             MonitoringPayloadSize(
                 observations: size.observations + row.payloadSize.observations,
                 textBytes: size.textBytes + row.payloadSize.textBytes)
+        }
+    }
+
+    public var diagnostics: RecentActivityDiagnostics {
+        state.withLock { value in
+            let size = usage(value)
+            return RecentActivityDiagnostics(
+                retainedUnits: value.units.count, chargedRecords: size.observations,
+                chargedTextBytes: size.textBytes, leases: value.leases.count,
+                lossBoundary: value.lossBoundary, capacityEvictions: value.capacityEvictions,
+                discontinuities: value.discontinuities, currentContextAvailable: value.currentAvailable,
+                categoryRecords: value.units.reduce(0) { $0 + $1.records.count },
+                candidateReferences: value.units.reduce(0) { total, unit in
+                    total + unit.records.reduce(0) { $0 + $1.category.owner.candidates.count }
+                },
+                sharedCandidateEntries: value.units.reduce(0) { total, unit in
+                    total
+                        + Set((unit.records.map(\.category) + unit.crossings.map(\.category)).map(\.owner))
+                        .reduce(0) { $0 + $1.candidates.count }
+                },
+                crossingRecords: value.units.reduce(0) { $0 + $1.crossings.count },
+                coverageRecords: value.units.reduce(0) { $0 + $1.readCoverage.retainedCount })
         }
     }
 

@@ -2,6 +2,7 @@
 /// Missing measurements are counted separately; totals include only available values.
 public struct AgentLoadSummary: Equatable, Sendable {
     public let processCount: Int
+    public let processCountRange: LifetimeCountRange
     public let cpuPercent: Double
     public let footprintBytes: UInt64
     public let missingCPUCount: Int
@@ -22,6 +23,10 @@ public struct AgentLoadSummary: Equatable, Sendable {
             .map { ($0.process, $0) }, uniquingKeysWith: { _, last in last }
         ).values
         processCount = agents.count
+        var bounds = LifetimeCountRange(minimum: agents.count, maximum: agents.count)
+        let collapsed = window?.collapsedContributions.filter { $0.category.agentAssociated } ?? []
+        for record in collapsed { bounds.union(record.processCount) }
+        processCountRange = bounds
         if let window {
             let ids = Set(agents.map(\.process))
             let measured = agentContributions.filter {
@@ -29,7 +34,8 @@ public struct AgentLoadSummary: Equatable, Sendable {
             }
             cpuPercent =
                 window.durationSeconds > 0
-                ? measured.reduce(0) { $0 + $1.cpuSeconds } * 100 / window.durationSeconds : 0
+                ? (measured.reduce(0) { $0 + $1.cpuSeconds } + collapsed.reduce(0) { $0 + $1.cpuSeconds })
+                    * 100 / window.durationSeconds : 0
             let measuredIDs = Set(measured.map(\.process))
             missingCPUCount = agents.filter { !measuredIDs.contains($0.process) }.count
         } else {

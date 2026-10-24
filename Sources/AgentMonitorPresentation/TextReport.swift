@@ -28,6 +28,9 @@ public enum TextReport {
         lines.append(ReportLine(CPUContext.text(report.cpuAccounting), style: .muted))
         if let window = report.window {
             lines.append(ReportLine(AccountingContext.window(window), style: .muted))
+            lines += window.collapsedContributions.map {
+                ReportLine(AccountingContext.collapsed($0), style: .warning)
+            }
         }
         if report.findings.isEmpty {
             lines.append(ReportLine("No processes match the display filters in this scope."))

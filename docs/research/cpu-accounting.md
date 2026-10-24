@@ -90,7 +90,7 @@ The parent reaped-children counters remain raw diagnostic data. They are not add
 
 ## Controlled exit and scheduler probes — 2026-10-23
 
-Follow-up environment: Mac mini M1, eight logical CPUs, macOS 27.0.1 (26A434), Xcode/Instruments 27.1 (27A9275), Apple Swift 6.4. Native conservation/cost probes compiled optimized core revision `8c86886`; provider listings and UI were disabled. All CPU oracles used disposable owned workers and their parent's `wait4` results. The [retained dataset](cpu-exit-probes-2026-10-23.json) and [probe sources and commands](../../Tools/CPUAccountingProbe/README.md) distinguish measured results from production guarantees. Raw system-wide traces and exports remain ignored; only the owned workers' results are retained.
+Follow-up environment: Mac mini M1, eight logical CPUs, macOS 27.0.1 (26A434), Xcode/Instruments 27.1 (27A9275), Apple Swift 6.4. Native conservation/cost probes compiled optimized core revision `8c86886`; provider listings and UI were disabled. All CPU oracles used disposable owned workers and their parent's `wait4` results. The [retained dataset](cpu-exit-probes-2026-10-23.json) and [probe sources and commands](../../Tools/CPUAccountingProbe/README.md) distinguish measured results from production guarantees. Raw system-wide traces and exports were deleted during the 2026-10-24 build-storage cleanup; the owned-worker results remain in the linked dataset.
 
 ### What top measures
 

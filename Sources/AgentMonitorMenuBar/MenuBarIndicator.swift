@@ -11,6 +11,7 @@ struct MenuBarIndicator {
     private var sampledAt: Date?
     private var unreadableCount = 0
     private var historicalCount = 0
+    private var hasCollapsedDetail = false
     private var thresholds = Thresholds()
     private var paused = false
     private(set) var availability = Availability.waiting
@@ -41,6 +42,7 @@ struct MenuBarIndicator {
         sampledAt = snapshot.timestamp
         unreadableCount = snapshot.unreadableProcessCount
         historicalCount = snapshot.observedFindings.filter(\.isHistorical).count
+        hasCollapsedDetail = snapshot.window?.collapsedContributions.isEmpty == false
         availability = .current
     }
 
@@ -64,7 +66,10 @@ struct MenuBarIndicator {
         let memory = (Double(load.footprintBytes) / 1e9).formatted(.number.precision(.fractionLength(1)))
         let partial = load.missingCPUCount > 0 || load.missingFootprintCount > 0
         return [
-            "Agent Monitor — \(load.processCount) observed agent-associated processes in this window, including \(historicalCount) no longer observed",
+            "Agent Monitor — \(load.processCountRange.text) observed agent-associated processes"
+                + (hasCollapsedDetail
+                    ? "; older detail collapsed"
+                    : " in this window, including \(historicalCount) no longer observed"),
             paused ? "Paused — matching the displayed table" : nil,
             "Observed agents: CPU \(load.missingCPUCount > 0 ? "≥ " : "")\(cpu)% (100% = one core)",
             CPUContext.text(cpuAccounting),
@@ -76,7 +81,7 @@ struct MenuBarIndicator {
                 ? "Display: all observed processes"
                 : "Filter: \(ThresholdContext.text(thresholds))",
             partial ? "Some resource measurements are unavailable" : nil,
-            unreadableCount > 0 ? "\(unreadableCount) processes could not be read" : nil,
+            unreadableCount > 0 ? "\(unreadableCount) listed PID reads failed in the latest scan" : nil,
             "Sampled \(sampledAt.formatted(date: .omitted, time: .standard))",
         ].compactMap { $0 }
     }

@@ -5,18 +5,95 @@ import Testing
 @testable import AgentMonitorCore
 
 @Suite struct OverviewReviewTests {
-    @Test func prominenceUsesStrictCombinedGroupCPUWithoutFilteringTotals() {
+    @Test func collapsedDetailReleaseIsVisibleWithoutInventingUnknownOwnership() throws {
+        let snapshot = try reviewSnapshot(cpu: [90, 20], memory: [123, 456], collapse: true)
         var overview = ContributorOverview()
-        overview.receive(reviewSnapshot(cpu: [12.5, 12.5], memory: [1, 1], sameSession: true))
+        overview.receive(snapshot)
+        #expect(overview.totals.currentCPU == 1.1)
+        #expect(overview.totals.workerCountText == "1–4")
+        let collapsed = try #require(
+            overview.visibleRows.first { $0.node.title == "Older work · detail released" })
+        #expect(collapsed.node.stats.currentCPU == 1.1)
+        #expect(overview.census.contains("1–2"))
+        #expect(overview.nodes[.section(.uncertain)]?.stats.currentCPU == 0)
+    }
+
+    @Test func processViewDisclosesCollapsedWorkAndItsTimeRange() throws {
+        let snapshot = try reviewSnapshot(cpu: [90, 20], memory: [123, 456], collapse: true)
+        var state = LiveReportState()
+        state.receive(snapshot)
+        state.overview.enabled = false
+        let lines = LiveReportLayout.lines(state: state, width: 160, height: 30)
+        #expect(lines.contains { $0.text.contains("Collapsed") && $0.text.contains("1.00–2.00 s") })
+    }
+
+    @Test func releasedCategoriesRetainWorkerRoleAndSampledMaximum() throws {
+        let snapshot = try reviewSnapshot(cpu: [90, 20], memory: [123, 456], collapse: true)
+        let values = try #require(snapshot.window).collapsedContributions
+        #expect(values.allSatisfy { $0.category.isAgentRuntime == false })
+        var overview = ContributorOverview()
+        overview.receive(snapshot)
+        #expect(overview.totals.maximumWorkerFootprint?.bytes == 456)
+    }
+
+    @Test func collapsedDisplayAndHistoryKeepTheirOwnRangesInDetails() throws {
+        let fixture = try reviewSnapshot(cpu: [90], memory: [123])
+        let row = try #require(fixture.findings.first)
+        func samples(_ time: Double) -> [ProcessSample] {
+            time == 12
+                ? []
+                : [
+                    ProcessSample(
+                        identity: row.process, parentPID: 0, executable: row.executable, name: row.name,
+                        sampledAt: time, cpuSeconds: time, footprintBytes: 123)
+                ]
+        }
+        var ledger = CounterLedger()
+        var previous = ledger.ingest(samples(0), listedAt: 0)
+        var history = AccountingWindow(baseline: previous)
+        var display: AccountingWindow?
+        for tick in 1...12 {
+            let scan = ledger.ingest(samples(Double(tick)), listedAt: Double(tick))
+            if tick == 11 { display = AccountingWindow(baseline: previous) }
+            let rows = tick == 12 ? [] : [row]
+            try history.append(scan, rows: rows)
+            try display?.append(scan, rows: rows)
+            previous = scan
+        }
+        history.compact(to: MonitoringPipelineLimits(pendingObservations: 1))
+        display?.compact(to: MonitoringPipelineLimits(pendingObservations: 1))
+        let store = RecentActivityStore()
+        store.append(history.seal(scope: .agentsOnly))
+        var overview = ContributorOverview()
+        overview.receive(
+            MonitoringSnapshot(
+                cpuAccounting: fixture.cpuAccounting, timestamp: fixture.timestamp,
+                intervalSeconds: 0.1, cpuThresholdPercent: 0, memoryThresholdBytes: 0,
+                sampledProcessCount: 0, unreadableProcessCount: 0, findings: [],
+                window: try #require(display).summary, recentActivity: store.snapshot()))
+        let node = try #require(
+            overview.nodes.values.first {
+                if case .collapsed = $0.id { return true }
+                return false
+            })
+        #expect(node.details.contains { $0.hasPrefix("Display window:") && $0.contains("10.00–11.00 s") })
+        #expect(node.details.contains { $0.hasPrefix("Recent history:") && $0.contains("0.00–11.00 s") })
+        #expect(node.stats.currentCPU == 1)
+        #expect(node.stats.recentCPU == 11)
+    }
+
+    @Test func prominenceUsesStrictCombinedGroupCPUWithoutFilteringTotals() throws {
+        var overview = ContributorOverview()
+        overview.receive(try reviewSnapshot(cpu: [12.5, 12.5], memory: [1, 1], sameSession: true))
         #expect(overview.main.isEmpty)
         #expect(overview.totals.currentCPU == 0.25)
-        overview.receive(reviewSnapshot(cpu: [13, 13], memory: [1, 1], sameSession: true))
+        overview.receive(try reviewSnapshot(cpu: [13, 13], memory: [1, 1], sameSession: true))
         #expect(overview.main == [session(1)])
         #expect(overview.totals.currentCPU == 0.26)
     }
 
     @Test func inspectPreservesGroupingAndIsInertOutsideOverview() throws {
-        let snapshot = reviewSnapshot(cpu: [20, 90], memory: [200_000_000, 300_000_000])
+        let snapshot = try reviewSnapshot(cpu: [20, 90], memory: [200_000_000, 300_000_000])
         var state = LiveReportState(grouping: .session)
         state.receive(snapshot)
         let leaf = try #require(state.overview.nodes.values.first { $0.process?.pid == 1 })
@@ -31,9 +108,9 @@ import Testing
         #expect(state == held)
     }
 
-    @Test func initialRankingUsesContributionAndSortKeysStayInOverview() {
+    @Test func initialRankingUsesContributionAndSortKeysStayInOverview() throws {
         var state = LiveReportState()
-        state.receive(reviewSnapshot(cpu: [2, 90, 30], memory: [800_000_000, 200_000_000, 400_000_000]))
+        state.receive(try reviewSnapshot(cpu: [2, 90, 30], memory: [800_000_000, 200_000_000, 400_000_000]))
         #expect(state.overview.main == [session(2), session(3), session(1)])
         state.apply(.memory)
         #expect(state.showsOverview)
@@ -43,16 +120,16 @@ import Testing
         #expect(state.overview.main == [session(2), session(3), session(1)])
     }
 
-    @Test func memoryOnlyArrivalsUseMemoryOrderAfterCPUContributors() {
+    @Test func memoryOnlyArrivalsUseMemoryOrderAfterCPUContributors() throws {
         var overview = ContributorOverview()
-        overview.receive(reviewSnapshot(cpu: [0, 0, 90], memory: [200_000_000, 800_000_000, 1]))
+        overview.receive(try reviewSnapshot(cpu: [0, 0, 90], memory: [200_000_000, 800_000_000, 1]))
         #expect(overview.main == [session(3), session(2), session(1)])
     }
 
     @Test func quietPopulationDoesNotFillCPUMeters() throws {
         var state = LiveReportState()
         state.overview = ContributorOverview(memoryCapacityBytes: 16_000_000_000)
-        state.receive(reviewSnapshot(cpu: [0.2], memory: [200_000_000]))
+        state.receive(try reviewSnapshot(cpu: [0.2], memory: [200_000_000]))
         #expect(abs(state.overview.cpuMeterFraction(state.overview.totals) - 0.002) < 1e-9)
         #expect(state.overview.memoryMeterFraction(state.overview.totals) == 0.0125)
         let lines = ContributorLayout.lines(state: state, width: 120, height: 24)
@@ -62,7 +139,7 @@ import Testing
 
     @Test func foldingGroupsDoesNotDumpEvidenceAndCoverageIsVisible() throws {
         var state = LiveReportState()
-        state.receive(reviewSnapshot(cpu: [20, 10], memory: [200_000_000, 200_000_000], unreadable: 3))
+        state.receive(try reviewSnapshot(cpu: [20, 10], memory: [200_000_000, 200_000_000], unreadable: 3))
         state.overview.toggle(session(1))
         let lines = ContributorLayout.lines(state: state, width: 120, height: 24)
         #expect(!lines.contains { $0.text.contains("Exact session:") })
@@ -71,21 +148,21 @@ import Testing
             ContributorLayout.lines(state: state, width: 120, height: 24).contains {
                 $0.text.contains("Exact session:")
             })
-        #expect(lines.prefix(6).contains { $0.text.contains("3 unreadable") })
+        #expect(lines.prefix(6).contains { $0.text.contains("3 listed PIDs: read gaps") })
     }
 
     @Test func multipleDirectoriesUseSharedProjectRuleEvenWithMatchingBasenames() throws {
         var overview = ContributorOverview()
         overview.receive(
-            reviewSnapshot(
+            try reviewSnapshot(
                 cpu: [20, 10], memory: [1, 1], sameSession: true,
                 directories: ["/one/project", "/two/project"]))
         #expect(overview.nodes[session(1)]?.title.hasPrefix("Multiple directories ·") == true)
     }
 
-    @Test func resetCannotInventARecentMainListDeparture() {
+    @Test func resetCannotInventARecentMainListDeparture() throws {
         var state = LiveReportState()
-        let first = reviewSnapshot(cpu: [30], memory: [1])
+        let first = try reviewSnapshot(cpu: [30], memory: [1])
         state.receive(first)
         state.overview.resetInspection()
         #expect(state.overview.main.isEmpty)
@@ -98,8 +175,8 @@ private func session(_ id: Int) -> ContributorID {
 
 private func reviewSnapshot(
     cpu: [Double], memory: [UInt64], unreadable: Int = 0,
-    sameSession: Bool = false, directories: [String]? = nil
-) -> MonitoringSnapshot {
+    sameSession: Bool = false, directories: [String]? = nil, collapse: Bool = false
+) throws -> MonitoringSnapshot {
     var ledger = CounterLedger()
     func samples(_ time: Double) -> [ProcessSample] {
         cpu.indices.map { index in
@@ -121,20 +198,35 @@ private func reviewSnapshot(
                 threadID: "session-\(sameSession ? 1 : index + 1)", rootSessionID: nil, runtime: nil,
                 terminal: nil, runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []))
     }
-    var activity = RecentActivityAccumulator(baseline: baseline)
-    activity.append(ledger.ingest(values, listedAt: 1), rows: rows)
+    var activity = AccountingWindow(baseline: baseline)
+    try activity.append(ledger.ingest(values, listedAt: 1), rows: rows)
+    if collapse {
+        try activity.append(ledger.ingest([], listedAt: 2), rows: [])
+        activity.compact(to: MonitoringPipelineLimits(pendingObservations: 1))
+    }
     let unit = activity.seal(scope: .agentsOnly)
     let store = RecentActivityStore()
+    var coverage = ReadCoverage()
+    coverage.append(
+        ProcessSnapshot(
+            samples: [], enumeratedCount: unreadable, unreadableCount: unreadable,
+            listedAt: 1, scanSeconds: 0, hostCounters: nil, logicalCPUCount: 1,
+            nativeOutcomes: (0..<unreadable).map {
+                NativeCounterOutcome(
+                    pid: Int32(900 + $0), identity: nil, operation: .bsdInfo,
+                    status: .permissionDenied, failure: nil, observedAtTicks: 1)
+            }))
     store.append(
         RecentActivityUnit(
             runID: unit.runID, baseline: unit.baselineScan, final: unit.finalScan,
             start: unit.startedAt, end: unit.endedAt, scope: unit.scope, records: unit.records,
-            crossings: unit.crossings, excluded: 0, unreadable: unreadable))
+            crossings: unit.crossings, excluded: 0, coverage: coverage, collapsed: unit.collapsedContributions
+        ))
     return MonitoringSnapshot(
         cpuAccounting: CPUAccounting(
             hostBusyPercent: nil, logicalCPUCount: 8,
             measuredUserPercent: cpu.reduce(0, +), unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
         timestamp: Date(), intervalSeconds: 0.1, cpuThresholdPercent: 0, memoryThresholdBytes: 0,
-        sampledProcessCount: rows.count, unreadableProcessCount: unreadable, findings: rows,
-        recentActivity: store.snapshot())
+        sampledProcessCount: rows.count, unreadableProcessCount: unreadable, findings: collapse ? [] : rows,
+        window: collapse ? activity.summary : nil, recentActivity: store.snapshot())
 }

@@ -526,3 +526,31 @@ func claudeInvokedAsItselfRemainsARuntime(invocation: String) throws {
         tool: "ugrep", toolMetadata: ProcessMetadata(status: .unavailable))
     #expect(monitor.finding(for: tool.identity)?.attribution.runtime == tool.identity)
 }
+
+@Test func sharedDepartedAncestorsSurviveUntilTheirLastLiveDescendant() throws {
+    var monitor = Monitor()
+    let root = sample(1)
+    let marked = sample(2, parent: 1)
+    let middle = sample(3, parent: 2)
+    let first = sample(4, parent: 3)
+    let second = sample(5, parent: 3)
+    monitor.ingest([root, marked, middle, first, second])
+    monitor.enrich(
+        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]), for: marked.identity)
+    monitor.ingest([sample(3), first, second])
+    #expect(
+        monitor.chain(from: first.identity) == [
+            first.identity, middle.identity, marked.identity, root.identity,
+        ])
+    #expect(try #require(monitor.finding(for: second.identity)).attribution.threadID == sessionA)
+    monitor.ingest([sample(4)])
+    #expect(
+        monitor.chain(from: first.identity) == [
+            first.identity, middle.identity, marked.identity, root.identity,
+        ])
+    #expect(try #require(monitor.finding(for: first.identity)).attribution.threadID == sessionA)
+    monitor.ingest([])
+    #expect(monitor.chain(from: root.identity).isEmpty)
+    #expect(monitor.chain(from: marked.identity).isEmpty)
+    #expect(monitor.chain(from: first.identity).isEmpty)
+}

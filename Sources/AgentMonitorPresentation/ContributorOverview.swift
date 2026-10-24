@@ -6,10 +6,12 @@ public enum ContributorSection: String, Sendable {
     case remainder = "More processes"
     case uncertain = "Unresolved / uncertain"
     case shared = "Shared agent runtimes"
+    case released = "Older work · detail released"
 }
 
 public indirect enum ContributorID: Hashable, Sendable {
     case section(ContributorSection)
+    case collapsed(CollapsedCategory)
     case session(provider: String, session: String, root: String?)
     case provider(parent: ContributorID, name: String)
     case executable(parent: ContributorID, name: String)
@@ -18,6 +20,8 @@ public indirect enum ContributorID: Hashable, Sendable {
 
 public struct ContributorStats: Equatable, Sendable {
     public var processes: Set<ProcessIdentity> = []
+    public var collapsedProcesses: LifetimeCountRange?
+    public var collapsedWorkers: LifetimeCountRange?
     public var current: Set<ProcessIdentity> = []
     public var workers: Set<ProcessIdentity> = []
     public var runtimes: Set<ProcessIdentity> = []
@@ -37,6 +41,16 @@ public struct ContributorStats: Equatable, Sendable {
 
     mutating func merge(_ other: Self) {
         currentAvailable = currentAvailable && other.currentAvailable
+        if let counts = other.collapsedProcesses {
+            if collapsedProcesses == nil {
+                collapsedProcesses = counts
+            } else {
+                collapsedProcesses?.union(counts)
+            }
+        }
+        if let counts = other.collapsedWorkers {
+            if collapsedWorkers == nil { collapsedWorkers = counts } else { collapsedWorkers?.union(counts) }
+        }
         processes.formUnion(other.processes)
         current.formUnion(other.current)
         workers.formUnion(other.workers)
@@ -75,11 +89,19 @@ public struct ContributorStats: Equatable, Sendable {
     public func summary(duration: Double, cpuLabel: String = "CPU") -> String {
         "\(cpuLabel) \(cpuText(duration: duration)) · Memory \(memoryText) · Recent CPU \(recentCPUText)"
     }
+    public var hasContributions: Bool {
+        !processes.isEmpty || collapsedProcesses != nil
+    }
+    public var workerCountText: String {
+        var counts = LifetimeCountRange(minimum: workers.count, maximum: workers.count)
+        if let collapsedWorkers { counts.union(collapsedWorkers) }
+        return counts.minimum == counts.maximum ? "\(counts.minimum)" : "\(counts.minimum)–\(counts.maximum)"
+    }
     public var compactCensus: String {
         guard currentAvailable else { return "Current presence unavailable" }
         var parts = ["\(current.count) now"]
-        if workers.count > current.count || !noLongerObserved.isEmpty {
-            parts.append("\(workers.count) recent workers")
+        if workers.count > current.count || !noLongerObserved.isEmpty || collapsedWorkers != nil {
+            parts.append("\(workerCountText) observed workers")
         }
         if !noLongerObserved.isEmpty { parts.append("\(noLongerObserved.count) no longer observed") }
         if !runtimes.isEmpty { parts.append("\(runtimes.count) agent runtimes") }
@@ -89,7 +111,7 @@ public struct ContributorStats: Equatable, Sendable {
 
     public var census: String {
         (currentAvailable ? "\(current.count) processes now" : "Processes now unavailable")
-            + " · \(workers.count) recent workers"
+            + " · \(workerCountText) observed workers"
             + (runtimes.isEmpty ? "" : " · \(runtimes.count) agent runtimes") + " · "
             + (currentAvailable ? "\(noLongerObserved.count) no longer observed" : "presence unavailable")
     }
@@ -109,7 +131,7 @@ public struct ContributorNode: Equatable, Sendable, Identifiable {
             switch id {
             case .session: true
             case .executable(let parent, _), .process(let parent, _): candidate(parent)
-            case .section, .provider: false
+            case .section, .provider, .collapsed: false
             }
         }
         return stats.summary(duration: duration, cpuLabel: candidate(id) ? "Candidate CPU" : "CPU")
@@ -187,10 +209,11 @@ public struct ContributorOverview: Equatable, Sendable {
     public var topLevel: [ContributorID] {
         let summaries: [ContributorID] = [
             .section(.recent), .section(.remainder), .section(.uncertain), .section(.shared),
+            .section(.released),
         ]
         return pinned + main.filter { !pinned.contains($0) }
             + summaries.filter {
-                $0 == .section(.uncertain) || !(nodes[$0]?.stats.processes.isEmpty ?? true)
+                $0 == .section(.uncertain) || (nodes[$0]?.stats.hasContributions ?? false)
             }
     }
 
@@ -250,7 +273,7 @@ public struct ContributorOverview: Equatable, Sendable {
             case .session(let provider, let id, let root):
                 return .session(provider: provider, session: root ?? id, root: nil)
             case .executable(let parent, _), .process(let parent, _): return session(parent)
-            case .provider, .section: return nil
+            case .provider, .section, .collapsed: return nil
             }
         }
         guard let selection, let id = session(selection) else { return }
@@ -377,7 +400,7 @@ public struct ContributorOverview: Equatable, Sendable {
             })
         nodes = [:]
         totals = ContributorStats()
-        for section in [ContributorSection.recent, .remainder, .uncertain, .shared] {
+        for section in [ContributorSection.recent, .remainder, .uncertain, .shared, .released] {
             let id = ContributorID.section(section)
             nodes[id] = ContributorNode(id: id, title: section.rawValue)
         }
@@ -417,6 +440,87 @@ public struct ContributorOverview: Equatable, Sendable {
                         evidence: evidence[key] ?? []))
             }
         }
+        var collapsedDisplay: [CollapsedCategory: CollapsedContribution] = [:]
+        var collapsedRecent: [CollapsedCategory: CollapsedContribution] = [:]
+        for value in snapshot.window?.collapsedContributions ?? [] {
+            if collapsedDisplay[value.category] == nil {
+                collapsedDisplay[value.category] = value
+            } else {
+                collapsedDisplay[value.category]?.merge(value)
+            }
+        }
+        for unit in recent.units {
+            for value in unit.collapsedContributions {
+                if collapsedRecent[value.category] == nil {
+                    collapsedRecent[value.category] = value
+                } else {
+                    collapsedRecent[value.category]?.merge(value)
+                }
+            }
+        }
+        for key in Set(collapsedDisplay.keys).union(collapsedRecent.keys) {
+            guard let value = collapsedDisplay[key] ?? collapsedRecent[key] else { continue }
+            var stats = ContributorStats()
+            stats.collapsedProcesses = value.processCount
+            stats.collapsedWorkers = value.workerCount
+            if collapsedDisplay[key] != nil, let historical = collapsedRecent[key] {
+                // Time containment does not prove identity containment after detail release.
+                // The pressure contract therefore requires max/sum bounds across both sources.
+                stats.collapsedProcesses?.union(historical.processCount)
+                stats.collapsedWorkers?.union(historical.workerCount)
+            }
+            if key.isAgentRuntime == false {
+                stats.maximumWorkerFootprint = collapsedRecent[key]?.maximumFootprint
+            }
+            stats.currentCPU = collapsedDisplay[key]?.cpuSeconds ?? 0
+            stats.currentMeasurements = collapsedDisplay[key]?.intervalCount ?? 0
+            stats.recentCPU = collapsedRecent[key]?.cpuSeconds ?? 0
+            stats.recentMeasurements = collapsedRecent[key]?.intervalCount ?? 0
+            totals.merge(stats)
+            let parent: ContributorID
+            if !key.categoryDetailsRetained {
+                parent = .section(.released)
+            } else if let session = key.sessionID, key.resolution == .candidate {
+                parent = .session(
+                    provider: key.provider?.rawValue ?? "agent", session: key.rootSessionID ?? session,
+                    root: nil)
+                exact.insert(parent)
+            } else {
+                parent = .section(key.resolution == .shared ? .shared : .uncertain)
+            }
+            if nodes[parent] == nil {
+                nodes[parent] = ContributorNode(
+                    id: parent,
+                    title:
+                        "\(key.provider?.rawValue ?? "Agent") · \(key.rootSessionID ?? key.sessionID ?? "unresolved")"
+                )
+            }
+            nodes[parent]?.stats.merge(stats)
+            var leafParent = parent
+            if let root = key.rootSessionID, let session = key.sessionID, key.resolution == .candidate {
+                let thread = ContributorID.session(
+                    provider: key.provider?.rawValue ?? "agent", session: session, root: root)
+                if nodes[thread] == nil {
+                    nodes[thread] = ContributorNode(id: thread, title: "Thread · " + session)
+                }
+                nodes[thread]?.stats.merge(stats)
+                if !(nodes[parent]?.children.contains(thread) ?? false) {
+                    nodes[parent]?.children.append(thread)
+                }
+                leafParent = thread
+            }
+            let id = ContributorID.collapsed(key)
+            let label =
+                key.executable?.split(separator: "/").last.map(String.init) ?? "category detail released"
+            var node = ContributorNode(id: id, title: "Collapsed · " + label)
+            node.stats = stats
+            node.labels = [
+                collapsedDisplay[key].map { "Display window: " + AccountingContext.collapsed($0) },
+                collapsedRecent[key].map { "Recent history: " + AccountingContext.collapsed($0) },
+            ].compactMap { $0 }
+            nodes[id] = node
+            nodes[leafParent]?.children.append(id)
+        }
         for (id, projects) in projects {
             if case .session(let provider, let session, _) = id {
                 nodes[id]?.title =
@@ -432,7 +536,10 @@ public struct ContributorOverview: Equatable, Sendable {
                 nodes[id]?.children = nested.children
             }
         }
-        let eligible = exact.filter { !(nodes[$0]?.stats.processes.subtracting(filtered).isEmpty ?? true) }
+        let eligible = exact.filter {
+            guard let stats = nodes[$0]?.stats else { return false }
+            return stats.collapsedProcesses != nil || !stats.processes.subtracting(filtered).isEmpty
+        }
         cpuRank = rank(cpuRank, candidates: eligible, floor: 25) {
             guard duration > 0, let stats = nodes[$0]?.stats, stats.currentMeasurements > 0 else {
                 return nil
@@ -469,12 +576,41 @@ public struct ContributorOverview: Equatable, Sendable {
         }
         let observed = Set(snapshot.observedFindings.map(\.process))
         let historical = snapshot.observedFindings.filter(\.isHistorical).count
+        var observedBounds = LifetimeCountRange(minimum: observed.count, maximum: observed.count)
+        for record in collapsedDisplay.values { observedBounds.union(record.processCount) }
+        let observedText =
+            observedBounds.minimum == observedBounds.maximum
+            ? "\(observedBounds.minimum)" : "\(observedBounds.minimum)–\(observedBounds.maximum)"
         census =
-            "\(observed.count) observed \(recent.scope == .allProcesses ? "same-user" : "agent-associated") processes in this window, including \(historical) no longer observed"
+            "\(observedText) observed \(recent.scope == .allProcesses ? "same-user" : "agent-associated") processes in this window, including \(historical) retained no-longer-observed identities"
         source = recent
         var warnings: [String] = []
-        let unreadable = recent.units.reduce(0) { $0 + $1.unreadableObservationCount }
-        if unreadable > 0 { warnings.append("\(unreadable) unreadable") }
+        let collapsedValues = Array(collapsedDisplay.values) + Array(collapsedRecent.values)
+        if !collapsedValues.isEmpty {
+            let oldest = collapsedValues.map(\.startedAt).min() ?? recent.endedAt
+            let newest = collapsedValues.map(\.endedAt).max() ?? recent.endedAt
+            warnings.append(
+                "\(Set(collapsedDisplay.keys).union(collapsedRecent.keys).count) collapsed categories · \(number(max(0, recent.endedAt - newest)))–\(number(max(0, recent.endedAt - oldest))) s ago"
+            )
+        }
+        if let timing = snapshot.window?.acquisitionCoverage, timing.overrunCount > 0 {
+            warnings.append("\(timing.overrunCount) sampling overruns")
+        }
+        var readCoverage = ReadCoverage()
+        for unit in recent.units { readCoverage.merge(unit.readCoverage) }
+        if readCoverage.failedPIDCount.maximum > 0 {
+            warnings.append("\(readCoverage.failedPIDCount.text) listed PIDs: read gaps")
+        }
+        if readCoverage.releasedAll != nil {
+            let start = readCoverage.startedAt ?? recent.endedAt
+            let end = readCoverage.endedAt ?? recent.endedAt
+            warnings.append(
+                "read-gap detail collapsed · \(number(max(0, recent.endedAt - end)))–\(number(max(0, recent.endedAt - start))) s ago"
+            )
+        }
+        if readCoverage.unidentifiedFailureObservations > 0 {
+            warnings.append("\(readCoverage.unidentifiedFailureObservations) unidentified failed reads")
+        }
         if totals.exclusions > 0 { warnings.append("\(totals.exclusions) excluded") }
         if totals.missingMemory > 0 { warnings.append("\(totals.missingMemory) memory unavailable") }
         if !recent.currentContextAvailable { warnings.append("current data unavailable") }
@@ -482,10 +618,16 @@ public struct ContributorOverview: Equatable, Sendable {
         coverage =
             "Recent \(number(recent.duration)) s"
             + (recent.retentionLimited ? " (retention limit / gap)" : "")
-            + " · \(recent.units.reduce(0) { $0 + $1.unreadableObservationCount }) unreadable observations"
+            + " · collection-wide failed PID values: \(readCoverage.failedPIDCount.text) distinct"
+            + " (\(readCoverage.deniedPIDCount.text) denied, \(readCoverage.vanishedPIDCount.text) vanished, \(readCoverage.mismatchedPIDCount.text) identity changed, \(readCoverage.otherPIDCount.text) other; categories may overlap)"
+            + " · failures per scan: mean \(number(readCoverage.meanFailedPIDsPerScan)), max \(readCoverage.maximumFailedPIDsPerScan)"
+            + " · \(readCoverage.unidentifiedFailureObservations) unidentified failed-read observations"
             + " · \(totals.exclusions) excluded readings · \(number(totals.recoveredCPU)) s older-opening recovery"
             + (recent.currentContextAvailable ? "" : " · current presence unavailable")
             + " · run \(recent.runID.uuidString.prefix(6))"
+        if let timing = snapshot.window?.acquisitionCoverage {
+            coverage += " · " + AccountingContext.acquisition(timing)
+        }
     }
 
     private mutating func partition() {
@@ -621,6 +763,13 @@ private func identity(_ id: ContributorID) -> String {
     func field(_ value: String) -> String { "\(value.utf8.count):" + value }
     switch id {
     case .section(let section): return "s" + section.rawValue
+    case .collapsed(let category):
+        return "c"
+            + [
+                category.provider?.rawValue, category.sessionID, category.rootSessionID,
+                category.resolution?.rawValue, category.executable, category.isAgentRuntime.map(String.init),
+                String(category.agentAssociated), String(category.categoryDetailsRetained),
+            ].compactMap { $0 }.joined(separator: "|")
     case .session(let provider, let session, let root):
         return "g" + field(provider) + field(session) + field(root ?? "")
     case .provider(let parent, let name): return identity(parent) + "p" + field(name)

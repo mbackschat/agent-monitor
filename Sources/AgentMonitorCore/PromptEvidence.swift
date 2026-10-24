@@ -24,7 +24,9 @@ public struct PromptCaptureLimits: Sendable {
     }
 }
 
-public enum PromptEvidenceStatus: String, Sendable { case captured, unavailable, deferred, unsupported }
+public enum PromptEvidenceStatus: String, Sendable {
+    case captured, unavailable, deferred, unsupported, truncated
+}
 
 /// A launch observation is point evidence. Neither a stable path nor successful capture
 /// establishes execution continuity (docs/proposals/resource-accounting.md).
@@ -42,6 +44,7 @@ public struct PromptEvidence: Sendable {
 public struct PromptCaptureSummary: Equatable, Codable, Sendable {
     public let captured: Int
     public let unavailable: Int
+    public let truncated: Int
     public let deferred: Int
     public let unsupported: Int
     public let reservedBytes: Int
@@ -49,6 +52,7 @@ public struct PromptCaptureSummary: Equatable, Codable, Sendable {
 
     init(_ evidence: [PromptEvidence]) {
         captured = evidence.filter { $0.status == .captured }.count
+        truncated = evidence.filter { $0.status == .truncated }.count
         unavailable = evidence.filter { $0.status == .unavailable }.count
         deferred = evidence.filter { $0.status == .deferred }.count
         unsupported = evidence.filter { $0.status == .unsupported }.count
@@ -124,6 +128,7 @@ struct PromptEvidenceCapture: Sendable {
             let status: PromptEvidenceStatus
             switch metadata?.status {
             case .none: status = .unsupported
+            case .truncated: status = .truncated
             case .unavailable, .notObserved: status = .unavailable
             case .markerRead, .malformed: status = .captured
             }
