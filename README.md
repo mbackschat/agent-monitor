@@ -66,12 +66,12 @@ By default, the monitor shows **all observed agent-associated processes**, inclu
 
 ## Choose what to show
 
-In the Mac app, open **View options** and choose **Processes** or **Sessions** under **Show**. In the TUI, press **g** to switch; `--group none` starts in Processes and `--group session` starts in Sessions. The Mac app starts in Sessions; the CLI/TUI defaults to Processes unless you specify grouping.
+In the Mac app, open **View options** and choose **Processes** or **Group by agent session** under **Show**. An agent session is one coding-agent conversation/run and the processes attributed to it. In the TUI, press **g** to switch; `--group none` starts in Processes and `--group session` starts in Sessions. The Mac app starts with grouping enabled; the CLI/TUI defaults to Processes unless you specify grouping.
 
 | Setting | What it changes |
 |---|---|
 | **Processes** | A flat list of individual observed processes, each with its own CPU and memory values and session attribution. Use it to find the specific command consuming resources. Pinned session groups remain grouped at the top. |
-| **Sessions** | Groups observed processes by attributed agent session or corroborated root session. Expand a group to inspect its processes. Counts and CPU/memory totals include all observed session members, independent of display filters; sampling can still miss work. The Mac app shows an unpinned one-process session directly as a process row. |
+| **Group by agent session** | Groups observed processes by attributed agent session or corroborated root session. Expand a group to inspect its processes. Counts and CPU/memory totals include all observed session members, independent of display filters; sampling can still miss work. The Mac app shows an unpinned one-process session directly as a process row. |
 | **Sort** | Stable order keeps surviving rows in place and appends newcomers. CPU/Footprint/PID order ranks individual processes, or session groups by their totals/minimum PID. It does not change which processes qualify. |
 | **CPU / Footprint thresholds** | Zero disables each filter independently. With both off, every observed process appears; otherwise a process must exceed at least one enabled threshold. Lower them to reveal lighter workloads; switching between Processes and Sessions does not change these filters. |
 | **Interval** | Requested acquisition period, 100 ms by default. Scans run independently of resolution and display; overruns delay collection. This controls sampling cadence; the display refreshes independently once per second. |

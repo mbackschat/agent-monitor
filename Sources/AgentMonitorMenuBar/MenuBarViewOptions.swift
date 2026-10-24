@@ -110,7 +110,9 @@ enum MenuBarOption: Equatable {
         case .submenu: break
         }
         menu.addItem(.sectionHeader(title: "Show"))
-        add("Sessions", .grouping(.session), checked: model.report.grouping == .session, to: menu)
+        add(
+            "Group by agent session", .grouping(.session), checked: model.report.grouping == .session,
+            to: menu)
         add("Processes", .grouping(.none), checked: model.report.grouping == .none, to: menu)
         menu.addItem(.separator())
         menu.addItem(.sectionHeader(title: "Sort by"))
