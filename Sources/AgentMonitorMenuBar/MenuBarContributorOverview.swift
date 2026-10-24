@@ -20,7 +20,7 @@ struct MenuBarContributorOverview: View {
                 }
 
             }
-            if overview.duration > 1.05 {
+            if overview.duration > LiveReportState.displayIntervalSeconds + 0.05 {
                 Text("CPU over \(overview.duration.formatted(.number.precision(.fractionLength(1)))) s")
                     .font(.caption2).foregroundStyle(.secondary)
             }
@@ -60,7 +60,7 @@ struct MenuBarContributorOverview: View {
             } label: {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: expanded ? "chevron.down" : "chevron.right").frame(width: 10)
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 2) {
                         HStack {
                             Text(node.title).font(.subheadline.weight(.medium)).lineLimit(1)
                             Spacer(minLength: 4)
@@ -127,7 +127,7 @@ struct MenuBarContributorOverview: View {
                 }.padding(.leading, 18)
             }
         }
-        .padding(.horizontal, 8).padding(.vertical, 6)
+        .padding(.horizontal, 8).padding(.vertical, 3)
         .padding(.leading, CGFloat(min(row.depth, 4) * 12))
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
@@ -137,7 +137,7 @@ struct MenuBarContributorOverview: View {
         .id(row.id)
     }
     private func metric(_ title: String, value: String, share: Double, help: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
                 Spacer(minLength: 0)
                 Text(value).monospacedDigit()

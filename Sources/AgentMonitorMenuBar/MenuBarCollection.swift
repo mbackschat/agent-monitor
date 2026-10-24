@@ -1,4 +1,5 @@
 import AgentMonitorCore
+import AgentMonitorPresentation
 import Foundation
 
 enum MenuBarCollection {
@@ -13,7 +14,7 @@ enum MenuBarCollection {
             let session = MonitoringSession(
                 configuration: try MonitoringConfiguration(
                     thresholds: await thresholds(), intervalSeconds: interval.seconds, samples: 0,
-                    collectAgentLoad: true, reportIntervalSeconds: 1),
+                    collectAgentLoad: true, reportIntervalSeconds: LiveReportState.displayIntervalSeconds),
                 reader: try reader(), clock: clock, registry: registry, excluding: excluding,
                 recentActivity: history)
             try await session.run(

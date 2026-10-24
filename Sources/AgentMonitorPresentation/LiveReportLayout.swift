@@ -71,7 +71,9 @@ public enum LiveReportLayout {
             ? "PAUSED" + (state.snapshot.map { " at " + clockTime($0.timestamp) } ?? "")
                 + " | p resume | " : ""
         let cadence =
-            state.snapshot?.window == nil ? "every \(seconds) s" : "acquire \(seconds) s / display 1 s"
+            state.snapshot?.window == nil
+            ? "every \(seconds) s"
+            : "acquire \(seconds) s / display \(String(format: "%g", LiveReportState.displayIntervalSeconds)) s"
         let activity = "\(state.sortDescription) | \(cadence)"
         let title =
             state.frozen ? frozen + activity : "Agent Monitor | \(activity) | Updates: \(state.updates)"

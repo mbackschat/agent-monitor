@@ -5,6 +5,16 @@ import Testing
 @testable import AgentMonitorCore
 
 @Suite struct OverviewReviewTests {
+    @Test func prominenceUsesStrictCombinedGroupCPUWithoutFilteringTotals() {
+        var overview = ContributorOverview()
+        overview.receive(reviewSnapshot(cpu: [12.5, 12.5], memory: [1, 1], sameSession: true))
+        #expect(overview.main.isEmpty)
+        #expect(overview.totals.currentCPU == 0.25)
+        overview.receive(reviewSnapshot(cpu: [13, 13], memory: [1, 1], sameSession: true))
+        #expect(overview.main == [session(1)])
+        #expect(overview.totals.currentCPU == 0.26)
+    }
+
     @Test func inspectPreservesGroupingAndIsInertOutsideOverview() throws {
         let snapshot = reviewSnapshot(cpu: [20, 90], memory: [200_000_000, 300_000_000])
         var state = LiveReportState(grouping: .session)
@@ -75,7 +85,7 @@ import Testing
 
     @Test func resetCannotInventARecentMainListDeparture() {
         var state = LiveReportState()
-        let first = reviewSnapshot(cpu: [2], memory: [1])
+        let first = reviewSnapshot(cpu: [30], memory: [1])
         state.receive(first)
         state.overview.resetInspection()
         #expect(state.overview.main.isEmpty)

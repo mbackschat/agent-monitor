@@ -49,14 +49,14 @@ struct ReportOptions: ParsableArguments {
     @Flag(
         name: [.long, .customLong("tui", withSingleDash: true)],
         help:
-            "Live terminal report in Stable order; requires an interactive terminal. See agent-monitor guide tui for all keys."
+            "Live grouped contributor overview with a two-second display; requires an interactive terminal. See agent-monitor guide tui for all keys."
     )
     var tui = false
 
     @Option(
         name: .customLong("group"),
         help:
-            "Group text/TUI by launch session: none or session. TUI: g toggles grouping; left/right collapses/expands a session or process details. Totals include all observed session members, independent of display filters. Not available with --json or --json-schema. Default: none."
+            "Group text and TUI process inspection by launch session: none or session. TUI: g toggles grouping; left/right collapses/expands a session or process details. Totals include all observed session members, independent of display filters. Not available with --json or --json-schema. Default: none."
     )
     var requestedGroup: GroupOption?
 

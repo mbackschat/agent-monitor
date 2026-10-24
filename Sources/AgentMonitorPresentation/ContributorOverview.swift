@@ -433,11 +433,12 @@ public struct ContributorOverview: Equatable, Sendable {
             }
         }
         let eligible = exact.filter { !(nodes[$0]?.stats.processes.subtracting(filtered).isEmpty ?? true) }
-        cpuRank = rank(cpuRank, candidates: eligible, floor: 1) {
+        cpuRank = rank(cpuRank, candidates: eligible, floor: 25) {
             guard duration > 0, let stats = nodes[$0]?.stats, stats.currentMeasurements > 0 else {
                 return nil
             }
-            return 100 * stats.currentCPU / duration
+            let percent = 100 * stats.currentCPU / duration
+            return percent > 25 ? percent : nil
         }
         memoryRank = rank(memoryRank, candidates: eligible, floor: 100_000_000) {
             nodes[$0].map { Double($0.stats.memoryBytes) }

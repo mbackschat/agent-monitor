@@ -52,7 +52,7 @@ struct AgentMonitorCommand: AsyncParsableCommand {
                 cpuPercent: options.cpu, memoryBytes: UInt64(options.memoryGB * 1_000_000_000)),
             intervalSeconds: options.interval, samples: options.samples, includeCommands: options.commands,
             scope: options.allProcesses ? .allProcesses : .agentsOnly, collectAgentLoad: options.tui,
-            reportIntervalSeconds: 1)
+            reportIntervalSeconds: options.tui ? LiveReportState.displayIntervalSeconds : 1)
         let session = MonitoringSession(
             configuration: configuration, reader: try NativeProcessReader(), excluding: [getpid()],
             recentActivity: options.tui ? RecentActivityStore() : nil)

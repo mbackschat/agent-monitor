@@ -199,8 +199,8 @@ extension ContributorOverviewTests {
             }
         }
         var baseline = ledger.ingest(values(at: 0), listedAt: 0)
-        for (index, challenger) in [10.0, 23.0, 25.0].enumerated() {
-            let rates = [100.0, 80, 60, 40, 20, challenger]
+        for (index, challenger) in [20.0, 35.0, 37.0].enumerated() {
+            let rates = [100.0, 80, 60, 40, 30, challenger]
             for worker in 0..<6 { counters[worker] += rates[worker] / 100 }
             let samples = values(at: Double(index + 1))
             let scan = ledger.ingest(samples, listedAt: Double(index + 1))

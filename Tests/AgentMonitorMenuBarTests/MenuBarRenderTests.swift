@@ -17,23 +17,23 @@ import Testing
 }
 
 @Test(arguments: [MenuBarRowDisclosure.process, .group(count: 6), .group(count: 60), .group(count: 600)])
-@MainActor func rowAccessoriesHaveAnAlignedLargeTarget(disclosure: MenuBarRowDisclosure) {
+@MainActor func rowAccessoriesFitCompactDesktopRows(disclosure: MenuBarRowDisclosure) {
     _ = NSApplication.shared
     let host = NSHostingView(rootView: MenuBarRowAccessory(disclosure: disclosure))
     host.layoutSubtreeIfNeeded()
-    #expect(host.fittingSize == NSSize(width: 40, height: 32))
+    #expect(host.fittingSize == NSSize(width: 32, height: 20))
 }
 
 @Test @MainActor func groupBadgePreservesLargeCountsWithoutClipping() {
     _ = NSApplication.shared
     let host = NSHostingView(rootView: MenuBarRowAccessory(disclosure: .group(count: 12345)))
     let number = NSHostingView(
-        rootView: Text("12345").font(.system(size: 16, weight: .semibold, design: .rounded)).monospacedDigit()
+        rootView: Text("12345").font(.system(size: 11, weight: .semibold, design: .rounded)).monospacedDigit()
     )
     host.layoutSubtreeIfNeeded()
     number.layoutSubtreeIfNeeded()
     #expect(host.fittingSize.width >= number.fittingSize.width + 8)
-    #expect(host.fittingSize.height == 32)
+    #expect(host.fittingSize.height == 20)
 }
 
 @Test(arguments: [MenuBarRowDisclosure.process, .group(count: 6)])

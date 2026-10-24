@@ -14,6 +14,8 @@ public enum DetailsPaneMode: Sendable { case minimized, split, maximized }
 public enum IntervalAdjustment: Sendable { case faster, slower }
 
 public struct LiveReportState: Equatable, Sendable {
+    public static let displayIntervalSeconds = 2.0
+
     public var diagnosis = DiagnosisViewState() {
         didSet {
             if diagnosis.phase != oldValue.phase { diagnosisOffset = 0 }

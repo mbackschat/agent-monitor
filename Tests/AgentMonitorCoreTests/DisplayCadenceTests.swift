@@ -41,23 +41,25 @@ private final class WindowReader: ProcessReading, SamplingClock, Sendable {
 }
 
 @Suite struct DisplayCadenceTests {
-    @Test(arguments: [Thresholds(), Thresholds(memoryBytes: 1_000_000_000)])
-    func fastAcquisitionRetainsWorkerGoneBeforeFirstDisplay(thresholds: Thresholds) async throws {
+    @Test(arguments: [Thresholds(), Thresholds(memoryBytes: 1_000_000_000)], [1.0, 2.0])
+    func fastAcquisitionRetainsWorkerGoneBeforeFirstDisplay(thresholds: Thresholds, displaySeconds: Double)
+        async throws
+    {
         let reader = WindowReader(disappearsAt: 3)
         let results = Mutex<[MonitoringSnapshot]>([])
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(
                 thresholds: thresholds, intervalSeconds: 0.1, samples: 1, collectAgentLoad: true,
-                reportIntervalSeconds: 1),
+                reportIntervalSeconds: displaySeconds),
             reader: reader, clock: reader)
         try await session.run { result in results.withLock { $0.append(result) } }
         let snapshots = results.withLock { $0 }
-        #expect(reader.state.withLock { $0.scans } == 11)
+        #expect(reader.state.withLock { $0.scans } == Int(displaySeconds * 10) + 1)
         #expect(snapshots.count == 1)
         let snapshot = try #require(snapshots.first)
         let row = try #require(snapshot.findings.first)
         #expect(row.isHistorical)
-        #expect(abs(try #require(row.cpuPercent) - 2) < 1e-8)
+        #expect(abs(try #require(row.cpuPercent) - 2 / displaySeconds) < 1e-8)
         #expect(row.attribution.threadID == sessionA)
         #expect(snapshot.agentLoad?.footprintBytes == 0)
         #expect(snapshot.agentLoad?.missingFootprintCount == 0)

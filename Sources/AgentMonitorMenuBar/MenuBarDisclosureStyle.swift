@@ -21,15 +21,15 @@ struct MenuBarRowAccessory: View {
             switch disclosure {
             case .group(let count):
                 Text(count, format: .number.grouping(.never))
-                    .font(.system(size: 16, weight: .semibold, design: .rounded)).monospacedDigit()
+                    .font(.system(size: 11, weight: .semibold, design: .rounded)).monospacedDigit()
                     .padding(.horizontal, 4)
-                    .frame(minWidth: 40, minHeight: 32)
-                    .background(.primary.opacity(0.09), in: RoundedRectangle(cornerRadius: 8))
-                    .accessibilityLabel("\(count) heavy processes")
+                    .frame(minWidth: 32, minHeight: 20)
+                    .background(.primary.opacity(0.09), in: RoundedRectangle(cornerRadius: 4))
+                    .accessibilityLabel("\(count) observed processes")
             case .process:
                 Image(systemName: "info.circle")
-                    .font(.system(size: 20))
-                    .frame(width: 40, height: 32)
+                    .font(.system(size: 14))
+                    .frame(width: 32, height: 20)
                     .accessibilityLabel("Process details")
             }
         }
@@ -89,12 +89,12 @@ private struct MenuBarRowHeader<Label: View>: View {
                                 .font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
                         }
                     }
-                    .frame(width: 18, height: 32).accessibilityHidden(true)
+                    .frame(width: 18, height: 20).accessibilityHidden(true)
                     label
                     MenuBarRowAccessory(disclosure: disclosure)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 4).contentShape(Rectangle())
+                .padding(.vertical, 1).contentShape(Rectangle())
             }
             .buttonStyle(.plain).focused(focus, equals: .row(id))
             .pinShortcut(onPinShortcut)

@@ -26,8 +26,10 @@ import Testing
     do {
         model.start()
         fixture.ticks.advance()
+        fixture.ticks.advance()
         let closed = try #require(await snapshotsIterator.next())
         #expect(closed.findings.count == 2)
+        #expect(closed.window?.durationSeconds == 2)
         #expect(closed.recentActivity?.units.count == 1)
         expectListedSession(closed, session: NativeCollectionFixture.firstSession)
         #expect(fixture.listings.withLock { $0 } == 1)
@@ -35,6 +37,7 @@ import Testing
         #expect(model.indicator.processCount == 2)
 
         model.open()
+        fixture.ticks.advance()
         fixture.ticks.advance()
         let opened = try #require(await snapshotsIterator.next())
         #expect(opened.recentActivity?.runID == closed.recentActivity?.runID)
@@ -48,12 +51,14 @@ import Testing
         fixture.session.withLock { $0 = NativeCollectionFixture.secondSession }
         fixture.elapsed.withLock { $0 += 61 }
         fixture.ticks.advance()
+        fixture.ticks.advance()
         let closedAgain = try #require(await snapshotsIterator.next())
         expectListedSession(closedAgain, session: NativeCollectionFixture.secondSession)
         #expect(fixture.listings.withLock { $0 } == 2)
         #expect(model.report.snapshot == nil)
 
         model.open()
+        fixture.ticks.advance()
         fixture.ticks.advance()
         let reopened = try #require(await snapshotsIterator.next())
         expectListedSession(reopened, session: NativeCollectionFixture.secondSession)

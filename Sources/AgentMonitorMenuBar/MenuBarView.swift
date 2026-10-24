@@ -231,7 +231,7 @@ struct MenuBarView: View {
                 MenuBarViewOptions(model: model)
             }
             Text(
-                "\(model.report.showsOverview ? "" : model.report.sortDescription + " · ")\(model.report.showsOverview && model.report.thresholds.isUnfiltered ? "Resource filters off" : ThresholdContext.text(model.report.thresholds)) · \(resource(model.report.interval, unit: " s")) acquisition · 1 s display"
+                "\(model.report.showsOverview ? "" : model.report.sortDescription + " · ")\(model.report.showsOverview && model.report.thresholds.isUnfiltered ? "Resource filters off" : ThresholdContext.text(model.report.thresholds)) · \(resource(model.report.interval, unit: " s")) acquisition · \(resource(LiveReportState.displayIntervalSeconds, unit: " s")) display"
             )
             .font(.caption).foregroundStyle(.secondary)
             if !model.report.showsOverview, let window = model.report.snapshot?.window {
@@ -267,12 +267,12 @@ struct MenuBarView: View {
                     if !pinned.isEmpty {
                         Label("Pinned", systemImage: "pin.fill").font(.caption.bold()).foregroundStyle(
                             .secondary)
-                        LazyVStack(alignment: .leading, spacing: 4) {
+                        LazyVStack(alignment: .leading, spacing: 2) {
                             ForEach(pinned, id: \.id) { nativeRow($0, sessions: sessions) }
                         }
                         if !unpinned.isEmpty { Divider() }
                     }
-                    LazyVStack(alignment: .leading, spacing: 4) {
+                    LazyVStack(alignment: .leading, spacing: 2) {
                         ForEach(unpinned, id: \.id) { nativeRow($0, sessions: sessions) }
                     }
                 }
@@ -397,7 +397,7 @@ struct MenuBarView: View {
                 Button("Terminal", systemImage: "terminal") { model.begin(.focus, row: .group(group.id)) }
                     .controlSize(.small)
                     .disabled(!model.canBegin(.focus, row: .group(group.id)))
-                LazyVStack(alignment: .leading, spacing: 4) {
+                LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(model.rowIndex.projection.childrenByGroup[group.id] ?? [], id: \.process) {
                         process in
                         processRow(process)
@@ -405,7 +405,7 @@ struct MenuBarView: View {
                 }
             }.padding(.top, 8)
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 1) {
                 HStack {
                     Text(group.project).font(.subheadline.bold()).lineLimit(1)
                     Spacer(minLength: 8)

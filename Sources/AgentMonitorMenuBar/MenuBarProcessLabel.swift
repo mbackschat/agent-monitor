@@ -9,7 +9,7 @@ struct MenuBarProcessLabel: View {
     let footprintText: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 1) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(process.name).lineLimit(1).truncationMode(.middle)
                 if process.isHistorical {
