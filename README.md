@@ -6,7 +6,7 @@
 
 <p align="center"><strong>Find the session behind the load.</strong></p>
 
-**Which agent, session and process is consuming CPU or memory—and in which working directory?** Agent Monitor is built to answer that question for Codex CLI and Claude Code on macOS.
+**Which agent, session and process is consuming CPU or memory—and in which working directory?** Agent Monitor is built to answer that question for Codex CLI and Claude Code on macOS. It observes already-running workloads without a launch wrapper.
 
 When several coding agents are running, compare their workloads together: agent, session, working directory, executable (such as `rustc`, `java` or `node`), CPU and memory. Open contributor information separately from expanding its children; use the overview to distinguish workloads with matching directory suffixes, inspect relevant arguments on demand, then message the verified agent, jump to its terminal or review stopping an exact process.
 

@@ -4,6 +4,8 @@
 
 **Which coding agents, sessions and processes are consuming CPU or memory, and in which working directories?** This is the number-one product goal. Usually several contributors matter, so users need a table that lets them compare those relationships. Agent Monitor is not another general-purpose top clone. Measurement, attribution, ranking, labels, grouping, disclosure and actions must all help answer this question.
 
+Monitoring must work transparently with already-running agents. Requiring workloads to launch through Agent Monitor or adopt cooperative worker hooks cannot satisfy the core coverage requirement. New observation mechanisms still need a supported deployment and permission model; this requirement does not authorize privileged helpers, security changes or native experiments.
+
 The experience should be a **clear, actionable resource overview**, usable while the machine is busy and the user is under pressure. “Dashboard” and “cockpit” describe the desired orientation, not a required screen layout. iStat Menus and htop/btop inform familiar controls and resource displays; agent/session responsibility defines this product's information model.
 
 ## Information that belongs together
