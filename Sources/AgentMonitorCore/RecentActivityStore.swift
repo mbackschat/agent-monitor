@@ -119,6 +119,49 @@ public final class RecentActivityStore: RecentActivityCollecting {
         var currentAvailable = true
         var capacityEvictions = 0
         var discontinuities = 0
+        var membershipRecordVisits = 0
+        var membership: [ProcessIdentity: Int] = [:]
+
+        mutating func appendUnit(_ unit: RecentActivityUnit) {
+            units.append(unit)
+            updateMembership(unit, delta: 1)
+        }
+
+        mutating func removeUnits(where predicate: (RecentActivityUnit) -> Bool) {
+            var retained: [RecentActivityUnit] = []
+            for unit in units {
+                if predicate(unit) {
+                    updateMembership(unit, delta: -1)
+                } else {
+                    retained.append(unit)
+                }
+            }
+            units = retained
+        }
+
+        mutating func removeFirstUnit() -> RecentActivityUnit {
+            let unit = units.removeFirst()
+            updateMembership(unit, delta: -1)
+            return unit
+        }
+
+        mutating func clearUnits() {
+            units.removeAll()
+            membership.removeAll()
+        }
+
+        private mutating func updateMembership(_ unit: RecentActivityUnit, delta: Int) {
+            guard unit.scope == .agentsOnly else { return }
+            // Whole-unit eviction removes exactly these references. A lifetime may have several
+            // frozen categories, so a set removal would expire its membership too early.
+            for record in unit.records {
+                membershipRecordVisits += 1
+                let identity = record.category.process
+                let count = (membership[identity] ?? 0) + delta
+                precondition(count >= 0)
+                membership[identity] = count == 0 ? nil : count
+            }
+        }
     }
     private let limits: RecentActivityLimits
     private let state = Mutex(State())
@@ -133,7 +176,7 @@ public final class RecentActivityStore: RecentActivityCollecting {
             if value.runID != unit.runID || value.scope != unit.scope {
                 value.runID = unit.runID
                 value.scope = unit.scope
-                value.units.removeAll()
+                value.clearUnits()
                 value.lastScan = nil
                 value.lossBoundary = nil
                 value.capacityEvictions = 0
@@ -143,21 +186,20 @@ public final class RecentActivityStore: RecentActivityCollecting {
                 precondition(unit.baselineScan >= last && unit.finalScan > last)
                 if unit.baselineScan > last {
                     value.discontinuities += 1
-                    value.units.removeAll()
+                    value.clearUnits()
                     value.lossBoundary = unit.startedAt
                 }
             }
             value.lastScan = unit.finalScan
             value.endedAt = unit.endedAt
-            value.units.removeAll { $0.startedAt < unit.endedAt - limits.seconds }
-            let selected = Set((value.units + [unit]).flatMap { $0.records.map(\.category.process) })
+            value.removeUnits { $0.startedAt < unit.endedAt - limits.seconds }
+            value.appendUnit(unit)
             value.current = (current ?? unit.records.filter { $0.lastScan == unit.finalScan }).filter {
-                selected.contains($0.category.process)
-                    || unit.scope == .allProcesses || $0.category.owner.isAgent
+                unit.scope == .allProcesses || $0.category.owner.isAgent
+                    || value.membership[$0.category.process] != nil
             }
             value.present = present ?? Set(value.current.map(\.category.process))
             value.currentAvailable = true
-            value.units.append(unit)
             evictUnitsToFit(&value)
             if !fits(value) {
                 value.current = []
@@ -217,7 +259,7 @@ public final class RecentActivityStore: RecentActivityCollecting {
         while !fits(value), !retained.isEmpty {
             let removed = retained.removeFirst()
             if value.units.contains(where: { $0.id == removed.id }) {
-                value.units.removeAll { $0.id == removed.id }
+                value.removeUnits { $0.id == removed.id }
                 value.capacityEvictions += 1
                 value.lossBoundary = max(value.lossBoundary ?? removed.endedAt, removed.endedAt)
             }
@@ -247,7 +289,7 @@ public final class RecentActivityStore: RecentActivityCollecting {
 
     private func evictUnitsToFit(_ value: inout State) {
         while !fits(value), !value.units.isEmpty {
-            let removed = value.units.removeFirst()
+            let removed = value.removeFirstUnit()
             value.capacityEvictions += 1
             value.lossBoundary = max(value.lossBoundary ?? removed.endedAt, removed.endedAt)
         }
@@ -286,6 +328,17 @@ public final class RecentActivityStore: RecentActivityCollecting {
     }
 
     var retainedPayloadSize: MonitoringPayloadSize { state.withLock { usage($0) } }
+    var membershipRecordVisitCount: Int { state.withLock { $0.membershipRecordVisits } }
+
+    var membershipMatchesRetainedRecords: Bool {
+        state.withLock { value in
+            var expected: [ProcessIdentity: Int] = [:]
+            for unit in value.units where unit.scope == .agentsOnly {
+                for record in unit.records { expected[record.category.process, default: 0] += 1 }
+            }
+            return value.membership == expected
+        }
+    }
 
     private func fits(_ value: State, adding: MonitoringPayloadSize? = nil) -> Bool {
         let size = usage(value, adding: adding)
