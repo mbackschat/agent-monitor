@@ -108,9 +108,10 @@ func listingThatDoesNotNameExactlyOneLiveSessionLeavesTheRuntimeUnbound(case nam
     #expect(monitor.finding(for: shell.identity)?.attribution.evidence == .ambiguous)
 }
 
-private final class FakeRegistry: SessionRegistryReading, SamplingClock, ProcessReading, Sendable {
+private final class FakeRegistry: SessionRegistryReading, AcquisitionClock, ProcessReading, Sendable {
     let calls = Mutex(0)
-    let listingStarted = AsyncStream<Void>.makeStream()
+    let listingStarted = ClockGate()
+    let reportRead = ClockGate()
     let marked: Bool
     let times = Mutex<[Double]>([0])
     let fail: Bool
@@ -126,7 +127,7 @@ private final class FakeRegistry: SessionRegistryReading, SamplingClock, Process
 
     func output(of query: SessionRegistryQuery) throws -> Data {
         calls.withLock { $0 += 1 }
-        listingStarted.continuation.yield(())
+        listingStarted.signal()
         if fail { throw BoundedCommandFailure("Claude Code command failed.") }
         return try listing(runtimes.map { entry(pid: Int($0)) })
     }
@@ -155,10 +156,16 @@ private final class FakeRegistry: SessionRegistryReading, SamplingClock, Process
 
     func isCurrent(_ sample: ProcessSample) -> Bool { identityCurrent }
 
-    func wait(seconds: Double) async throws {
-        if !marked, monotonicNow() == 0 { for await _ in listingStarted.stream { break } }
+    func wait(until deadline: Double, wake: AcquisitionWake) throws {
+        let seconds = max(0, deadline - monotonicNow())
+        if monotonicNow() == 0 {
+            if !marked { guard listingStarted.wait(wake: wake) else { return } }
+        } else {
+            // These integration tests advance after inspecting each report. Backlog has its own
+            // ungated fixtures; an instant clock must not race the asynchronous consumer here.
+            guard reportRead.wait(wake: wake) else { return }
+        }
         times.withLock { $0.append(($0.last ?? 0) + seconds) }
-        await Task.yield()
     }
     func monotonicNow() -> Double { times.withLock { $0.last ?? 0 } }
     // Periodic listing is tested with explicit dates in the cadence guard; this integration
@@ -186,6 +193,7 @@ private final class FakeRegistry: SessionRegistryReading, SamplingClock, Process
         configuration: try MonitoringConfiguration(samples: 3), reader: fake, clock: fake, registry: fake)
     let evidence = Mutex<[AttributionEvidence?]>([])
     try await session.run { snapshot in
+        defer { fake.reportRead.signal() }
         evidence.withLock { $0.append(snapshot.findings.first?.attribution.evidence) }
     }
     #expect(fake.calls.withLock { $0 } == 1)
@@ -200,6 +208,7 @@ private enum RegistryTestCompletion: Error { case exactSession }
         configuration: try MonitoringConfiguration(samples: 0), reader: fake, clock: fake, registry: fake)
     await #expect(throws: RegistryTestCompletion.self) {
         try await session.run { snapshot in
+            defer { fake.reportRead.signal() }
             if let row = snapshot.findings.first, row.attribution.evidence == .sessionRegistry {
                 #expect(row.attribution.threadID == sessionB)
                 #expect(row.attribution.runtime?.pid == 10)
@@ -215,7 +224,10 @@ private enum RegistryTestCompletion: Error { case exactSession }
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(samples: 1), reader: fake, clock: fake, registry: fake)
     let findings = Mutex<[HeavyProcess]>([])
-    try await session.run { snapshot in findings.withLock { $0 = snapshot.findings } }
+    try await session.run { snapshot in
+        defer { fake.reportRead.signal() }
+        findings.withLock { $0 = snapshot.findings }
+    }
     #expect(fake.calls.withLock { $0 } == 1)
     #expect(findings.withLock { $0.first?.attribution.evidence } == .runtimeOnly)
     #expect(findings.withLock { $0.first?.attribution.threadID } == nil)
@@ -245,6 +257,7 @@ func providerDiscoveryDoesNotRecursivelyListItsOwnHelpers(nested: Bool) throws {
         reader: fake, clock: fake, registry: fake)
     let sessions = Mutex<[String?]>([])
     try await session.run { snapshot in
+        defer { fake.reportRead.signal() }
         sessions.withLock { $0.append(snapshot.findings.first?.attribution.threadID) }
     }
     #expect(fake.calls.withLock { $0 } == 0)

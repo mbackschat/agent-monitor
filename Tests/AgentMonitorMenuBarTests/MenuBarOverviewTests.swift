@@ -3,6 +3,7 @@ import AppKit
 import Foundation
 import SwiftUI
 import Testing
+import Vision
 
 @testable import AgentMonitorCore
 @testable import AgentMonitorMenuBar
@@ -68,7 +69,7 @@ import Testing
     #expect(host.fittingSize.height <= 22)
 }
 
-func nativeOverviewFixture() throws -> MonitoringSnapshot {
+func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     var ledger = CounterLedger()
     func values(_ tick: Int) -> [ProcessSample] {
         var result: [ProcessSample] = []
@@ -120,7 +121,84 @@ func nativeOverviewFixture() throws -> MonitoringSnapshot {
             hostBusyPercent: 110, logicalCPUCount: 8,
             measuredUserPercent: 90, unmeasuredLifetimeCount: 0, previousScanSeconds: 0.01),
         timestamp: Date(timeIntervalSince1970: 52_496), intervalSeconds: 0.1,
-        cpuThresholdPercent: 0, memoryThresholdBytes: 0, sampledProcessCount: 23, unreadableProcessCount: 0,
+        cpuThresholdPercent: 0, memoryThresholdBytes: 0, sampledProcessCount: 23,
+        unreadableProcessCount: unreadable,
         findings: projection.rows, agentLoad: AgentLoadSummary(processes: projection.rows),
         window: projection.summary, recentActivity: store.snapshot())
+}
+
+@Test @MainActor func processReadGapsAreVisibleWithoutOpeningCoverage() async throws {
+    let snapshot = try nativeOverviewFixture(unreadable: 3)
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    model.report.overview.enabled = false
+    _ = NSApplication.shared
+    let host = NSHostingView(
+        rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: .aqua)
+    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.layoutSubtreeIfNeeded()
+    let bitmap = try #require(
+        NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 840, pixelsHigh: 1120,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+    bitmap.size = host.bounds.size
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = .accurate
+    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
+    let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+        .joined(separator: " ")
+    #expect(text.contains("Read gaps:"))
+    #expect(text.contains("3 same-user"))
+    await model.stop()
+}
+
+@Test @MainActor func samplingCoverageRendersMetricsWithoutDiagnosticParagraphs() throws {
+    _ = NSApplication.shared
+    let snapshot = try nativeOverviewFixture(unreadable: 9)
+    var reads = ReadCoverage()
+    reads.append(
+        ProcessSnapshot(
+            samples: [], enumeratedCount: 28, unreadableCount: 28,
+            listedAt: 1, scanSeconds: 0, hostCounters: nil, logicalCPUCount: 8,
+            nativeOutcomes: (1...28).map { pid in
+                NativeCounterOutcome(
+                    pid: Int32(pid), identity: nil, operation: .bsdInfo,
+                    status: pid <= 23 ? .lookupUnavailable : .otherFailure, failure: nil, observedAtTicks: 1)
+            }))
+    let summary = SamplingCoverageSummary(snapshot: snapshot, reads: reads, recentDuration: 47.5)
+    let host = NSHostingView(
+        rootView: MenuBarCoverageSummary(summary: summary)
+            .padding(12).frame(width: 400).background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: .aqua)
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize.height <= 200)
+    host.frame.size = host.fittingSize
+    let bitmap = try #require(
+        NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: Int(host.bounds.width * 2),
+            pixelsHigh: Int(host.bounds.height * 2),
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+    bitmap.size = host.bounds.size
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = .accurate
+    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
+    let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+    #expect(text.contains("Observed"))
+    #expect(text.contains("Read gaps"))
+    #expect(text.contains("Sampled"))
+    #expect(text.contains("Recent history"))
+    #expect(text.contains("Vanished"))
+    #expect(text.contains("Other"))
+    #expect(!text.contains("Totals are independent"))
+    #expect(!text.contains("Session CPU is"))
+    if let path = ProcessInfo.processInfo.environment["MENUBAR_COVERAGE_PREVIEW_PATH"] {
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: path))
+    }
 }

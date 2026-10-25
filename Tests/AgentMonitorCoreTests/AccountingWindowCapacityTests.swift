@@ -163,11 +163,14 @@ private struct CapacityPopulation {
     }
 }
 
-private final class PipelinePopulation: ProcessReading, SamplingClock, SessionRegistryReading, Sendable {
+private final class PipelinePopulation: ProcessReading, AcquisitionClock, SessionRegistryReading, Sendable {
     private let time = Mutex(0.0)
     let count: Int
     let sharedDepth: Int?
-    init(count: Int = 1_000, sharedDepth: Int? = nil) {
+    let publication: ClockGate?
+    private let nextPublication = Mutex(1.0)
+    init(count: Int = 1_000, sharedDepth: Int? = nil, publication: ClockGate? = nil) {
+        self.publication = publication
         self.count = count
         self.sharedDepth = sharedDepth
     }
@@ -197,25 +200,42 @@ private final class PipelinePopulation: ProcessReading, SamplingClock, SessionRe
         ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)], status: .markerRead)
     }
     func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
-    func wait(seconds: Double) async throws {
-        try Task.checkCancellation()
-        time.withLock { $0 += seconds }
+    func wait(until deadline: Double, wake: AcquisitionWake) throws {
+        let at = monotonicNow()
+        if let publication, at + 1e-9 >= nextPublication.withLock({ $0 }) {
+            guard publication.wait(wake: wake) else { return }
+            nextPublication.withLock { $0 += 1 }
+        }
+        time.withLock { $0 += max(0, deadline - at) }
     }
     func monotonicNow() -> Double { time.withLock { $0 } }
     func now() -> Date { Date(timeIntervalSince1970: monotonicNow()) }
 }
 
+private final class PopulationHistory: RecentActivityCollecting, Sendable {
+    let store = RecentActivityStore()
+    let admitted = ClockGate()
+    func append(_ unit: RecentActivityUnit, current: [RecentWorkerRecord]?, present: Set<ProcessIdentity>?) {
+        store.append(unit, current: current, present: present)
+        admitted.signal()
+    }
+    func snapshot() -> RecentActivitySnapshot? { store.snapshot() }
+}
+
 @Test(.timeLimit(.minutes(5)))
 func productionPipelineSupportsThreeThousandLifetimesWithTenAncestors() async throws {
-    let fixture = PipelinePopulation(count: 3_000, sharedDepth: 10)
-    let store = RecentActivityStore()
-    let session = MonitoringSession(
+    let history = PopulationHistory()
+    // This guards population capacity, independently of virtual-clock speed. Publication-stall
+    // behavior is exercised without this gate in DisplayCadenceTests and PipelineStallTests.
+    let fixture = PipelinePopulation(count: 3_000, sharedDepth: 10, publication: history.admitted)
+    let store = history.store
+    let session = IndependentMonitoringPipeline(
         configuration: try MonitoringConfiguration(
             intervalSeconds: 0.1, samples: 2, scope: .allProcesses,
             collectAgentLoad: true, reportIntervalSeconds: 5),
-        reader: fixture, clock: fixture, registry: fixture, recentActivity: store)
+        reader: fixture, clock: fixture, registry: fixture, excluded: [], recentActivity: history)
     let reports = Mutex<[MonitoringSnapshot]>([])
-    try await session.run { value in reports.withLock { $0.append(value) } }
+    try await session.run(thresholds: nil, interval: nil) { value in reports.withLock { $0.append(value) } }
     let values = reports.withLock { $0 }
     #expect(values.last?.window?.finalScan == 60)
     #expect(values.allSatisfy { $0.observedFindings.count == 3_000 })

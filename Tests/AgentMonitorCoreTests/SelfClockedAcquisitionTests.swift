@@ -4,9 +4,7 @@ import Testing
 
 @testable import AgentMonitorCore
 
-private enum SelfClockFixtureError: Error { case asyncWaitUsed }
-
-private final class SelfClockFixture: ProcessReading, BlockingSamplingClock, Sendable {
+private final class SelfClockFixture: ProcessReading, AcquisitionClock, Sendable {
     struct State {
         var time = 0.0
         var starts: [Double] = []
@@ -40,7 +38,6 @@ private final class SelfClockFixture: ProcessReading, BlockingSamplingClock, Sen
     }
     func now() -> Date { Date(timeIntervalSince1970: monotonicNow()) }
     func monotonicNow() -> Double { state.withLock { $0.time } }
-    func wait(seconds: Double) async throws { throw SelfClockFixtureError.asyncWaitUsed }
     func wait(until deadline: Double, wake: AcquisitionWake) {
         let first = state.withLock { state in
             state.threads.insert(Thread.current.name ?? "unnamed")

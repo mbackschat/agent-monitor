@@ -102,12 +102,20 @@ public enum LiveReportLayout {
                 } ?? ""), style: .muted)
         let publication =
             state.snapshot?.window.flatMap { AccountingContext.publication($0.publicationCoverage) }
-            .map { [ReportLine($0, style: .warning)] } ?? []
+            .map { TerminalCells.wrapped($0, to: width).map { ReportLine($0, style: .warning) } } ?? []
         let pressure =
             state.snapshot?.window.flatMap(AccountingContext.pressure).map {
                 [ReportLine($0, style: .warning)]
             } ?? []
-        // Width-based row counts preserve pane geometry across changing status text; see docs/architecture.md.
+        let warnings =
+            state.snapshot.map { snapshot in
+                AccountingContext.warnings(snapshot).flatMap { warning in
+                    TerminalCells.wrapped(warning, to: width).map { ReportLine($0, style: .warning) }
+                }
+            } ?? []
+        // Ordinary status changes keep the base height; material coverage warnings need visible
+        // rows. Both panes use the resulting height (architecture's TUI contract).
+
         switch width {
         case 120...:
             return [
@@ -115,18 +123,18 @@ public enum LiveReportLayout {
                     title + " | " + abbreviated(status, width: width - title.count - filters.count - 6)
                         + " | " + filters, style: .title),
                 context,
-            ] + pressure + publication
+            ] + warnings + pressure + publication
         case 85..<120:
             return [
                 ReportLine(
                     title + " | " + abbreviated(status, width: width - title.count - 3), style: .title),
                 ReportLine(filters, style: .muted), context,
-            ] + pressure + publication
+            ] + warnings + pressure + publication
         default:
             return [
                 ReportLine(title, style: .title), ReportLine(status, style: .title),
                 ReportLine(filters, style: .muted), context,
-            ] + pressure + publication
+            ] + warnings + pressure + publication
         }
     }
 
@@ -350,6 +358,11 @@ public enum LiveReportLayout {
         if let window = state.snapshot?.window {
             values.append(AccountingContext.evidence(row, in: window))
             values.append(AccountingContext.acquisition(window.acquisitionCoverage))
+            if let range = AccountingContext.publicationRange(
+                window.publicationCoverage, endingAt: window.endedAt)
+            {
+                values.append(range)
+            }
         }
         if let peak = FootprintContext.kernelPeak(row) { values.append(peak) }
         if let root = attribution.rootSessionID { values.append("Root session: \(root)") }

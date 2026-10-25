@@ -4,11 +4,11 @@ import Testing
 
 @testable import AgentMonitorCore
 
-final class StalledEnrichment: ProcessReading, SamplingClock, SessionRegistryReading, Sendable {
+final class StalledEnrichment: ProcessReading, AcquisitionClock, SessionRegistryReading, Sendable {
     enum Stage: CaseIterable, Sendable { case metadata, provider }
     let stage: Stage
     let time = Mutex(0.0)
-    let entered = AsyncStream<Void>.makeStream()
+    let entered = ClockGate()
     let release = DispatchSemaphore(value: 0)
     let releasedByReport = Mutex(false)
     let metadataCalls = Mutex(0)
@@ -41,13 +41,13 @@ final class StalledEnrichment: ProcessReading, SamplingClock, SessionRegistryRea
         return Data("[]".utf8)
     }
     private func block() {
-        entered.continuation.yield(())
+        entered.signal()
         let accepted = release.wait(timeout: .now() + 3) == .success
         releasedByReport.withLock { $0 = accepted }
     }
-    func wait(seconds: Double) async throws {
-        if monotonicNow() == 0 { for await _ in entered.stream { break } }
-        try Task.checkCancellation()
+    func wait(until deadline: Double, wake: AcquisitionWake) throws {
+        let seconds = max(0, deadline - monotonicNow())
+        if monotonicNow() == 0 { guard entered.wait(wake: wake) else { return } }
         time.withLock { $0 += seconds }
     }
     func monotonicNow() -> Double { time.withLock { $0 } }

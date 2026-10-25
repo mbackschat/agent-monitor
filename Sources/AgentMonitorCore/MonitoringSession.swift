@@ -29,9 +29,12 @@ public protocol SamplingClock: Sendable {
     func monotonicNow() -> Double
 }
 
+extension SamplingClock {
+    public func wait(seconds: Double) async throws { try await Task.sleep(for: .seconds(seconds)) }
+}
+
 public struct ContinuousSamplingClock: SamplingClock {
     public init() {}
-    public func wait(seconds: Double) async throws { try await Task.sleep(for: .seconds(seconds)) }
     public func now() -> Date { Date() }
     public func monotonicNow() -> Double { Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000 }
 }
@@ -189,7 +192,7 @@ public struct MonitoringSnapshot: Equatable, Sendable {
 public struct MonitoringSession: Sendable {
     private let configuration: MonitoringConfiguration
     private let reader: any ProcessReading
-    private let clock: any SamplingClock
+    private let clock: any AcquisitionClock
     private let registry: any SessionRegistryReading
     private let excluded: Set<Int32>
     private let recentActivity: RecentActivityStore?
@@ -197,7 +200,7 @@ public struct MonitoringSession: Sendable {
 
     public init(
         configuration: MonitoringConfiguration, reader: any ProcessReading,
-        clock: any SamplingClock = ContinuousSamplingClock(), excluding: Set<Int32> = [],
+        clock: any AcquisitionClock = ContinuousSamplingClock(), excluding: Set<Int32> = [],
         recentActivity: RecentActivityStore? = nil
     ) {
         self.init(
@@ -207,7 +210,7 @@ public struct MonitoringSession: Sendable {
     }
 
     package init(
-        configuration: MonitoringConfiguration, reader: any ProcessReading, clock: any SamplingClock,
+        configuration: MonitoringConfiguration, reader: any ProcessReading, clock: any AcquisitionClock,
         registry: any SessionRegistryReading, excluding: Set<Int32> = [],
         recentActivity: RecentActivityStore? = nil
     ) {

@@ -27,16 +27,10 @@ struct MenuBarContributorOverview: View {
             if !overview.coverageWarning.isEmpty {
                 Text(overview.coverageWarning).font(.caption2).foregroundStyle(.orange)
             }
-            DisclosureGroup("Recent coverage · \(overview.sourceDurationLabel)") {
-                Text(overview.census).font(.caption2)
-                Text(overview.coverage).font(.caption2)
-                if let snapshot = model.report.snapshot {
-                    MenuBarSamplingCoverageDetails(snapshot: snapshot)
+            DisclosureGroup("Sampling coverage") {
+                if let summary = overview.samplingCoverage {
+                    MenuBarCoverageSummary(summary: summary)
                 }
-                Text(
-                    "Session CPU is point-evidence candidate CPU over \(overview.duration.formatted(.number.precision(.fractionLength(1)))) s. Polling can miss workers and final exit CPU. Counts identify observed lifetimes, not confirmed exits."
-                )
-                .font(.caption2)
             }.font(.caption).foregroundStyle(.secondary)
             if !model.liveIcon {
                 Text("Collected since panel opened").font(.caption2).foregroundStyle(.secondary)

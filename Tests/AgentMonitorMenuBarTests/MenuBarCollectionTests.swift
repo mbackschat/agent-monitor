@@ -92,7 +92,9 @@ private func expectListedSession(_ snapshot: MonitoringSnapshot, session: String
     }
 }
 
-private final class NativeCollectionFixture: ProcessReading, SamplingClock, SessionRegistryReading, Sendable {
+private final class NativeCollectionFixture: ProcessReading, AcquisitionClock, SessionRegistryReading,
+    Sendable
+{
     static let firstSession = "11111111-1111-4111-8111-111111111111"
     static let secondSession = "22222222-2222-4222-8222-222222222222"
     static let runtime = ProcessIdentity(pid: 42_001, startMicroseconds: 1_000)
@@ -137,8 +139,9 @@ private final class NativeCollectionFixture: ProcessReading, SamplingClock, Sess
     func monotonicNow() -> Double { now().timeIntervalSinceReferenceDate }
     func now() -> Date { Date(timeIntervalSince1970: elapsed.withLock { $0 }) }
 
-    func wait(seconds: Double) async throws {
-        try await ticks.wait()
+    func wait(until deadline: Double, wake: AcquisitionWake) throws {
+        let seconds = max(0, deadline - monotonicNow())
+        guard ticks.wait(wake: wake) else { return }
         elapsed.withLock { $0 += max(1, seconds) }
     }
 }
@@ -146,39 +149,32 @@ private final class NativeCollectionFixture: ProcessReading, SamplingClock, Sess
 private final class CollectionTicks: Sendable {
     private struct State {
         var permits = 0
-        var waiters: [UUID: CheckedContinuation<Void, any Error>] = [:]
+        var waiter: AcquisitionWake?
     }
     private let state = Mutex(State())
-
     func advance() {
-        let waiter = state.withLock { state -> CheckedContinuation<Void, any Error>? in
-            guard let id = state.waiters.keys.first else {
-                state.permits += 1
-                return nil
-            }
-            return state.waiters.removeValue(forKey: id)
+        let wake = state.withLock { state in
+            state.permits += 1
+            return state.waiter
         }
-        waiter?.resume()
+        wake?.signal()
     }
-
-    func wait() async throws {
-        let id = UUID()
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation {
-                (continuation: CheckedContinuation<Void, any Error>) in
-                state.withLock { state in
-                    if Task.isCancelled {
-                        continuation.resume(throwing: CancellationError())
-                    } else if state.permits > 0 {
-                        state.permits -= 1
-                        continuation.resume()
-                    } else {
-                        state.waiters[id] = continuation
-                    }
-                }
+    func wait(wake: AcquisitionWake) -> Bool {
+        let ready = state.withLock { state in
+            if state.permits > 0 {
+                state.permits -= 1
+                return true
             }
-        } onCancel: {
-            state.withLock { $0.waiters.removeValue(forKey: id) }?.resume(throwing: CancellationError())
+            state.waiter = wake
+            return false
+        }
+        if ready { return true }
+        wake.wait(seconds: 30)
+        return state.withLock { state in
+            state.waiter = nil
+            guard state.permits > 0 else { return false }
+            state.permits -= 1
+            return true
         }
     }
 }

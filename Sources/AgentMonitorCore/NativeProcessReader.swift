@@ -34,6 +34,14 @@ public struct ProcessSnapshot: Sendable {
 }
 
 public struct NativeProcessReader: DiagnosisReading {
+    private var profile: PipelineProfile?
+
+    package func profiling(_ profile: PipelineProfile) -> Self {
+        var reader = self
+        reader.profile = profile
+        return reader
+    }
+
     private let numerator: UInt32
     private let denominator: UInt32
     private let adapters: AttributionAdapters
@@ -323,7 +331,8 @@ public struct NativeProcessReader: DiagnosisReading {
             return ProcessMetadata(status: .unavailable)
         }
         return NativeProcessArguments.read(
-            maximumBytes: min(maximum, maximumBytes), includeCommand: includeCommand, adapters: adapters
+            maximumBytes: min(maximum, maximumBytes), includeCommand: includeCommand, adapters: adapters,
+            profile: profile
         ) { buffer in
             var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
             var count = buffer?.count ?? 0

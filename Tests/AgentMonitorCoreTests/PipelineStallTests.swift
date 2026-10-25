@@ -6,7 +6,7 @@ import Testing
 
 private enum CompletedStall: Error { case finished }
 
-private final class ChurningPipeline: ProcessReading, SamplingClock, SessionRegistryReading, Sendable {
+private final class ChurningPipeline: ProcessReading, AcquisitionClock, SessionRegistryReading, Sendable {
     struct State {
         var time = 0.0
         var tick = 0
@@ -15,7 +15,7 @@ private final class ChurningPipeline: ProcessReading, SamplingClock, SessionRegi
         var intervals = 0
     }
     let state = Mutex(State())
-    let consumerEntered = AsyncStream<Void>.makeStream()
+    let consumerEntered = ClockGate()
     let collectionFinished = AsyncStream<Void>.makeStream()
     let finalTick: Int
     init(stallSeconds: Int) { finalTick = stallSeconds * 10 + 11 }
@@ -55,10 +55,10 @@ private final class ChurningPipeline: ProcessReading, SamplingClock, SessionRegi
         metadata(for: sample, includeCommand: false)
     }
     func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
-    func wait(seconds: Double) async throws {
-        try Task.checkCancellation()
+    func wait(until deadline: Double, wake: AcquisitionWake) throws {
+        let seconds = max(0, deadline - monotonicNow())
         if state.withLock({ $0.tick == 11 }) {
-            for await _ in consumerEntered.stream { break }
+            guard consumerEntered.wait(wake: wake) else { return }
         }
         state.withLock { $0.time += seconds }
     }
@@ -84,7 +84,7 @@ func productionConsumerStallPreservesChurningAccountingAndHistory(seconds: Int) 
                 return values.count == 1
             }
             if first {
-                fixture.consumerEntered.continuation.yield(())
+                fixture.consumerEntered.signal()
                 for await _ in fixture.collectionFinished.stream { break }
             }
         }

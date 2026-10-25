@@ -26,10 +26,16 @@ public enum TextReport {
                 style: .muted),
         ]
         lines.append(ReportLine(CPUContext.text(report.cpuAccounting), style: .muted))
+        lines += AccountingContext.warnings(report).map { ReportLine($0, style: .warning) }
         if let window = report.window {
             lines.append(ReportLine(AccountingContext.window(window), style: .muted))
             if let publication = AccountingContext.publication(window.publicationCoverage) {
                 lines.append(ReportLine(publication, style: .warning))
+                if let range = AccountingContext.publicationRange(
+                    window.publicationCoverage, endingAt: window.endedAt)
+                {
+                    lines.append(ReportLine(range, style: .muted))
+                }
             }
             lines += window.collapsedContributions.map {
                 ReportLine(AccountingContext.collapsed($0), style: .warning)

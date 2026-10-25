@@ -5,7 +5,7 @@ import Foundation
 enum MenuBarCollection {
     static func source(
         reader: @escaping @Sendable () throws -> any ProcessReading = { try NativeProcessReader() },
-        clock: any SamplingClock = ContinuousSamplingClock(),
+        clock: any AcquisitionClock = ContinuousSamplingClock(),
         registry: any SessionRegistryReading = CommandSessionRegistryReader(),
         excluding: Set<Int32> = [ProcessInfo.processInfo.processIdentifier]
     ) -> MenuBarSource {

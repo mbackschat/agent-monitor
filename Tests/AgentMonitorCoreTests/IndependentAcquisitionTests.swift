@@ -4,7 +4,7 @@ import Testing
 
 @testable import AgentMonitorCore
 
-private final class IndependentReader: ProcessReading, SamplingClock, SessionRegistryReading, Sendable {
+private final class IndependentReader: ProcessReading, AcquisitionClock, SessionRegistryReading, Sendable {
     enum BlockingStage { case metadata, provider }
     let blockingStage: BlockingStage
     let providerCalls = Mutex(0)
@@ -14,7 +14,8 @@ private final class IndependentReader: ProcessReading, SamplingClock, SessionReg
     let resolutionThreads = Mutex<[String]>([])
     let progressedDuringMetadata = Mutex(false)
     let thirdScan = DispatchSemaphore(value: 0)
-    let blockingStarted = AsyncStream<Void>.makeStream()
+    let blockingStarted = ClockGate()
+    let elapsed = Mutex(0.0)
     let events = AsyncStream<Int>.makeStream()
 
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
@@ -37,7 +38,7 @@ private final class IndependentReader: ProcessReading, SamplingClock, SessionReg
             return names.isEmpty
         }
         if first, blockingStage == .metadata {
-            blockingStarted.continuation.yield(())
+            blockingStarted.signal()
             let progressed = thirdScan.wait(timeout: .now() + 1) == .success
             progressedDuringMetadata.withLock { $0 = progressed }
         }
@@ -60,20 +61,21 @@ private final class IndependentReader: ProcessReading, SamplingClock, SessionReg
     func isCurrent(_ sample: ProcessSample) -> Bool { true }
     func output(of query: SessionRegistryQuery) throws -> Data {
         providerCalls.withLock { $0 += 1 }
-        blockingStarted.continuation.yield(())
+        blockingStarted.signal()
         resolutionThreads.withLock { $0.append(Thread.current.name ?? "unnamed") }
         let progressed = thirdScan.wait(timeout: .now() + 1) == .success
         progressedDuringMetadata.withLock { $0 = progressed }
         return Data("[{\"pid\":42,\"sessionId\":\"\(sessionB)\",\"status\":\"busy\"}]".utf8)
     }
 
-    func wait(seconds: Double) async throws {
+    func wait(until deadline: Double, wake: AcquisitionWake) throws {
+        let seconds = max(0, deadline - monotonicNow())
         if scans.withLock({ $0 }) == 1 {
-            for await _ in blockingStarted.stream { break }
+            guard blockingStarted.wait(wake: wake) else { return }
         }
-        try Task.checkCancellation()
+        elapsed.withLock { $0 += seconds }
     }
-    func monotonicNow() -> Double { now().timeIntervalSinceReferenceDate }
+    func monotonicNow() -> Double { elapsed.withLock { $0 } }
     func now() -> Date { Date(timeIntervalSince1970: 0) }
 }
 
@@ -139,7 +141,7 @@ private final class IndependentReader: ProcessReading, SamplingClock, SessionReg
     }
 }
 
-private final class CadenceFixture: ProcessReading, SamplingClock, Sendable {
+private final class CadenceFixture: ProcessReading, AcquisitionClock, Sendable {
     struct State {
         var time = 0.0
         var waits: [Double] = []
@@ -159,8 +161,8 @@ private final class CadenceFixture: ProcessReading, SamplingClock, Sendable {
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
         ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)])
     }
-    func wait(seconds: Double) async throws {
-        try Task.checkCancellation()
+    func wait(until deadline: Double, wake: AcquisitionWake) throws {
+        let seconds = max(0, deadline - monotonicNow())
         state.withLock {
             $0.waits.append(seconds)
             $0.time += seconds

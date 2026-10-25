@@ -65,10 +65,8 @@ public enum ContributorLayout {
                     [stats.census + " · \(stats.filtered.count) filtered", overview.meterScale]
                     + row.node.details
                     + (row.id == .section(.uncertain)
-                        ? [
-                            overview.coverage,
-                            "Session CPU is point evidence. Sampling can miss workers and final exit CPU.",
-                        ] : [])
+                        ? (overview.samplingCoverage?.terminalLines(width: max(10, width - indent.count - 2))
+                            ?? []) : [])
                 for detail in details {
                     for line in TerminalCells.wrapped(
                         TextReport.safe(detail), to: max(10, width - indent.count - 2))

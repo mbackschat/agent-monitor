@@ -116,7 +116,7 @@ extension ResolvedScan {
 struct IndependentMonitoringPipeline: Sendable {
     let configuration: MonitoringConfiguration
     let reader: any ProcessReading
-    let clock: any SamplingClock
+    let clock: any AcquisitionClock
     let registry: any SessionRegistryReading
     let excluded: Set<Int32>
     var recentActivity: (any RecentActivityCollecting)? = nil
@@ -157,7 +157,7 @@ struct IndependentMonitoringPipeline: Sendable {
         } else {
             mergeUnits = nil
         }
-        let handoff = AcquisitionHandoff<ResolvedScan>(limits: limits)
+        let handoff = AcquisitionHandoff<ResolvedScan>(limits: limits, profile: profile)
         let units = MonitoringChannel<ResolvedScan>(
             stage: .publication, limits: limits, coalesce: mergeUnits)
 
@@ -285,74 +285,45 @@ struct IndependentMonitoringPipeline: Sendable {
     ) async {
         defer { enrichment.finish() }
         do {
-            if let blocking = clock as? any BlockingSamplingClock {
-                try await worker.perform(profileJob: false) { state in
-                    let observation = live?.observe { cancellation.wake.signal() }
-                    defer { if let observation { live?.removeObserver(observation) } }
-                    do {
-                        var count = 0
-                        var interval = live?.seconds ?? configuration.intervalSeconds
-                        while true {
-                            guard interval.isFinite, (0.1...60).contains(interval) else {
-                                throw MonitoringError.invalidConfiguration
-                            }
-                            let scan = try autoreleasepool {
-                                try acquire(
-                                    &state, interval: interval, enrichment: enrichment,
-                                    cancellation: cancellation)
-                            }
-                            if let report = scan.report {
-                                try units.send(
-                                    report,
-                                    size: report.window?.payloadSize
-                                        ?? MonitoringPayloadSize(report.findings),
-                                    sequence: report.window.map { $0.baseline.id.sequence + 1 }
-                                        ?? scan.sequence)
-                                if report.reportDue { count += 1 }
-                                if configuration.samples > 0, count >= configuration.samples { break }
-                            }
-                            interval = try waitSynchronously(
-                                blocking, live: live, since: scan.startedAt, cancellation: cancellation)
+            try await worker.perform(profileJob: false) { state in
+                let observation = live?.observe { cancellation.wake.signal() }
+                defer { if let observation { live?.removeObserver(observation) } }
+                do {
+                    var count = 0
+                    var interval = live?.seconds ?? configuration.intervalSeconds
+                    while true {
+                        guard interval.isFinite, (0.1...60).contains(interval) else {
+                            throw MonitoringError.invalidConfiguration
                         }
-                    } catch {
-                        if let pending = drainPending(&state), let window = pending.window {
+                        let scan = try autoreleasepool {
+                            try acquire(
+                                &state, interval: interval, enrichment: enrichment,
+                                cancellation: cancellation)
+                        }
+                        if let report = scan.report {
                             try units.send(
-                                pending, size: window.payloadSize, sequence: window.baseline.id.sequence + 1)
+                                report,
+                                size: report.window?.payloadSize
+                                    ?? MonitoringPayloadSize(report.findings),
+                                sequence: report.window.map { $0.baseline.id.sequence + 1 }
+                                    ?? scan.sequence)
+                            if report.reportDue { count += 1 }
+                            if configuration.samples > 0, count >= configuration.samples { break }
                         }
-                        throw error
+                        interval = try waitSynchronously(
+                            clock, live: live, since: scan.startedAt, cancellation: cancellation)
                     }
+                } catch {
                     if let pending = drainPending(&state), let window = pending.window {
                         try units.send(
                             pending, size: window.payloadSize, sequence: window.baseline.id.sequence + 1)
                     }
+                    throw error
                 }
-                units.finish()
-                return
-            }
-            var interval = live?.seconds ?? configuration.intervalSeconds
-            guard interval.isFinite, (0.1...60).contains(interval) else {
-                throw MonitoringError.invalidConfiguration
-            }
-            var count = 0
-            while true {
-                try cancellation.check()
-                let requested = interval
-                let scan = try await worker.perform(profileJob: false) { state in
-                    try acquire(
-                        &state, interval: requested, enrichment: enrichment, cancellation: cancellation)
-                }
-                if let report = scan.report {
+                if let pending = drainPending(&state), let window = pending.window {
                     try units.send(
-                        report, size: report.window?.payloadSize ?? MonitoringPayloadSize(report.findings),
-                        sequence: report.window.map { $0.baseline.id.sequence + 1 } ?? scan.sequence)
-                    if report.reportDue { count += 1 }
-                    if configuration.samples > 0, count >= configuration.samples { break }
+                        pending, size: window.payloadSize, sequence: window.baseline.id.sequence + 1)
                 }
-                interval = try await wait(live, since: scan.startedAt)
-            }
-            if let pending = try await drainPending(on: worker), let window = pending.window {
-                try units.send(
-                    pending, size: window.payloadSize, sequence: window.baseline.id.sequence + 1)
             }
             units.finish()
         } catch {
@@ -411,7 +382,7 @@ struct IndependentMonitoringPipeline: Sendable {
     }
 
     private func waitSynchronously(
-        _ blocking: any BlockingSamplingClock, live: LiveInterval?, since start: Double,
+        _ blocking: any AcquisitionClock, live: LiveInterval?, since start: Double,
         cancellation: PipelineCancellation
     ) throws -> Double {
         while true {
@@ -615,33 +586,4 @@ struct IndependentMonitoringPipeline: Sendable {
         }
     }
 
-    private func wait(_ live: LiveInterval?, since start: Double) async throws -> Double {
-        while true {
-            try Task.checkCancellation()
-            let (interval, generation) = live?.current() ?? (configuration.intervalSeconds, 0)
-            guard interval.isFinite, (0.1...60).contains(interval) else {
-                throw MonitoringError.invalidConfiguration
-            }
-            let remaining = interval - max(0, clock.monotonicNow() - start)
-            guard remaining > 0 else { return interval }
-            guard let live else {
-                try await clock.wait(seconds: remaining)
-                return interval
-            }
-            let changed = try await withThrowingTaskGroup(of: Bool.self) { group in
-                group.addTask {
-                    try await clock.wait(seconds: remaining)
-                    return false
-                }
-                group.addTask {
-                    await live.changed(after: generation)
-                    return true
-                }
-                defer { group.cancelAll() }
-                return try await group.next() ?? false
-            }
-            try Task.checkCancellation()
-            if !changed { return interval }
-        }
-    }
 }

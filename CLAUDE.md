@@ -12,7 +12,7 @@ These are acceptance priorities, not claims that the current sampler meets them.
 
 ## UX priority
 
-Keep interfaces informative without chattiness. Prefer graphics, charts and compact summaries over explanatory prose when they communicate the information clearly. Put repeat explanations in tooltips and progressive disclosure so experienced users can focus on the workload. Keep uncertainty discoverable and material coverage gaps visible. Follow established native SwiftUI/AppKit and terminal conventions: iStat Menus is a resource-monitor reference for Mac, while btop/htop inform TUI metric columns, meters and keyboard navigation. Adapt those conventions to agent/session ownership; do not copy a graphical dropdown into the terminal.
+The product should provide a clear, actionable resource overview under stress: identify what is consuming resources, who owns it, whether the evidence is incomplete, and which verified action or related detail is relevant. Keep interfaces informative without chattiness. Prefer graphics, charts and compact summaries over explanatory prose when they communicate the information clearly. Disclosure reveals structured tables, graphs and concise metrics, not walls of diagnostic prose. Put repeat explanations in tooltips or help so experienced users can focus on the workload; keep actions and associated process/session detail in context. Keep uncertainty discoverable and material coverage gaps visible. Follow established native SwiftUI/AppKit and terminal conventions: iStat Menus is a resource-monitor reference for Mac, while btop/htop inform TUI metric columns, meters and keyboard navigation. Adapt those conventions to agent/session ownership; do not copy a graphical dropdown into the terminal.
 
 ## Start and scope
 

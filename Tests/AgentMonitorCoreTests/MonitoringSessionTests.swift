@@ -21,9 +21,10 @@ private enum SessionFixtureError: Error { case collection, consumer }
     #expect(misses + hits == UInt64(fixture.scans.withLock { $0 }))
 }
 
-private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
+private final class SessionFixture: ProcessReading, AcquisitionClock, Sendable {
     let events = Mutex<[String]>([])
-    let metadataRead = AsyncStream<Void>.makeStream()
+    let metadataRead = ClockGate()
+    let elapsed = Mutex(0.0)
     let scans = Mutex(0)
     let collected = Mutex<[MonitoringSnapshot]>([])
     let failCollection: Bool
@@ -61,7 +62,7 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
 
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
         events.withLock { $0.append("metadata") }
-        metadataRead.continuation.yield(())
+        metadataRead.signal()
         return ProcessMetadata(
             markers: [SessionMarker(threadID: sessionA, provider: .codex)],
             command: includeCommand ? ["worker"] : nil)
@@ -73,7 +74,8 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
         metadata(for: sample, includeCommand: includeCommand)
     }
 
-    func wait(seconds: Double) async throws {
+    func wait(until deadline: Double, wake: AcquisitionWake) throws {
+        let seconds = max(0, deadline - monotonicNow())
         let first = events.withLock { events in
             defer { events.append("wait:\(seconds)") }
             return !events.contains { $0.hasPrefix("wait") }
@@ -81,11 +83,13 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
         if cancelWait { throw CancellationError() }
         if first, let blockFirstWait {
             blockFirstWait()
-            try await Task.sleep(for: .seconds(3600))
+            wake.wait(seconds: 30)
+            return
         }
+        elapsed.withLock { $0 += seconds }
     }
 
-    func monotonicNow() -> Double { now().timeIntervalSinceReferenceDate }
+    func monotonicNow() -> Double { elapsed.withLock { $0 } }
     func now() -> Date { Date(timeIntervalSince1970: 0) }
 
     func receive(_ snapshot: MonitoringSnapshot) {
@@ -203,9 +207,13 @@ func sessionRejectsInvalidLiveThresholds(cpu: Double) async throws {
 
 @Test func settingTheSameIntervalDoesNotInvalidateAnInFlightWait() {
     let interval = LiveInterval(0.1)
-    let generation = interval.current().generation
+    let calls = Mutex(0)
+    let observer = interval.observe { calls.withLock { $0 += 1 } }
+    defer { interval.removeObserver(observer) }
     interval.set(0.1)
-    #expect(interval.current().generation == generation)
+    #expect(calls.withLock { $0 } == 0)
+    interval.set(0.2)
+    #expect(calls.withLock { $0 } == 1)
 }
 
 // The TUI can change the interval at any time; the change wakes the waiting session, so a shorter
@@ -288,21 +296,21 @@ func sessionRejectsInvalidLiveThresholds(cpu: Double) async throws {
     #expect(monitor.agentLoad().heavyProcesses.isEmpty)
 }
 
-private final class SummaryClock: SamplingClock, Sendable {
+private final class SummaryClock: AcquisitionClock, Sendable {
     let time = Mutex(0.0)
     let elapsed = Mutex(0.0)
     let waits = Mutex(0)
     let rollbackAtWait: Int?
-    let metadataReads: AsyncStream<Void>?
+    let metadataReads: ClockGate?
     let lastMetadataWait = Mutex(-Double.infinity)
-    init(rollbackAtWait: Int? = nil, metadataReads: AsyncStream<Void>? = nil) {
+    init(rollbackAtWait: Int? = nil, metadataReads: ClockGate? = nil) {
         self.rollbackAtWait = rollbackAtWait
         self.metadataReads = metadataReads
     }
     func now() -> Date { Date(timeIntervalSince1970: time.withLock { $0 }) }
     func monotonicNow() -> Double { elapsed.withLock { $0 } }
-    func wait(seconds: Double) async throws {
-        try Task.checkCancellation()
+    func wait(until deadline: Double, wake: AcquisitionWake) throws {
+        let seconds = max(0, deadline - monotonicNow())
         let at = monotonicNow()
         let needsMetadata = lastMetadataWait.withLock { last in
             guard at - last >= 1 else { return false }
@@ -310,7 +318,7 @@ private final class SummaryClock: SamplingClock, Sendable {
             return true
         }
         if needsMetadata, let metadataReads {
-            for await _ in metadataReads { break }
+            guard metadataReads.wait(wake: wake) else { return }
         }
         let count = waits.withLock {
             $0 += 1
@@ -359,7 +367,7 @@ func defaultReportIncludesIdleSmallAgent(measurementsAvailable: Bool) throws {
 @Test(.timeLimit(.minutes(1)), arguments: [0.25, 1.0, 15.0, 30.0])
 func resourceTotalsDoNotWaitForMetadataRefresh(interval: Double) async throws {
     let fixture = SessionFixture()
-    let clock = SummaryClock(metadataReads: fixture.metadataRead.stream)
+    let clock = SummaryClock(metadataReads: fixture.metadataRead)
     let count = Int(30 / interval) + 1
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(
@@ -383,7 +391,7 @@ func resourceTotalsDoNotWaitForMetadataRefresh(interval: Double) async throws {
     let fixture = SessionFixture()
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(samples: 16, collectAgentLoad: true),
-        reader: fixture, clock: SummaryClock(metadataReads: fixture.metadataRead.stream))
+        reader: fixture, clock: SummaryClock(metadataReads: fixture.metadataRead))
     try await session.run { fixture.receive($0) }
     let snapshots = fixture.collected.withLock { $0 }
     #expect(snapshots.filter { $0.agentLoad != nil }.count == 16)

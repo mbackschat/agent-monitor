@@ -234,13 +234,26 @@ struct MenuBarView: View {
                 "\(model.report.showsOverview ? "" : model.report.sortDescription + " · ")\(model.report.showsOverview && model.report.thresholds.isUnfiltered ? "Resource filters off" : ThresholdContext.text(model.report.thresholds)) · \(resource(model.report.interval, unit: " s")) acquisition · \(resource(LiveReportState.displayIntervalSeconds, unit: " s")) display"
             )
             .font(.caption).foregroundStyle(.secondary)
+            if !model.report.showsOverview, let snapshot = model.report.snapshot {
+                ForEach(AccountingContext.warnings(snapshot), id: \.self) { warning in
+                    Label(warning, systemImage: "exclamationmark.triangle")
+                        .font(.caption2).foregroundStyle(.orange)
+                }
+            }
             if !model.report.showsOverview, let window = model.report.snapshot?.window {
-                Text(AccountingContext.window(window)).font(.caption2).foregroundStyle(.secondary)
+                Label(
+                    "CPU window · \(window.durationSeconds.formatted(.number.precision(.fractionLength(1)))) s",
+                    systemImage: "clock"
+                )
+                .font(.caption2).foregroundStyle(.secondary)
+                .help(AccountingContext.window(window))
                 if let disclosure = AccountingContext.publication(window.publicationCoverage) {
                     Label(disclosure, systemImage: "clock.arrow.circlepath")
                         .font(.caption2).foregroundStyle(.orange)
                         .help(
-                            "Publication backlog reduced history time resolution; measured CPU is conserved.")
+                            "Publication backlog reduced history time resolution; measured CPU is conserved. "
+                                + (AccountingContext.publicationRange(
+                                    window.publicationCoverage, endingAt: window.endedAt) ?? ""))
                 }
                 if let pressure = AccountingContext.pressure(window) {
                     Label(pressure, systemImage: "exclamationmark.triangle")

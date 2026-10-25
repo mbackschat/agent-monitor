@@ -889,9 +889,11 @@
           "minimum": 0
         },
         "coalescedStartedAt": {
+          "description": "Enclosing coalesced range start in monotonic seconds within this acquisition run, using the same time base as window.startedAt.",
           "type": "number"
         },
         "coalescedEndedAt": {
+          "description": "Enclosing coalesced range end in monotonic seconds within this acquisition run, using the same time base as window.endedAt.",
           "type": "number"
         }
       },

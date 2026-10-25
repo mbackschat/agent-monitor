@@ -13,6 +13,7 @@ package final class PipelineProfile: Sendable {
     enum Worker: String, CaseIterable, Sendable { case acquisition, metadata, providers, publication }
     enum Counter: String, CaseIterable, Sendable {
         case resolutionHits, resolutionMisses, detachedGenerationChanges, registryAncestorChecks
+        case argumentShortReads, argumentReadFallbacks
     }
     struct Stamp {
         let cpu = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
@@ -34,10 +35,19 @@ package final class PipelineProfile: Sendable {
         package let threadCPUSeconds: Double?
         package let jobs: Statistics
     }
+    package struct HandoffStatistics: Encodable, Sendable {
+        package var maximumQueuedUnits = 0
+        package var maximumQueuedRecords = 0
+        package var maximumQueuedTextBytes = 0
+        package var minimumFreeUnits: Int
+        package var minimumFreeRecords: Int
+        package var minimumFreeTextBytes: Int
+    }
     package struct Snapshot: Encodable, Sendable {
         package let stages: [String: Statistics]
         package let workers: [String: WorkerStatistics]
         package let counters: [String: UInt64]
+        package let handoff: HandoffStatistics?
     }
     private struct Samples {
         var count = 0
@@ -80,6 +90,7 @@ package final class PipelineProfile: Sendable {
         var workers: [Worker: Samples] = [:]
         var threadCPU: [Worker: Double] = [:]
         var counters: [Counter: UInt64] = [:]
+        var handoff: HandoffStatistics?
     }
     private let state = Mutex(State())
     private let sampleLimit: Int
@@ -95,6 +106,25 @@ package final class PipelineProfile: Sendable {
     func increment(_ counter: Counter, by count: UInt64 = 1) {
         guard count > 0 else { return }
         state.withLock { $0.counters[counter, default: 0] += count }
+    }
+    func observeHandoff(units: Int, size: MonitoringPayloadSize, limits: MonitoringPipelineLimits) {
+        state.withLock { state in
+            var value =
+                state.handoff
+                ?? HandoffStatistics(
+                    minimumFreeUnits: limits.pendingScans,
+                    minimumFreeRecords: limits.pendingObservations,
+                    minimumFreeTextBytes: limits.pendingTextBytes)
+            value.maximumQueuedUnits = max(value.maximumQueuedUnits, units)
+            value.maximumQueuedRecords = max(value.maximumQueuedRecords, size.observations)
+            value.maximumQueuedTextBytes = max(value.maximumQueuedTextBytes, size.textBytes)
+            value.minimumFreeUnits = min(value.minimumFreeUnits, limits.pendingScans - units)
+            value.minimumFreeRecords = min(
+                value.minimumFreeRecords, limits.pendingObservations - size.observations)
+            value.minimumFreeTextBytes = min(
+                value.minimumFreeTextBytes, limits.pendingTextBytes - size.textBytes)
+            state.handoff = value
+        }
     }
     func end(_ stage: Stage, since start: Stamp) {
         let end = Stamp()
@@ -129,7 +159,7 @@ package final class PipelineProfile: Sendable {
                 counters: Dictionary(
                     uniqueKeysWithValues: Counter.allCases.map {
                         ($0.rawValue, state.counters[$0, default: 0])
-                    })
+                    }), handoff: state.handoff
             )
         }
     }

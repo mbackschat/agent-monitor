@@ -58,7 +58,7 @@ import Testing
     #expect(queries == 2)
 }
 
-@Test(arguments: [nil, -1, 65_537])
+@Test(arguments: [nil, -1, 0, 1, 2, 3, 4, 65_537])
 func invalidInitialArgumentReadIsUnavailable(count: Int?) {
     let result = NativeProcessArguments.read(maximumBytes: 131_072) { _ in count }
     #expect(result.status == .unavailable)

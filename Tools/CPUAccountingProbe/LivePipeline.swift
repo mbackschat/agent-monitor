@@ -84,9 +84,9 @@ import Synchronization
         let reports = Mutex(Accumulated())
         let start = ContinuousClock.now
         let date = Date()
-        let reader = try TimedNativeReader()
-        let history = RecentActivityStore()
         let profile = PipelineProfile()
+        let reader = try TimedNativeReader(profile: profile)
+        let history = RecentActivityStore()
         let providers = ProfileListings(enabled: CommandLine.arguments.contains("--providers"))
         let cpuStart = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
         let childCPUStart = childCPUSeconds()
@@ -186,7 +186,7 @@ private final class TimedNativeReader: ProcessReading, Sendable {
     }
     let periods = Mutex(Periods())
     let reader: NativeProcessReader
-    init() throws { reader = try NativeProcessReader() }
+    init(profile: PipelineProfile) throws { reader = try NativeProcessReader().profiling(profile) }
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
         let now = ContinuousSamplingClock().monotonicNow()
         let snapshot = try reader.snapshot(excluding: excluding)

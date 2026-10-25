@@ -7,6 +7,7 @@ import Testing
     var expected: [String: UInt64] = [
         "resolutionHits": 0, "resolutionMisses": 0,
         "detachedGenerationChanges": 0, "registryAncestorChecks": 0,
+        "argumentShortReads": 0, "argumentReadFallbacks": 0,
     ]
     #expect(profile.snapshot().counters == expected)
     profile.increment(.resolutionHits, by: 3)

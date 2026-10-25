@@ -19,9 +19,13 @@ final class AcquisitionHandoff<Element: Sendable>: Sendable {
     private let state: Mutex<State>
     private let limits: MonitoringPipelineLimits
 
-    init(limits: MonitoringPipelineLimits) {
+    private let profile: PipelineProfile?
+
+    init(limits: MonitoringPipelineLimits, profile: PipelineProfile? = nil) {
+        self.profile = profile
         self.limits = limits
         state = Mutex(State(ring: Array(repeating: nil, count: limits.pendingScans)))
+        profile?.observeHandoff(units: 0, size: .init(observations: 0, textBytes: 0), limits: limits)
     }
 
     func send(_ value: Element, size: MonitoringPayloadSize, sequence: UInt64) throws {
@@ -38,6 +42,7 @@ final class AcquisitionHandoff<Element: Sendable>: Sendable {
             state.ring[(state.head + state.count) % state.ring.count] = Entry(value: value, size: size)
             state.count += 1
             state.size.add(size)
+            profile?.observeHandoff(units: state.count, size: state.size, limits: limits)
             return nil
         }
         waiter?.resume(returning: value)

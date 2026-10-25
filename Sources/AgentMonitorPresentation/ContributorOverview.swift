@@ -153,6 +153,7 @@ public struct ContributorOverview: Equatable, Sendable {
     public private(set) var totals = ContributorStats()
     public private(set) var duration = 0.0
     public private(set) var coverage = ""
+    public private(set) var samplingCoverage: SamplingCoverageSummary?
     public private(set) var census = ""
     public private(set) var coverageWarning = ""
     public private(set) var order: ContributorOrder = .cpu
@@ -595,7 +596,9 @@ public struct ContributorOverview: Equatable, Sendable {
         }
         var publication = PublicationCoverage()
         for unit in recent.units { publication.merge(unit.publicationCoverage) }
-        if let disclosure = AccountingContext.publication(publication) { warnings.append(disclosure) }
+        if let disclosure = AccountingContext.publication(publication, range: .recent) {
+            warnings.append(disclosure)
+        }
         if let timing = snapshot.window?.acquisitionCoverage, timing.overrunCount > 0 {
             warnings.append("\(timing.overrunCount) sampling overruns")
         }
@@ -617,6 +620,9 @@ public struct ContributorOverview: Equatable, Sendable {
         if totals.exclusions > 0 { warnings.append("\(totals.exclusions) excluded") }
         if totals.missingMemory > 0 { warnings.append("\(totals.missingMemory) memory unavailable") }
         if !recent.currentContextAvailable { warnings.append("current data unavailable") }
+        samplingCoverage = SamplingCoverageSummary(
+            snapshot: snapshot, reads: readCoverage, observed: observedBounds,
+            recentDuration: recent.duration, retentionLimited: recent.retentionLimited)
         coverageWarning = warnings.isEmpty ? "" : "⚠ " + warnings.joined(separator: " · ")
         coverage =
             "Recent \(number(recent.duration)) s"

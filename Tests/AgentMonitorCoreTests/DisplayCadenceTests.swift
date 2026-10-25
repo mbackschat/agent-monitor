@@ -6,14 +6,15 @@ import Testing
 
 private enum WindowFixtureError: Error { case stopped }
 
-private final class WindowReader: ProcessReading, SamplingClock, Sendable {
+private final class WindowReader: ProcessReading, AcquisitionClock, Sendable {
     struct State {
         var time = 0.0
         var scans = 0
         var waits: [Double] = []
+        var threads: Set<String> = []
     }
     let state = Mutex(State())
-    let firstDelivery = AsyncStream<Void>.makeStream()
+    let firstDelivery = ClockGate()
     let finalScan = AsyncStream<Void>.makeStream()
     let pauseAfterFirstWindow: Bool
     let failAt: Int?
@@ -36,6 +37,7 @@ private final class WindowReader: ProcessReading, SamplingClock, Sendable {
                 finalScan.continuation.yield(())
                 throw WindowFixtureError.stopped
             }
+            value.threads.insert(Thread.current.name ?? "unnamed")
             let index = value.scans
             value.scans += 1
             if index == slowScanAt { value.time += 1.2 }
@@ -54,10 +56,11 @@ private final class WindowReader: ProcessReading, SamplingClock, Sendable {
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
         ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)], status: .markerRead)
     }
-    func wait(seconds: Double) async throws {
-        try Task.checkCancellation()
+    func wait(until deadline: Double, wake: AcquisitionWake) throws {
+        let seconds = max(0, deadline - monotonicNow())
+        _ = state.withLock { $0.threads.insert(Thread.current.name ?? "unnamed") }
         if pauseAfterFirstWindow, state.withLock({ $0.scans == 11 }) {
-            for await _ in firstDelivery.stream { break }
+            guard firstDelivery.wait(wake: wake) else { return }
         }
         state.withLock {
             $0.time += seconds
@@ -110,9 +113,10 @@ private struct NoPublicationRegistry: SessionRegistryReading {
             }
         }
         for await _ in history.entered.stream { break }
-        reader.firstDelivery.continuation.yield(())
+        reader.firstDelivery.signal()
         for await _ in reader.finalScan.stream { break }
         #expect(reader.state.withLock { $0.scans } == 41)
+        #expect(reader.state.withLock { $0.threads } == ["AgentMonitor acquisition"])
         history.resume.signal()
         _ = await run.value
         let values = results.withLock { $0 }
@@ -225,7 +229,7 @@ private struct NoPublicationRegistry: SessionRegistryReading {
                     return value.count == 1
                 }
                 if first {
-                    reader.firstDelivery.continuation.yield(())
+                    reader.firstDelivery.signal()
                     for await _ in reader.finalScan.stream { break }
                 }
             }
@@ -256,7 +260,7 @@ private struct NoPublicationRegistry: SessionRegistryReading {
                 intervalSeconds: 0.1, samples: 2, reportIntervalSeconds: 5), reader: reader, clock: reader)
         try await session.run { snapshot in
             reports.withLock { $0.append(snapshot) }
-            reader.firstDelivery.continuation.yield(())
+            reader.firstDelivery.signal()
         }
         let values = reports.withLock { $0 }
         #expect(values.count == 2)

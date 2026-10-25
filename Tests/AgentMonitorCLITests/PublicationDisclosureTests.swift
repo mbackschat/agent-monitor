@@ -32,11 +32,72 @@ import Testing
     #expect(publication["coalescedUnitCount"] as? Int == 2)
     #expect(publication["maximumUnitSpanSeconds"] as? Double == 2)
     let disclosure = try #require(AccountingContext.publication(window.summary.publicationCoverage))
+    #expect(disclosure.hasPrefix("Window:"))
     #expect(TextReport.render(snapshot).contains(disclosure))
+    #expect(TextReport.render(snapshot).contains("coalesced range"))
     var state = LiveReportState()
     state.receive(snapshot)
-    #expect(state.overview.coverageWarning.contains(disclosure))
+    #expect(state.overview.coverageWarning.contains("Recent: 2 units coalesced"))
     #expect(state.overview.coverage.contains("coalesced range"))
     state.overview.enabled = false
     #expect(LiveReportLayout.lines(state: state, width: 120, height: 24).contains { $0.text == disclosure })
+}
+
+@Test(arguments: [60, 100, 140])
+func processHeadersExposeReadGapsAndOverruns(width: Int) throws {
+    var ledger = CounterLedger()
+    let baseline = ledger.ingest([], listedAt: 0)
+    let source = ProcessSnapshot(
+        samples: [], enumeratedCount: 2, unreadableCount: 2, listedAt: 1.2, scanSeconds: 0,
+        hostCounters: nil, logicalCPUCount: 8,
+        nativeOutcomes: [41, 42].map {
+            NativeCounterOutcome(
+                pid: $0, identity: nil, operation: .bsdInfo, status: .lookupUnavailable,
+                failure: nil, observedAtTicks: 1)
+        })
+    let scan = ledger.ingest([], listedAt: 1.2, source: source)
+    var window = AccountingWindow(baseline: baseline)
+    try window.append(
+        scan, rows: [],
+        timing: AcquisitionTiming(
+            runID: scan.id.runID, scanSequence: scan.id.sequence, qualityOfService: .userInitiated,
+            requestedPeriodSeconds: 0.1, achievedPeriodSeconds: 1.2,
+            scanWorkSeconds: 0, resolutionDelaySeconds: 0))
+    let snapshot = MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+            unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
+        timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 0.1, cpuThresholdPercent: 0,
+        memoryThresholdBytes: 0, sampledProcessCount: 0, unreadableProcessCount: 0, findings: [],
+        window: window.summary)
+    var state = LiveReportState()
+    state.receive(snapshot)
+    state.overview.enabled = false
+    let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
+    let warnings = lines.prefix(10).filter { $0.style == .warning }.map(\.text).joined(separator: " ")
+    #expect(warnings.contains("Read gaps: 2 same-user PIDs"))
+    #expect(warnings.contains("1 overruns"))
+    #expect(warnings.contains("max gap"))
+    let textWarnings = TextReport.lines(snapshot).filter { $0.style == .warning }.map(\.text)
+    #expect(textWarnings.contains { $0.contains("Read gaps: 2 same-user PIDs") })
+    #expect(textWarnings.contains { $0.contains("1 overruns") })
+}
+
+@Test func coverageSummaryUsesMetricsInsteadOfDiagnosticParagraphs() throws {
+    let snapshot = MonitoringSnapshot(
+        cpuAccounting: CPUAccounting(
+            hostBusyPercent: nil, logicalCPUCount: 8,
+            measuredUserPercent: 0, unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
+        timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 0.1,
+        cpuThresholdPercent: 0, memoryThresholdBytes: 0,
+        sampledProcessCount: 653, unreadableProcessCount: 9, findings: [])
+    let summary = SamplingCoverageSummary(snapshot: snapshot)
+    #expect(summary.metrics.first { $0.id == "sampled" }?.value == "653")
+    #expect(summary.metrics.first { $0.id == "failed" }?.value == "9")
+    #expect(summary.metrics.first { $0.id == "failed" }?.warning == true)
+    let lines = summary.terminalLines(width: 80)
+    #expect(lines.count <= 4)
+    #expect(lines.allSatisfy { TerminalCells.width($0) <= 80 })
+    #expect(!lines.joined().contains("Totals are independent"))
+    #expect(!lines.joined().contains("Session CPU is"))
 }

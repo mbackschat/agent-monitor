@@ -1,15 +1,51 @@
 import AgentMonitorCore
 
 public enum AccountingContext {
+    public static func readGaps(_ snapshot: MonitoringSnapshot) -> String? {
+        if let coverage = snapshot.window?.readCoverage, coverage.failedPIDCount.maximum > 0 {
+            let range = coverage.failedPIDCount
+            let count =
+                range.minimum == range.maximum
+                ? "\(range.minimum)" : "\(range.minimum)–\(range.maximum)"
+            return "Read gaps: \(count) same-user PIDs (window)"
+        }
+        if snapshot.unreadableProcessCount > 0 {
+            return "Read gaps: \(snapshot.unreadableProcessCount) same-user PIDs (latest scan)"
+        }
+        if let count = snapshot.window?.readCoverage.unidentifiedFailureObservations, count > 0 {
+            return "Read gaps: \(count) failed observations (window)"
+        }
+        return nil
+    }
+
+    public static func warnings(_ snapshot: MonitoringSnapshot) -> [String] {
+        var result = readGaps(snapshot).map { [$0] } ?? []
+        if let coverage = snapshot.window?.acquisitionCoverage, coverage.overrunCount > 0 {
+            let gap =
+                coverage.maximumGapSeconds.map { ReportNumber.text($0 * 1_000) + " ms" } ?? "unavailable"
+            result.append("Acquisition: \(coverage.overrunCount) overruns · max gap \(gap)")
+        }
+        return result
+    }
+
     public static func window(_ window: ReportWindowSummary) -> String {
         "CPU over \(ReportNumber.text(window.durationSeconds)) s · point-evidence candidates; interval ownership unverified. Polling can miss workers and final exit CPU. "
             + acquisition(window.acquisitionCoverage)
     }
 
-    public static func publication(_ coverage: PublicationCoverage) -> String? {
+    public enum PublicationRange { case window, recent }
+
+    public static func publication(
+        _ coverage: PublicationCoverage, range: PublicationRange = .window
+    ) -> String? {
         guard coverage.coalescedUnitCount > 0 else { return nil }
+        let label: String
+        switch range {
+        case .window: label = "Window"
+        case .recent: label = "Recent"
+        }
         return
-            "\(coverage.coalescedUnitCount) units coalesced · max unit \(ReportNumber.text(coverage.maximumUnitSpanSeconds)) s"
+            "\(label): \(coverage.coalescedUnitCount) units coalesced · max unit \(ReportNumber.text(coverage.maximumUnitSpanSeconds)) s"
     }
 
     public static func publicationRange(_ coverage: PublicationCoverage, endingAt end: Double) -> String? {

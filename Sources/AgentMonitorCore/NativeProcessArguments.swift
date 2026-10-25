@@ -3,7 +3,7 @@ import Foundation
 enum NativeProcessArguments {
     static func read(
         maximumBytes: Int, includeCommand: Bool = false, adapters: AttributionAdapters = .builtIn,
-        access: (UnsafeMutableRawBufferPointer?) -> Int?
+        profile: PipelineProfile? = nil, access: (UnsafeMutableRawBufferPointer?) -> Int?
     ) -> ProcessMetadata {
         let initialCapacity = 65_536
         if maximumBytes > initialCapacity {
@@ -12,15 +12,18 @@ enum NativeProcessArguments {
             // buffers keep the size-checked path. See bsd/kern/kern_sysctl.c, sysctl_procargsx.
             let result = withUnsafeTemporaryAllocation(byteCount: initialCapacity, alignment: 1) {
                 buffer -> ProcessMetadata? in
-                guard let count = access(buffer), count >= 0, count <= buffer.count else {
+                guard let count = access(buffer), count > MemoryLayout<Int32>.size, count <= buffer.count
+                else {
                     return ProcessMetadata(status: .unavailable)
                 }
                 guard count < buffer.count else { return nil }
+                profile?.increment(.argumentShortReads)
                 return ProcessArguments.parse(
                     UnsafeRawBufferPointer(rebasing: buffer[..<count]), includeCommand: includeCommand,
                     adapters: adapters)
             }
             if let result { return result }
+            profile?.increment(.argumentReadFallbacks)
         }
         guard maximumBytes > 0, let needed = access(nil), needed > MemoryLayout<Int32>.size else {
             return ProcessMetadata(status: .unavailable)
