@@ -54,4 +54,18 @@ import Testing
         #expect(!overview.detailsVisible)
     }
 
+    @Test func changingSelectionClosesDetailsButReselectingKeepsThem() throws {
+        var overview = ContributorOverview()
+        overview.receive(try overviewFixture())
+        let session = try #require(overview.main.first)
+        overview.toggle(session)
+        let family = try #require(overview.nodes[session]?.children.first)
+        overview.toggleDetails()
+        overview.select(session)
+        #expect(overview.detailsVisible)
+        overview.select(family)
+        #expect(overview.selection == family)
+        #expect(!overview.detailsVisible)
+    }
+
 }

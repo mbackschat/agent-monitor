@@ -34,10 +34,17 @@ private struct ResolutionOracle {
         verify(context)
     }
 
-    mutating func bind(_ runtime: ProcessIdentity, session: String?, at: Double, _ context: String) throws {
+    mutating func bind(
+        _ runtime: ProcessIdentity, session: String?, name: String? = nil, at: Double, _ context: String
+    ) throws {
         let entries: [[String: Any]] =
             session.map {
-                [["pid": runtime.pid, "sessionId": $0, "status": "busy", "kind": "interactive"]]
+                [
+                    [
+                        "pid": runtime.pid, "sessionId": $0, "status": "busy", "kind": "interactive",
+                        "name": name ?? "",
+                    ]
+                ]
             } ?? []
         let data = try JSONSerialization.data(withJSONObject: entries)
         cached.bindSessions(data, provider: .claude, observedAt: at)
@@ -195,4 +202,17 @@ func generatedCachedResolutionMatchesUncachedState(seed: Int) throws {
             break
         }
     }
+}
+
+@Test func warmAccountingCacheUsesLatestVerifiedSessionName() throws {
+    var oracle = ResolutionOracle()
+    let runtime = sample(10, executable: "/bin/claude")
+    let worker = sample(20, parent: 10)
+    oracle.ingest([runtime, worker], "initial")
+    try oracle.bind(runtime.identity, session: sessionA, name: "Original", at: 1, "warm named binding")
+    #expect(oracle.cached.accountingFindings().allSatisfy { $0.sessionName == "Original" })
+    try oracle.bind(runtime.identity, session: sessionA, name: "Renamed", at: 2, "same owner renamed")
+    #expect(oracle.cached.accountingFindings().allSatisfy { $0.sessionName == "Renamed" })
+    try oracle.bind(runtime.identity, session: sessionA, at: 3, "name removed")
+    #expect(oracle.cached.accountingFindings().allSatisfy { $0.sessionName == nil })
 }

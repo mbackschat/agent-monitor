@@ -321,3 +321,23 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     #expect(text.contains("ugrep"), "\(text)")
     #expect(!text.contains("2.1.299"), "\(text)")
 }
+
+@Test @MainActor func contributorShortcutsUseFocusedRowInsteadOfStaleSelection() async throws {
+    let snapshot = try nativeOverviewFixture()
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let first = try #require(model.report.overview.main.first)
+    let second = try #require(model.report.overview.main.last)
+    try #require(first != second)
+    model.report.overview.select(first)
+    #expect(model.handleShortcut("i", row: nil, focus: .contributor(second)))
+    #expect(model.report.overview.selection == second)
+    #expect(model.report.overview.detailsVisible)
+    #expect(model.handleShortcut("i", row: nil, focus: .contributor(second)))
+    #expect(!model.report.overview.detailsVisible)
+    #expect(model.handleShortcut(".", row: nil, focus: .contributor(first)))
+    #expect(model.report.overview.pinned.contains(first))
+    #expect(!model.report.overview.pinned.contains(second))
+    await model.stop()
+}

@@ -276,7 +276,12 @@ public struct ContributorOverview: Equatable, Sendable {
         detailOffset = 0
         if !open.insert(id).inserted { open.remove(id) }
     }
-    public mutating func select(_ id: ContributorID) { if nodes[id] != nil { selection = id } }
+    public mutating func select(_ id: ContributorID) {
+        guard nodes[id] != nil, selection != id else { return }
+        selection = id
+        detailsVisible = false
+        detailOffset = 0
+    }
     public mutating func toggleDetails() {
         detailsVisible.toggle()
         detailOffset = 0

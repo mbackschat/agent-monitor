@@ -173,7 +173,7 @@ struct MenuBarView: View {
                 NSApplication.shared.terminate(nil)
                 return .handled
             }
-            return model.handleShortcut(key.characters, row: focusedRow) ? .handled : .ignored
+            return model.handleShortcut(key.characters, row: focusedRow, focus: focus) ? .handled : .ignored
         }
         .task(id: pendingPinFocus) {
             guard let row = pendingPinFocus else { return }

@@ -92,6 +92,10 @@ import Testing
         let delivered = reports.withLock { $0 }
         #expect(!delivered.isEmpty)
         #expect(delivered.last?.window?.finalScan == 60)
+        #expect(
+            delivered.compactMap(\.window).allSatisfy {
+                $0.collapsedContributions.allSatisfy(\.category.categoryDetailsRetained)
+            })
         let seconds = deliveredCPU(delivered)
         #expect(abs(seconds - 60) < 1e-8)
         #expect(delivered.allSatisfy { $0.findings.count == 1_000 })
@@ -245,6 +249,10 @@ func productionPipelineSupportsThreeThousandLifetimesWithTenAncestors() async th
     let values = reports.withLock { $0 }
     #expect(values.last?.window?.finalScan == 60)
     #expect(values.allSatisfy { $0.observedFindings.count == 3_000 })
+    #expect(
+        values.compactMap(\.window).allSatisfy {
+            $0.collapsedContributions.allSatisfy(\.category.categoryDetailsRetained)
+        })
     let cpu = deliveredCPU(values)
     #expect(abs(cpu - 180) < 1e-7)
     #expect(store.diagnostics.chargedRecords <= 65_536)

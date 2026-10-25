@@ -336,15 +336,17 @@ Deterministic acquisition clocks implement the production synchronous deadline/w
 
 ### Listed session-name checks
 
-Session-registry fixtures verify that names follow only the verified runtime/provider/session binding, never override a worker's different marker, clear after failed/duplicate/unverified listings and exec, and tolerate invalid optional names without losing ownership. Shared grouping and overview guards compare IDs and resource totals before and after renaming; storage recounts include name changes and canonically equal strings with different UTF-8 lengths. Schema and serialization checks retain the optional bounded name. These use fake listings, not live provider queries.
+Session-registry fixtures verify that names follow only the verified runtime/provider/session binding, never override a worker's different marker, clear after failed/duplicate/unverified listings and exec, and tolerate invalid optional names without losing ownership. A warmed accounting-cache oracle compares same-ID rename and name removal against uncached resolution. Shared grouping and overview guards compare IDs and resource totals before and after renaming; storage recounts include name changes and canonically equal strings with different UTF-8 lengths. Schema and serialization checks retain the optional bounded name. These use fake listings, not live provider queries.
 
 ### Contributor information checks
 
-Shared inspection fixtures distinguish folding from explicit information, verify typed executable/CWD/state fields and close inspection when its target is filtered out. Native keyboard/model guards keep arrows from moving hidden rows while the information popover is open. An owned offscreen render verifies labelled resource/identity fields with Vision; `MENUBAR_INSPECTION_PREVIEW_PATH` exports the synthetic image for visual checking. The PTY journey opens information with `i` before navigating to a current process. Physical popover anchoring and input delivery remain the user-owned smoke test.
+Shared inspection fixtures distinguish folding from explicit information, verify typed executable/CWD/state fields and close inspection when its target is filtered out. Native keyboard/model guards exercise contributor focus that differs from selection, and keep arrows from moving hidden rows while the information popover is open. An owned offscreen render verifies labelled resource/identity fields with Vision; `MENUBAR_INSPECTION_PREVIEW_PATH` exports the synthetic image for visual checking. The PTY journey opens information with `i` before navigating to a current process. Physical popover anchoring and input delivery remain the user-owned smoke test.
 
 ### Embedded workload labels
 
 `InvocationNameTests` verifies adapter-only labels without full command capture, rejected empty/control/oversized names, frozen CPU categories across invocation changes, pressure compaction and incremental text charges. Attribution tests retain the underlying executable path and exact session when Claude runs an embedded tool. Presentation guards check native/TUI names and access to the underlying executable.
+
+The 1,000- and 3,000-lifetime production capacity guards require collapsed contributions to preserve category detail as well as conserving CPU; exact totals alone cannot establish useful session attribution.
 
 ### Accounting row projection
 

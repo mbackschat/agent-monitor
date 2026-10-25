@@ -56,10 +56,16 @@ extension MenuBarModel {
 
     @discardableResult
     func handleShortcut(
-        _ key: String, row: LiveReportRowID?,
+        _ key: String, row: LiveReportRowID?, focus: MenuBarFocus? = nil,
         writeClipboard: @MainActor (String) -> Bool = MenuBarClipboard.copy
     ) -> Bool {
         guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil else { return false }
+        if report.showsOverview, key == "i" || key == ReportShortcut.pin.rawValue,
+            case .contributor(let id) = focus
+        {
+            guard report.overview.visibleRows.contains(where: { $0.id == id }) else { return false }
+            report.overview.select(id)
+        }
         if key == "i", report.showsOverview, report.overview.selection != nil {
             report.overview.toggleDetails()
             return true
