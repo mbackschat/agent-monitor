@@ -410,13 +410,23 @@ public struct Monitor: Sendable {
     /// Window collection needs every row but defers display ordering to window projection.
     mutating func accountingFindings(sorted: Bool = false) -> [HeavyProcess] {
         var misses: UInt64 = 0
-        for identity in live where cachedResolution(identity) == nil {
-            resolutions[identity] = resolveUncached(identity)
-            misses += 1
+        var rows: [HeavyProcess] = []
+        rows.reserveCapacity(live.count)
+        for identity in live {
+            guard let node = nodes[identity] else { continue }
+            let resolution: Resolution
+            if let cached = cachedResolution(identity) {
+                resolution = cached
+            } else {
+                resolution = resolveUncached(identity)
+                resolutions[identity] = resolution
+                misses += 1
+            }
+            rows.append(finding(node, owner: resolution.attribution))
         }
         profile?.increment(.resolutionMisses, by: misses)
         profile?.increment(.resolutionHits, by: UInt64(live.count) - misses)
-        return sorted ? findings() : live.compactMap { finding(for: $0) }
+        return sorted ? rows.sorted(by: Self.precedes) : rows
     }
 
     public func findings(
@@ -424,13 +434,15 @@ public struct Monitor: Sendable {
     ) -> [HeavyProcess] {
         heavyIdentities(thresholds: thresholds).compactMap { identity in
             finding(for: identity)
-        }.filter { scope.includes($0.attribution) }.sorted {
-            if $0.cpuPercent != $1.cpuPercent { return ($0.cpuPercent ?? -1) > ($1.cpuPercent ?? -1) }
-            if $0.footprintBytes != $1.footprintBytes {
-                return ($0.footprintBytes ?? 0) > ($1.footprintBytes ?? 0)
-            }
-            return $0.process.pid < $1.process.pid
+        }.filter { scope.includes($0.attribution) }.sorted(by: Self.precedes)
+    }
+
+    private static func precedes(_ left: HeavyProcess, _ right: HeavyProcess) -> Bool {
+        if left.cpuPercent != right.cpuPercent { return (left.cpuPercent ?? -1) > (right.cpuPercent ?? -1) }
+        if left.footprintBytes != right.footprintBytes {
+            return (left.footprintBytes ?? 0) > (right.footprintBytes ?? 0)
         }
+        return left.process.pid < right.process.pid
     }
 
     /// Returns the interval closed by the current scan, including recovery across read gaps.
@@ -447,7 +459,10 @@ public struct Monitor: Sendable {
     /// Inspect a live process independently of display thresholds.
     public func finding(for identity: ProcessIdentity) -> HeavyProcess? {
         guard live.contains(identity), let node = nodes[identity] else { return nil }
-        let owner = resolve(identity).attribution
+        return finding(node, owner: resolve(identity).attribution)
+    }
+
+    private func finding(_ node: Node, owner: Attribution) -> HeavyProcess {
         let name = owner.runtime.flatMap { runtime -> String? in
             guard let provider = owner.provider, runtimes[provider]?.contains(runtime) == true,
                 listedSessions[runtime] == owner.threadID, SessionCorroboration.isExact(owner)
@@ -455,7 +470,7 @@ public struct Monitor: Sendable {
             return listedSessionNames[runtime]
         }
         return HeavyProcess(
-            process: identity, executable: node.sample.executable, name: node.sample.name,
+            process: node.sample.identity, executable: node.sample.executable, name: node.sample.name,
             cpuPercent: node.cpuPercent, footprintBytes: node.sample.footprintBytes,
             kernelPeakFootprintBytes: node.sample.kernelPeakFootprintBytes,
             cwd: node.metadata.cwd, command: node.metadata.command, metadataStatus: node.metadata.status,

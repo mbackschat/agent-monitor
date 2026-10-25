@@ -345,3 +345,7 @@ Shared inspection fixtures distinguish folding from explicit information, verify
 ### Embedded workload labels
 
 `InvocationNameTests` verifies adapter-only labels without full command capture, rejected empty/control/oversized names, frozen CPU categories across invocation changes, pressure compaction and incremental text charges. Attribution tests retain the underlying executable path and exact session when Claude runs an embedded tool. Presentation guards check native/TUI names and access to the underlying executable.
+
+### Accounting row projection
+
+The cached/uncached attribution oracles also guard the single-pass accounting-row projection, including sort order, ownership, action markers, changing counters, metadata and value copies. Performance comparisons must use optimized builds of the same fixture and compare against the committed implementation; a component saving does not establish native collection cost. Disposable benchmark binaries and outputs follow the current retention authorization.
