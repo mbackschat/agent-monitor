@@ -29,6 +29,8 @@ Checked dates are when the evidence was gathered; later editorial edits do not r
 
 ## Retained measurements
 
+- [Aggregate acceptance profile on 2026-10-25](pipeline-acceptance-2026-10-25.json): optimized commit `bd87b9d`, 633 seconds with providers enabled, fixed stage/thread costs and per-window coverage; [interpretation and limits](menu-bar-load-cost.md#aggregate-acceptance-profile--2026-10-25). This one-run retention exception contains no process identities or raw traces.
+
 - [Docker workload observations on 2026-10-24](docker-workload-2026-10-24.json): user-authorized host/client/session attribution and container Lake/Lean CPU and memory readings; [method, limits and probe-design implications](menu-bar-load-cost.md#docker-workload-attribution-and-nested-resources--2026-10-24).
 
 - [Live heavy-load pipeline on 2026-10-24](live-pipeline-2026-10-24.json): user-requested system pressure and optimized five-second pipeline run; [method and limits](menu-bar-load-cost.md#live-heavy-load-pipeline-profile--2026-10-24) record successful finite draining but substantial resolution backlog.

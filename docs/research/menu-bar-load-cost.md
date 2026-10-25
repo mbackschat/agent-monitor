@@ -207,3 +207,32 @@ The deterministic metadata fixture advances its clock by 5 ms per read over 100 
 Storage guards verify actual ancestry-buffer sharing in repeated observations and merged recovered contributions before discounting duplicate context. The production pipeline passes 3,000 lifetimes with ten ancestry levels, five-second display and the unchanged 65,536-record cap. A separate production-composition guard holds the consumer through 60/600 virtual seconds with churn across sessions and unique executable names, retains a history lease and compares delivered CPU/intervals against the independent fixture ledger. Reduced fixture budgets deliberately exercise collapse; these tests establish conservation and bounds, not native throughput. Command storage remains conservatively charged across history units, and long-churn worker-count ranges remain valid but loose.
 
 Validation: 548 tests passed across six targets (5 + 4 + 111 + 224 + 172 + 32). The initial restricted run could not inspect owned child sockets; the final run used the same built test products outside that restriction, with fake providers and disposable children only. An SDK-stat-cache subprocess stalled during the unrestricted rebuild; it was cancelled and its owned helper stopped, then the final code was built successfully in the restricted environment and tested with `--skip-build` outside it. The opt-in aggregate profiler has guards for totals, percentiles, sample caps, throwing stages and worker shutdown. This is a validated checkpoint, not performance or physical macOS acceptance.
+
+## Aggregate acceptance profile — 2026-10-25
+
+The user authorized one aggregate-only retained acceptance run: [JSON evidence](pipeline-acceptance-2026-10-25.json), from clean commit `bd87b9df` (the full commit is in the JSON), compiled with Swift 6 `-O -whole-module-optimization`. Collection lasted 633.01 seconds with production provider listings enabled (19 calls), 100 ms requested acquisition, five-second display and an early first report. No monitor builds or tests ran during collection; other user workload activity was uncontrolled. The probe reads fixed numeric timings and counts, not retained process descriptions. Its temporary object/module/executable, compile log and scratch result were deleted after extracting the approved 33 KiB aggregate. No PIDs, paths, commands, session IDs, stacks or provider output are retained. The exception does not authorize retaining another profile.
+
+| Measure | Result | Acceptance |
+| --- | --- | --- |
+| Collector + reaped provider-helper CPU | 20.68% of one core (123.54 + 7.35 CPU-seconds) | Misses 15% target |
+| Native start-to-start period | p50 104.96 ms; p99 309.02 ms; maximum 1,466.19 ms | Misses p99 ≤150 ms |
+| Periods above 150 ms | 371 of 5,531 timed periods | Every delivered window retains its maximum gap and overrun count |
+| Readable same-user population | 673–785 | Higher and more variable than the provisional roughly-650-process workload |
+| Host occupancy | Weighted mean 76.51% of machine capacity; some windows reached 100% | Uncontrolled saturation occurred during collection |
+| Recent history | Zero capacity evictions, discontinuities or retention-limited windows | No recurrence of the earlier history-loss mechanism |
+| Maximum charged history | 26,545 records; 2,038,587 text bytes | Within configured logical limits |
+| Maximum sampled allocator use | 17,694,016 bytes | Sampled maximum only; allocator peak unavailable, not a whole-process heap bound |
+
+Host busy percentages in the JSON are expressed in one-logical-core units; the host has eight logical CPUs, verified immediately after the run. The normalized weighted mean is also retained. Stage/thread samples remained below their caps, so their nearest-rank percentiles cover every recorded operation. Instrumentation is opt-in and its own overhead is included in collector CPU. Worker, job and stage totals overlap and must not be added together.
+
+| Synchronous stage | CPU-seconds | % of one core over the run | CPU p99 | Wall p99 |
+| --- | --- | --- | --- | --- |
+| Native sampling | 37.23 | 5.88% | 12.24 ms | 108.20 ms |
+| Attribution and refresh admission | 29.33 | 4.63% | 10.62 ms | 118.28 ms |
+| Window accounting | 22.94 | 3.62% | 8.67 ms | 129.27 ms |
+| Metadata batches | 21.97 | 3.47% | 50.82 ms | 106.75 ms |
+| Recent-history publication | 2.83 | 0.45% | 37.55 ms | 460.16 ms |
+
+Dedicated acquisition, metadata and provider threads consumed 99.05, 22.04 and 0.045 CPU-seconds respectively. Their sum excludes other collector threads and provider subprocesses. Other timed stages, totals and maxima are in the JSON. Attribution plus window accounting consumed 8.26% of one core: change-driven reuse of unchanged attribution/category context and reducing repeated accounting traversal are the next justified optimization candidates. This is a recommendation from the breakdown, not an implemented or measured speedup. Native sampling alone cost 5.88%, so the evidence does not justify reducing coverage to chase the overhead target.
+
+The much larger wall-time tails than CPU-time tails show that execution delay or blocking also matters under this workload; these counters do not distinguish scheduler preemption, lock contention, allocator stalls or individual syscalls. The run establishes substantial acquisition gaps, not the fraction of short-worker CPU lost within them. It does not replace an owned-worker `wait4` comparison or the user-owned Mac smoke/closed-panel energy check. Both provisional targets remain unmet; no target relaxation, slower sampling or quieter-process exclusion was applied.

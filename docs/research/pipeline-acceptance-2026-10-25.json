@@ -1,0 +1,1359 @@
+{
+  "cadence": {
+    "count": 5531,
+    "maximum": 1.4661945421248674,
+    "minimum": 0.06846595788374543,
+    "p50": 0.10495958290994167,
+    "p99": 0.3090161248110235,
+    "total": 632.958857958205
+  },
+  "collectorAndHelperPercentOfOneCore": 20.67827400733905,
+  "collectorCPUSeconds": 123.544195,
+  "coverage": [
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10638283286243677,
+        "overrunCount": 0,
+        "scanCount": 10,
+        "timedPeriodCount": 10
+      },
+      "durationSeconds": 1.0406937496736646
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.1075016250833869,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.2020148751325905
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10598070779815316,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.2152023748494685
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10758654167875648,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.194683624897152
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10598095785826445,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.198457041755319
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.1060076248832047,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.2140136254020035
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10605574958026409,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.242049500346184
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10600250028073788,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.221058666706085
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10604666732251644,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.204453416634351
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10601375019177794,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.219759958330542
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10816216701641679,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.1738340416923165
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10604395810514688,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.219430166762322
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10601612506434321,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.223446374759078
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.109954166226089,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.197597499936819
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10598862543702126,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.206415082793683
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10629575001075864,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.209186291787773
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10603383323177695,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.200547999702394
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.11233462486416101,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.228727625217289
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.17085374984890223,
+        "overrunCount": 1,
+        "scanCount": 49,
+        "timedPeriodCount": 49
+      },
+      "durationSeconds": 5.300701791420579
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.12138324975967407,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.341399916447699
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.11715712491422892,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.29647475015372
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.11725908285006881,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.283642958384007
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10963658383116126,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.1993621666915715
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10602804087102413,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.147603208199143
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10603791614994407,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.192059708293527
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.1059462078846991,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.193171958439052
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10611275024712086,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.212990750093013
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.21817020885646343,
+        "overrunCount": 3,
+        "scanCount": 47,
+        "timedPeriodCount": 47
+      },
+      "durationSeconds": 5.168829666916281
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10597075009718537,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.154204458463937
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10992041602730751,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.219063499942422
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10620304197072983,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.232621166855097
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10604129172861576,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.226555749773979
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10604687500745058,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.191240749787539
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10600962489843369,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.195817125029862
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10600554198026657,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.494240541476756
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.5518133328296244,
+        "overrunCount": 1,
+        "scanCount": 46,
+        "timedPeriodCount": 46
+      },
+      "durationSeconds": 5.216667041648179
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10599695798009634,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.23104100022465
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10596529208123684,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.214377875439823
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10602687485516071,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.214190250262618
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.1060447501949966,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.2314393748529255
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10602241707965732,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.21882945811376
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10600666608661413,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.23193100001663
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.14316320791840553,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.280389124993235
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.1059897500090301,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.189137374982238
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10602904204279184,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.19420775026083
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10599170904606581,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.205773291643709
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10599416680634022,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.183988083619624
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.1060209171846509,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.195170999970287
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10602325014770031,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.193359292112291
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10606491705402732,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.190655791666359
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10600962489843369,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.171487249899656
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10600950010120869,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.197856625076383
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10591212520375848,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.1621857499703765
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.11397854099050164,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.223581541795284
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.537501625251025,
+        "overrunCount": 13,
+        "scanCount": 34,
+        "timedPeriodCount": 34
+      },
+      "durationSeconds": 5.621847749687731
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.4457104578614235,
+        "overrunCount": 17,
+        "scanCount": 28,
+        "timedPeriodCount": 28
+      },
+      "durationSeconds": 5.456714458297938
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.31705224979668856,
+        "overrunCount": 8,
+        "scanCount": 40,
+        "timedPeriodCount": 40
+      },
+      "durationSeconds": 5.382030958775431
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.2449710420332849,
+        "overrunCount": 14,
+        "scanCount": 39,
+        "timedPeriodCount": 39
+      },
+      "durationSeconds": 5.342195416800678
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.590481333900243,
+        "overrunCount": 17,
+        "scanCount": 27,
+        "timedPeriodCount": 27
+      },
+      "durationSeconds": 5.516213499940932
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.4723990000784397,
+        "overrunCount": 17,
+        "scanCount": 27,
+        "timedPeriodCount": 27
+      },
+      "durationSeconds": 5.838487833272666
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.473022292368114,
+        "overrunCount": 11,
+        "scanCount": 34,
+        "timedPeriodCount": 34
+      },
+      "durationSeconds": 5.417383583262563
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.36806554114446044,
+        "overrunCount": 16,
+        "scanCount": 33,
+        "timedPeriodCount": 33
+      },
+      "durationSeconds": 5.239713041577488
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.2248326246626675,
+        "overrunCount": 7,
+        "scanCount": 42,
+        "timedPeriodCount": 42
+      },
+      "durationSeconds": 5.213924833573401
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.5734677091240883,
+        "overrunCount": 12,
+        "scanCount": 33,
+        "timedPeriodCount": 33
+      },
+      "durationSeconds": 5.748670791741461
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.3661813330836594,
+        "overrunCount": 11,
+        "scanCount": 36,
+        "timedPeriodCount": 36
+      },
+      "durationSeconds": 5.40593829145655
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.31636320892721415,
+        "overrunCount": 5,
+        "scanCount": 43,
+        "timedPeriodCount": 43
+      },
+      "durationSeconds": 5.336180666927248
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.9279146660119295,
+        "overrunCount": 14,
+        "scanCount": 29,
+        "timedPeriodCount": 29
+      },
+      "durationSeconds": 6.183860125020146
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 1.4661951246671379,
+        "overrunCount": 16,
+        "scanCount": 22,
+        "timedPeriodCount": 22
+      },
+      "durationSeconds": 6.184287458658218
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.5166493747383356,
+        "overrunCount": 18,
+        "scanCount": 26,
+        "timedPeriodCount": 26
+      },
+      "durationSeconds": 5.747713833115995
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.42439083429053426,
+        "overrunCount": 13,
+        "scanCount": 31,
+        "timedPeriodCount": 31
+      },
+      "durationSeconds": 5.3757183332927525
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.8320961249992251,
+        "overrunCount": 15,
+        "scanCount": 26,
+        "timedPeriodCount": 26
+      },
+      "durationSeconds": 5.528436542022973
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.4204535000026226,
+        "overrunCount": 11,
+        "scanCount": 35,
+        "timedPeriodCount": 35
+      },
+      "durationSeconds": 5.388523625209928
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.339325041975826,
+        "overrunCount": 17,
+        "scanCount": 33,
+        "timedPeriodCount": 33
+      },
+      "durationSeconds": 5.350424416828901
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.38446666579693556,
+        "overrunCount": 4,
+        "scanCount": 43,
+        "timedPeriodCount": 43
+      },
+      "durationSeconds": 5.32157566677779
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.3929638331755996,
+        "overrunCount": 1,
+        "scanCount": 47,
+        "timedPeriodCount": 47
+      },
+      "durationSeconds": 5.23223645798862
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.11287487484514713,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.2063719583675265
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.111243458930403,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.212006583344191
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.12043608399108052,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.282827291637659
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.12157312501221895,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.270377749577165
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.11588966613635421,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.2374894162639976
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.11845754086971283,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.2062185001559556
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.127921000123024,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.198649708647281
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.15062549989670515,
+        "overrunCount": 1,
+        "scanCount": 48,
+        "timedPeriodCount": 48
+      },
+      "durationSeconds": 5.162323333323002
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.20030720811337233,
+        "overrunCount": 2,
+        "scanCount": 48,
+        "timedPeriodCount": 48
+      },
+      "durationSeconds": 5.183568083215505
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.15181874996051192,
+        "overrunCount": 2,
+        "scanCount": 49,
+        "timedPeriodCount": 49
+      },
+      "durationSeconds": 5.175296833273023
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.18871104111894965,
+        "overrunCount": 1,
+        "scanCount": 49,
+        "timedPeriodCount": 49
+      },
+      "durationSeconds": 5.251703625079244
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.21625316655263305,
+        "overrunCount": 6,
+        "scanCount": 43,
+        "timedPeriodCount": 43
+      },
+      "durationSeconds": 5.27661049971357
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.26500433310866356,
+        "overrunCount": 3,
+        "scanCount": 45,
+        "timedPeriodCount": 45
+      },
+      "durationSeconds": 5.278482499998063
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.20655979216098785,
+        "overrunCount": 2,
+        "scanCount": 48,
+        "timedPeriodCount": 48
+      },
+      "durationSeconds": 5.181640250142664
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.1598683330230415,
+        "overrunCount": 1,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.273864083457738
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.17851475020870566,
+        "overrunCount": 1,
+        "scanCount": 49,
+        "timedPeriodCount": 49
+      },
+      "durationSeconds": 5.186686874832958
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10886033298447728,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.206548833288252
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.1331745837815106,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.234878083691001
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.11580754071474075,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.208921374753118
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.12893762486055493,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.259474458172917
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.14163262490183115,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.232187625020742
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.41126804100349545,
+        "overrunCount": 14,
+        "scanCount": 33,
+        "timedPeriodCount": 33
+      },
+      "durationSeconds": 5.376106250099838
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.628565332852304,
+        "overrunCount": 10,
+        "scanCount": 36,
+        "timedPeriodCount": 36
+      },
+      "durationSeconds": 5.522396457847208
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.23107170779258013,
+        "overrunCount": 6,
+        "scanCount": 45,
+        "timedPeriodCount": 45
+      },
+      "durationSeconds": 5.322053000330925
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.3509608330205083,
+        "overrunCount": 16,
+        "scanCount": 30,
+        "timedPeriodCount": 30
+      },
+      "durationSeconds": 5.479789082892239
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.49942079093307257,
+        "overrunCount": 13,
+        "scanCount": 36,
+        "timedPeriodCount": 36
+      },
+      "durationSeconds": 5.582494333386421
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.21451316587626934,
+        "overrunCount": 7,
+        "scanCount": 44,
+        "timedPeriodCount": 44
+      },
+      "durationSeconds": 5.458860708400607
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.36068933364003897,
+        "overrunCount": 5,
+        "scanCount": 42,
+        "timedPeriodCount": 42
+      },
+      "durationSeconds": 5.257581708487123
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.216946791857481,
+        "overrunCount": 2,
+        "scanCount": 47,
+        "timedPeriodCount": 47
+      },
+      "durationSeconds": 5.33116800012067
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.23652900010347366,
+        "overrunCount": 4,
+        "scanCount": 47,
+        "timedPeriodCount": 47
+      },
+      "durationSeconds": 5.3232368333265185
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.25273070810362697,
+        "overrunCount": 3,
+        "scanCount": 45,
+        "timedPeriodCount": 45
+      },
+      "durationSeconds": 5.2430393332615495
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.27024379232898355,
+        "overrunCount": 3,
+        "scanCount": 46,
+        "timedPeriodCount": 46
+      },
+      "durationSeconds": 5.286482875235379
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.2885088329203427,
+        "overrunCount": 4,
+        "scanCount": 44,
+        "timedPeriodCount": 44
+      },
+      "durationSeconds": 5.207714041694999
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.1831122082658112,
+        "overrunCount": 2,
+        "scanCount": 48,
+        "timedPeriodCount": 48
+      },
+      "durationSeconds": 5.257395291700959
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.19066279102116823,
+        "overrunCount": 1,
+        "scanCount": 49,
+        "timedPeriodCount": 49
+      },
+      "durationSeconds": 5.26557254139334
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.1135747916996479,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.222143333405256
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10918512521311641,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.1866377498954535
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10793241672217846,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.206218750216067
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.11125016678124666,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.226318041794002
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.1076407921500504,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.196492624934763
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.1091532502323389,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.142948833294213
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10607612458989024,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.174962458200753
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10598970809951425,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.172519541345537
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10595337534323335,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.204845374915749
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.10975216701626778,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.208899916615337
+    },
+    {
+      "coverage": {
+        "maximumGapSeconds": 0.11076591676101089,
+        "overrunCount": 0,
+        "scanCount": 50,
+        "timedPeriodCount": 50
+      },
+      "durationSeconds": 5.19251870829612
+    }
+  ],
+  "elapsedSeconds": 633.009930875,
+  "historyCapacityEvictions": 0,
+  "historyDiscontinuities": 0,
+  "hostBusyPercent": {
+    "count": 121,
+    "maximum": 800,
+    "minimum": 248.36223506743738,
+    "p50": 718.8966852165497,
+    "p99": 800,
+    "total": 73746.79643062482
+  },
+  "hostBusyPercentOfMachineWeightedMean": 76.51048412735084,
+  "hostBusyPercentWeightedMean": 612.0838730188067,
+  "hostLogicalCPUCountCheckedAfterRun": 8,
+  "maximumHistoryChargedRecords": 26545,
+  "maximumHistoryChargedTextBytes": 2038587,
+  "maximumSampledHeapBytes": 17694016,
+  "processCountRange": [
+    673,
+    785
+  ],
+  "profiling": {
+    "stages": {
+      "attribution": {
+        "count": 5532,
+        "cpu": {
+          "maximumSeconds": 0.015714667,
+          "p50Seconds": 0.004527958,
+          "p99Seconds": 0.010621375,
+          "totalSeconds": 29.331982216000018
+        },
+        "percentilesComplete": true,
+        "wall": {
+          "maximumSeconds": 0.785378875,
+          "p50Seconds": 0.004685167,
+          "p99Seconds": 0.118279125,
+          "totalSeconds": 67.14634809100002
+        }
+      },
+      "counterAccounting": {
+        "count": 5532,
+        "cpu": {
+          "maximumSeconds": 0.001646042,
+          "p50Seconds": 0.000383375,
+          "p99Seconds": 0.000979125,
+          "totalSeconds": 2.4507323459999943
+        },
+        "percentilesComplete": true,
+        "wall": {
+          "maximumSeconds": 0.086794791,
+          "p50Seconds": 0.0003855,
+          "p99Seconds": 0.01038375,
+          "totalSeconds": 4.464476317999991
+        }
+      },
+      "historyClosure": {
+        "count": 601,
+        "cpu": {
+          "maximumSeconds": 0.012667,
+          "p50Seconds": 0.003494167,
+          "p99Seconds": 0.00948925,
+          "totalSeconds": 2.450119080999999
+        },
+        "percentilesComplete": true,
+        "wall": {
+          "maximumSeconds": 0.592328041,
+          "p50Seconds": 0.003709125,
+          "p99Seconds": 0.139098417,
+          "totalSeconds": 8.064136085
+        }
+      },
+      "historyProjection": {
+        "count": 121,
+        "cpu": {
+          "maximumSeconds": 0.042221292,
+          "p50Seconds": 0.022491458,
+          "p99Seconds": 0.037551209,
+          "totalSeconds": 2.8323410859999996
+        },
+        "percentilesComplete": true,
+        "wall": {
+          "maximumSeconds": 0.470816708,
+          "p50Seconds": 0.023744709,
+          "p99Seconds": 0.460156833,
+          "totalSeconds": 9.048807830000001
+        }
+      },
+      "metadataBatch": {
+        "count": 2540,
+        "cpu": {
+          "maximumSeconds": 0.088133583,
+          "p50Seconds": 0.000628667,
+          "p99Seconds": 0.050823208,
+          "totalSeconds": 21.97205441999999
+        },
+        "percentilesComplete": true,
+        "wall": {
+          "maximumSeconds": 1.913379708,
+          "p50Seconds": 0.000744333,
+          "p99Seconds": 0.106748708,
+          "totalSeconds": 32.094845015999994
+        }
+      },
+      "nativeSampling": {
+        "count": 5532,
+        "cpu": {
+          "maximumSeconds": 0.014036041,
+          "p50Seconds": 0.005885708,
+          "p99Seconds": 0.012234625,
+          "totalSeconds": 37.22991654299999
+        },
+        "percentilesComplete": true,
+        "wall": {
+          "maximumSeconds": 0.3189935,
+          "p50Seconds": 0.006439375,
+          "p99Seconds": 0.108201125,
+          "totalSeconds": 69.34447005099983
+        }
+      },
+      "promptCapture": {
+        "count": 5532,
+        "cpu": {
+          "maximumSeconds": 0.00256625,
+          "p50Seconds": 0.000186667,
+          "p99Seconds": 0.000843125,
+          "totalSeconds": 1.4015954369999999
+        },
+        "percentilesComplete": true,
+        "wall": {
+          "maximumSeconds": 0.068978708,
+          "p50Seconds": 0.000189834,
+          "p99Seconds": 0.006495792,
+          "totalSeconds": 2.7807175989999977
+        }
+      },
+      "providerRequest": {
+        "count": 19,
+        "cpu": {
+          "maximumSeconds": 0.00326725,
+          "p50Seconds": 0.002249334,
+          "p99Seconds": 0.00326725,
+          "totalSeconds": 0.04296875199999999
+        },
+        "percentilesComplete": true,
+        "wall": {
+          "maximumSeconds": 3.239111917,
+          "p50Seconds": 0.890429041,
+          "p99Seconds": 3.239111917,
+          "totalSeconds": 21.350714248999996
+        }
+      },
+      "reportProjection": {
+        "count": 121,
+        "cpu": {
+          "maximumSeconds": 0.010844208,
+          "p50Seconds": 0.004263833,
+          "p99Seconds": 0.010599875,
+          "totalSeconds": 0.6083224940000003
+        },
+        "percentilesComplete": true,
+        "wall": {
+          "maximumSeconds": 0.018404667,
+          "p50Seconds": 0.004427375,
+          "p99Seconds": 0.011225458,
+          "totalSeconds": 0.6691062480000001
+        }
+      },
+      "windowAccounting": {
+        "count": 5531,
+        "cpu": {
+          "maximumSeconds": 0.010614,
+          "p50Seconds": 0.003510958,
+          "p99Seconds": 0.008667708,
+          "totalSeconds": 22.94193127000005
+        },
+        "percentilesComplete": true,
+        "wall": {
+          "maximumSeconds": 0.460445792,
+          "p50Seconds": 0.003612292,
+          "p99Seconds": 0.129266083,
+          "totalSeconds": 64.95128848800012
+        }
+      }
+    },
+    "workers": {
+      "acquisition": {
+        "jobs": {
+          "count": 5533,
+          "cpu": {
+            "maximumSeconds": 0.09082725,
+            "p50Seconds": 0.016102667,
+            "p99Seconds": 0.046670542,
+            "totalSeconds": 98.98327401999994
+          },
+          "percentilesComplete": true,
+          "wall": {
+            "maximumSeconds": 1.465571625,
+            "p50Seconds": 0.017608667,
+            "p99Seconds": 0.304654584,
+            "totalSeconds": 226.8511838439994
+          }
+        },
+        "threadCPUSeconds": 99.05354
+      },
+      "metadata": {
+        "jobs": {
+          "count": 2540,
+          "cpu": {
+            "maximumSeconds": 0.088158708,
+            "p50Seconds": 0.000644917,
+            "p99Seconds": 0.0508385,
+            "totalSeconds": 22.00654528199996
+          },
+          "percentilesComplete": true,
+          "wall": {
+            "maximumSeconds": 1.913404458,
+            "p50Seconds": 0.000765791,
+            "p99Seconds": 0.106770792,
+            "totalSeconds": 32.148153025000084
+          }
+        },
+        "threadCPUSeconds": 22.038030291
+      },
+      "providers": {
+        "jobs": {
+          "count": 19,
+          "cpu": {
+            "maximumSeconds": 0.003362875,
+            "p50Seconds": 0.002336583,
+            "p99Seconds": 0.003362875,
+            "totalSeconds": 0.044592085000000004
+          },
+          "percentilesComplete": true,
+          "wall": {
+            "maximumSeconds": 3.239312375,
+            "p50Seconds": 0.890487125,
+            "p99Seconds": 3.239312375,
+            "totalSeconds": 21.352438292000002
+          }
+        },
+        "threadCPUSeconds": 0.045011625
+      }
+    }
+  },
+  "provenance": {
+    "commit": "bd87b9df068e2a623e17505738dfec33e15ab3dc",
+    "displaySeconds": 5,
+    "noConcurrentBuilds": true,
+    "optimizedBuild": true,
+    "providersEnabled": true,
+    "requestedAcquisitionSeconds": 0.1
+  },
+  "providerCalls": 19,
+  "reapedHelperCPUSeconds": 7.351333,
+  "retentionLimitedWindows": 0,
+  "startedAt": "2026-10-25T00:11:30Z"
+}
