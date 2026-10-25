@@ -20,6 +20,26 @@ import Testing
         }
     }
 
+    private enum Stopped: Error { case acquisition }
+
+    /// Locks the failure path: a full ring rejecting the drained partial must not replace the
+    /// error that stopped acquisition with a publication overload.
+    @Test func failedAcquisitionKeepsItsErrorWhenTheDrainedUnitDoesNotFit() async throws {
+        let handoff = AcquisitionHandoff<Int>(limits: MonitoringPipelineLimits(pendingScans: 1))
+        let size = MonitoringPayloadSize(observations: 1, textBytes: 0)
+        try handoff.send(1, size: size, sequence: 1)
+        handoff.finish(throwing: Stopped.acquisition, offering: (2, size, 2))
+        #expect(try await handoff.next() == 1)
+        await #expect(throws: Stopped.acquisition) { try await handoff.next() }
+    }
+
+    @Test func failedAcquisitionDeliversTheDrainedUnitBeforeItsError() async throws {
+        let handoff = AcquisitionHandoff<Int>(limits: MonitoringPipelineLimits(pendingScans: 1))
+        handoff.finish(throwing: Stopped.acquisition, offering: (2, .init(observations: 1, textBytes: 0), 2))
+        #expect(try await handoff.next() == 2)
+        await #expect(throws: Stopped.acquisition) { try await handoff.next() }
+    }
+
     @Test func ringReleasesConsumedCapacity() async throws {
         let handoff = AcquisitionHandoff<Int>(limits: MonitoringPipelineLimits(pendingScans: 2))
         for i in 0..<1000 {

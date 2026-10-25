@@ -235,10 +235,7 @@ struct MenuBarView: View {
             )
             .font(.caption).foregroundStyle(.secondary)
             if !model.report.showsOverview, let snapshot = model.report.snapshot {
-                ForEach(AccountingContext.warnings(snapshot), id: \.self) { warning in
-                    Label(warning, systemImage: "exclamationmark.triangle")
-                        .font(.caption2).foregroundStyle(.orange)
-                }
+                MenuBarCoverageStatus(status: CoverageStatus(snapshot: snapshot))
             }
             if !model.report.showsOverview, let window = model.report.snapshot?.window {
                 Label(
@@ -247,21 +244,6 @@ struct MenuBarView: View {
                 )
                 .font(.caption2).foregroundStyle(.secondary)
                 .help(AccountingContext.window(window))
-                if let disclosure = AccountingContext.publication(window.publicationCoverage) {
-                    Label(disclosure, systemImage: "clock.arrow.circlepath")
-                        .font(.caption2).foregroundStyle(.orange)
-                        .help(
-                            "Publication backlog reduced history time resolution; measured CPU is conserved. "
-                                + (AccountingContext.publicationRange(
-                                    window.publicationCoverage, endingAt: window.endedAt) ?? ""))
-                }
-                if let pressure = AccountingContext.pressure(window) {
-                    Label(pressure, systemImage: "exclamationmark.triangle")
-                        .font(.caption2).foregroundStyle(.orange)
-                        .help(
-                            window.collapsedContributions.map(AccountingContext.collapsed).joined(
-                                separator: "\n"))
-                }
             }
             if let error = model.error, model.report.snapshot != nil {
                 Text(error).font(.caption).foregroundStyle(.orange)

@@ -21,6 +21,24 @@ struct MenuBarSamplingCoverageDetails: View {
     }
 }
 
+/// The reserved one-line coverage status; tooltips carry each note's definition.
+struct MenuBarCoverageStatus: View {
+    let status: CoverageStatus
+
+    var body: some View {
+        Label(
+            status.text, systemImage: status.severity == .warning ? "exclamationmark.triangle" : "info.circle"
+        )
+        .font(.caption2)
+        .foregroundStyle(
+            status.severity == .warning
+                ? Color.orange : status.severity == nil ? Color.secondary : Color.primary
+        )
+        .lineLimit(2)
+        .help(status.help)
+    }
+}
+
 struct MenuBarCoverageSummary: View {
     let summary: SamplingCoverageSummary
 

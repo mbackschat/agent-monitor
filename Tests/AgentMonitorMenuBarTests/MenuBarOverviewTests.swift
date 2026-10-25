@@ -190,10 +190,11 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
     let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
     #expect(text.contains("Observed"))
-    #expect(text.contains("Read gaps"))
+    // Vision reads this caption2 "il" as "ll" (2026-10-25 render), so accept either glyph pair.
+    #expect(text.range(of: "Read fa(il|ll)ures", options: .regularExpression) != nil, "\(text)")
     #expect(text.contains("Sampled"))
     #expect(text.contains("Recent history"))
-    #expect(text.contains("Vanished"))
+    #expect(text.contains("Exited before read"))
     #expect(text.contains("Other"))
     #expect(!text.contains("Totals are independent"))
     #expect(!text.contains("Session CPU is"))

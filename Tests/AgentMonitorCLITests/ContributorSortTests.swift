@@ -82,3 +82,56 @@ import Testing
         }
     }
 }
+
+extension ContributorSortTests {
+    private func session(_ name: String) -> ContributorID {
+        .session(provider: "claude", session: name, root: nil)
+    }
+
+    /// Locks the refresh rule shared by every level: survivors keep their order only while no
+    /// contributor below exceeds one above it by more than the 1.2× ranking band.
+    @Test func refreshPromotesContributorsBeyondTheRankingBandAtEveryLevel() throws {
+        var feed = OverviewFeed()
+        var overview = ContributorOverview()
+        func tick(_ a: Double, _ b: Double, java: Double, rustc: Double) throws {
+            overview.receive(
+                try feed.advance([
+                    .init(session: "alpha", executable: "java", pid: 1, cpuPerSecond: a * java),
+                    .init(session: "alpha", executable: "rustc", pid: 2, cpuPerSecond: a * rustc),
+                    .init(session: "beta", executable: "node", pid: 3, cpuPerSecond: b),
+                ]))
+        }
+        try tick(0, 0, java: 0, rustc: 0)
+        try tick(4, 0.5, java: 0.9, rustc: 0.1)
+        #expect(overview.main == [session("alpha"), session("beta")])
+        let java = ContributorID.executable(parent: session("alpha"), name: "java")
+        let rustc = ContributorID.executable(parent: session("alpha"), name: "rustc")
+        #expect(overview.nodes[session("alpha")]?.children == [java, rustc])
+
+        try tick(0.4, 3, java: 0.1, rustc: 0.9)
+        #expect(overview.main == [session("beta"), session("alpha")])
+        #expect(overview.nodes[session("alpha")]?.children == [rustc, java])
+
+        // Within the band, a refresh must not reshuffle rows under the user's selection.
+        try tick(3.3, 3, java: 0.52, rustc: 0.48)
+        #expect(overview.main == [session("beta"), session("alpha")])
+        #expect(overview.nodes[session("alpha")]?.children == [rustc, java])
+    }
+
+    @Test func largerNewcomerIsNotAppendedBelowSmallerIncumbents() throws {
+        var feed = OverviewFeed()
+        var overview = ContributorOverview()
+        func tick(_ workers: [OverviewFeed.Worker]) throws { overview.receive(try feed.advance(workers)) }
+        let incumbents: [OverviewFeed.Worker] = [
+            .init(session: "alpha", executable: "java", pid: 1, cpuPerSecond: 0.5),
+            .init(session: "beta", executable: "node", pid: 2, cpuPerSecond: 0.4),
+        ]
+        try tick(incumbents)
+        try tick(incumbents)
+        let gamma = OverviewFeed.Worker(session: "gamma", executable: "rustc", pid: 3, cpuPerSecond: 8)
+        // The first reading of a lifetime born before the listing only establishes its baseline.
+        try tick(incumbents + [gamma])
+        try tick(incumbents + [gamma])
+        #expect(overview.main == [session("gamma"), session("alpha"), session("beta")])
+    }
+}

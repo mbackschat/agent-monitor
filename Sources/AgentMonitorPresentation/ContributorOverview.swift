@@ -155,7 +155,7 @@ public struct ContributorOverview: Equatable, Sendable {
     public private(set) var coverage = ""
     public private(set) var samplingCoverage: SamplingCoverageSummary?
     public private(set) var census = ""
-    public private(set) var coverageWarning = ""
+    public private(set) var coverageStatus = CoverageStatus(notes: [])
     public private(set) var order: ContributorOrder = .cpu
     public let memoryCapacityBytes: UInt64
     public private(set) var runID: UUID?
@@ -197,17 +197,42 @@ public struct ContributorOverview: Equatable, Sendable {
             nodes[id]?.children = children
         }
     }
-    private func contributionOrder(_ ids: [ContributorID], by metric: ContributorOrder? = nil)
-        -> [ContributorID]
-    {
-        let metric = metric ?? order
-        return ids.sorted {
-            let first = nodes[$0]?.stats
-            let second = nodes[$1]?.stats
-            let a = metric == .cpu ? first?.currentCPU ?? 0 : Double(first?.memoryBytes ?? 0)
-            let b = metric == .cpu ? second?.currentCPU ?? 0 : Double(second?.memoryBytes ?? 0)
-            return a == b ? identity($0) < identity($1) : a > b
+    private func value(_ id: ContributorID, _ metric: ContributorOrder) -> Double {
+        let stats = nodes[id]?.stats
+        switch metric {
+        case .cpu: return stats?.currentCPU ?? 0
+        case .memory: return Double(stats?.memoryBytes ?? 0)
         }
+    }
+    private func contributionOrder(_ ids: [ContributorID]) -> [ContributorID] {
+        let secondary: ContributorOrder = order == .cpu ? .memory : .cpu
+        return ids.sorted {
+            let a = value($0, order)
+            let b = value($1, order)
+            guard a == b else { return a > b }
+            let c = value($0, secondary)
+            let d = value($1, secondary)
+            return c == d ? identity($0) < identity($1) : c > d
+        }
+    }
+    /// Refresh order: rows keep their previous positions unless one exceeds a row above it by
+    /// more than the 120% challenger band, so values jittering under a selection do not reshuffle
+    /// the list while a sustained leader still rises. Each insertion goes before the first row it
+    /// beats, which keeps every row within the band of all rows above it; explicit sorting stays exact.
+    private func refreshOrder(_ ids: [ContributorID], previous: [ContributorID]) -> [ContributorID] {
+        let present = Set(ids)
+        let survivors = previous.filter { present.contains($0) }
+        let known = Set(survivors)
+        var result: [ContributorID] = []
+        for id in survivors + contributionOrder(ids.filter { !known.contains($0) }) {
+            let metric = value(id, order)
+            if let index = result.firstIndex(where: { metric > 1.2 * value($0, order) }) {
+                result.insert(id, at: index)
+            } else {
+                result.append(id)
+            }
+        }
+        return result
     }
     public var sourceDurationLabel: String {
         guard let source else { return "unavailable" }
@@ -286,7 +311,7 @@ public struct ContributorOverview: Equatable, Sendable {
         }
         guard let selection, let id = session(selection) else { return }
         if let index = pinned.firstIndex(of: id) { pinned.remove(at: index) } else { pinned.append(id) }
-        partition()
+        partition(previous: nodes.mapValues(\.children))
     }
 
     public mutating func receive(_ snapshot: MonitoringSnapshot) {
@@ -406,6 +431,7 @@ public struct ContributorOverview: Equatable, Sendable {
                         ? lastFootprints[identity]?.latestFootprint
                         : (stats.missingMemory > 0 ? nil : stats.memoryBytes)) ? nil : identity
             })
+        let previousChildren = nodes.mapValues(\.children)
         nodes = [:]
         totals = ContributorStats()
         for section in [ContributorSection.recent, .remainder, .uncertain, .shared, .released] {
@@ -558,20 +584,10 @@ public struct ContributorOverview: Equatable, Sendable {
             nodes[$0].map { Double($0.stats.memoryBytes) }
         }
         let selected = Set(cpuRank + memoryRank)
-        let previous = main
-        for id in previous where !selected.contains(id) { formerlySelected[id] = latestTime }
+        for id in main where !selected.contains(id) { formerlySelected[id] = latestTime }
         formerlySelected = formerlySelected.filter { latestTime - $0.value <= 60 && nodes[$0.key] != nil }
-        main = previous.filter { selected.contains($0) }
-        let newcomers = selected.subtracting(main)
-        let preferred = order == .cpu ? cpuRank : memoryRank
-        let secondary = order == .cpu ? memoryRank : cpuRank
-        let primaryArrivals = contributionOrder(preferred.filter { newcomers.contains($0) })
-        main +=
-            primaryArrivals
-            + contributionOrder(
-                secondary.filter { newcomers.contains($0) && !primaryArrivals.contains($0) },
-                by: order == .cpu ? .memory : .cpu)
-        partition()
+        main = refreshOrder(Array(selected), previous: main)
+        partition(previous: previousChildren)
         for id in pinned where nodes[id] == nil {
             nodes[id] = ContributorNode(id: id, title: "Pinned · outside retained range")
         }
@@ -591,45 +607,63 @@ public struct ContributorOverview: Equatable, Sendable {
         census =
             "\(observedText) observed \(recent.scope == .allProcesses ? "same-user" : "agent-associated") processes in this window, including \(historical) retained no-longer-observed identities"
         source = recent
-        var warnings: [String] = []
+        var notes: [CoverageStatus.Note] = []
         let collapsedValues = Array(collapsedDisplay.values) + Array(collapsedRecent.values)
         if !collapsedValues.isEmpty {
             let oldest = collapsedValues.map(\.startedAt).min() ?? recent.endedAt
             let newest = collapsedValues.map(\.endedAt).max() ?? recent.endedAt
-            warnings.append(
-                "\(Set(collapsedDisplay.keys).union(collapsedRecent.keys).count) collapsed categories · \(number(max(0, recent.endedAt - newest)))–\(number(max(0, recent.endedAt - oldest))) s ago"
+            notes.append(
+                CoverageStatus.Note(
+                    "\(Set(collapsedDisplay.keys).union(collapsedRecent.keys).count) collapsed categories · \(number(max(0, recent.endedAt - newest)))–\(number(max(0, recent.endedAt - oldest))) s ago",
+                    .warning,
+                    help:
+                        "Retention pressure released identity detail; collapsed rows keep quantified totals.")
             )
         }
         var publication = PublicationCoverage()
         for unit in recent.units { publication.merge(unit.publicationCoverage) }
-        if let disclosure = AccountingContext.publication(publication, range: .recent) {
-            warnings.append(disclosure)
-        }
-        if let timing = snapshot.window?.acquisitionCoverage, timing.overrunCount > 0 {
-            warnings.append("\(timing.overrunCount) sampling overruns")
+        notes += [CoverageStatus.publication(publication, range: .recent, endingAt: recent.endedAt)]
+            .compactMap { $0 }
+        if let timing = snapshot.window?.acquisitionCoverage {
+            notes += [CoverageStatus.overruns(timing)].compactMap { $0 }
         }
         var readCoverage = ReadCoverage()
         for unit in recent.units { readCoverage.merge(unit.readCoverage) }
-        if readCoverage.failedPIDCount.maximum > 0 {
-            warnings.append("\(readCoverage.failedPIDCount.text) listed PIDs: read gaps")
-        }
+        notes += CoverageStatus.reads(readCoverage)
         if readCoverage.releasedAll != nil {
             let start = readCoverage.startedAt ?? recent.endedAt
             let end = readCoverage.endedAt ?? recent.endedAt
-            warnings.append(
-                "read-gap detail collapsed · \(number(max(0, recent.endedAt - end)))–\(number(max(0, recent.endedAt - start))) s ago"
-            )
+            notes.append(
+                CoverageStatus.Note(
+                    "read-gap detail collapsed · \(number(max(0, recent.endedAt - end)))–\(number(max(0, recent.endedAt - start))) s ago",
+                    .notice, help: "Released PID detail turns read-gap counts into ranges."))
         }
         if readCoverage.unidentifiedFailureObservations > 0 {
-            warnings.append("\(readCoverage.unidentifiedFailureObservations) unidentified failed reads")
+            notes.append(CoverageStatus.unidentified(readCoverage.unidentifiedFailureObservations))
         }
-        if totals.exclusions > 0 { warnings.append("\(totals.exclusions) excluded") }
-        if totals.missingMemory > 0 { warnings.append("\(totals.missingMemory) memory unavailable") }
-        if !recent.currentContextAvailable { warnings.append("current data unavailable") }
+        if totals.exclusions > 0 {
+            notes.append(
+                CoverageStatus.Note(
+                    "\(totals.exclusions) excluded", .warning,
+                    help:
+                        "Counter readings that contributed no CPU: unavailable, invalid or reset counters, or no usable baseline."
+                ))
+        }
+        if totals.missingMemory > 0 {
+            notes.append(
+                CoverageStatus.Note(
+                    "\(totals.missingMemory) memory unavailable", .warning,
+                    help: "Current processes without a footprint reading; memory totals are lower bounds."))
+        }
+        if !recent.currentContextAvailable {
+            notes.append(
+                CoverageStatus.Note(
+                    "current data unavailable", .warning, help: "Current presence could not be published."))
+        }
         samplingCoverage = SamplingCoverageSummary(
             snapshot: snapshot, reads: readCoverage, observed: observedBounds,
             recentDuration: recent.duration, retentionLimited: recent.retentionLimited)
-        coverageWarning = warnings.isEmpty ? "" : "⚠ " + warnings.joined(separator: " · ")
+        coverageStatus = CoverageStatus(notes: notes)
         coverage =
             "Recent \(number(recent.duration)) s"
             + (recent.retentionLimited ? " (retention limit / gap)" : "")
@@ -648,7 +682,7 @@ public struct ContributorOverview: Equatable, Sendable {
         }
     }
 
-    private mutating func partition() {
+    private mutating func partition(previous: [ContributorID: [ContributorID]]) {
         for section in [ContributorSection.recent, .remainder] {
             nodes[.section(section)]?.stats = ContributorStats()
             nodes[.section(section)]?.children = []
@@ -662,7 +696,10 @@ public struct ContributorOverview: Equatable, Sendable {
             nodes[.section(section)]?.children.append(id)
             nodes[.section(section)]?.stats.merge(node.stats)
         }
-        sortChildren()
+        for id in Array(nodes.keys) {
+            let children = refreshOrder(nodes[id]?.children ?? [], previous: previous[id] ?? [])
+            nodes[id]?.children = children
+        }
     }
 
     private func rank(

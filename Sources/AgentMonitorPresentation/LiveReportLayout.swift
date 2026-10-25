@@ -36,7 +36,7 @@ public enum LiveReportLayout {
         let footer = helpLines(
             width: width, height: height, headerHeight: lines.count, frozen: state.frozen,
             diagnosisRunning: state.diagnosis.isRunning)
-        let available = height - lines.count - footer.count
+        let available = max(0, height - lines.count - footer.count)
         let detailHeight = detailHeight(state: state, available: available)
         lines += processLines(state: state, width: width, height: available - detailHeight)
         lines += detailsPane(state: state, width: width, height: detailHeight)
@@ -100,21 +100,12 @@ public enum LiveReportLayout {
                 + (state.snapshot?.window.map {
                     " · window " + ReportNumber.text($0.durationSeconds) + " s; point candidates"
                 } ?? ""), style: .muted)
-        let publication =
-            state.snapshot?.window.flatMap { AccountingContext.publication($0.publicationCoverage) }
-            .map { TerminalCells.wrapped($0, to: width).map { ReportLine($0, style: .warning) } } ?? []
-        let pressure =
-            state.snapshot?.window.flatMap(AccountingContext.pressure).map {
-                [ReportLine($0, style: .warning)]
-            } ?? []
-        let warnings =
-            state.snapshot.map { snapshot in
-                AccountingContext.warnings(snapshot).flatMap { warning in
-                    TerminalCells.wrapped(warning, to: width).map { ReportLine($0, style: .warning) }
-                }
-            } ?? []
-        // Ordinary status changes keep the base height; material coverage warnings need visible
-        // rows. Both panes use the resulting height (architecture's TUI contract).
+        let coverageStatus = state.snapshot.map(CoverageStatus.init(snapshot:)) ?? CoverageStatus(notes: [])
+        // One coverage row is always reserved, so a gap appearing or clearing does not move the
+        // panes; only an oversized status wraps. Both panes use the resulting height (architecture's TUI contract).
+        let coverage = TerminalCells.wrapped(coverageStatus.text, to: width).map {
+            ReportLine($0, style: coverageStatus.lineStyle)
+        }
 
         switch width {
         case 120...:
@@ -123,18 +114,18 @@ public enum LiveReportLayout {
                     title + " | " + abbreviated(status, width: width - title.count - filters.count - 6)
                         + " | " + filters, style: .title),
                 context,
-            ] + warnings + pressure + publication
+            ] + coverage
         case 85..<120:
             return [
                 ReportLine(
                     title + " | " + abbreviated(status, width: width - title.count - 3), style: .title),
                 ReportLine(filters, style: .muted), context,
-            ] + warnings + pressure + publication
+            ] + coverage
         default:
             return [
                 ReportLine(title, style: .title), ReportLine(status, style: .title),
                 ReportLine(filters, style: .muted), context,
-            ] + warnings + pressure + publication
+            ] + coverage
         }
     }
 
@@ -183,13 +174,16 @@ public enum LiveReportLayout {
     }
 
     private static func detailHeight(state: LiveReportState, available: Int) -> Int {
+        let height: Int
         switch state.detailsMode {
-        case .minimized: return 1
-        case .maximized: return available
+        case .minimized: height = 1
+        case .maximized: height = available
         case .split:
             let requested = Int((Double(available) * Double(state.detailsPercent) / 100).rounded())
-            return min(available - 1, max(2, requested))
+            height = min(available - 1, max(2, requested))
         }
+        // The smallest supported viewport can leave no pane rows below the fixed chrome.
+        return max(0, min(available, height))
     }
 
     private static func processLines(state: LiveReportState, width: Int, height: Int) -> [ReportLine] {

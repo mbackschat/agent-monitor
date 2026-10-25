@@ -37,7 +37,7 @@ import Testing
     #expect(TextReport.render(snapshot).contains("coalesced range"))
     var state = LiveReportState()
     state.receive(snapshot)
-    #expect(state.overview.coverageWarning.contains("Recent: 2 units coalesced"))
+    #expect(state.overview.coverageStatus.text.contains("Recent: 2 units coalesced"))
     #expect(state.overview.coverage.contains("coalesced range"))
     state.overview.enabled = false
     #expect(LiveReportLayout.lines(state: state, width: 120, height: 24).contains { $0.text == disclosure })
@@ -75,12 +75,10 @@ func processHeadersExposeReadGapsAndOverruns(width: Int) throws {
     state.overview.enabled = false
     let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
     let warnings = lines.prefix(10).filter { $0.style == .warning }.map(\.text).joined(separator: " ")
-    #expect(warnings.contains("Read gaps: 2 same-user PIDs"))
-    #expect(warnings.contains("1 overruns"))
-    #expect(warnings.contains("max gap"))
+    #expect(warnings.contains("Exited before read: 2"))
+    #expect(warnings.contains("1 overrun · max gap"))
     let textWarnings = TextReport.lines(snapshot).filter { $0.style == .warning }.map(\.text)
-    #expect(textWarnings.contains { $0.contains("Read gaps: 2 same-user PIDs") })
-    #expect(textWarnings.contains { $0.contains("1 overruns") })
+    #expect(textWarnings.contains { $0.contains("1 overrun · max gap") })
 }
 
 @Test func coverageSummaryUsesMetricsInsteadOfDiagnosticParagraphs() throws {

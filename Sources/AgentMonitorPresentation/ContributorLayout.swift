@@ -18,9 +18,12 @@ public enum ContributorLayout {
                     + " · CPU over \(String(format: "%.1f", overview.duration)) s · point candidates",
                 style: .muted),
         ]
-        if !overview.coverageWarning.isEmpty {
-            header.insert(ReportLine(overview.coverageWarning, style: .warning), at: 2)
-        }
+        let status = overview.coverageStatus
+        header.insert(
+            contentsOf: TerminalCells.wrapped(status.text, to: width).map {
+                ReportLine($0, style: status.lineStyle)
+            },
+            at: 2)
         if !state.thresholds.isUnfiltered {
             header.append(ReportLine(ThresholdContext.text(state.thresholds), style: .muted))
         }

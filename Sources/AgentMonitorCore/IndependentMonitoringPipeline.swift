@@ -314,10 +314,7 @@ struct IndependentMonitoringPipeline: Sendable {
                             clock, live: live, since: scan.startedAt, cancellation: cancellation)
                     }
                 } catch {
-                    if let pending = drainPending(&state), let window = pending.window {
-                        try units.send(
-                            pending, size: window.payloadSize, sequence: window.baseline.id.sequence + 1)
-                    }
+                    units.finish(throwing: error, offering: drainPending(&state).flatMap(final))
                     throw error
                 }
                 if let pending = drainPending(&state), let window = pending.window {
@@ -327,17 +324,14 @@ struct IndependentMonitoringPipeline: Sendable {
             }
             units.finish()
         } catch {
-            if let pending = try? await drainPending(on: worker), let window = pending.window {
-                do {
-                    try units.send(
-                        pending, size: window.payloadSize, sequence: window.baseline.id.sequence + 1)
-                } catch {
-                    units.finish(throwing: error)
-                    return
-                }
-            }
-            units.finish(throwing: error)
+            units.finish(throwing: error, offering: (try? await drainPending(on: worker)).flatMap(final))
         }
+    }
+
+    private func final(_ pending: ResolvedScan) -> (
+        value: ResolvedScan, size: MonitoringPayloadSize, sequence: UInt64
+    )? {
+        pending.window.map { (pending, $0.payloadSize, $0.baseline.id.sequence + 1) }
     }
 
     private func acquire(

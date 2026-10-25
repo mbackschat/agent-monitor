@@ -32,23 +32,27 @@ public struct SamplingCoverageSummary: Equatable, Sendable {
         self.retentionLimited = retentionLimited
         rangeLabel = recentDuration == nil ? "Window" : "Recent"
         let scope = recentDuration == nil ? "display window" : "retained recent range"
+        let failedTitle: String
         let failed: String
         let failedHelp: String
         let hasFailures: Bool
         if coverage.failedPIDCount.maximum > 0 {
-            failed = coverage.failedPIDCount.text
-            hasFailures = true
+            failedTitle = "Read failures"
+            failed = coverage.readFailurePIDCount.text
+            hasFailures = coverage.readFailurePIDCount.maximum > 0
             failedHelp =
-                "Distinct same-user PID values with failed reads in the \(scope). Collection-wide, not agent-owned worker counts; PID reuse is unresolved. Failed PIDs per scan: mean \(ReportNumber.text(coverage.meanFailedPIDsPerScan)), maximum \(coverage.maximumFailedPIDsPerScan)."
+                "Distinct same-user PID values that could not be read in the \(scope), excluding processes that exited before their read. Collection-wide, not agent-owned worker counts; PID reuse is unresolved. Failed PIDs per scan, including exits: mean \(ReportNumber.text(coverage.meanFailedPIDsPerScan)), maximum \(coverage.maximumFailedPIDsPerScan)."
         } else if coverage.unidentifiedFailureObservations > 0 {
+            failedTitle = "Read gaps"
             failed = "\(coverage.unidentifiedFailureObservations) reads"
             hasFailures = true
             failedHelp =
                 "Failed observations without PID detail in the \(scope); repeated observations are not distinct processes."
         } else {
+            failedTitle = "Read gaps"
             failed = String(snapshot.unreadableProcessCount)
             hasFailures = snapshot.unreadableProcessCount > 0
-            failedHelp = "Failed same-user PID reads in the latest scan; ownership is unknown."
+            failedHelp = "Failed same-user PID reads in the latest scan; the cause and ownership are unknown."
         }
         metrics = [
             Metric(
@@ -61,7 +65,7 @@ public struct SamplingCoverageSummary: Equatable, Sendable {
                 value: String(snapshot.observedFindings.filter(\.isHistorical).count),
                 help: "Retained contributors absent from the final scan. Exit is unconfirmed.", warning: false
             ),
-            Metric(id: "failed", title: "Read gaps", value: failed, help: failedHelp, warning: hasFailures),
+            Metric(id: "failed", title: failedTitle, value: failed, help: failedHelp, warning: hasFailures),
             Metric(
                 id: "sampled", title: "Sampled", value: String(snapshot.sampledProcessCount),
                 help:
@@ -79,19 +83,23 @@ public struct SamplingCoverageSummary: Equatable, Sendable {
                     "Periods exceeding 1.5 times the requested acquisition interval, in the display window.",
                 warning: (timing?.overrunCount ?? 0) > 0),
         ]
-        let kinds: [(String, String, LifetimeCountRange, String)] = [
-            ("denied", "Denied", coverage.deniedPIDCount, "Permission denied"),
+        let kinds: [(String, String, LifetimeCountRange, String, Bool)] = [
+            ("denied", "Denied", coverage.deniedPIDCount, "Permission denied", true),
             (
-                "vanished", "Vanished", coverage.vanishedPIDCount,
-                "Unavailable at read time; this can be a process exiting between listing and reading"
+                "vanished", "Exited before read", coverage.vanishedPIDCount,
+                "Listed but no longer existing when read (ESRCH), so CPU after the last reading is unmeasured",
+                false
             ),
-            ("changed", "Identity changed", coverage.mismatchedPIDCount, "Identity verification failed"),
-            ("other", "Other", coverage.otherPIDCount, "Short reads or other native failures"),
+            (
+                "changed", "Identity changed", coverage.mismatchedPIDCount, "Identity verification failed",
+                true
+            ),
+            ("other", "Other", coverage.otherPIDCount, "Short reads or other native failures", true),
         ]
         events = kinds.filter { $0.2.maximum > 0 }.map {
             Metric(
                 id: $0.0, title: $0.1, value: $0.2.text,
-                help: "\($0.3). Same-user PID values in the \(scope); categories can overlap.", warning: true)
+                help: "\($0.3). Same-user PID values in the \(scope); categories can overlap.", warning: $0.4)
         }
         scanLabel =
             timing.map {

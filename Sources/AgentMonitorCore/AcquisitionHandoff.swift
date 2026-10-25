@@ -59,6 +59,17 @@ final class AcquisitionHandoff<Element: Sendable>: Sendable {
         if let error { waiter?.resume(throwing: error) } else { waiter?.resume(returning: nil) }
     }
 
+    /// Ends the stream with the failure that stopped acquisition after offering its drained
+    /// partial unit. The offer is best effort: a full or closed ring must not replace that failure
+    /// with a publication overload, which would misreport why collection stopped.
+    func finish(
+        throwing error: any Error,
+        offering final: (value: Element, size: MonitoringPayloadSize, sequence: UInt64)?
+    ) {
+        if let final { try? send(final.value, size: final.size, sequence: final.sequence) }
+        finish(throwing: error)
+    }
+
     func cancel() { finish(throwing: CancellationError()) }
 
     func next() async throws -> Element? {

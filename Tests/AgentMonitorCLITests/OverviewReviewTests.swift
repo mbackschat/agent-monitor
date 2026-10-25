@@ -148,7 +148,20 @@ import Testing
             ContributorLayout.lines(state: state, width: 120, height: 24).contains {
                 $0.text.contains("Exact session:")
             })
-        #expect(lines.prefix(6).contains { $0.text.contains("3 listed PIDs: read gaps") })
+        #expect(lines.prefix(6).contains { $0.text.contains("Read failures: 3 same-user PIDs") })
+    }
+
+    /// A gap appearing or clearing must not move the rows under the user's selection.
+    @Test func overviewHeaderReservesOneCoverageRow() throws {
+        func header(unreadable: Int) throws -> [ReportLine] {
+            var state = LiveReportState()
+            state.receive(try reviewSnapshot(cpu: [20], memory: [200_000_000], unreadable: unreadable))
+            let lines = ContributorLayout.lines(state: state, width: 120, height: 24)
+            return Array(lines.prefix { $0.style != .heading })
+        }
+        let clean = try header(unreadable: 0)
+        #expect(clean.contains(ReportLine(CoverageStatus.clearText, style: .muted)))
+        #expect(clean.count == (try header(unreadable: 1)).count)
     }
 
     @Test func multipleDirectoriesUseSharedProjectRuleEvenWithMatchingBasenames() throws {

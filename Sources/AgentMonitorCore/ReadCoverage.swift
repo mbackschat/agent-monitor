@@ -26,6 +26,12 @@ public struct ReadCoverage: Equatable, Codable, Sendable {
     public var vanishedPIDCount: LifetimeCountRange { Self.count(vanishedPIDs, releasedVanished) }
     public var mismatchedPIDCount: LifetimeCountRange { Self.count(mismatchedPIDs, releasedMismatched) }
     public var otherPIDCount: LifetimeCountRange { Self.count(otherFailedPIDs, releasedOther) }
+    /// Failures to read a listed process, excluding PIDs that had already exited (ESRCH).
+    public var readFailurePIDCount: LifetimeCountRange {
+        var result = Self.count(deniedPIDs.union(mismatchedPIDs).union(otherFailedPIDs), releasedDenied)
+        for released in [releasedMismatched, releasedOther].compactMap({ $0 }) { result.union(released) }
+        return result
+    }
     private static func count(_ values: Set<Int32>, _ released: LifetimeCountRange?) -> LifetimeCountRange {
         var result = LifetimeCountRange(minimum: values.count, maximum: values.count)
         if let released { result.union(released) }
