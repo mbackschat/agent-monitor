@@ -94,13 +94,29 @@ package struct CommandSessionRegistryReader: SessionRegistryReading {
 struct SessionRegistryCadence: Sendable {
     private var previous: [AgentProvider: (at: Date, runtimes: Set<ProcessIdentity>)] = [:]
 
-    mutating func due(_ provider: AgentProvider, runtimes: Set<ProcessIdentity>, at now: Date) -> Bool {
+    mutating func due(
+        _ provider: AgentProvider, runtimes: Set<ProcessIdentity>, at now: Date,
+        profile: PipelineProfile? = nil
+    ) -> Bool {
         if let last = previous[provider], runtimes.isSubset(of: last.runtimes), now >= last.at,
             now.timeIntervalSince(last.at) < 60
         {
             return false
         }
+        let reason: PipelineProfile.Counter
+        if let last = previous[provider] {
+            if now < last.at {
+                reason = .registryClockResetAdmissions
+            } else if now.timeIntervalSince(last.at) >= 60 {
+                reason = .registryPeriodicAdmissions
+            } else {
+                reason = .registryNewRuntimeAdmissions
+            }
+        } else {
+            reason = .registryInitialAdmissions
+        }
         previous[provider] = (now, runtimes)
+        profile?.increment(reason)
         return true
     }
 }

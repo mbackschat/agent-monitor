@@ -45,6 +45,13 @@ public struct NativeProcessReader: DiagnosisReading {
     private let numerator: UInt32
     private let denominator: UInt32
     private let adapters: AttributionAdapters
+    private final class RuntimeClaimStore: Sendable {
+        let cache: Mutex<RuntimeClaimsCache>
+        init(adapters: AttributionAdapters) {
+            cache = Mutex(RuntimeClaimsCache(adapters: adapters))
+        }
+    }
+    private let runtimeClaims: RuntimeClaimStore
     private let hostSource: any HostCPUReading
     private let counterAccess: any NativeCounterAccess
 
@@ -63,6 +70,7 @@ public struct NativeProcessReader: DiagnosisReading {
         numerator = timebase.numer
         denominator = timebase.denom
         self.adapters = adapters
+        runtimeClaims = RuntimeClaimStore(adapters: adapters)
         self.hostSource = hostSource
         self.counterAccess = counterAccess
     }
@@ -217,22 +225,19 @@ public struct NativeProcessReader: DiagnosisReading {
             metadata.command = arguments(sample.identity.pid, includeCommand: true).command
         }
         metadata.cwd = currentDirectory(sample.identity.pid)
-        let invocation = metadata.invocation
-        if let device = sample.terminalDevice,
-            !adapters.runtimeProviders(for: sample.executable, invokedAs: invocation).isEmpty
-        {
+        let plan = runtimeClaims.cache.withLock { $0.claims(for: sample.executable) }
+            .plan(invokedAs: metadata.invocation)
+        if let device = sample.terminalDevice, plan.isRuntime {
             metadata.terminal = terminalName(device)
         }
-        let evidence = adapters.runtimeEvidence(for: sample.executable, invokedAs: invocation) { requests in
-            var observations = RuntimeObservations()
-            for request in requests {
-                switch request {
-                case .openFilePaths: observations.openFilePaths = openFilePaths(sample.identity.pid)
-                case .listeningSockets: observations.listeningSockets = listeningSockets(sample.identity.pid)
-                }
+        var observations = RuntimeObservations()
+        for request in plan.requests {
+            switch request {
+            case .openFilePaths: observations.openFilePaths = openFilePaths(sample.identity.pid)
+            case .listeningSockets: observations.listeningSockets = listeningSockets(sample.identity.pid)
             }
-            return observations
         }
+        let evidence = plan.evidence(from: observations)
         metadata.writerThreadIDs = evidence.writerThreadIDs
         metadata.listeningSockets = evidence.listeningSockets
         guard isCurrent(sample) else { return .notObserved }

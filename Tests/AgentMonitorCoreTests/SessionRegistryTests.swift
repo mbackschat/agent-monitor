@@ -326,3 +326,20 @@ func providerDiscoveryDoesNotRecursivelyListItsOwnHelpers(nested: Bool) throws {
         #expect(row.sessionName == nil)
     }
 }
+
+@Test func registryProfileCountsInvocationEvidenceAndOnlyMatchedBindings() throws {
+    let profile = PipelineProfile()
+    var monitor = Monitor(profile: profile)
+    let runtime = sample(10, executable: claudeExecutable)
+    let provisional = sample(11, executable: claudeExecutable)
+    monitor.ingest([runtime, provisional])
+    monitor.enrich(ProcessMetadata(invocation: "claude"), for: runtime.identity)
+    monitor.profileRegistryCandidates([runtime.identity, provisional.identity])
+    monitor.bindSessions(try listing([entry(pid: 10)]), provider: .claude)
+    let counters = profile.snapshot().counters
+    #expect(counters["registryCandidatesWithInvocation"] == 1)
+    #expect(counters["registryCandidatesWithoutInvocation"] == 1)
+    #expect(counters["registryMatchedBindings"] == 1)
+    monitor.bindSessions(try listing([entry(pid: 10), entry(pid: 10)]), provider: .claude)
+    #expect(profile.snapshot().counters["registryMatchedBindings"] == 1)
+}

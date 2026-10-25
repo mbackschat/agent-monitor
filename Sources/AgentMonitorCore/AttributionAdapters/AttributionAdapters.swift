@@ -19,8 +19,12 @@ package struct AttributionAdapters: Sendable {
 
     var environmentKeys: Set<String> { Set(adapters.flatMap(\.environmentKeys)) }
 
+    func runtimeClaims(for executable: String) -> RuntimeClaims {
+        RuntimeClaims(executable: executable, adapters: adapters.filter { $0.recognizesRuntime(executable) })
+    }
+
     func runtimeProviders(for executable: String, invokedAs invocation: String? = nil) -> Set<AgentProvider> {
-        Set(recognizing(executable, invokedAs: invocation).map(\.provider))
+        runtimeClaims(for: executable).plan(invokedAs: invocation).providers
     }
 
     /// Narrows existing executable claims by `argv[0]` without repeating path recognition.
@@ -44,15 +48,6 @@ package struct AttributionAdapters: Sendable {
         return names.count == 1 ? names.first : nil
     }
 
-    private func recognizing(_ executable: String, invokedAs invocation: String?)
-        -> [any AgentAttributionAdapter]
-    {
-        adapters.filter { adapter in
-            adapter.recognizesRuntime(executable)
-                && invocation.map { adapter.acceptsRuntimeInvocation($0, executable: executable) } != false
-        }
-    }
-
     func runtimeProvider(for executable: String) -> AgentProvider? {
         let providers = runtimeProviders(for: executable)
         return providers.count == 1 ? providers.first : nil
@@ -73,22 +68,9 @@ package struct AttributionAdapters: Sendable {
         for executable: String, invokedAs invocation: String? = nil,
         read: (Set<RuntimeObservation>) -> RuntimeObservations
     ) -> RuntimeEvidence {
-        let recognized = recognizing(executable, invokedAs: invocation)
-        guard !recognized.isEmpty else { return RuntimeEvidence() }
-        let observations = read(Set(recognized.flatMap(\.runtimeObservations)))
-        var writers: Set<String> = []
-        var listeners: Set<String> = []
-        for adapter in recognized {
-            let allowed = RuntimeObservations(
-                openFilePaths: adapter.runtimeObservations.contains(.openFilePaths)
-                    ? observations.openFilePaths : [],
-                listeningSockets: adapter.runtimeObservations.contains(.listeningSockets)
-                    ? observations.listeningSockets : [])
-            let evidence = adapter.runtimeEvidence(from: allowed)
-            writers.formUnion(evidence.writerThreadIDs)
-            listeners.formUnion(evidence.listeningSockets)
-        }
-        return RuntimeEvidence(writerThreadIDs: writers.sorted(), listeningSockets: listeners.sorted())
+        let plan = runtimeClaims(for: executable).plan(invokedAs: invocation)
+        guard plan.isRuntime else { return RuntimeEvidence() }
+        return plan.evidence(from: read(plan.requests))
     }
 
     package func sessionRegistry(for provider: AgentProvider) -> SessionRegistryQuery? {

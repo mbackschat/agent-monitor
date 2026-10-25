@@ -192,14 +192,19 @@ final class PipelineEnrichment: Sendable {
                         try check()
                         let output: Data?
                         do {
+                            profile?.increment(
+                                .registryRequestedCandidates, by: UInt64(request.samples.count))
                             output = try registry.output(of: request.query, checking: check)
                         } catch is Finished { throw Finished() } catch is CancellationError {
                             throw CancellationError()
                         } catch { output = nil }
                         try check()
+                        let verified = Set(request.samples.filter(reader.isCurrent).map(\.identity))
+                        profile?.increment(.registryVerifiedCandidates, by: UInt64(verified.count))
+                        profile?.increment(.registryCompletedListings)
                         return RegistryResult(
                             provider: request.provider, output: output,
-                            verified: Set(request.samples.filter(reader.isCurrent).map(\.identity)),
+                            verified: verified,
                             requestedAt: Dictionary(
                                 request.samples.map { ($0.identity, $0.sampledAt) },
                                 uniquingKeysWith: { _, latest in latest }),

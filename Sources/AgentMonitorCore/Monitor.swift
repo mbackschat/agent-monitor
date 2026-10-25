@@ -319,6 +319,13 @@ public struct Monitor: Sendable {
         return result
     }
 
+    func profileRegistryCandidates(_ candidates: Set<ProcessIdentity>) {
+        guard let profile else { return }
+        let observed = candidates.reduce(0) { $0 + (nodes[$1]?.metadata.invocation == nil ? 0 : 1) }
+        profile.increment(.registryCandidatesWithInvocation, by: UInt64(observed))
+        profile.increment(.registryCandidatesWithoutInvocation, by: UInt64(candidates.count - observed))
+    }
+
     package func sessionRegistry(for provider: AgentProvider) -> SessionRegistryQuery? {
         adapters.sessionRegistry(for: provider)
     }
@@ -343,6 +350,7 @@ public struct Monitor: Sendable {
             if verified?.contains(runtime) != false,
                 listed.count == 1, let session = listed.first, session.active, let id = session.sessionID
             {
+                profile?.increment(.registryMatchedBindings)
                 listedSessions[runtime] = id
                 listedSessionNames[runtime] = session.name
                 registryObservedAt[runtime] = observedAt

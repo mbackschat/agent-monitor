@@ -434,8 +434,9 @@ struct IndependentMonitoringPipeline: Sendable {
             var queries: [RegistryRefreshRequest] = []
             for (provider, runtimes) in state.monitor.sessionRegistryRuntimes(
                 in: findings, excludingChildrenOf: getpid())
-            where state.cadence.due(provider, runtimes: runtimes, at: scan.timestamp) {
+            where state.cadence.due(provider, runtimes: runtimes, at: scan.timestamp, profile: profile) {
                 if let query = state.monitor.sessionRegistry(for: provider) {
+                    state.monitor.profileRegistryCandidates(runtimes)
                     queries.append(
                         RegistryRefreshRequest(
                             provider: provider, query: query, samples: runtimes.compactMap { samples[$0] }))

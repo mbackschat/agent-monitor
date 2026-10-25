@@ -351,3 +351,11 @@ The 1,000- and 3,000-lifetime production capacity guards require collapsed contr
 ### Accounting row projection
 
 The cached/uncached attribution oracles also guard the single-pass accounting-row projection, including sort order, ownership, action markers, changing counters, metadata and value copies. Performance comparisons must use optimized builds of the same fixture and compare against the committed implementation; a component saving does not establish native collection cost. Disposable benchmark binaries and outputs follow the current retention authorization.
+
+### Provider diagnostics
+
+`RegistryDiscoveryProfileTests` verifies exact admission reasons, no-op/stopped calls, coalesced requests, handled provider errors and one existing identity check per requested candidate. A registry fixture checks invocation presence and matched-binding counts without retaining provider output.
+
+### Native executable-claim reuse
+
+`RuntimeClaimsTests` checks positive and negative reuse, fresh invocation withdrawal/restoration, bounded FIFO/key bytes, registry/value-copy isolation and exact UTF-8 spelling at canonical-equivalent keys. Multi-adapter fixtures use explicit expected providers, observation requests and evidence in both registration orders, rather than treating a shared implementation as an independent oracle. Native metadata still uses the same pre/post identity checks and native observation calls. Optimized comparisons must hold fixture observations and evidence constant; a recognition-component saving does not establish whole-collector acceptance.
