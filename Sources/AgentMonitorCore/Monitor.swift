@@ -232,7 +232,12 @@ public struct Monitor: Sendable {
         return size
     }
 
-    func validateAttributionStorage(limits: MonitoringPipelineLimits, sequence: UInt64) throws {
+    mutating func validateAttributionStorage(limits: MonitoringPipelineLimits, sequence: UInt64) throws {
+        if !AttributionStorage.fits(attributionPayloadSize, limits: limits) {
+            // CPU-01 prioritizes coverage over reuse: only required evidence can exhaust this reservation.
+            resolutions.removeAll()
+            resolutionPayload = MonitoringPayloadSize(observations: 0, textBytes: 0)
+        }
         try AttributionStorage.validate(attributionPayloadSize, limits: limits, sequence: sequence)
     }
 
@@ -545,13 +550,23 @@ public struct Monitor: Sendable {
     /// Resolution depends on graph/metadata changes, not new counter or footprint values.
     /// Window collection needs every row but defers display ordering to window projection.
     mutating func accountingFindings(sorted: Bool = false) -> [HeavyProcess] {
-        accountingFindings(sorted: sorted, validatingStorage: { _ in })
+        accountingFindings(sorted: sorted, admittingResolution: { _ in true })
     }
 
     mutating func accountingFindings(
-        sorted: Bool = false, validatingStorage: (MonitoringPayloadSize) throws -> Void
-    ) rethrows -> [HeavyProcess] {
-        try validatingStorage(attributionPayloadSize)
+        sorted: Bool = false, limits: MonitoringPipelineLimits, sequence: UInt64
+    ) throws -> [HeavyProcess] {
+        try validateAttributionStorage(limits: limits, sequence: sequence)
+        return accountingFindings(
+            sorted: sorted,
+            admittingResolution: {
+                AttributionStorage.fits($0, limits: limits)
+            })
+    }
+
+    private mutating func accountingFindings(
+        sorted: Bool, admittingResolution: (MonitoringPayloadSize) -> Bool
+    ) -> [HeavyProcess] {
         var misses: UInt64 = 0
         var rows: [HeavyProcess] = []
         rows.reserveCapacity(live.count)
@@ -562,13 +577,12 @@ public struct Monitor: Sendable {
                 resolution = cached
             } else {
                 resolution = resolveUncached(identity)
-                // A bounded graph can still produce quadratic cached ancestry; the deep-chain
-                // guard in AttributionStorageTests requires admission before retaining each miss.
+                // Deep ancestry can make cached context quadratic. Keep the complete row, but
+                // recompute an uncacheable resolution on demand rather than lose coverage (CPU-01).
                 var proposed = attributionPayloadSize
                 if let previous = resolutions[identity] { proposed.subtract(previous.payloadSize) }
                 proposed.add(resolution.payloadSize)
-                try validatingStorage(proposed)
-                setResolution(resolution, for: identity)
+                setResolution(admittingResolution(proposed) ? resolution : nil, for: identity)
                 misses += 1
             }
             rows.append(finding(node, owner: resolution.attribution))

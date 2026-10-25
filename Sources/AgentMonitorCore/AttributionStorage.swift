@@ -1,9 +1,12 @@
 enum AttributionStorage {
+    static func fits(_ size: MonitoringPayloadSize, limits: MonitoringPipelineLimits) -> Bool {
+        size.observations <= limits.pendingObservations && size.textBytes <= limits.pendingTextBytes
+    }
+
     static func validate(_ size: MonitoringPayloadSize, limits: MonitoringPipelineLimits, sequence: UInt64)
         throws
     {
-        guard size.observations <= limits.pendingObservations, size.textBytes <= limits.pendingTextBytes
-        else {
+        guard fits(size, limits: limits) else {
             throw MonitoringError.overloaded(stage: .attribution, rejectedScan: sequence)
         }
     }

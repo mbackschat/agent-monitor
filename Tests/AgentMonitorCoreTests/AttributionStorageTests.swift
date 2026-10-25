@@ -103,21 +103,54 @@ private final class AncestorHandoffFixture: ProcessReading, AcquisitionClock, Se
 }
 
 @Suite struct AttributionStorageTests {
-    @Test(arguments: ResolutionPopulation.allCases)
-    private func resolutionAdmissionCannotAccumulateBeyondItsReservation(population: ResolutionPopulation)
-        throws
-    {
+    @Test(arguments: ResolutionPopulation.allCases, [false, true])
+    private func cachePressureKeepsCompleteFindingsWithinItsReservation(
+        population: ResolutionPopulation, constrainText: Bool
+    ) throws {
         var monitor = Monitor()
         monitor.ingest(population.samples)
-        let limits = MonitoringPipelineLimits(pendingObservations: 5_000)
-        try monitor.validateAttributionStorage(limits: limits, sequence: 1)
-        #expect(throws: MonitoringError.overloaded(stage: .attribution, rejectedScan: 1)) {
-            _ = try monitor.accountingFindings(validatingStorage: {
-                try AttributionStorage.validate($0, limits: limits, sequence: 1)
-            })
+        monitor.enrich(
+            ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]),
+            for: population.samples[0].identity)
+        let baseline = monitor.attributionPayloadSize
+        let limits = MonitoringPipelineLimits(
+            pendingObservations: constrainText ? 1_000_000 : 5_000,
+            pendingTextBytes: constrainText ? baseline.textBytes + 100 : 16 * 1_024 * 1_024)
+        let oracle = monitor.findings()
+        for _ in 0..<3 {
+            let rows = try monitor.accountingFindings(sorted: true, limits: limits, sequence: 1)
+            #expect(rows == oracle)
+            #expect(rows.allSatisfy { $0.attribution.threadID == sessionA })
+            #expect(monitor.attributionPayloadSize.observations <= limits.pendingObservations)
+            #expect(monitor.attributionPayloadSize.textBytes <= limits.pendingTextBytes)
+            #expect(monitor.attributionPayloadSize == monitor.recountedAttributionPayloadSize)
         }
+    }
+
+    @Test(arguments: [false, true])
+    func evidenceGrowthReclaimsOptionalCacheBeforeRejectingTheGraph(constrainText: Bool) throws {
+        var samples = (0..<10).map { sample(Int32(100 + $0)) }
+        var monitor = Monitor()
+        monitor.ingest(samples)
+        for value in samples {
+            monitor.enrich(
+                ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]),
+                for: value.identity)
+        }
+        _ = monitor.accountingFindings()
+        let originalSize = monitor.attributionPayloadSize
+        let limits = MonitoringPipelineLimits(
+            pendingObservations: constrainText ? 65_536 : originalSize.observations,
+            pendingTextBytes: constrainText ? originalSize.textBytes : 16 * 1_024 * 1_024)
+        var copy = monitor
+        samples.append(sample(200))
+        monitor.ingest(samples)
+        try monitor.validateAttributionStorage(limits: limits, sequence: 2)
         #expect(monitor.attributionPayloadSize.observations <= limits.pendingObservations)
         #expect(monitor.attributionPayloadSize == monitor.recountedAttributionPayloadSize)
+        #expect(monitor.findings().count == 11)
+        #expect(copy.accountingFindings().count == 10)
+        #expect(copy.attributionPayloadSize == originalSize)
     }
 
     @Test func staleDetachedResolutionReplacementDoesNotDoubleChargeItsExistingEntry() throws {
@@ -138,34 +171,28 @@ private final class AncestorHandoffFixture: ProcessReading, AcquisitionClock, Se
         let expected = reference.recountedAttributionPayloadSize
         let limits = MonitoringPipelineLimits(
             pendingObservations: expected.observations, pendingTextBytes: expected.textBytes)
-        let rows = try monitor.accountingFindings(validatingStorage: {
-            try AttributionStorage.validate($0, limits: limits, sequence: 1)
-        })
+        let rows = try monitor.accountingFindings(limits: limits, sequence: 1)
         #expect(rows.first { $0.process == worker.identity }?.attribution.runtime == runtime.identity)
         #expect(monitor.attributionPayloadSize == expected)
         #expect(monitor.attributionPayloadSize == monitor.recountedAttributionPayloadSize)
     }
 
     @Test(.timeLimit(.minutes(1)))
-    func rejectedResolutionGrowthDrainsPreviouslyAcceptedCPU() async throws {
+    func productionCollectionContinuesWhenResolutionCacheDoesNotFit() async throws {
         let fixture = ResolutionGrowthFixture()
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(
-                intervalSeconds: 0.1, samples: 0, scope: .allProcesses,
-                pipelineLimits: MonitoringPipelineLimits(pendingObservations: 2_000), reportIntervalSeconds: 5
+                intervalSeconds: 0.1, samples: 2, scope: .allProcesses,
+                pipelineLimits: MonitoringPipelineLimits(pendingObservations: 5_500)
             ),
             reader: fixture, clock: fixture, registry: fixture)
         let reports = Mutex<[MonitoringSnapshot]>([])
-        await #expect(throws: MonitoringError.overloaded(stage: .attribution, rejectedScan: 2)) {
-            try await session.run { value in reports.withLock { $0.append(value) } }
-        }
+        try await session.run { value in reports.withLock { $0.append(value) } }
         let delivered = reports.withLock { $0 }
-        #expect(delivered.count == 1)
-        let window = try #require(delivered.first?.window)
-        #expect(window.baselineScan == 0)
-        #expect(window.finalScan == 1)
-        #expect(abs(window.contributions.reduce(0) { $0 + $1.cpuSeconds } - 1) < 1e-9)
-        #expect(window.contributions.reduce(0) { $0 + $1.intervalCount } == 100)
+        #expect(delivered.count == 2)
+        #expect(delivered.allSatisfy { $0.observedFindings.count == 100 })
+        let cpu = delivered.flatMap(\.observedFindings).reduce(0) { $0 + ($1.cpuPercent ?? 0) * 0.001 }
+        #expect(abs(cpu - 2) < 1e-9)
     }
 
     @Test func incrementalChargesFollowSpellingExecInvalidationPruningAndValueCopies() throws {
@@ -213,10 +240,11 @@ private final class AncestorHandoffFixture: ProcessReading, AcquisitionClock, Se
         _ = monitor.accountingFindings()
         #expect(monitor.attributionPayloadSize == monitor.recountedAttributionPayloadSize)
         #expect(monitor.attributionPayloadSize.textBytes > before.textBytes)
+        var exhausted = monitor
         #expect(throws: MonitoringError.overloaded(stage: .attribution, rejectedScan: 7)) {
-            try monitor.validateAttributionStorage(
+            try exhausted.validateAttributionStorage(
                 limits: MonitoringPipelineLimits(
-                    pendingTextBytes: monitor.attributionPayloadSize.textBytes - 1),
+                    pendingTextBytes: 1),
                 sequence: 7)
         }
 

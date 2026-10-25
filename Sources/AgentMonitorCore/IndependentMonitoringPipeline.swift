@@ -424,15 +424,8 @@ struct IndependentMonitoringPipeline: Sendable {
                     restrictingTo: result.verified.intersection(samples.keys), observedAt: result.observedAt,
                     requestedAt: result.requestedAt)
             }
-            try state.monitor.validateAttributionStorage(
-                limits: configuration.pipelineLimits, sequence: scan.counters.id.sequence)
             let findings = try state.monitor.accountingFindings(
                 sorted: configuration.reportIntervalSeconds == nil,
-                validatingStorage: {
-                    try AttributionStorage.validate(
-                        $0, limits: configuration.pipelineLimits, sequence: scan.counters.id.sequence)
-                })
-            try state.monitor.validateAttributionStorage(
                 limits: configuration.pipelineLimits, sequence: scan.counters.id.sequence)
             enrichment.requestMetadata(
                 MetadataRefreshRequest(
