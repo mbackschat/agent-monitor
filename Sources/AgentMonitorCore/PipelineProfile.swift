@@ -11,7 +11,9 @@ package final class PipelineProfile: Sendable {
         case metadataBatch, providerRequest
     }
     enum Worker: String, CaseIterable, Sendable { case acquisition, metadata, providers }
-    enum Counter: String, Sendable { case resolutionHits, resolutionMisses, detachedGenerationChanges }
+    enum Counter: String, Sendable {
+        case resolutionHits, resolutionMisses, detachedGenerationChanges, registryAncestorChecks
+    }
     struct Stamp {
         let cpu = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
         let wall = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW)

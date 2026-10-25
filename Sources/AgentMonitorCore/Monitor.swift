@@ -260,6 +260,7 @@ public struct Monitor: Sendable {
         in findings: [HeavyProcess], excludingChildrenOf collectorPID: Int32? = nil
     ) -> [AgentProvider: Set<ProcessIdentity>] {
         var result: [AgentProvider: Set<ProcessIdentity>] = [:]
+        var checked: [AgentProvider: Set<ProcessIdentity>] = [:]
         for finding in findings {
             let owner = finding.attribution
             switch owner.evidence {
@@ -267,14 +268,16 @@ public struct Monitor: Sendable {
                 guard let provider = owner.provider, let runtime = owner.runtime, live.contains(runtime),
                     adapters.sessionRegistry(for: provider) != nil
                 else { continue }
+                guard checked[provider, default: []].insert(runtime).inserted else { continue }
                 // A provider CLI spawned by the collector must not trigger its next listing.
                 // The 2026-10-24 live audit observed 12 helpers and 12 listings in six seconds.
-                if let collectorPID,
-                    chain(from: runtime).contains(where: {
+                if let collectorPID {
+                    profile?.increment(.registryAncestorChecks)
+                    if chain(from: runtime).contains(where: {
                         nodes[$0]?.sample.parentPID == collectorPID
-                    })
-                {
-                    continue
+                    }) {
+                        continue
+                    }
                 }
                 result[provider, default: []].insert(runtime)
             case .marker, .inheritedMarker, .writerLock, .ambiguous, .unknown:
