@@ -30,6 +30,9 @@ struct MenuBarContributorOverview: View {
             DisclosureGroup("Recent coverage · \(overview.sourceDurationLabel)") {
                 Text(overview.census).font(.caption2)
                 Text(overview.coverage).font(.caption2)
+                if let snapshot = model.report.snapshot {
+                    MenuBarSamplingCoverageDetails(snapshot: snapshot)
+                }
                 Text(
                     "Session CPU is point-evidence candidate CPU over \(overview.duration.formatted(.number.precision(.fractionLength(1)))) s. Polling can miss workers and final exit CPU. Counts identify observed lifetimes, not confirmed exits."
                 )

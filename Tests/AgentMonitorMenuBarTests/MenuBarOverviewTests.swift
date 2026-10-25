@@ -60,6 +60,14 @@ import Testing
     }
 }
 
+@Test @MainActor func samplingExplanationUsesCompactProgressiveDisclosure() throws {
+    _ = NSApplication.shared
+    let host = NSHostingView(
+        rootView: MenuBarSamplingCoverage(snapshot: try nativeOverviewFixture()).frame(width: 376))
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize.height <= 22)
+}
+
 func nativeOverviewFixture() throws -> MonitoringSnapshot {
     var ledger = CounterLedger()
     func values(_ tick: Int) -> [ProcessSample] {

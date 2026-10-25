@@ -299,11 +299,8 @@ struct MenuBarView: View {
             if let result = model.lastActionResult {
                 Text(result.text).font(.caption).textSelection(.enabled)
             }
-            if let snapshot = model.report.snapshot {
-                Text(
-                    "Totals are independent of filters; process groups show retained members. Sampling can miss short-lived work. CPU 100% = one core.\n\(snapshot.sampledProcessCount) sampled · \(snapshot.unreadableProcessCount) failed same-user PID reads in the latest scan"
-                )
-                .font(.caption2).foregroundStyle(.secondary)
+            if !model.report.showsOverview, let snapshot = model.report.snapshot {
+                MenuBarSamplingCoverage(snapshot: snapshot)
             }
         }
         .padding(14)

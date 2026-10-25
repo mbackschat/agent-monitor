@@ -136,6 +136,8 @@ JSONL output has no action commands.
 
 ## Main contributors and recent activity
 
+On Mac, **Recent coverage** holds sampling explanations and current-scan counts; the process table has a **Sampling coverage** disclosure. These notes stay collapsed while actual gaps, overruns and pressure remain visible. TUI keeps explanations behind `i` details.
+
 Mac and TUI default to **Main contributors**. Individually shown sessions are the union of the top five by combined group CPU (strictly above 25% of one core) and the top five by current memory (at least 100 MB). Hysteresis keeps small rank changes from constantly reshuffling the list. These relevance floors collapse rows; they do not remove measured work. A zero-CPU process can still matter through memory, and zero CPU does not mean it has stopped.
 
 **Recent contributors** keeps bursts discoverable after workers disappear: sessions qualify through at least 0.5 recent candidate CPU-seconds, a 100 MB sampled worker footprint, or having recently left the main list. **More processes** quantifies the remaining exact-session population. **Unresolved / uncertain** always remains visible; recognised shared agent runtimes have their own summary. **Show all** (TUI `a`) opens the recent/remainder sections. Explicit resource filters still apply to process rows, with filtered counts and full totals retained.
