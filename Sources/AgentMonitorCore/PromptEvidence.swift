@@ -73,6 +73,10 @@ struct PromptEvidenceCapture: Sendable {
         var attempted = false
     }
     private var discoveries: [ProcessIdentity: Discovery] = [:]
+    private var observationOrder = ObservedLifetimeOrder()
+    var evictionSortInputCount: Int { observationOrder.sortInputCount }
+    var retainedEvictionReferenceCount: Int { observationOrder.retainedReferenceCount }
+    var retainedDiscoveryCount: Int { discoveries.count }
 
     mutating func capture(
         _ samples: [ProcessSample], sequence: UInt64, using reader: any ProcessReading,
@@ -80,7 +84,9 @@ struct PromptEvidenceCapture: Sendable {
     ) -> [PromptEvidence] {
         let start = clock.monotonicNow()
         var candidates: [ProcessSample] = []
+        var touched: [ProcessIdentity] = []
         for sample in samples {
+            if discoveries[sample.identity]?.lastSeen != sequence { touched.append(sample.identity) }
             var discovery =
                 discoveries[sample.identity]
                 ?? Discovery(
@@ -137,13 +143,16 @@ struct PromptEvidenceCapture: Sendable {
                     readSeconds: max(0, after - before), reservedBytes: allowance, status: status,
                     metadata: metadata))
         }
-        if discoveries.count > limits.retainedDiscoveries {
-            let removed = discoveries.sorted {
-                if $0.value.lastSeen != $1.value.lastSeen { return $0.value.lastSeen < $1.value.lastSeen }
-                if $0.key.pid != $1.key.pid { return $0.key.pid < $1.key.pid }
-                return $0.key.startMicroseconds < $1.key.startMicroseconds
-            }.prefix(discoveries.count - limits.retainedDiscoveries)
-            for (identity, _) in removed { discoveries[identity] = nil }
+        observationOrder.observe(touched, sequence: sequence)
+        while discoveries.count > limits.retainedDiscoveries {
+            let oldest = observationOrder.oldest { [discoveries] in discoveries[$0]?.lastSeen }
+            guard let identity = oldest else {
+                preconditionFailure("Every retained discovery has an observation-order entry")
+            }
+            discoveries[identity] = nil
+        }
+        observationOrder.trim(capacity: limits.retainedDiscoveries) { [discoveries] in
+            discoveries[$0]?.lastSeen
         }
         return evidence
     }

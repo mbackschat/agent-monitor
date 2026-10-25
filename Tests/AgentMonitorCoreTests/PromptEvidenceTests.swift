@@ -25,6 +25,69 @@ private final class PromptFixture: ProcessReading, SamplingClock, Sendable {
 }
 
 @Suite struct PromptEvidenceTests {
+    @Test func churnDoesNotRepeatedlySortThePromptDiscoveryCache() {
+        let fixture = PromptFixture()
+        var capture = PromptEvidenceCapture()
+        let limits = PromptCaptureLimits(attempts: 128, bytes: 128, bytesPerRead: 1, retainedDiscoveries: 128)
+        for scan in 0..<1_000 {
+            let stable = (1...40).map { sample(Int32($0), at: Double(scan)) }
+            let born = (0..<2).map { sample(Int32(100 + scan * 2 + $0), at: Double(scan)) }
+            _ = capture.capture(
+                stable + born, sequence: UInt64(scan), using: fixture, clock: fixture, limits: limits)
+            #expect(capture.retainedDiscoveryCount <= 128)
+            #expect(capture.retainedEvictionReferenceCount <= 256)
+        }
+        #expect(fixture.attempted.withLock { $0.count } == 2_040)
+        #expect(capture.evictionSortInputCount < 5_000)
+    }
+
+    @Test func missingDiscoveryCannotPinUnboundedOrderReferences() {
+        let fixture = PromptFixture()
+        var capture = PromptEvidenceCapture()
+        let limits = PromptCaptureLimits(retainedDiscoveries: 8)
+        _ = capture.capture(
+            [sample(1), sample(2)], sequence: 0, using: fixture, clock: fixture, limits: limits)
+        for scan in 1...1_000 {
+            _ = capture.capture(
+                [sample(2)], sequence: UInt64(scan), using: fixture, clock: fixture, limits: limits)
+            #expect(capture.retainedEvictionReferenceCount <= 16)
+        }
+        let returned = capture.capture(
+            [sample(1)], sequence: 1_001, using: fixture, clock: fixture, limits: limits)
+        #expect(returned.isEmpty)
+        #expect(fixture.attempted.withLock { $0.count } == 2)
+    }
+
+    @Test(arguments: 0..<100) func promptEvictionMatchesLastSeenSort(seed: Int) {
+        let fixture = PromptFixture()
+        var capture = PromptEvidenceCapture()
+        let limits = PromptCaptureLimits(attempts: 128, bytes: 128, bytesPerRead: 1, retainedDiscoveries: 8)
+        var seen: [ProcessIdentity: Int] = [:]
+        var random = UInt64(seed + 1)
+        func next() -> UInt64 {
+            random = random &* 6_364_136_223_846_793_005 &+ 1
+            return random >> 32
+        }
+        for scan in 0..<100 {
+            var samples: [ProcessIdentity: ProcessSample] = [:]
+            for _ in 0..<Int(next() % 16) {
+                let value = sample(Int32(next() % 16 + 1), start: next() % 3, at: Double(scan))
+                samples[value.identity] = value
+            }
+            let expected = Set(samples.keys).subtracting(seen.keys)
+            let evidence = capture.capture(
+                Array(samples.values), sequence: UInt64(scan), using: fixture, clock: fixture, limits: limits)
+            #expect(Set(evidence.map(\.process)) == expected)
+            for id in samples.keys { seen[id] = scan }
+            let evicted = seen.sorted {
+                if $0.value != $1.value { return $0.value < $1.value }
+                if $0.key.pid != $1.key.pid { return $0.key.pid < $1.key.pid }
+                return $0.key.startMicroseconds < $1.key.startMicroseconds
+            }.prefix(max(0, seen.count - 8)).map(\.key)
+            for id in evicted { seen[id] = nil }
+        }
+    }
+
     @Test func nativePromptCaptureReadsOwnedInvocationWithinTheBufferBound() throws {
         let reader = try NativeProcessReader()
         let pid = ProcessInfo.processInfo.processIdentifier
