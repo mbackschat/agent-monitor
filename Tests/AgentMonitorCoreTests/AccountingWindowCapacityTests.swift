@@ -92,7 +92,7 @@ import Testing
         let delivered = reports.withLock { $0 }
         #expect(!delivered.isEmpty)
         #expect(delivered.last?.window?.finalScan == 60)
-        let seconds = delivered.compactMap(\.window).flatMap(\.contributions).reduce(0) { $0 + $1.cpuSeconds }
+        let seconds = deliveredCPU(delivered)
         #expect(abs(seconds - 60) < 1e-8)
         #expect(delivered.allSatisfy { $0.findings.count == 1_000 })
         #expect(delivered.allSatisfy { $0.findings.allSatisfy { $0.attribution.threadID == sessionA } })
@@ -168,11 +168,16 @@ private final class PipelinePopulation: ProcessReading, AcquisitionClock, Sessio
     let count: Int
     let sharedDepth: Int?
     let publication: ClockGate?
+    let changesExecutable: Bool
     private let nextPublication = Mutex(1.0)
-    init(count: Int = 1_000, sharedDepth: Int? = nil, publication: ClockGate? = nil) {
+    init(
+        count: Int = 1_000, sharedDepth: Int? = nil, publication: ClockGate? = nil,
+        changesExecutable: Bool = false
+    ) {
         self.publication = publication
         self.count = count
         self.sharedDepth = sharedDepth
+        self.changesExecutable = changesExecutable
     }
 
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
@@ -187,7 +192,8 @@ private final class PipelinePopulation: ProcessReading, AcquisitionClock, Sessio
             }
             return ProcessSample(
                 identity: ProcessIdentity(pid: pid, startMicroseconds: 1), parentPID: parent,
-                executable: "/fake/worker", name: "worker", sampledAt: at,
+                executable: changesExecutable ? "/fake/worker-\(Int((at * 10).rounded()))" : "/fake/worker",
+                name: "worker", sampledAt: at,
                 cpuSeconds: at / 100, footprintBytes: 1_000_000)
         }
         return diagnosisScan(samples, at: at)
@@ -239,9 +245,45 @@ func productionPipelineSupportsThreeThousandLifetimesWithTenAncestors() async th
     let values = reports.withLock { $0 }
     #expect(values.last?.window?.finalScan == 60)
     #expect(values.allSatisfy { $0.observedFindings.count == 3_000 })
-    let cpu = values.compactMap(\.window).flatMap(\.contributions).reduce(0) { $0 + $1.cpuSeconds }
+    let cpu = deliveredCPU(values)
     #expect(abs(cpu - 180) < 1e-7)
     #expect(store.diagnostics.chargedRecords <= 65_536)
+}
+
+private func deliveredCPU(_ reports: [MonitoringSnapshot]) -> Double {
+    reports.compactMap(\.window).reduce(0) { total, window in
+        total + window.contributions.reduce(0) { $0 + $1.cpuSeconds }
+            + window.collapsedContributions.reduce(0) { $0 + $1.cpuSeconds }
+    }
+}
+
+@Test(.timeLimit(.minutes(1)))
+func capacityOracleIncludesCollapsedEarlierCategoriesOfCurrentWorkers() async throws {
+    let history = PopulationHistory()
+    let fixture = PipelinePopulation(
+        count: 32, sharedDepth: 4, publication: history.admitted, changesExecutable: true)
+    let session = IndependentMonitoringPipeline(
+        configuration: try MonitoringConfiguration(
+            intervalSeconds: 0.1, samples: 2, scope: .allProcesses,
+            collectAgentLoad: true, pipelineLimits: MonitoringPipelineLimits(pendingObservations: 1_000),
+            reportIntervalSeconds: 5),
+        reader: fixture, clock: fixture, registry: fixture, excluded: [], recentActivity: history)
+    let reports = Mutex<[MonitoringSnapshot]>([])
+    try await session.run(thresholds: nil, interval: nil) { value in reports.withLock { $0.append(value) } }
+    let values = reports.withLock { $0 }
+    let windows = values.compactMap(\.window)
+    #expect(windows.last?.finalScan == 60)
+    #expect(values.allSatisfy { $0.observedFindings.count == 32 })
+    #expect(windows.flatMap(\.collapsedContributions).reduce(0) { $0 + $1.cpuSeconds } > 0)
+    #expect(abs(deliveredCPU(values) - 1.92) < 1e-9)
+    #expect(windows.first?.baselineScan == 0)
+    #expect(zip(windows, windows.dropFirst()).allSatisfy { $0.finalScan == $1.baselineScan })
+    let intervals = windows.reduce(0) { total, window in
+        total + window.contributions.reduce(0) { $0 + $1.intervalCount }
+            + window.collapsedContributions.reduce(0) { $0 + $1.intervalCount }
+    }
+    #expect(intervals == 32 * 60)
+    #expect(history.store.diagnostics.chargedRecords <= 65_536)
 }
 
 @Test func retainedObservationUsesItsCanonicalRunAttributionStorage() throws {
