@@ -10,6 +10,7 @@ struct ObservedLifetimeOrder: Sendable {
     private var head = 0
     private(set) var retainedReferenceCount = 0
     private(set) var sortInputCount = 0
+    var retainedIdentityCapacity: Int { batches.reduce(0) { $0 + $1.identities.capacity } }
 
     mutating func observe(_ identities: [ProcessIdentity], sequence: UInt64) {
         guard !identities.isEmpty else { return }
@@ -34,6 +35,7 @@ struct ObservedLifetimeOrder: Sendable {
                 continue
             }
             retainedReferenceCount -= 1
+            if batches[head].identities.isEmpty { batches[head].identities = [] }
             if lastSeen(identity) == sequence { return identity }
         }
         return nil
@@ -55,6 +57,17 @@ struct ObservedLifetimeOrder: Sendable {
         let sequence = batches[index].sequence
         let previous = batches[index].identities.count
         batches[index].identities.removeAll { lastSeen($0) != sequence }
-        retainedReferenceCount -= previous - batches[index].identities.count
+        let count = batches[index].identities.count
+        retainedReferenceCount -= previous - count
+        // removeAll(where:) retains the full scan buffer even when only a few departed
+        // lifetimes survive. LifetimeOrderStorageTests bounds allocation, not just count.
+        if count == 0 {
+            batches[index].identities = []
+        } else if batches[index].identities.capacity > count * 2 {
+            var compacted: [ProcessIdentity] = []
+            compacted.reserveCapacity(count)
+            compacted.append(contentsOf: batches[index].identities)
+            batches[index].identities = compacted
+        }
     }
 }
