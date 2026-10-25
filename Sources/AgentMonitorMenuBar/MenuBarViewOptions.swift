@@ -132,17 +132,18 @@ enum MenuBarOption: Equatable {
         add("Ascending", .ascending, checked: model.report.ascending, to: menu)
         menu.items.last?.isEnabled = model.report.sortKey != .stable
         menu.addItem(.separator())
-        menu.addItem(.sectionHeader(title: "Sampling"))
-        add("Live menu bar icon", .liveIcon, checked: model.liveIcon, to: menu)
+        menu.addItem(.sectionHeader(title: "Display filters"))
+        let filterHelp = "Changes process rows; observed totals and recent activity stay unchanged."
         let cpu = model.report.thresholds.cpuPercent
-        let cpuMenu = submenu(cpu == 0 ? "CPU filter: Off" : "CPU > \(cpu.formatted())%", in: menu)
+        let cpuMenu = submenu(
+            cpu == 0 ? "CPU filter: Off" : "CPU > \(cpu.formatted())%", in: menu, help: filterHelp)
         for value in Set([0, 5, 10, 25, 50, 100, 200, 400, 800, cpu]).sorted() {
             add(value == 0 ? "Off" : "\(value.formatted())%", .cpu(value), checked: value == cpu, to: cpuMenu)
         }
         let memory = model.report.thresholds.memoryBytes
         let memoryMenu = submenu(
             memory == 0 ? "Footprint filter: Off" : "Footprint > \((Double(memory) / 1e9).formatted()) GB",
-            in: menu)
+            in: menu, help: filterHelp)
         let memorySteps: [UInt64] = [
             0, 250_000_000, 500_000_000, 1_000_000_000, 2_000_000_000, 4_000_000_000, 8_000_000_000,
             16_000_000_000,
@@ -153,6 +154,9 @@ enum MenuBarOption: Equatable {
                 checked: value == memory,
                 to: memoryMenu)
         }
+        menu.addItem(.separator())
+        menu.addItem(.sectionHeader(title: "Sampling"))
+        add("Live menu bar icon", .liveIcon, checked: model.liveIcon, to: menu)
         let interval = model.report.interval
         let intervalMenu = submenu("Acquire every \(interval.formatted()) seconds", in: menu)
         for value in Set(LiveReportState.intervalSteps + [15, interval]).sorted() {
@@ -162,8 +166,9 @@ enum MenuBarOption: Equatable {
         add("Keyboard shortcuts", .keyboardHelp, checked: model.showsKeyboardHelp, to: menu)
     }
 
-    private func submenu(_ title: String, in menu: NSMenu) -> NSMenu {
+    private func submenu(_ title: String, in menu: NSMenu, help: String? = nil) -> NSMenu {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.toolTip = help
         let child = NSMenu(title: title)
         child.autoenablesItems = false
         item.submenu = child

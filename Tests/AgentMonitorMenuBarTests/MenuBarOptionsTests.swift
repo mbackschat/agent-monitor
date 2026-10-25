@@ -34,6 +34,26 @@ import Testing
     return view.subviews.lazy.compactMap { findOptionsButton(in: $0) }.first
 }
 
+@Test @MainActor func displayFiltersAreSeparateFromSamplingControls() throws {
+    let model = MenuBarModel { _, _, _ in }
+    let menu = MenuBarOptionsController(model: model).makeMenu()
+    let display = try #require(menu.items.firstIndex { $0.title == "Display filters" })
+    let sampling = try #require(menu.items.firstIndex { $0.title == "Sampling" })
+    for title in ["CPU filter: Off", "Footprint filter: Off"] {
+        let index = try #require(menu.items.firstIndex { $0.title == title })
+        #expect(display < index && index < sampling)
+        #expect(menu.items[index].toolTip?.contains("totals") == true)
+    }
+    for option in [MenuBarOption.liveIcon, .interval(0.1)] {
+        let index = try #require(
+            menu.items.firstIndex {
+                $0.representedObject as? MenuBarOption == option
+                    || $0.submenu?.items.contains { $0.representedObject as? MenuBarOption == option } == true
+            })
+        #expect(index > sampling)
+    }
+}
+
 @Test @MainActor func reportRefreshKeepsTheSameOptionsControlAndTrackingSubmenus() throws {
     _ = NSApplication.shared
     let model = MenuBarModel { _, _, _ in }
