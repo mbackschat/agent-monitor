@@ -3,7 +3,7 @@ import SwiftUI
 
 enum MenuBarKeyboard {
     static let keys = Set(
-        (ReportShortcut.allCases.map(\.rawValue) + ["k", "s", "f", "y", "q"])
+        (ReportShortcut.allCases.map(\.rawValue) + ["k", "s", "f", "y", "q", "i"])
             .map { KeyEquivalent(Character($0)) })
 
     static func isBulkDisclosure(modifiers: EventModifiers) -> Bool {
@@ -23,7 +23,7 @@ extension MenuBarModel {
     func handleOverviewArrow(_ key: KeyEquivalent, focus: MenuBarFocus?, modifiers: EventModifiers = [])
         -> Bool
     {
-        guard isOpen, report.showsOverview, !diagnosis.state.isVisible,
+        guard isOpen, report.showsOverview, !report.overview.detailsVisible, !diagnosis.state.isVisible,
             report.actionPanel == nil, focus != nil,
             MenuBarKeyboard.accepts(String(key.character), modifiers: modifiers)
         else { return false }
@@ -60,6 +60,10 @@ extension MenuBarModel {
         writeClipboard: @MainActor (String) -> Bool = MenuBarClipboard.copy
     ) -> Bool {
         guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil else { return false }
+        if key == "i", report.showsOverview, report.overview.selection != nil {
+            report.overview.toggleDetails()
+            return true
+        }
         if let shortcut = ReportShortcut(rawValue: key) {
             switch shortcut {
             case .pause:

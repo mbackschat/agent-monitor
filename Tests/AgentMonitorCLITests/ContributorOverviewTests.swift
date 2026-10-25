@@ -176,8 +176,8 @@ extension ContributorOverviewTests {
         #expect(
             overview.topLevel.compactMap { overview.nodes[$0] }.reduce(0) { $0 + $1.stats.recentCPU } == 4)
         #expect(
-            overview.nodes.values.filter { $0.process == identity }.flatMap(\.details).contains {
-                $0.contains("Executable changed across interval")
+            overview.nodes.values.filter { $0.process == identity }.flatMap(\.inspectionFields).contains {
+                $0.label == "Exec-spanning intervals" && $0.value.contains("exec time unverified")
             })
         #expect(
             !overview.nodes.values.filter { $0.process == identity }.flatMap(\.details).contains {

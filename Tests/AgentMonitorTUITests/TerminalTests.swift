@@ -489,17 +489,17 @@ private func dividerRow(_ text: String) -> Int? {
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) { !$0.contains("Exact session:") }
-    try writeAllBytes(Array("\u{1b}[C\u{1b}[B\u{1b}[C\u{1b}[B\u{1b}[C".utf8), to: terminal.master)
+    try writeAllBytes(Array("\u{1b}[C\u{1b}[B\u{1b}[C\u{1b}[B\u{1b}[Ci".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("Lifetime: PID 42") && $0.contains("/fixture/node")
+        $0.range(of: "Lifetime: +PID 42", options: .regularExpression) != nil && $0.contains("/fixture/node")
     }
     try writeAllBytes(Array("p".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("PAUSED") && $0.contains("Lifetime: PID 42")
+        $0.contains("PAUSED") && $0.range(of: "Lifetime: +PID 42", options: .regularExpression) != nil
     }
     try writeAllBytes(Array("\r".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(

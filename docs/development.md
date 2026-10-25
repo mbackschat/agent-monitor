@@ -337,3 +337,7 @@ Deterministic acquisition clocks implement the production synchronous deadline/w
 ### Listed session-name checks
 
 Session-registry fixtures verify that names follow only the verified runtime/provider/session binding, never override a worker's different marker, clear after failed/duplicate/unverified listings and exec, and tolerate invalid optional names without losing ownership. Shared grouping and overview guards compare IDs and resource totals before and after renaming; storage recounts include name changes and canonically equal strings with different UTF-8 lengths. Schema and serialization checks retain the optional bounded name. These use fake listings, not live provider queries.
+
+### Contributor information checks
+
+Shared inspection fixtures distinguish folding from explicit information, verify typed executable/CWD/state fields and close inspection when its target is filtered out. Native keyboard/model guards keep arrows from moving hidden rows while the information popover is open. An owned offscreen render verifies labelled resource/identity fields with Vision; `MENUBAR_INSPECTION_PREVIEW_PATH` exports the synthetic image for visual checking. The PTY journey opens information with `i` before navigating to a current process. Physical popover anchoring and input delivery remain the user-owned smoke test.

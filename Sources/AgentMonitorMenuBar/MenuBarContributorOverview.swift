@@ -34,7 +34,10 @@ struct MenuBarContributorOverview: View {
                 Text("Collected since panel opened").font(.caption2).foregroundStyle(.secondary)
             }
             HStack(spacing: 6) {
-                Text("Group / process").frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 4) {
+                    Text("Group / process")
+                    inspectionButton
+                }.frame(maxWidth: .infinity, alignment: .leading)
                 Text("CPU").frame(width: 48, alignment: .trailing)
                 Text("Memory").frame(width: 62, alignment: .trailing)
                 Text("Recent").frame(width: 44, alignment: .trailing)
@@ -46,6 +49,39 @@ struct MenuBarContributorOverview: View {
                 }
             }
         }
+    }
+
+    private var inspectionButton: some View {
+        Button("Details", systemImage: "info.circle") { model.report.overview.toggleDetails() }
+            .labelStyle(.iconOnly).buttonStyle(.plain)
+            .disabled(model.report.overview.selection == nil)
+            .help("Inspect selected contributor (i); folding only reveals children")
+            .popover(
+                isPresented: Binding(
+                    get: { model.report.overview.detailsVisible },
+                    set: {
+                        if !$0 && model.report.overview.detailsVisible {
+                            model.report.overview.toggleDetails()
+                        }
+                    }
+                )
+            ) {
+                if let selected = model.report.overview.selection,
+                    let node = model.report.overview.nodes[selected]
+                {
+                    MenuBarContributorInspection(
+                        node: node, duration: model.report.overview.duration,
+                        canInspect: node.process.map { identity in
+                            model.report.snapshot?.findings.contains {
+                                $0.process == identity && !$0.isHistorical
+                            } == true
+                        } ?? false,
+                        inspect: {
+                            if model.report.overview.detailsVisible { model.report.overview.toggleDetails() }
+                            model.report.inspectOverviewProcess()
+                        })
+                }
+            }
     }
 
     private func contributor(_ row: ContributorRow, overview: ContributorOverview) -> some View {
@@ -62,28 +98,16 @@ struct MenuBarContributorOverview: View {
             .focused(focus, equals: .contributor(row.id))
             .accessibilityLabel(node.title + ". " + node.summary(duration: overview.duration))
             .contextMenu {
+                Button("Details…") {
+                    model.report.overview.select(row.id)
+                    if !model.report.overview.detailsVisible { model.report.overview.toggleDetails() }
+                }
                 Button("Pin / unpin session") {
                     model.report.overview.select(row.id)
                     model.report.overview.togglePin()
                 }
             }
-            if expanded && !node.details.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(Array(node.details.enumerated()), id: \.offset) { _, text in
-                        Text(text).font(.caption2).textSelection(.enabled)
-                    }
-                    if let identity = node.process,
-                        model.report.snapshot?.findings.contains(where: {
-                            $0.process == identity && !$0.isHistorical
-                        }) == true
-                    {
-                        Button("Inspect current process…") {
-                            model.report.overview.select(row.id)
-                            model.report.inspectOverviewProcess()
-                        }.controlSize(.small)
-                    }
-                }.padding(.leading, 18)
-            }
+
         }
         .padding(.horizontal, 8).padding(.vertical, 1)
         .padding(.leading, CGFloat(min(row.depth, 4) * 12))
@@ -103,7 +127,11 @@ struct MenuBarContributorSummary: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: expanded ? "chevron.down" : "chevron.right").frame(width: 12)
+            Image(
+                systemName: node.children.isEmpty
+                    ? "circle.fill" : (expanded ? "chevron.down" : "chevron.right")
+            )
+            .font(.system(size: node.children.isEmpty ? 4 : 11)).frame(width: 12)
             Text(node.title).font(.subheadline.weight(.medium)).lineLimit(1).truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .help(node.title + ". " + node.stats.census)

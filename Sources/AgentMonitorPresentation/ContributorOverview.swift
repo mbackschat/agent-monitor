@@ -130,27 +130,6 @@ public struct ContributorStats: Equatable, Sendable {
     }
 }
 
-public struct ContributorNode: Equatable, Sendable, Identifiable {
-    public let id: ContributorID
-    public var title: String
-    public var stats = ContributorStats()
-    public var children: [ContributorID] = []
-    var labels: [String] = []
-    var evidence: [ContributorEvidence] = []
-    public var details: [String] { labels + evidence.flatMap(\.details) }
-    public var process: ProcessIdentity?
-    public func summary(duration: Double) -> String {
-        func candidate(_ id: ContributorID) -> Bool {
-            switch id {
-            case .session: true
-            case .executable(let parent, _, _), .more(let parent), .process(let parent, _): candidate(parent)
-            case .section, .provider, .collapsed: false
-            }
-        }
-        return stats.summary(duration: duration, cpuLabel: candidate(id) ? "Candidate CPU" : "CPU")
-    }
-}
-
 public struct ContributorRow: Equatable, Sendable, Identifiable {
     public let node: ContributorNode
     public let depth: Int
@@ -293,6 +272,7 @@ public struct ContributorOverview: Equatable, Sendable {
 
     public mutating func toggle(_ id: ContributorID) {
         selection = id
+        detailsVisible = false
         detailOffset = 0
         if !open.insert(id).inserted { open.remove(id) }
     }
@@ -566,10 +546,9 @@ public struct ContributorOverview: Equatable, Sendable {
                 key.executable?.split(separator: "/").last.map(String.init) ?? "category detail released"
             var node = ContributorNode(id: id, title: "Collapsed · " + label)
             node.stats = stats
-            node.labels = [
-                collapsedDisplay[key].map { "Display window: " + AccountingContext.collapsed($0) },
-                collapsedRecent[key].map { "Recent history: " + AccountingContext.collapsed($0) },
-            ].compactMap { $0 }
+            node.labels =
+                (collapsedDisplay[key].map { InspectionField.collapsed($0, window: "Display window") } ?? [])
+                + (collapsedRecent[key].map { InspectionField.collapsed($0, window: "Recent history") } ?? [])
             nodes[id] = node
             nodes[leafParent]?.children.append(id)
         }
@@ -584,14 +563,11 @@ public struct ContributorOverview: Equatable, Sendable {
                     + SessionDisplayNames.identity(session, name: name)
                     + (directories.isEmpty ? "" : " · " + WorkloadDirectory.summary(directories))
                 nodes[id]?.labels =
-                    ["Exact session: \(provider)/\(session)"]
-                    + (name.map { ["Listed name: " + $0] } ?? [])
-                    + (directories.isEmpty
-                        ? []
-                        : [
-                            "Directories: "
-                                + directories.map { $0 ?? "unavailable" }.sorted().joined(separator: ", ")
-                        ])
+                    [InspectionField("Exact session", "\(provider)/\(session)")]
+                    + (name.map { [InspectionField("Listed name", $0)] } ?? [])
+                    + directories.map { $0 ?? "unavailable" }.sorted().map {
+                        InspectionField("Directory", $0)
+                    }
             case .executable(let parent, let name, let cwd):
                 let owner = sequence(first: parent, next: \.parent).first {
                     if case .session = $0 { true } else { false }
@@ -603,7 +579,16 @@ public struct ContributorOverview: Equatable, Sendable {
                     name + (workers > 1 ? " ×\(workers)" : "")
                     + (runtimeContributors.contains(id) || directoryOnOwner
                         ? "" : " · " + (cwd.map { WorkloadDirectory.compact($0) } ?? "CWD unavailable"))
-                if let cwd { nodes[id]?.labels = ["Directory: " + cwd] }
+                var labels: [InspectionField] = []
+                if case .session(let provider, let session, _) = owner {
+                    labels = [InspectionField("Agent", provider), InspectionField("Session", session)]
+                    if let name = names.name(provider: provider, session: session) {
+                        labels.append(InspectionField("Listed name", name))
+                    }
+                }
+                labels.append(InspectionField("Directory", cwd ?? "Unavailable"))
+                labels.append(InspectionField("Executable group", name))
+                nodes[id]?.labels = labels
             case .section, .collapsed, .provider, .more, .process: continue
             }
         }
@@ -637,7 +622,10 @@ public struct ContributorOverview: Equatable, Sendable {
             nodes[id] = ContributorNode(id: id, title: "Pinned · outside retained range")
         }
         open.formIntersection(nodes.keys)
-        if !visibleRows.contains(where: { $0.id == selection }) { selection = visibleRows.first?.id }
+        if !visibleRows.contains(where: { $0.id == selection }) {
+            detailsVisible = false
+            selection = visibleRows.first?.id
+        }
         if !recent.currentContextAvailable {
             totals.currentAvailable = false
             for id in nodes.keys { nodes[id]?.stats.currentAvailable = false }
@@ -849,56 +837,6 @@ public struct ContributorOverview: Equatable, Sendable {
         return result
     }
 
-}
-
-struct ContributorEvidence: Equatable, Sendable {
-    let record: RecentWorkerRecord
-    let stats: ContributorStats
-    let first: Double?
-    let peak: RecentMemoryReading?
-    let currentAvailable: Bool
-    let present: Bool
-    let changes: Int
-    let evidence: Set<String>
-
-    var details: [String] {
-        let key = record.category
-        let state =
-            currentAvailable
-            ? (present
-                ? (stats.current.isEmpty
-                    ? "Observed elsewhere; membership changed" : "Observed in final scan")
-                : "No longer observed; exit unconfirmed")
-            : "Final-scan presence unavailable"
-        var result = [
-            state, "Lifetime: PID \(key.process.pid), start µs \(key.process.startMicroseconds)",
-            "\(key.isAgentRuntime ? "Adapter-recognised agent runtime" : "Worker") · \(key.executable)",
-            "First/last observed: \(number(first ?? record.firstObservedAt))–\(number(record.lastObservedAt)) monotonic s",
-            "Ownership: \(key.owner.resolution.rawValue); \(evidence.sorted().joined(separator: ", "))",
-            "Frozen root: \(key.owner.rootSessionID ?? "not corroborated") · \(stats.membershipChanged.count) changed memberships",
-            "\(stats.recentMeasurements) accepted intervals · \(stats.exclusions) excluded readings",
-        ]
-        if let maximum = stats.maximumWorkerFootprint {
-            result.append(
-                "Largest sampled worker footprint: \(number(Double(maximum.bytes) / 1e6)) MB at \(number(maximum.observedAt)) s, scan \(maximum.scan), \(maximum.evidence.rawValue)"
-            )
-        }
-        if let peak {
-            result.append(
-                "Last observed kernel task peak: \(number(Double(peak.bytes) / 1e6)) MB at \(number(peak.observedAt)) s, scan \(peak.scan), \(peak.evidence.rawValue)\(record.kernelPeakUnavailable ? "; later reading unavailable" : "")"
-            )
-            result.append("Kernel peak time/exec epoch unverified; may predate this range and reset on exec")
-        }
-        if !key.owner.candidates.isEmpty {
-            result.append("Conflicting candidates: " + key.owner.candidates.joined(separator: ", "))
-        }
-        if changes > 0 {
-            result.append("Executable changed across interval (\(changes)); exec time unverified")
-        }
-        if let cwd = record.cwd { result.append("Directory: " + cwd) }
-        if let command = record.command { result.append("Command: " + command.joined(separator: " ")) }
-        return result
-    }
 }
 
 private func number(_ value: Double) -> String { String(format: "%.1f", value) }

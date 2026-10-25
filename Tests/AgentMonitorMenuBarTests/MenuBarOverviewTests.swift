@@ -234,3 +234,63 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     #expect(text.contains("two words"), "\(text)")
     #expect(text.contains("Hide"), "\(text)")
 }
+
+@Test @MainActor func contributorInfoIsSeparateFromFoldingAndGuardsHiddenArrowSelection() async throws {
+    let snapshot = try nativeOverviewFixture()
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let id = try #require(model.report.overview.selection)
+    model.report.overview.toggle(id)
+    #expect(!model.report.overview.detailsVisible)
+    #expect(model.handleShortcut("i", row: nil))
+    #expect(model.report.overview.detailsVisible)
+    #expect(!model.handleOverviewArrow(.downArrow, focus: .contributor(id)))
+    #expect(model.report.overview.selection == id)
+    #expect(model.handleShortcut("i", row: nil))
+    #expect(!model.report.overview.detailsVisible)
+    model.close()
+    #expect(!model.handleShortcut("i", row: nil))
+    await model.stop()
+}
+
+@Test @MainActor func contributorInspectionRendersLabelledValuesInsteadOfParagraphs() throws {
+    _ = NSApplication.shared
+    var overview = ContributorOverview()
+    overview.receive(try nativeOverviewFixture())
+    let node = try #require(overview.nodes.values.first { $0.process != nil })
+    let host = NSHostingView(
+        rootView:
+            MenuBarContributorInspection(
+                node: node, duration: overview.duration, canInspect: false, inspect: {}
+            )
+            .background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: .aqua)
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize.height <= 500)
+    host.frame.size = host.fittingSize
+    let bitmap = try #require(
+        NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: Int(host.bounds.width * 2),
+            pixelsHigh: Int(host.bounds.height * 2),
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+    bitmap.size = host.bounds.size
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = .accurate
+    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
+    let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+    #expect(text.contains("Agent"), "\(text)")
+    #expect(text.contains("Session"), "\(text)")
+    #expect(text.contains("Directory"), "\(text)")
+    #expect(text.contains("Counts and evidence"), "\(text)")
+    #expect(!text.contains("Membership changes"), "\(text)")
+    #expect(text.contains("Executable"), "\(text)")
+    #expect(text.contains("Recent CPU"), "\(text)")
+    #expect(!text.contains("Totals are independent"))
+    if let path = ProcessInfo.processInfo.environment["MENUBAR_INSPECTION_PREVIEW_PATH"] {
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: path))
+    }
+}

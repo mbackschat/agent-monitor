@@ -41,7 +41,7 @@ public enum ContributorLayout {
         var content: [(ContributorID, ReportLine)] = []
         for row in overview.visibleRows {
             let selected = row.id == overview.selection
-            let folded = overview.open.contains(row.id) ? "▾" : "▸"
+            let folded = row.node.children.isEmpty ? "·" : (overview.open.contains(row.id) ? "▾" : "▸")
             let indent = String(repeating: "  ", count: row.depth)
             let pinned = overview.pinned.contains(row.id)
             let marker = pinned ? (selected ? "@" : "+") : (selected ? ">" : " ")
@@ -59,23 +59,17 @@ public enum ContributorLayout {
                             now: stats.currentAvailable ? String(stats.current.count) : "—"),
                         style: selected ? .selected : .normal)
                 ))
-            if selected,
-                overview.detailsVisible
-                    || (overview.open.contains(row.id)
-                        && (row.node.process != nil || row.id == .section(.uncertain)))
-            {
+            if selected, overview.detailsVisible {
+                let fields =
+                    row.node.inspectionFields.filter { $0.kind == .context }
+                    + row.node.populationFields + row.node.inspectionFields.filter { $0.kind == .evidence }
                 let details =
-                    [stats.census + " · \(stats.filtered.count) filtered", overview.meterScale]
-                    + row.node.details
+                    InspectionField.terminalLines(fields, width: max(10, width - indent.count - 2))
                     + (row.id == .section(.uncertain)
                         ? (overview.samplingCoverage?.terminalLines(width: max(10, width - indent.count - 2))
                             ?? []) : [])
-                for detail in details {
-                    for line in TerminalCells.wrapped(
-                        TextReport.safe(detail), to: max(10, width - indent.count - 2))
-                    {
-                        content.append((row.id, ReportLine(indent + "  " + line, style: .muted)))
-                    }
+                for line in details {
+                    content.append((row.id, ReportLine(indent + "  " + line, style: .muted)))
                 }
             }
         }
