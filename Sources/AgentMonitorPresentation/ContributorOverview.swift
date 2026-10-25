@@ -457,7 +457,7 @@ public struct ContributorOverview: Equatable, Sendable {
                 if nodes[id] == nil { nodes[id] = ContributorNode(id: id, title: title) }
                 nodes[id]?.stats.merge(stats)
                 if case .session = id, !key.isAgentRuntime {
-                    projects[id, default: []].insert(metadata[key]?.cwd)
+                    projects[id, default: []].insert(key.cwd)
                 }
                 if index + 1 < path.count, !(nodes[id]?.children.contains(path[index + 1].0) ?? false) {
                     nodes[id]?.children.append(path[index + 1].0)

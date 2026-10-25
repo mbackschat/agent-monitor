@@ -91,5 +91,7 @@ func incrementalPayloadMatchesRetainedStorageThroughUpdatesMergesAndCollapse(lim
         #expect(window.payloadSize == window.recountedPayloadSize)
         sizes.append(window.payloadSize.textBytes)
     }
-    #expect(sizes[1] == sizes[0] + 6)
+    // Canonically equal directories share one frozen category, which retains the first spelling;
+    // only the observation and run name/command charges grow by the extra UTF-8 byte.
+    #expect(sizes[1] == sizes[0] + 5)
 }

@@ -206,6 +206,7 @@ struct AccountingWindow: Sendable {
             let index: Int
             if let previous = observations[id], previous.row.attribution == row.attribution,
                 runs[previous.run].key.category.executable == row.executable,
+                runs[previous.run].key.category.cwd == row.cwd,
                 runs[previous.run].key.category.isAgentRuntime == runtimes.contains(id),
                 runs[previous.run].key.category.owner.rootSessionID == roots.root(for: row.attribution)
             {
@@ -216,7 +217,7 @@ struct AccountingWindow: Sendable {
             } else {
                 let category = RecentWorkerCategory(
                     process: id, owner: RecentSession(row, roots: roots), executable: row.executable,
-                    isAgentRuntime: runtimes.contains(id))
+                    isAgentRuntime: runtimes.contains(id), cwd: row.cwd)
                 let key = Key(category: category, attribution: row.attribution)
                 if let found = indices[key] {
                     index = found

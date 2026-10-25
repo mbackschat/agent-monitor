@@ -40,12 +40,19 @@ public struct RecentWorkerCategory: Hashable, Sendable {
     public let executable: String
     public let isAgentRuntime: Bool
     public let executableName: String
+    /// The workload directory observed with this category's intervals; `nil` when it was unreadable.
+    /// Frozen like the owner label, so a later `cd` opens a new category instead of relabeling
+    /// earlier CPU (product contract: no historical CPU under a latest directory without evidence).
+    public let cwd: String?
 
-    init(process: ProcessIdentity, owner: RecentSession, executable: String, isAgentRuntime: Bool) {
+    init(
+        process: ProcessIdentity, owner: RecentSession, executable: String, isAgentRuntime: Bool, cwd: String?
+    ) {
         self.process = process
         self.owner = owner
         self.executable = executable
         self.isAgentRuntime = isAgentRuntime
+        self.cwd = cwd
         executableName = executable.split(separator: "/").last.map(String.init) ?? "Unknown executable"
     }
 }
@@ -61,7 +68,7 @@ public struct RecentMemoryReading: Equatable, Codable, Sendable {
 public struct RecentWorkerRecord: Equatable, Sendable {
     public private(set) var category: RecentWorkerCategory
     public private(set) var name: String
-    public private(set) var cwd: String?
+    public var cwd: String? { category.cwd }
     public private(set) var command: [String]?
     public private(set) var firstObservedAt: Double
     public private(set) var lastObservedAt: Double
@@ -82,7 +89,6 @@ public struct RecentWorkerRecord: Equatable, Sendable {
     init(category: RecentWorkerCategory, row: HeavyProcess, scan: UInt64, time: Double, evidenceAt: Double?) {
         self.category = category
         name = row.name
-        cwd = row.cwd
         command = row.command
         firstObservedAt = time
         lastObservedAt = time
@@ -93,7 +99,6 @@ public struct RecentWorkerRecord: Equatable, Sendable {
 
     mutating func observe(_ row: HeavyProcess, scan: UInt64, time: Double, evidenceAt: Double?) {
         name = row.name
-        cwd = row.cwd
         command = row.command
         lastObservedAt = time
         lastScan = scan
@@ -131,7 +136,6 @@ public struct RecentWorkerRecord: Equatable, Sendable {
         firstObservedAt = min(firstObservedAt, other.firstObservedAt)
         if other.lastScan >= lastScan {
             name = other.name
-            cwd = other.cwd
             command = other.command
             lastObservedAt = other.lastObservedAt
             lastScan = other.lastScan
@@ -159,7 +163,7 @@ public struct RecentWorkerRecord: Equatable, Sendable {
         var copy = self
         copy.category = RecentWorkerCategory(
             process: category.process, owner: owner,
-            executable: category.executable, isAgentRuntime: category.isAgentRuntime)
+            executable: category.executable, isAgentRuntime: category.isAgentRuntime, cwd: category.cwd)
         return copy
     }
 
@@ -229,7 +233,7 @@ public final class RecentActivityUnit: Sendable {
                 category: RecentWorkerCategory(
                     process: $0.category.process,
                     owner: sharedOwner($0.category.owner), executable: $0.category.executable,
-                    isAgentRuntime: $0.category.isAgentRuntime))
+                    isAgentRuntime: $0.category.isAgentRuntime, cwd: $0.category.cwd))
         }
         excludedObservationCount = excluded
         readCoverage = coverage
@@ -248,6 +252,7 @@ public final class RecentActivityUnit: Sendable {
         for crossing in self.crossings {
             size.textBytes +=
                 crossing.category.executable.utf8.count + crossing.category.executableName.utf8.count
+                + (crossing.category.cwd?.utf8.count ?? 0)
         }
         for owner in owners.keys {
             size.observations += owner.candidates.count
