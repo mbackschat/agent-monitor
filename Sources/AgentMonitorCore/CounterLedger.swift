@@ -131,6 +131,12 @@ struct CounterLedger: Sendable {
         let time: Double
     }
 
+    private struct ObservedBatch: Sendable {
+        let sequence: UInt64
+        var identities: [ProcessIdentity]
+        var ordered = false
+    }
+
     let runID: UUID
     private let maximumBaselines: Int
     private let maximumListings: Int
@@ -139,6 +145,9 @@ struct CounterLedger: Sendable {
     private var newbornFloor: Double = -.infinity
     private var states: [ProcessIdentity: State] = [:]
     private var listings: [Listing] = []
+    private var observedBatches: [ObservedBatch] = []
+    private var oldestBatch = 0
+    private(set) var retainedEvictionReferenceCount = 0
 
     init(runID: UUID = UUID(), maximumBaselines: Int = 8_192, maximumListings: Int = 4_096) {
         precondition(maximumBaselines > 0 && maximumListings > 0)
@@ -149,6 +158,7 @@ struct CounterLedger: Sendable {
 
     var retainedBaselineCount: Int { states.count }
     var retainedListingCount: Int { listings.count }
+    private(set) var evictionSortInputCount = 0
 
     mutating func ingest(
         _ samples: [ProcessSample], listedAt: Double?, scanSeconds: Double = 0,
@@ -160,13 +170,16 @@ struct CounterLedger: Sendable {
         if let listedAt, listedAt.isFinite { listings.append(Listing(id: scan, time: listedAt)) }
         var contributions: [CPUContribution] = []
         var exclusions: [CounterExclusion] = []
+        var touched: [ProcessIdentity] = []
         let observations = samples.map {
             CounterObservation(id: CounterObservationID(scan: scan, process: $0.identity), sample: $0)
         }
         for observation in observations {
             let sample = observation.sample
+            let previous = states[sample.identity]
+            if previous?.lastSeen != scan.sequence { touched.append(sample.identity) }
             var state =
-                states[sample.identity]
+                previous
                 ?? State(
                     execution: ObservedExecution(sample), lastSeen: scan.sequence,
                     lastReadAt: sample.sampledAt.isFinite ? sample.sampledAt : .infinity)
@@ -180,7 +193,12 @@ struct CounterLedger: Sendable {
             }
             states[sample.identity] = state
         }
+        if !touched.isEmpty {
+            observedBatches.append(ObservedBatch(sequence: scan.sequence, identities: touched))
+            retainedEvictionReferenceCount += touched.count
+        }
         let evicted = evictBaselines()
+        trimObservedBatches()
         if listings.count > maximumListings { listings.removeFirst(listings.count - maximumListings) }
         return CounterScan(
             observations: observations, source: source,
@@ -251,17 +269,50 @@ struct CounterLedger: Sendable {
     }
 
     private mutating func evictBaselines() -> [ProcessIdentity] {
-        guard states.count > maximumBaselines else { return [] }
-        let oldest = states.sorted {
-            if $0.value.lastSeen != $1.value.lastSeen { return $0.value.lastSeen < $1.value.lastSeen }
-            if $0.key.pid != $1.key.pid { return $0.key.pid < $1.key.pid }
-            return $0.key.startMicroseconds < $1.key.startMicroseconds
-        }.prefix(states.count - maximumBaselines)
-        for (identity, state) in oldest {
+        var evicted: [ProcessIdentity] = []
+        while states.count > maximumBaselines {
+            let sequence = observedBatches[oldestBatch].sequence
+            if !observedBatches[oldestBatch].ordered {
+                discardStaleReferences(at: oldestBatch)
+                evictionSortInputCount += observedBatches[oldestBatch].identities.count
+                // Scan order supplies recency; only ties need sorting. Sorting the whole ledger
+                // on every birth made cost depend on past churn (CPU-01 review, 2026-10-25).
+                observedBatches[oldestBatch].identities.sort {
+                    if $0.pid != $1.pid { return $0.pid > $1.pid }
+                    return $0.startMicroseconds > $1.startMicroseconds
+                }
+                observedBatches[oldestBatch].ordered = true
+            }
+            guard let identity = observedBatches[oldestBatch].identities.popLast() else {
+                oldestBatch += 1
+                continue
+            }
+            retainedEvictionReferenceCount -= 1
+            guard let state = states[identity], state.lastSeen == sequence else { continue }
             newbornFloor = max(newbornFloor, state.lastReadAt)
             states[identity] = nil
+            evicted.append(identity)
         }
-        return oldest.map(\.key)
+        return evicted
+    }
+
+    private mutating func discardStaleReferences(at index: Int) {
+        let sequence = observedBatches[index].sequence
+        let previousCount = observedBatches[index].identities.count
+        observedBatches[index].identities = observedBatches[index].identities.filter {
+            states[$0]?.lastSeen == sequence
+        }
+        retainedEvictionReferenceCount -= previousCount - observedBatches[index].identities.count
+    }
+
+    private mutating func trimObservedBatches() {
+        // An old missing lifetime can pin the queue head forever. Periodic linear pruning
+        // bounds lazy references to twice the baseline cap without changing eviction order.
+        guard retainedEvictionReferenceCount > maximumBaselines * 2 || oldestBatch > 64 else { return }
+        for index in oldestBatch..<observedBatches.count { discardStaleReferences(at: index) }
+        observedBatches.removeFirst(oldestBatch)
+        observedBatches.removeAll { $0.identities.isEmpty }
+        oldestBatch = 0
     }
 }
 

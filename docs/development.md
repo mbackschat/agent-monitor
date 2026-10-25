@@ -8,6 +8,8 @@ For downloadable archives and GitHub publication, follow the [release guide](rel
 
 ### Choose checks for the change
 
+`BaselineEvictionTests` compares eviction order and the conservative newborn floor against a full-sort oracle across seeded histories. Its churn guard bounds the number of sorted identities, and a long-missing lifetime fixture checks bounded lazy references without losing its retained counter endpoint. These are mechanism guards, not native cost measurements.
+
 Select checks by the behavior and artifacts affected, not by running every available probe. During implementation, use red/green tests for the changed behavior; before committing, run the affected suites and integration checks. Use the full Swift suite for shared or cross-target behavior changes. Repeat checks only after relevant edits, failures or unresolved concerns. CI and release gates remain unchanged.
 
 | Change | Required verification |
