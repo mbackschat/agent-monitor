@@ -2,11 +2,14 @@ import Foundation
 
 package struct AttributionAdapters: Sendable {
     private let adapters: [any AgentAttributionAdapter]
+    private let environmentKeyDeclarations: [Set<String>]
+    let environmentKeys: Set<String>
+    let environmentKeyBytes: [(name: String, bytes: [UInt8])]
 
     package static let builtIn = Self(codex: CodexAttributionAdapter(), claude: ClaudeAttributionAdapter())
 
     private init(codex: CodexAttributionAdapter, claude: ClaudeAttributionAdapter) {
-        adapters = [codex, claude]
+        self.init(preparing: [codex, claude])
     }
 
     init(_ adapters: [any AgentAttributionAdapter]) throws {
@@ -14,10 +17,17 @@ package struct AttributionAdapters: Sendable {
         for adapter in adapters where !providers.insert(adapter.provider).inserted {
             throw AttributionAdapterError.duplicateProvider(adapter.provider)
         }
-        self.adapters = adapters
+        self.init(preparing: adapters)
     }
 
-    var environmentKeys: Set<String> { Set(adapters.flatMap(\.environmentKeys)) }
+    private init(preparing adapters: [any AgentAttributionAdapter]) {
+        let declarations = adapters.map(\.environmentKeys)
+        let keys = Set(declarations.flatMap { $0 })
+        self.adapters = adapters
+        environmentKeyDeclarations = declarations
+        environmentKeys = keys
+        environmentKeyBytes = keys.map { (name: $0, bytes: Array($0.utf8)) }
+    }
 
     func runtimeClaims(for executable: String) -> RuntimeClaims {
         RuntimeClaims(executable: executable, adapters: adapters.filter { $0.recognizesRuntime(executable) })
@@ -54,8 +64,8 @@ package struct AttributionAdapters: Sendable {
     }
 
     func markers(in environment: [String: Set<String>]) throws -> [SessionMarker] {
-        try adapters.compactMap { adapter in
-            let allowed = environment.filter { adapter.environmentKeys.contains($0.key) }
+        try zip(adapters, environmentKeyDeclarations).compactMap { adapter, keys in
+            let allowed = environment.filter { keys.contains($0.key) }
             guard let marker = try adapter.marker(in: allowed) else { return nil }
             guard marker.provider == adapter.provider else {
                 throw AttributionAdapterError.markerProviderMismatch

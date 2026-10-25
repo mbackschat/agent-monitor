@@ -39,7 +39,7 @@ public enum ProcessArguments {
             if includeCommand { arguments.append(String(decoding: bytes[range], as: UTF8.self)) }
         }
 
-        let allowedKeys = adapters.environmentKeys.map { (name: $0, bytes: Array($0.utf8)) }
+        let allowedKeys = adapters.environmentKeyBytes
         var environment: [String: Set<String>] = [:]
         while cursor < bytes.count {
             guard let range = nextRange() else { return malformed }
