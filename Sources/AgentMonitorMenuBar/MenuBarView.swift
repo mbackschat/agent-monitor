@@ -410,15 +410,12 @@ struct MenuBarView: View {
                 }
             }.padding(.top, 8)
         } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(group.heading).font(.subheadline.bold()).lineLimit(1).truncationMode(.tail)
-                    .help(group.headingHelp)
-                Spacer(minLength: 2)
+            MenuBarSessionLabel(label: group.headingLabel) {
                 Text(resource(group.cpuTotal, unit: "%", partial: group.cpuPartial))
                     .monospacedDigit().frame(width: 48, alignment: .trailing)
                 Text(resource(group.memoryGBTotal, unit: " GB", partial: group.memoryPartial))
                     .monospacedDigit().frame(width: 56, alignment: .trailing)
-            }.font(.subheadline)
+            }.font(.subheadline).help(group.headingHelp)
         }
         .id(LiveReportRowID.group(group.id))
         .disclosureGroupStyle(

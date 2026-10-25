@@ -126,43 +126,69 @@ struct MenuBarContributorSummary: View {
     let expanded: Bool
 
     var body: some View {
-        HStack(spacing: 6) {
-            Image(
-                systemName: node.children.isEmpty
-                    ? "circle.fill" : (expanded ? "chevron.down" : "chevron.right")
-            )
-            .font(.system(size: node.children.isEmpty ? 4 : 11)).frame(width: 12)
-            Text(node.title).font(.subheadline.weight(.medium)).lineLimit(1).truncationMode(.tail)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .help(node.title + ". " + node.stats.census)
-            metric(
-                node.stats.cpuText(duration: overview.duration),
-                fraction: overview.cpuMeterFraction(node.stats)
-            )
-            .frame(width: 48)
-            .help(
-                "CPU over \(overview.duration.formatted()) s. Bar: 100% is one core. Session ownership is point evidence."
-            )
-            metric(node.stats.memoryText, fraction: overview.memoryMeterFraction(node.stats))
-                .frame(width: 62)
-                .help(
-                    "Current physical footprint; bar scale is physical RAM. \(node.stats.missingMemory) readings unavailable. Historical peaks are in details."
-                )
-            Text(node.stats.recentCPUText).monospacedDigit().frame(width: 44, alignment: .trailing)
-                .help("Measured CPU-seconds in the recent range, including workers no longer observed.")
-            Text(node.stats.currentAvailable ? String(node.stats.current.count) : "—")
-                .monospacedDigit().foregroundStyle(.secondary).frame(width: 28, alignment: .trailing)
-                .help(
-                    node.stats.census
-                        + ". Disappearance is not confirmed termination; filtered members remain in totals.")
-        }
-        .font(.caption)
-        .frame(minHeight: 22)
-        .overlay(alignment: .topLeading) {
-            if overview.pinned.contains(node.id) {
-                Image(systemName: "pin.fill").font(.system(size: 7)).offset(x: -6, y: -2)
+        content
+            .font(.caption)
+            .frame(minHeight: 22)
+            .help(node.title + ". " + node.stats.census)
+            .overlay(alignment: .topLeading) {
+                if overview.pinned.contains(node.id) {
+                    Image(systemName: "pin.fill").font(.system(size: 7)).offset(x: -6, y: -2)
+                }
+            }
+    }
+
+    @ViewBuilder private var content: some View {
+        switch node.label {
+        case .text:
+            singleRow()
+        case .session:
+            HStack(alignment: .top, spacing: 6) {
+                indicator.frame(height: 16)
+                MenuBarSessionLabel(label: node.label) { resourceColumns }
             }
         }
+    }
+
+    private var indicator: some View {
+        Image(
+            systemName: node.children.isEmpty
+                ? "circle.fill" : (expanded ? "chevron.down" : "chevron.right")
+        )
+        .font(.system(size: node.children.isEmpty ? 4 : 11)).frame(width: 12)
+    }
+
+    private func singleRow() -> some View {
+        HStack(spacing: 6) {
+            indicator
+            Text(TextReport.safe(node.title)).font(.subheadline.weight(.medium)).lineLimit(1).truncationMode(
+                .tail
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            resourceColumns
+        }
+    }
+
+    @ViewBuilder private var resourceColumns: some View {
+        metric(
+            node.stats.cpuText(duration: overview.duration),
+            fraction: overview.cpuMeterFraction(node.stats)
+        )
+        .frame(width: 48)
+        .help(
+            "CPU over \(overview.duration.formatted()) s. Bar: 100% is one core. Session ownership is point evidence."
+        )
+        metric(node.stats.memoryText, fraction: overview.memoryMeterFraction(node.stats))
+            .frame(width: 62)
+            .help(
+                "Current physical footprint; bar scale is physical RAM. \(node.stats.missingMemory) readings unavailable. Historical peaks are in details."
+            )
+        Text(node.stats.recentCPUText).monospacedDigit().frame(width: 44, alignment: .trailing)
+            .help("Measured CPU-seconds in the recent range, including workers no longer observed.")
+        Text(node.stats.currentAvailable ? String(node.stats.current.count) : "—")
+            .monospacedDigit().foregroundStyle(.secondary).frame(width: 28, alignment: .trailing)
+            .help(
+                node.stats.census
+                    + ". Disappearance is not confirmed termination; filtered members remain in totals.")
     }
 
     private func metric(_ value: String, fraction: Double) -> some View {

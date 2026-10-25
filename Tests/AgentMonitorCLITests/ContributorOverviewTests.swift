@@ -276,7 +276,7 @@ extension ContributorOverviewTests {
     #expect(overview.main == reference.main)
     #expect(overview.totals == reference.totals)
     let id = try #require(overview.main.first)
-    #expect(overview.nodes[id]?.title == "codex · Index work · session- · /fixture")
+    #expect(overview.nodes[id]?.title == "codex · session- · Index work · /fixture")
     #expect(overview.nodes[id]?.details.contains("Listed name: Index work") == true)
     #expect(overview.nodes[id]?.stats == reference.nodes[id]?.stats)
 }

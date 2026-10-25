@@ -70,6 +70,49 @@ import Testing
         #expect(titles == ["make · /work/api", "make · CWD unavailable"])
     }
 
+    @Test(arguments: [
+        (
+            ["/work/alpha/project", "/tmp/alpha/project"],
+            ["/work/alpha/project", "/tmp/alpha/project"]
+        ),
+        (
+            ["/alpha/project", "/tmp/alpha/project"],
+            ["/alpha/project", "…/alpha/project"]
+        ),
+    ])
+    func contributorDirectoriesRemainDistinctWhenSuffixesMatch(
+        directories: [String], labels: [String]
+    ) throws {
+        let value = try overview([
+            worker("java", pid: 1, cpu: 0.9, cwd: directories[0]),
+            worker("java", pid: 2, cpu: 0.8, cwd: directories[1]),
+            worker("java", pid: 3, cpu: 0.1, cwd: nil),
+        ])
+        let children = try #require(value.nodes[session]?.children)
+        #expect(
+            children.compactMap { value.nodes[$0]?.title }
+                == labels.map { "java · " + $0 } + ["java · CWD unavailable"])
+        #expect(value.nodes[session]?.title == "codex · 11111111 · 2 dirs + CWD unavailable")
+        for directory in directories {
+            let id = ContributorID.executable(parent: session, name: "java", cwd: directory)
+            #expect(value.nodes[id]?.inspectionFields.contains { $0.value == directory } == true)
+        }
+    }
+
+    @Test func singleDirectorySummariesDisambiguateAcrossSessions() throws {
+        let beta = "22222222-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+        var second = worker("java", pid: 2, cpu: 0.8, cwd: "/tmp/alpha/project")
+        second.session = beta
+        let value = try overview([
+            worker("java", pid: 1, cpu: 0.9, cwd: "/work/alpha/project"), second,
+        ])
+        #expect(value.nodes[session]?.title == "codex · 11111111 · /work/alpha/project")
+        let other = ContributorID.session(provider: "codex", session: beta, root: nil)
+        #expect(value.nodes[other]?.title == "codex · 22222222 · /tmp/alpha/project")
+        #expect(value.nodes[session]?.children.compactMap { value.nodes[$0]?.title } == ["java"])
+        #expect(value.nodes[other]?.children.compactMap { value.nodes[$0]?.title } == ["java"])
+    }
+
     /// The remainder row must quantify what it hides, so CPU and lifetimes stay conserved.
     @Test func longContributorListShowsTopThreeAndAQuantifiedRemainder() throws {
         var value = try overview(

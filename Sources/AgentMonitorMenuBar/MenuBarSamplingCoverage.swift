@@ -21,21 +21,40 @@ struct MenuBarSamplingCoverageDetails: View {
     }
 }
 
-/// The reserved one-line coverage status; tooltips carry each note's definition.
+/// Individual coverage cells keep simultaneous gaps visible; definitions stay in tooltips.
 struct MenuBarCoverageStatus: View {
     let status: CoverageStatus
 
     var body: some View {
+        Group {
+            if status.notes.isEmpty {
+                Label(CoverageStatus.clearText, systemImage: "info.circle")
+                    .foregroundStyle(.secondary).help(status.help)
+            } else {
+                Grid(alignment: .topLeading, horizontalSpacing: 12, verticalSpacing: 6) {
+                    ForEach(Array(stride(from: 0, to: status.notes.count, by: 2)), id: \.self) { start in
+                        GridRow {
+                            note(status.notes[start])
+                            if start + 1 < status.notes.count {
+                                note(status.notes[start + 1])
+                            } else {
+                                Color.clear.frame(width: 0, height: 0)
+                            }
+                        }
+                    }
+                }
+            }
+        }.font(.caption2)
+    }
+
+    private func note(_ value: CoverageStatus.Note) -> some View {
         Label(
-            status.text, systemImage: status.severity == .warning ? "exclamationmark.triangle" : "info.circle"
+            value.text, systemImage: value.severity == .warning ? "exclamationmark.triangle" : "info.circle"
         )
-        .font(.caption2)
-        .foregroundStyle(
-            status.severity == .warning
-                ? Color.orange : status.severity == nil ? Color.secondary : Color.primary
-        )
-        .lineLimit(2)
-        .help(status.help)
+        .foregroundStyle(value.severity == .warning ? Color.orange : Color.primary)
+        .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .help(value.help)
     }
 }
 

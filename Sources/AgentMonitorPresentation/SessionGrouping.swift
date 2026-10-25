@@ -50,9 +50,16 @@ public struct SessionGroup: Equatable, Sendable {
     }
 
     public var heading: String {
-        let identity =
-            sessionID.map { SessionDisplayNames.identity($0, name: sessionName) } ?? sessionDescription
-        return "\(provider?.rawValue ?? "unknown") · \(identity) · \(project)"
+        headingLabel.title
+    }
+
+    public var headingLabel: ContributorLabel {
+        let provider = provider?.rawValue ?? "unknown"
+        guard let sessionID else {
+            return .text("\(provider) · \(sessionDescription) · \(project)")
+        }
+        return .session(
+            identity: "\(provider) · \(sessionID.prefix(8))", name: sessionName, directory: project)
     }
 
     public var headingHelp: String {
@@ -182,21 +189,49 @@ public struct ReportPin: Equatable, Sendable {
 enum WorkloadDirectory {
     /// Abbreviates the home directory and keeps the last two components of deeper paths.
     static func compact(_ path: String, home: String = NSHomeDirectory()) -> String {
+        compact(path, home: home, suffixComponents: 2)
+    }
+
+    /// The product contract requires distinguishable workload paths, so matching suffixes gain
+    /// leading components until each label identifies one observed directory.
+    static func compactLabels(for paths: Set<String>, home: String = NSHomeDirectory()) -> [String: String] {
+        var result: [String: String] = [:]
+        var remaining = paths
+        let maximumComponents = max(2, paths.map { $0.split(separator: "/").count }.max() ?? 0)
+        for suffixComponents in 2...maximumComponents {
+            guard !remaining.isEmpty else { break }
+            let groups = Dictionary(grouping: remaining) {
+                compact($0, home: home, suffixComponents: suffixComponents)
+            }
+            remaining = []
+            for (label, members) in groups {
+                if members.count == 1, let path = members.first {
+                    result[path] = label
+                } else {
+                    remaining.formUnion(members)
+                }
+            }
+        }
+        for path in remaining { result[path] = path }
+        return result
+    }
+
+    private static func compact(_ path: String, home: String, suffixComponents: Int) -> String {
         let relative =
             path == home || path.hasPrefix(home + "/") ? "~" + path.dropFirst(home.count) : path
         let components = relative.split(separator: "/", omittingEmptySubsequences: true)
         let leading = relative.hasPrefix("~") ? 1 : 0
-        guard components.count - leading > 2 else { return relative }
-        return "…/" + components.suffix(2).joined(separator: "/")
+        guard components.count - leading > suffixComponents else { return relative }
+        return "…/" + components.suffix(suffixComponents).joined(separator: "/")
     }
 
     /// One directory by path, several by count; an unreadable directory stays disclosed.
-    static func summary(_ directories: Set<String?>) -> String {
+    static func summary(_ directories: Set<String?>, labels: [String: String] = [:]) -> String {
         let known = directories.compactMap { $0 }
         let base: String
         switch known.count {
         case 0: return "CWD unavailable"
-        case 1: base = compact(known[0])
+        case 1: base = labels[known[0]] ?? compact(known[0])
         default: base = "\(known.count) dirs"
         }
         return directories.contains(nil) ? base + " + CWD unavailable" : base

@@ -1,13 +1,33 @@
 import AgentMonitorCore
 import Foundation
 
+public enum ContributorLabel: Equatable, Sendable {
+    case text(String)
+    case session(identity: String, name: String?, directory: String?)
+
+    public var title: String {
+        switch self {
+        case .text(let text): text
+        case .session(let identity, let name, let directory):
+            ([identity] + [name, directory].compactMap { $0 }).joined(separator: " · ")
+        }
+    }
+}
+
 public struct ContributorNode: Equatable, Sendable, Identifiable {
     public let id: ContributorID
-    public var title: String
+    public var label: ContributorLabel
+    public var title: String { label.title }
     public var stats = ContributorStats()
     public var children: [ContributorID] = []
     var labels: [InspectionField] = []
     var evidence: [ContributorEvidence] = []
+
+    init(id: ContributorID, title: String) {
+        self.id = id
+        label = .text(title)
+    }
+
     public var populationFields: [InspectionField] {
         [
             InspectionField(

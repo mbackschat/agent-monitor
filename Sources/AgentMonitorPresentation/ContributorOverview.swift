@@ -559,15 +559,18 @@ public struct ContributorOverview: Equatable, Sendable {
             nodes[leafParent]?.children.append(id)
         }
         let names = SessionDisplayNames(records: metadata.values)
+        let directoryLabels = WorkloadDirectory.compactLabels(
+            for: Set(entries.keys.filter { !$0.isAgentRuntime }.compactMap(\.cwd)))
         for id in Array(nodes.keys) {
             switch id {
             case .session(let provider, let session, let root):
                 let directories = projects[id] ?? []
                 let name = names.name(provider: provider, session: session)
-                nodes[id]?.title =
-                    (root == nil ? "\(provider) · " : "Thread · ")
-                    + SessionDisplayNames.identity(session, name: name)
-                    + (directories.isEmpty ? "" : " · " + WorkloadDirectory.summary(directories))
+                nodes[id]?.label = .session(
+                    identity: (root == nil ? "\(provider) · " : "Thread · ") + session.prefix(8),
+                    name: name,
+                    directory: directories.isEmpty
+                        ? nil : WorkloadDirectory.summary(directories, labels: directoryLabels))
                 nodes[id]?.labels =
                     [InspectionField("Exact session", "\(provider)/\(session)")]
                     + (name.map { [InspectionField("Listed name", $0)] } ?? [])
@@ -581,10 +584,14 @@ public struct ContributorOverview: Equatable, Sendable {
                 let workers = nodes[id]?.stats.processes.count ?? 0
                 // A single directory is already shown on the owning session row.
                 let directoryOnOwner = owner.map { (projects[$0]?.count ?? 0) <= 1 } ?? false
-                nodes[id]?.title =
+                nodes[id]?.label = .text(
                     name + (workers > 1 ? " ×\(workers)" : "")
-                    + (runtimeContributors.contains(id) || directoryOnOwner
-                        ? "" : " · " + (cwd.map { WorkloadDirectory.compact($0) } ?? "CWD unavailable"))
+                        + (runtimeContributors.contains(id) || directoryOnOwner
+                            ? ""
+                            : " · "
+                                + (cwd.map { directoryLabels[$0] ?? WorkloadDirectory.compact($0) }
+                                    ?? "CWD unavailable"))
+                )
                 var labels: [InspectionField] = []
                 if case .session(let provider, let session, _) = owner {
                     labels = [InspectionField("Agent", provider), InspectionField("Session", session)]

@@ -416,7 +416,7 @@ func directoryLabelsDoNotClaimProjectsOrChangeSessionMembership(
 @Test func groupNamesAreDisplayContextAndNeverOverrideIdentityOrConflicts() throws {
     let named = groupedRow(1, thread: "session-a", provider: .claude, sessionName: "Index work")
     let group = try #require(SessionGrouping.groups([named]).first)
-    #expect(group.heading == "claude · Index work · session- · /same/project")
+    #expect(group.heading == "claude · session- · Index work · /same/project")
     #expect(group.label.contains("Index work"))
     let encoded = try #require(
         JSONSerialization.jsonObject(with: JSONReport.encodeLine(groupedSnapshot([named]))) as? [String: Any])

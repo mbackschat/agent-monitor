@@ -26,6 +26,7 @@ import Vision
     #expect(model.report.showsOverview)
     #expect(model.report.overview.main.count == 2)
     #expect(model.report.overview.nodes[.section(.recent)]?.stats.noLongerObserved.count == 1)
+    if let first = model.report.overview.main.first { model.report.overview.toggle(first) }
     _ = NSApplication.shared
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
@@ -46,17 +47,20 @@ import Vision
     await model.stop()
 }
 
-@Test @MainActor func contributorSummaryFitsOneCompactRow() throws {
+@Test @MainActor func contributorSummaryUsesExtraHeightOnlyForSessionContext() throws {
     var overview = ContributorOverview()
     overview.receive(try nativeOverviewFixture())
     _ = NSApplication.shared
-    for row in overview.visibleRows {
+    for node in overview.nodes.values {
         let host = NSHostingView(
             rootView:
-                MenuBarContributorSummary(node: row.node, overview: overview, expanded: false)
+                MenuBarContributorSummary(node: node, overview: overview, expanded: false)
                 .frame(width: 376))
         host.layoutSubtreeIfNeeded()
-        #expect(host.fittingSize.height <= 22)
+        switch node.label {
+        case .session: #expect(host.fittingSize.height <= 44)
+        case .text: #expect(host.fittingSize.height <= 22)
+        }
         #expect(host.fittingSize.width == 376)
     }
 }
@@ -97,7 +101,8 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
                 attribution: Attribution(
                     provider: .codex,
                     evidence: index == 4 ? .runtimeOnly : .marker, context: .unverified,
-                    threadID: index == 4 ? nil : "session-\(index)", rootSessionID: nil, runtime: nil,
+                    threadID: index == 4 ? nil : String(format: "%08x-0000-4000-8000-000000000000", index),
+                    rootSessionID: nil, runtime: nil,
                     terminal: nil, runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []))
         }
     }

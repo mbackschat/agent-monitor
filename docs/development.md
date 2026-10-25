@@ -359,3 +359,15 @@ The cached/uncached attribution oracles also guard the single-pass accounting-ro
 ### Native executable-claim reuse
 
 `RuntimeClaimsTests` checks positive and negative reuse, fresh invocation withdrawal/restoration, bounded FIFO/key bytes, registry/value-copy isolation and exact UTF-8 spelling at canonical-equivalent keys. Multi-adapter fixtures use explicit expected providers, observation requests and evidence in both registration orders, rather than treating a shared implementation as an independent oracle. Native metadata still uses the same pre/post identity checks and native observation calls. Optimized comparisons must hold fixture observations and evidence constant; a recognition-component saving does not establish whole-collector acceptance.
+
+### Completion regression guards
+
+`PreparedEnvironmentKeysTests` checks one-time immutable declaration preparation, exact per-adapter allowlisting with overlapping keys, fresh marker validation and command-retention behavior.
+
+`RecentLeaseBoundsTests` checks exhausted snapshot publication and repeated sharing of one unit: lease bookkeeping remains charged and releasing all handles releases the leases. These are retained-state guards, not allocator or process-RSS ceilings.
+
+`SessionContributorRowsTests` covers colliding directory suffixes, ancestor/suffix paths, unknown CWD and cross-session summaries. `ContributorLayoutTests` checks complete or explicitly reduced key help and quit/resume at narrow widths/minimum height. The offscreen `simultaneousCoverageWarningsRemainVisibleWithoutDisclosure` test uses text recognition to verify simultaneous warning categories and values remain visible, not merely that the view has a small height.
+
+`AttributionStorageTests` drives the production pipeline through a lineage of departed runtimes with only two live processes and short visible ancestry. It checks explicit graph-budget rejection, exact rejected scan, contiguous drain and CPU conservation. Independent full-walk charges cover exec, metadata, Unicode spelling, registry changes, pruning and value copies; the 3,000-process/depth-ten guard also checks that unchanged scans do not revisit variable metadata/ancestry storage. Deep-chain and fan-out guards require rejection before the cache itself exceeds its reservation; stale-entry replacement must fit exactly without double charging.
+
+`SessionLabelLayoutTests` checks matching names, distinct IDs and adjacent contribution values across terminal widths; compact session blocks must not be split at viewport boundaries. Native light/dark text-recognition fixtures verify IDs, name prefixes and CWDs in both the overview and process view. These fixtures establish rendered content, not physical keyboard or VoiceOver delivery.

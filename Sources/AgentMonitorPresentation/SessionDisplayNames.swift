@@ -33,8 +33,4 @@ struct SessionDisplayNames {
         }
         return entry.names.first
     }
-
-    static func identity(_ id: String, name: String?) -> String {
-        (name.map { String($0.prefix(40)) + " · " } ?? "") + id.prefix(8)
-    }
 }

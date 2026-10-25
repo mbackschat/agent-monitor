@@ -5,60 +5,65 @@ public enum ContributorLayout {
         let overview = state.overview
         let columns = Columns(width: width)
         let prefix = state.frozen ? "PAUSED · p resume" : "Agent Monitor · p pause"
+        let title = ReportLine(prefix + " | Main contributors | v processes", style: .title)
+        let totals = ReportLine(overview.totals.summary(duration: overview.duration))
+        let history = ReportLine(
+            "Agents "
+                + state.history.line(
+                    metric: state.historyMetric, window: state.historyWindow, width: max(1, width - 7)),
+            style: .muted)
+        let range = ReportLine(
+            "Recent " + overview.sourceDurationLabel
+                + " · CPU over \(String(format: "%.1f", overview.duration)) s · point candidates",
+            style: .muted)
         var header = [
-            ReportLine(prefix + " | Main contributors | v processes", style: .title),
-            ReportLine(overview.totals.summary(duration: overview.duration)),
-            ReportLine(
-                "Agents "
-                    + state.history.line(
-                        metric: state.historyMetric, window: state.historyWindow, width: max(1, width - 7)),
-                style: .muted),
-            ReportLine(
-                "Recent " + overview.sourceDurationLabel
-                    + " · CPU over \(String(format: "%.1f", overview.duration)) s · point candidates",
-                style: .muted),
+            title, totals, history, range,
         ]
         let status = overview.coverageStatus
-        header.insert(
-            contentsOf: TerminalCells.wrapped(status.text, to: width).map {
-                ReportLine($0, style: status.lineStyle)
-            },
-            at: 2)
+        let coverage = TerminalCells.wrapped(status.text, to: width).map {
+            ReportLine($0, style: status.lineStyle)
+        }
+        header.insert(contentsOf: coverage, at: 2)
         if !state.thresholds.isUnfiltered {
             header.append(ReportLine(ThresholdContext.text(state.thresholds), style: .muted))
         }
-        header.append(
-            ReportLine(
-                columns.row(
-                    "GROUP / EXECUTABLE / PROCESS", cpu: "CPU", memory: "MEMORY", recent: "RECENT CPU",
-                    now: "NOW"), style: .heading))
-        let footer = [
-            ReportLine("↑/↓ select  ←/→ fold  a show all  . pin session  Enter inspect", style: .muted),
-            ReportLine(
-                "c/m CPU/memory order  i details  PgUp/PgDn scroll  v processes  p pause  q quit",
-                style: .muted),
-        ]
+        let heading = ReportLine(
+            columns.row(
+                "GROUP / EXECUTABLE / PROCESS", cpu: "CPU", memory: "MEMORY", recent: "RECENT CPU",
+                now: "NOW"), style: .heading)
+        header.append(heading)
+        let footer = footerLines(state: state, width: width, height: height, headerHeight: header.count)
+        for optional in [history, range, heading, totals, title] where header.count + footer.count > height {
+            if let index = header.firstIndex(of: optional) { header.remove(at: index) }
+        }
+        if header.count + footer.count > height {
+            let capacity = max(0, height - footer.count)
+            header = Array(coverage.prefix(max(0, capacity - 1)))
+            if capacity > 0 {
+                header.append(ReportLine("Coverage continues · resize for details", style: status.lineStyle))
+            }
+        }
         var content: [(ContributorID, ReportLine)] = []
+        var sessionContinuations: Set<Int> = []
         for row in overview.visibleRows {
             let selected = row.id == overview.selection
             let folded = row.node.children.isEmpty ? "·" : (overview.open.contains(row.id) ? "▾" : "▸")
             let indent = String(repeating: "  ", count: row.depth)
             let pinned = overview.pinned.contains(row.id)
             let marker = pinned ? (selected ? "@" : "+") : (selected ? ">" : " ")
-            let label = "\(marker)\(indent)\(folded) \(row.node.title)"
+            let prefix = "\(marker)\(indent)\(folded) "
             let stats = row.node.stats
             let cpuBar = columns.bar(overview.cpuMeterFraction(stats))
             let memoryBar = columns.bar(overview.memoryMeterFraction(stats))
-            content.append(
-                (
-                    row.id,
-                    ReportLine(
-                        columns.row(
-                            label, cpu: stats.cpuText(duration: overview.duration) + cpuBar,
-                            memory: stats.memoryText + memoryBar, recent: stats.recentCPUText,
-                            now: stats.currentAvailable ? String(stats.current.count) : "—"),
-                        style: selected ? .selected : .normal)
-                ))
+            let rowLines = columns.rows(
+                row.node.label, prefix: prefix,
+                cpu: stats.cpuText(duration: overview.duration) + cpuBar,
+                memory: stats.memoryText + memoryBar, recent: stats.recentCPUText,
+                now: stats.currentAvailable ? String(stats.current.count) : "—")
+            for (index, line) in rowLines.enumerated() {
+                if index == 1 { sessionContinuations.insert(content.count) }
+                content.append((row.id, ReportLine(line, style: selected ? .selected : .normal)))
+            }
             if selected, overview.detailsVisible {
                 let fields =
                     row.node.inspectionFields.filter { $0.kind == .context }
@@ -73,17 +78,58 @@ public enum ContributorLayout {
                 }
             }
         }
-        let available = max(1, height - header.count - footer.count)
+        let available = max(0, height - header.count - footer.count)
         let selected = content.firstIndex { $0.0 == overview.selection } ?? 0
-        let offset = min(
+        var offset = min(
             max(0, selected + overview.detailOffset - available / 2), max(0, content.count - available))
-        let result = header + content.dropFirst(offset).prefix(available).map(\.1) + footer
+        if sessionContinuations.contains(offset) { offset += 1 }
+        var end = min(content.count, offset + available)
+        let clippedSession = end > offset && sessionContinuations.contains(end)
+        if clippedSession { end -= 1 }
+        var body = content[offset..<end].map(\.1)
+        if clippedSession {
+            body.append(ReportLine(body.isEmpty ? "Resize for complete session rows" : "", style: .muted))
+        }
+        let result = header + body + footer
         return Array(result.prefix(height)).map {
             ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style)
         }
     }
 
+    private static func footerLines(
+        state: LiveReportState, width: Int, height: Int, headerHeight: Int
+    ) -> [ReportLine] {
+        let diagnosis =
+            state.diagnosis.isRunning ? DiagnosisViewState.cleanupHint : DiagnosisViewState.keyHint
+        let pause = state.frozen ? "p resume" : "p pause"
+        let controls = [
+            "↑/↓ select", "←/→ fold", "a show all", ". pin session", "Enter inspect",
+            "c/m CPU/memory order", "i details", "PgUp/PgDn scroll", "v processes",
+            diagnosis, pause, "q quit",
+        ]
+        var lines: [String] = []
+        var line = ""
+        for control in controls {
+            let candidate = line.isEmpty ? control : line + "  " + control
+            if TerminalCells.width(candidate) > width {
+                if !line.isEmpty { lines.append(line) }
+                line = control
+            } else {
+                line = candidate
+            }
+        }
+        if !line.isEmpty { lines.append(line) }
+        if lines.count > height - headerHeight - 1 {
+            lines =
+                state.diagnosis.isRunning
+                ? [diagnosis, "Resize for all keys | \(pause) | q quit"]
+                : ["\(diagnosis) | Resize for all keys", "\(pause) | q quit"]
+        }
+        return lines.map { ReportLine($0, style: .muted) }
+    }
+
     private struct Columns {
+        let width: Int
         let name: Int
         let cpu: Int
         let memory: Int
@@ -92,12 +138,34 @@ public enum ContributorLayout {
         let graphical: Bool
 
         init(width: Int) {
+            self.width = width
             graphical = width >= 100
             cpu = graphical ? 13 : (width < 60 ? 6 : 7)
             memory = graphical ? 15 : (width < 60 ? 8 : 9)
             recent = width >= 80 ? 10 : 7
             now = width >= 80 ? 5 : (width < 60 ? 0 : 3)
             name = max(1, width - cpu - memory - recent - now - (now == 0 ? 3 : 4))
+        }
+
+        func rows(
+            _ label: ContributorLabel, prefix: String, cpu: String, memory: String, recent: String,
+            now: String
+        ) -> [String] {
+            let title = TextReport.safe(label.title)
+            guard case .session(let identity, let listedName, let directory) = label,
+                TerminalCells.width(prefix + title) > name
+            else { return [row(prefix + title, cpu: cpu, memory: memory, recent: recent, now: now)] }
+            var heading = prefix + TextReport.safe(identity)
+            if let listedName, !listedName.isEmpty {
+                let available = width - TerminalCells.width(heading) - 3
+                if available > 0 {
+                    heading += " · " + TerminalCells.abbreviated(TextReport.safe(listedName), to: available)
+                }
+            }
+            let continuation =
+                String(repeating: " ", count: TerminalCells.width(prefix))
+                + (directory.map(TextReport.safe) ?? "")
+            return [heading, row(continuation, cpu: cpu, memory: memory, recent: recent, now: now)]
         }
 
         func row(_ label: String, cpu: String, memory: String, recent: String, now: String) -> String {
