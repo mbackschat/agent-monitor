@@ -15,6 +15,7 @@ import Synchronization
         let noConcurrentBuilds: Bool
         let requestedAcquisitionSeconds = 0.1
         let displaySeconds = 5
+        let liveIntervalEnabled = true
     }
     struct Result: Encodable {
         let provenance: Provenance
@@ -99,7 +100,7 @@ import Synchronization
         ).profiling(profile)
         var failure: String?
         do {
-            try await session.run { snapshot in
+            try await session.run(interval: LiveInterval(0.1)) { snapshot in
                 guard let window = snapshot.window else { return }
                 var heap = malloc_statistics_t()
                 malloc_zone_statistics(nil, &heap)

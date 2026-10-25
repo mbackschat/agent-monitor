@@ -16,11 +16,15 @@ final class SerialBlockingWorker<WorkerState: Sendable>: Sendable {
 
     private let mailbox = Mutex(Mailbox())
     private let ready = DispatchSemaphore(value: 0)
+    private let profile: PipelineProfile?
+    private let role: PipelineProfile.Worker
 
     init(
         name: String, initial: WorkerState, qualityOfService: QualityOfService = .userInitiated,
         profile: PipelineProfile? = nil, role: PipelineProfile.Worker = .acquisition
     ) {
+        self.profile = profile
+        self.role = role
         let thread = Thread { [self] in
             let threadStart = profile.map { _ in PipelineProfile.Stamp() }
             var state = initial
@@ -31,9 +35,7 @@ final class SerialBlockingWorker<WorkerState: Sendable>: Sendable {
                     return (box.job, box.stopping)
                 }
                 if let job {
-                    let start = profile.map { _ in PipelineProfile.Stamp() }
                     autoreleasepool { job(&state) }
-                    if let start { profile?.endJob(role, since: start) }
                 } else if stop {
                     break
                 }
@@ -52,6 +54,7 @@ final class SerialBlockingWorker<WorkerState: Sendable>: Sendable {
     }
 
     func perform<Value: Sendable>(
+        profileJob: Bool = true,
         _ operation: @escaping @Sendable (inout WorkerState) throws -> Value
     ) async throws -> Value {
         try Task.checkCancellation()
@@ -59,7 +62,12 @@ final class SerialBlockingWorker<WorkerState: Sendable>: Sendable {
             let failure: BlockingWorkerError? = mailbox.withLock { box in
                 guard !box.stopping else { return .stopped }
                 guard box.job == nil else { return .busy }
-                box.job = { state in continuation.resume(with: Result { try operation(&state) }) }
+                box.job = { [profile, role] state in
+                    let start = profileJob ? profile.map { _ in PipelineProfile.Stamp() } : nil
+                    let result = Result { try operation(&state) }
+                    if let start { profile?.endJob(role, since: start) }
+                    continuation.resume(with: result)
+                }
                 return nil
             }
             if let failure { continuation.resume(throwing: failure) } else { ready.signal() }

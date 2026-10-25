@@ -114,7 +114,7 @@ private struct NoPublicationRegistry: SessionRegistryReading {
         for await _ in reader.finalScan.stream { break }
         #expect(reader.state.withLock { $0.scans } == 41)
         history.resume.signal()
-        await run.value
+        _ = await run.value
         let values = results.withLock { $0 }
         let summary = try #require(values.last?.recentActivity?.units.first)
         #expect(summary.publicationCoverage.sourceUnitCount == 4)

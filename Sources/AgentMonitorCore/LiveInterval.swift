@@ -10,6 +10,7 @@ public final class LiveInterval: Sendable {
         var generation = 0
         var nextWaiter = 0
         var waiters: [Int: CheckedContinuation<Void, Never>] = [:]
+        var observers: [Int: @Sendable () -> Void] = [:]
     }
 
     private let state: Mutex<State>
@@ -19,14 +20,30 @@ public final class LiveInterval: Sendable {
     public var seconds: Double { state.withLock { $0.seconds } }
 
     public func set(_ seconds: Double) {
-        let waiters = state.withLock { state -> [CheckedContinuation<Void, Never>] in
-            guard state.seconds != seconds else { return [] }
+        let (waiters, observers) = state.withLock { state in
+            guard state.seconds != seconds else {
+                return ([CheckedContinuation<Void, Never>](), [@Sendable () -> Void]())
+            }
             state.seconds = seconds
             state.generation += 1
             defer { state.waiters = [:] }
-            return Array(state.waiters.values)
+            return (Array(state.waiters.values), Array(state.observers.values))
         }
         for waiter in waiters { waiter.resume() }
+        for observer in observers { observer() }
+    }
+
+    func observe(_ changed: @escaping @Sendable () -> Void) -> Int {
+        state.withLock { state in
+            let id = state.nextWaiter
+            state.nextWaiter += 1
+            state.observers[id] = changed
+            return id
+        }
+    }
+
+    func removeObserver(_ id: Int) {
+        _ = state.withLock { $0.observers.removeValue(forKey: id) }
     }
 
     /// The current value with the generation that `changed(after:)` compares against.

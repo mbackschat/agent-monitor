@@ -31,7 +31,11 @@ public struct AcquisitionTiming: Equatable, Codable, Sendable {
 
 private final class PipelineCancellation: Sendable {
     private let stopped = Mutex(false)
-    func cancel() { stopped.withLock { $0 = true } }
+    let wake = AcquisitionWake()
+    func cancel() {
+        stopped.withLock { $0 = true }
+        wake.signal()
+    }
     func check() throws {
         if stopped.withLock({ $0 }) { throw CancellationError() }
     }
@@ -153,6 +157,7 @@ struct IndependentMonitoringPipeline: Sendable {
         } else {
             mergeUnits = nil
         }
+        let handoff = AcquisitionHandoff<ResolvedScan>(limits: limits)
         let units = MonitoringChannel<ResolvedScan>(
             stage: .publication, limits: limits, coalesce: mergeUnits)
 
@@ -161,8 +166,23 @@ struct IndependentMonitoringPipeline: Sendable {
                 try await withThrowingTaskGroup(of: Void.self) { group in
                     group.addTask {
                         await collect(
-                            on: acquisition, into: units, interval: live,
+                            on: acquisition, into: handoff, interval: live,
                             enrichment: enrichment, cancellation: cancellation)
+                    }
+                    group.addTask {
+                        do {
+                            while let unit = try await handoff.next() {
+                                try await units.send(
+                                    unit,
+                                    size: unit.window?.payloadSize ?? MonitoringPayloadSize(unit.findings),
+                                    sequence: unit.window.map { $0.baseline.id.sequence + 1 }
+                                        ?? unit.accounting.acquisition?.scanSequence ?? 0)
+                            }
+                            await units.finish()
+                        } catch {
+                            cancellation.cancel()
+                            await units.finish(throwing: error)
+                        }
                     }
                     group.addTask {
                         await publish(from: units, on: publication, into: reports, cancellation: cancellation)
@@ -240,6 +260,7 @@ struct IndependentMonitoringPipeline: Sendable {
                         enrichment.finish()
                         cancellation.cancel()
                         group.cancelAll()
+                        handoff.cancel()
                         await units.cancel()
                         await reports.cancel()
                         throw error
@@ -247,6 +268,7 @@ struct IndependentMonitoringPipeline: Sendable {
                 }
             } onCancel: {
                 cancellation.cancel()
+                handoff.cancel()
             }
         } catch {
             await acquisition.close()
@@ -258,11 +280,55 @@ struct IndependentMonitoringPipeline: Sendable {
     }
 
     private func collect(
-        on worker: SerialBlockingWorker<AcquisitionState>, into units: MonitoringChannel<ResolvedScan>,
+        on worker: SerialBlockingWorker<AcquisitionState>, into units: AcquisitionHandoff<ResolvedScan>,
         interval live: LiveInterval?, enrichment: PipelineEnrichment, cancellation: PipelineCancellation
     ) async {
         defer { enrichment.finish() }
         do {
+            if let blocking = clock as? any BlockingSamplingClock {
+                try await worker.perform(profileJob: false) { state in
+                    let observation = live?.observe { cancellation.wake.signal() }
+                    defer { if let observation { live?.removeObserver(observation) } }
+                    do {
+                        var count = 0
+                        var interval = live?.seconds ?? configuration.intervalSeconds
+                        while true {
+                            guard interval.isFinite, (0.1...60).contains(interval) else {
+                                throw MonitoringError.invalidConfiguration
+                            }
+                            let scan = try autoreleasepool {
+                                try acquire(
+                                    &state, interval: interval, enrichment: enrichment,
+                                    cancellation: cancellation)
+                            }
+                            if let report = scan.report {
+                                try units.send(
+                                    report,
+                                    size: report.window?.payloadSize
+                                        ?? MonitoringPayloadSize(report.findings),
+                                    sequence: report.window.map { $0.baseline.id.sequence + 1 }
+                                        ?? scan.sequence)
+                                if report.reportDue { count += 1 }
+                                if configuration.samples > 0, count >= configuration.samples { break }
+                            }
+                            interval = try waitSynchronously(
+                                blocking, live: live, since: scan.startedAt, cancellation: cancellation)
+                        }
+                    } catch {
+                        if let pending = drainPending(&state), let window = pending.window {
+                            try units.send(
+                                pending, size: window.payloadSize, sequence: window.baseline.id.sequence + 1)
+                        }
+                        throw error
+                    }
+                    if let pending = drainPending(&state), let window = pending.window {
+                        try units.send(
+                            pending, size: window.payloadSize, sequence: window.baseline.id.sequence + 1)
+                    }
+                }
+                units.finish()
+                return
+            }
             var interval = live?.seconds ?? configuration.intervalSeconds
             guard interval.isFinite, (0.1...60).contains(interval) else {
                 throw MonitoringError.invalidConfiguration
@@ -271,43 +337,12 @@ struct IndependentMonitoringPipeline: Sendable {
             while true {
                 try cancellation.check()
                 let requested = interval
-                let scan = try await worker.perform { state in
-                    try cancellation.check()
-                    let start = clock.monotonicNow()
-                    let raw = try profile.measure(.nativeSampling) {
-                        try reader.snapshot(excluding: excluded)
-                    }
-                    try cancellation.check()
-                    let evidence = profile.measure(.promptCapture) {
-                        state.promptCapture.capture(
-                            raw.samples, sequence: state.sequence, using: reader, clock: clock,
-                            limits: configuration.promptCaptureLimits)
-                    }
-                    state.sequence += 1
-                    let snapshot = ProcessSnapshot(
-                        samples: raw.samples, enumeratedCount: raw.enumeratedCount,
-                        unreadableCount: raw.unreadableCount,
-                        listedAt: raw.listedAt, scanSeconds: raw.scanSeconds, hostCounters: raw.hostCounters,
-                        logicalCPUCount: raw.logicalCPUCount, nativeOutcomes: raw.nativeOutcomes,
-                        nativeTiming: raw.nativeTiming, promptEvidence: evidence)
-                    try cancellation.check()
-                    let counters = profile.measure(.counterAccounting) {
-                        state.ledger.ingest(
-                            snapshot.samples, listedAt: snapshot.listedAt, scanSeconds: snapshot.scanSeconds,
-                            source: snapshot)
-                    }
-                    let period = state.previousStart.map { max(0, start - $0) }
-                    state.previousStart = start
-                    let scan = AcquiredScan(
-                        snapshot: snapshot, counters: counters, timestamp: clock.now(), startedAt: start,
-                        finishedAt: clock.monotonicNow(), interval: requested, achievedPeriod: period)
-                    let report = try resolve(
-                        scan, state: &state.resolution,
-                        enrichment: enrichment, cancellation: cancellation)
-                    return (startedAt: start, sequence: counters.id.sequence, report: report)
+                let scan = try await worker.perform(profileJob: false) { state in
+                    try acquire(
+                        &state, interval: requested, enrichment: enrichment, cancellation: cancellation)
                 }
                 if let report = scan.report {
-                    try await units.send(
+                    try units.send(
                         report, size: report.window?.payloadSize ?? MonitoringPayloadSize(report.findings),
                         sequence: report.window.map { $0.baseline.id.sequence + 1 } ?? scan.sequence)
                     if report.reportDue { count += 1 }
@@ -316,21 +351,78 @@ struct IndependentMonitoringPipeline: Sendable {
                 interval = try await wait(live, since: scan.startedAt)
             }
             if let pending = try await drainPending(on: worker), let window = pending.window {
-                try await units.send(
+                try units.send(
                     pending, size: window.payloadSize, sequence: window.baseline.id.sequence + 1)
             }
-            await units.finish()
+            units.finish()
         } catch {
             if let pending = try? await drainPending(on: worker), let window = pending.window {
                 do {
-                    try await units.send(
+                    try units.send(
                         pending, size: window.payloadSize, sequence: window.baseline.id.sequence + 1)
                 } catch {
-                    await units.finish(throwing: error)
+                    units.finish(throwing: error)
                     return
                 }
             }
-            await units.finish(throwing: error)
+            units.finish(throwing: error)
+        }
+    }
+
+    private func acquire(
+        _ state: inout AcquisitionState, interval: Double, enrichment: PipelineEnrichment,
+        cancellation: PipelineCancellation
+    ) throws -> (startedAt: Double, sequence: UInt64, report: ResolvedScan?) {
+        let job = profile.map { _ in PipelineProfile.Stamp() }
+        defer { if let job { profile?.endJob(.acquisition, since: job) } }
+        try cancellation.check()
+        let start = clock.monotonicNow()
+        let raw = try profile.measure(.nativeSampling) {
+            try reader.snapshot(excluding: excluded)
+        }
+        try cancellation.check()
+        let evidence = profile.measure(.promptCapture) {
+            state.promptCapture.capture(
+                raw.samples, sequence: state.sequence, using: reader, clock: clock,
+                limits: configuration.promptCaptureLimits)
+        }
+        state.sequence += 1
+        let snapshot = ProcessSnapshot(
+            samples: raw.samples, enumeratedCount: raw.enumeratedCount,
+            unreadableCount: raw.unreadableCount,
+            listedAt: raw.listedAt, scanSeconds: raw.scanSeconds, hostCounters: raw.hostCounters,
+            logicalCPUCount: raw.logicalCPUCount, nativeOutcomes: raw.nativeOutcomes,
+            nativeTiming: raw.nativeTiming, promptEvidence: evidence)
+        try cancellation.check()
+        let counters = profile.measure(.counterAccounting) {
+            state.ledger.ingest(
+                snapshot.samples, listedAt: snapshot.listedAt, scanSeconds: snapshot.scanSeconds,
+                source: snapshot)
+        }
+        let period = state.previousStart.map { max(0, start - $0) }
+        state.previousStart = start
+        let scan = AcquiredScan(
+            snapshot: snapshot, counters: counters, timestamp: clock.now(), startedAt: start,
+            finishedAt: clock.monotonicNow(), interval: interval, achievedPeriod: period)
+        let report = try resolve(
+            scan, state: &state.resolution,
+            enrichment: enrichment, cancellation: cancellation)
+        return (startedAt: start, sequence: counters.id.sequence, report: report)
+    }
+
+    private func waitSynchronously(
+        _ blocking: any BlockingSamplingClock, live: LiveInterval?, since start: Double,
+        cancellation: PipelineCancellation
+    ) throws -> Double {
+        while true {
+            try cancellation.check()
+            let interval = live?.seconds ?? configuration.intervalSeconds
+            guard interval.isFinite, (0.1...60).contains(interval) else {
+                throw MonitoringError.invalidConfiguration
+            }
+            let deadline = start + interval
+            if clock.monotonicNow() >= deadline { return interval }
+            try blocking.wait(until: deadline, wake: cancellation.wake)
         }
     }
 
@@ -450,15 +542,17 @@ struct IndependentMonitoringPipeline: Sendable {
 
     private func drainPending(on worker: SerialBlockingWorker<AcquisitionState>) async throws -> ResolvedScan?
     {
-        try await worker.perform { collection in
-            defer { collection.resolution.window = nil }
-            guard let latest = collection.resolution.latest,
-                let partial = collection.resolution.window,
-                partial.final.id.sequence > partial.baseline.id.sequence
-            else { return nil }
-            return ResolvedScan(
-                acquired: latest.acquired, accounting: latest.accounting, findings: [], window: partial)
-        }
+        try await worker.perform { collection in drainPending(&collection) }
+    }
+
+    private func drainPending(_ collection: inout AcquisitionState) -> ResolvedScan? {
+        defer { collection.resolution.window = nil }
+        guard let latest = collection.resolution.latest,
+            let partial = collection.resolution.window,
+            partial.final.id.sequence > partial.baseline.id.sequence
+        else { return nil }
+        return ResolvedScan(
+            acquired: latest.acquired, accounting: latest.accounting, findings: [], window: partial)
     }
 
     private func publish(
