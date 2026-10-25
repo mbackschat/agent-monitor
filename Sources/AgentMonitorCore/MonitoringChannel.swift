@@ -1,10 +1,11 @@
 import Foundation
 
 public enum MonitoringStage: String, Sendable {
-    case accounting, publication, presentation
+    case attribution, accounting, publication, presentation
 
     var capacityDescription: String {
         switch self {
+        case .attribution: "the retained attribution graph"
         case .accounting: "the open accounting unit"
         case .presentation: "the pending report"
         case .publication: "the closed accounting units awaiting publication"

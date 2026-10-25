@@ -151,7 +151,7 @@ private struct NoPublicationRegistry: SessionRegistryReading {
         #expect(history.snapshot()?.finalScan == UInt64(reader.state.withLock { $0.scans } - 1))
     }
 
-    @Test func rejectedAccountingScanDrainsOnlyTheLastAcceptedPartial() async throws {
+    @Test func rejectedAttributionScanDrainsOnlyTheLastAcceptedPartial() async throws {
         let reader = WindowReader(expandsAt: 2)
         let reports = Mutex<[MonitoringSnapshot]>([])
         let session = MonitoringSession(
@@ -159,7 +159,7 @@ private struct NoPublicationRegistry: SessionRegistryReading {
                 intervalSeconds: 0.1, samples: 0,
                 pipelineLimits: MonitoringPipelineLimits(pendingObservations: 10), reportIntervalSeconds: 5),
             reader: reader, clock: reader)
-        await #expect(throws: MonitoringError.overloaded(stage: .accounting, rejectedScan: 2)) {
+        await #expect(throws: MonitoringError.overloaded(stage: .attribution, rejectedScan: 2)) {
             try await session.run { report in reports.withLock { $0.append(report) } }
         }
         let delivered = reports.withLock { $0 }

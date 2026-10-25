@@ -247,10 +247,16 @@ public final class RecentActivityStore: RecentActivityCollecting {
         var rows = current
         var identities = present
         var shortened = limited
-        func lease() -> Lease {
+        func lease() -> Lease? {
             var sizes: [UUID: MonitoringPayloadSize] = [:]
             for unit in projected + displayed { sizes[unit.id] = unit.size }
-            return Lease(units: sizes, extra: extraSize(rows, present: identities))
+            var extra = extraSize(rows, present: identities)
+            guard !sizes.isEmpty || extra.observations > 0 || extra.textBytes > 0 else { return nil }
+            // Shared unit payloads are charged once, but each inspection owns its lease and
+            // references. CPU-01's bounded retention includes that bookkeeping even when
+            // several snapshots share all of their underlying measurements.
+            extra.observations += 1 + sizes.count
+            return Lease(units: sizes, extra: extra)
         }
         value.leases[id] = lease()
         // Published ranges own compact records, so evict original store units before reducing

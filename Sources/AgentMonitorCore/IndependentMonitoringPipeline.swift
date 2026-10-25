@@ -396,8 +396,10 @@ struct IndependentMonitoringPipeline: Sendable {
         enrichment: PipelineEnrichment, cancellation: PipelineCancellation
     ) throws -> ResolvedScan? {
         try cancellation.check()
-        let (accounting, findings) = profile.measure(.attribution) {
+        let (accounting, findings) = try profile.measure(.attribution) {
             let accounting = state.monitor.ingest(scan.snapshot, accounting: scan.counters)
+            try state.monitor.validateAttributionStorage(
+                limits: configuration.pipelineLimits, sequence: scan.counters.id.sequence)
             for evidence in scan.snapshot.promptEvidence where evidence.status.hasMetadata {
                 if let metadata = evidence.metadata {
                     state.monitor.enrich(
@@ -422,6 +424,16 @@ struct IndependentMonitoringPipeline: Sendable {
                     restrictingTo: result.verified.intersection(samples.keys), observedAt: result.observedAt,
                     requestedAt: result.requestedAt)
             }
+            try state.monitor.validateAttributionStorage(
+                limits: configuration.pipelineLimits, sequence: scan.counters.id.sequence)
+            let findings = try state.monitor.accountingFindings(
+                sorted: configuration.reportIntervalSeconds == nil,
+                validatingStorage: {
+                    try AttributionStorage.validate(
+                        $0, limits: configuration.pipelineLimits, sequence: scan.counters.id.sequence)
+                })
+            try state.monitor.validateAttributionStorage(
+                limits: configuration.pipelineLimits, sequence: scan.counters.id.sequence)
             enrichment.requestMetadata(
                 MetadataRefreshRequest(
                     samples: scan.snapshot.samples,
@@ -429,8 +441,6 @@ struct IndependentMonitoringPipeline: Sendable {
                         scan.snapshot.promptEvidence.filter { $0.status.hasMetadata }
                             .map { ($0.process, $0) }, uniquingKeysWith: { _, last in last }),
                     requestedAt: scan.finishedAt))
-            let findings = state.monitor.accountingFindings(
-                sorted: configuration.reportIntervalSeconds == nil)
             var queries: [RegistryRefreshRequest] = []
             for (provider, runtimes) in state.monitor.sessionRegistryRuntimes(
                 in: findings, excludingChildrenOf: getpid())

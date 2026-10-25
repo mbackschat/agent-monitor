@@ -10,6 +10,14 @@ public struct Monitor: Sendable {
         var metadata = ProcessMetadata(status: .unavailable)
         var markerObservedAt: Double?
         var metadataObservedAt: Double?
+        var sampleTextBytes: Int
+        var metadataPayload = MonitoringPayloadSize(observations: 0, textBytes: 0)
+        var payloadSize: MonitoringPayloadSize {
+            MonitoringPayloadSize(
+                observations: 1 + recognizedProviders.count + runtimeProviders.count
+                    + metadataPayload.observations,
+                textBytes: sampleTextBytes + metadataPayload.textBytes + (invocationName?.utf8.count ?? 0))
+        }
         var cpuContribution: CPUContribution?
         var cpuPercent: Double? {
             guard let cpuContribution, !cpuContribution.spansMissingScans else { return nil }
@@ -23,6 +31,7 @@ public struct Monitor: Sendable {
         init(sample: ProcessSample, recognizedProviders: Set<AgentProvider>) {
             self.sample = sample
             execution = ObservedExecution(sample)
+            sampleTextBytes = AttributionStorage.sampleTextBytes(sample)
             self.recognizedProviders = recognizedProviders
             runtimeProviders = recognizedProviders
         }
@@ -33,12 +42,14 @@ public struct Monitor: Sendable {
             let invalidatesResolution: Bool
             let executed: Bool
             let touchesRuntime: Bool
+            let storageChange: MonitoringPayloadSize
         }
 
         mutating func update(
             _ next: ProcessSample, contribution: CPUContribution?, parent candidate: ProcessIdentity?,
             isNew: Bool, adapters: AttributionAdapters
         ) -> Update {
+            let previousStorage = isNew ? MonitoringPayloadSize(observations: 0, textBytes: 0) : payloadSize
             let previousParent = parent
             let wasRuntime = !runtimeProviders.isEmpty
             let terminalChanged =
@@ -48,6 +59,7 @@ public struct Monitor: Sendable {
             if executed {
                 executionObservedAt = next.sampledAt
                 metadata = ProcessMetadata(status: .unavailable)
+                metadataPayload = MonitoringPayloadSize(observations: 0, textBytes: 0)
                 invocationName = nil
                 markerObservedAt = nil
                 metadataObservedAt = nil
@@ -60,10 +72,14 @@ public struct Monitor: Sendable {
                 parent = candidate
             }
             sample = next
+            sampleTextBytes = AttributionStorage.sampleTextBytes(next)
+            var storageChange = payloadSize
+            storageChange.subtract(previousStorage)
             return Update(
                 previousParent: previousParent, parent: parent,
                 invalidatesResolution: isNew || executed || parent != previousParent || terminalChanged,
-                executed: executed, touchesRuntime: wasRuntime || !runtimeProviders.isEmpty)
+                executed: executed, touchesRuntime: wasRuntime || !runtimeProviders.isEmpty,
+                storageChange: storageChange)
         }
     }
 
@@ -71,11 +87,24 @@ public struct Monitor: Sendable {
         let attribution: Attribution
         let marker: SessionMarker?
         let detachedGeneration: UInt64?
+        let payloadSize: MonitoringPayloadSize
+
+        init(attribution: Attribution, marker: SessionMarker?, detachedGeneration: UInt64?) {
+            self.attribution = attribution
+            self.marker = marker
+            self.detachedGeneration = detachedGeneration
+            payloadSize = AttributionStorage.resolution(attribution, marker: marker)
+        }
     }
     private var nodes: [ProcessIdentity: Node] = [:]
     private var children: [ProcessIdentity: Set<ProcessIdentity>] = [:]
     private var resolutions: [ProcessIdentity: Resolution] = [:]
     private var detachedGeneration: UInt64 = 0
+    private var nodePayload = MonitoringPayloadSize(observations: 0, textBytes: 0)
+    private var resolutionPayload = MonitoringPayloadSize(observations: 0, textBytes: 0)
+    private var childReferences = 0
+    private var listedTextBytes = 0
+    private(set) var attributionStorageRecordVisits = 0
 
     private var counterLedger = CounterLedger()
     public private(set) var counterScan: CounterScan?
@@ -110,12 +139,109 @@ public struct Monitor: Sendable {
         profile?.increment(.detachedGenerationChanges)
     }
 
+    private mutating func setResolution(_ value: Resolution?, for identity: ProcessIdentity) {
+        if let previous = resolutions.removeValue(forKey: identity) {
+            resolutionPayload.subtract(previous.payloadSize)
+        }
+        if let value {
+            resolutions[identity] = value
+            resolutionPayload.add(value.payloadSize)
+            attributionStorageRecordVisits += value.payloadSize.observations
+        }
+    }
+
+    private mutating func setListedSession(_ session: String?, name: String?, for identity: ProcessIdentity) {
+        listedTextBytes -=
+            (listedSessions[identity]?.utf8.count ?? 0)
+            + (listedSessionNames[identity]?.utf8.count ?? 0)
+        listedSessions[identity] = session
+        listedSessionNames[identity] = name
+        listedTextBytes += (session?.utf8.count ?? 0) + (name?.utf8.count ?? 0)
+    }
+
+    private mutating func removeChild(_ identity: ProcessIdentity, from parent: ProcessIdentity) {
+        if children[parent]?.remove(identity) != nil { childReferences -= 1 }
+        if children[parent]?.isEmpty == true { children[parent] = nil }
+    }
+
+    var attributionPayloadSize: MonitoringPayloadSize {
+        var size = nodePayload
+        size.add(resolutionPayload)
+        size.observations +=
+            live.count + children.count + childReferences
+            + runtimes.values.reduce(0) { $0 + $1.count }
+            + listedSessions.count + listedSessionNames.count + registryObservedAt.count
+        size.textBytes += listedTextBytes
+        return size
+    }
+
+    /// A separate walk checks mutation-time charges without trusting their cached subtotals.
+    var recountedAttributionPayloadSize: MonitoringPayloadSize {
+        var size = MonitoringPayloadSize(
+            observations: nodes.count + live.count + children.count
+                + children.values.reduce(0) { $0 + $1.count }
+                + runtimes.values.reduce(0) { $0 + $1.count }
+                + listedSessions.count + listedSessionNames.count + registryObservedAt.count
+                + resolutions.count,
+            textBytes: 0)
+        func text(_ value: String?) { size.textBytes += value?.utf8.count ?? 0 }
+        func marker(_ value: SessionMarker) {
+            size.observations += 1
+            text(value.threadID)
+            text(value.rootSessionID)
+            text(value.inboxSocket)
+        }
+        for node in nodes.values {
+            size.observations += node.recognizedProviders.count + node.runtimeProviders.count
+            text(node.sample.executable)
+            text(node.sample.executable)
+            text(node.sample.name)
+            text(node.sample.name)
+            text(node.sample.terminal)
+            text(node.invocationName)
+            let metadata = node.metadata
+            text(metadata.cwd)
+            text(metadata.invocation)
+            text(metadata.terminal)
+            for value in metadata.markers { marker(value) }
+            for value in metadata.command ?? [] {
+                size.observations += 1
+                text(value)
+            }
+            for value in metadata.writerThreadIDs {
+                size.observations += 1
+                text(value)
+            }
+            for value in metadata.listeningSockets {
+                size.observations += 1
+                text(value)
+            }
+        }
+        for resolution in resolutions.values {
+            let owner = resolution.attribution
+            size.observations += owner.ancestry.count + owner.candidateThreadIDs.count
+            text(owner.threadID)
+            text(owner.rootSessionID)
+            text(owner.terminal)
+            text(owner.runtimeDirectory)
+            for value in owner.candidateThreadIDs { text(value) }
+            if let value = resolution.marker { marker(value) }
+        }
+        for value in listedSessions.values { text(value) }
+        for value in listedSessionNames.values { text(value) }
+        return size
+    }
+
+    func validateAttributionStorage(limits: MonitoringPipelineLimits, sequence: UInt64) throws {
+        try AttributionStorage.validate(attributionPayloadSize, limits: limits, sequence: sequence)
+    }
+
     private mutating func invalidate(_ identity: ProcessIdentity) {
         var pending = [identity]
         var visited: Set<ProcessIdentity> = []
         while let next = pending.popLast() {
             guard visited.insert(next).inserted else { continue }
-            resolutions[next] = nil
+            setResolution(nil, for: next)
             pending.append(contentsOf: children[next] ?? [])
         }
     }
@@ -165,7 +291,7 @@ public struct Monitor: Sendable {
         let previouslyLive = live
         live = Set(samples.map(\.identity))
         for identity in previouslyLive.subtracting(live) {
-            resolutions[identity] = nil
+            setResolution(nil, for: identity)
             if nodes[identity]?.runtimeProviders.isEmpty == false { advanceDetachedGeneration() }
         }
         let adapters = self.adapters
@@ -178,16 +304,18 @@ public struct Monitor: Sendable {
             ].update(
                 sample, contribution: contributions[sample.identity], parent: byPID[sample.parentPID],
                 isNew: isNew, adapters: adapters)
+            nodePayload.add(update.storageChange)
             if update.executed {
-                listedSessions[sample.identity] = nil
-                listedSessionNames[sample.identity] = nil
+                setListedSession(nil, name: nil, for: sample.identity)
             }
             if update.parent != update.previousParent {
                 if let previousParent = update.previousParent {
-                    children[previousParent]?.remove(sample.identity)
-                    if children[previousParent]?.isEmpty == true { children[previousParent] = nil }
+                    removeChild(sample.identity, from: previousParent)
                 }
-                if let parent = update.parent { children[parent, default: []].insert(sample.identity) }
+                if let parent = update.parent, children[parent, default: []].insert(sample.identity).inserted
+                {
+                    childReferences += 1
+                }
             }
             if update.invalidatesResolution { invalidate(sample.identity) }
             if (update.invalidatesResolution || !previouslyLive.contains(sample.identity))
@@ -199,8 +327,7 @@ public struct Monitor: Sendable {
         runtimes = [:]
         for identity in live { indexRuntime(identity) }
         for identity in listedSessions.keys where !live.contains(identity) {
-            listedSessions[identity] = nil
-            listedSessionNames[identity] = nil
+            setListedSession(nil, name: nil, for: identity)
             invalidate(identity)
             advanceDetachedGeneration()
         }
@@ -218,12 +345,11 @@ public struct Monitor: Sendable {
         let departed = nodes.keys.filter { !retained.contains($0) }
         for identity in departed {
             if let parent = nodes[identity]?.parent {
-                children[parent]?.remove(identity)
-                if children[parent]?.isEmpty == true { children[parent] = nil }
+                removeChild(identity, from: parent)
             }
-            children[identity] = nil
-            resolutions[identity] = nil
-            nodes[identity] = nil
+            childReferences -= children.removeValue(forKey: identity)?.count ?? 0
+            setResolution(nil, for: identity)
+            if let removed = nodes.removeValue(forKey: identity) { nodePayload.subtract(removed.payloadSize) }
         }
     }
 
@@ -232,6 +358,7 @@ public struct Monitor: Sendable {
         observedAt: Double? = nil, launchObservedAt: Double? = nil, requestedAt: Double? = nil
     ) {
         guard var node = nodes[identity] else { return }
+        let previousStorage = node.payloadSize
         let markerTime = launchObservedAt ?? observedAt
         if let boundary = node.executionObservedAt,
             [requestedAt, observedAt, markerTime].compactMap({ $0 }).contains(where: { $0 < boundary })
@@ -262,6 +389,8 @@ public struct Monitor: Sendable {
         updated.invocation = updated.invocation ?? node.metadata.invocation
         let metadataChanged = node.metadata != updated
         node.metadata = updated
+        node.metadataPayload = AttributionStorage.metadata(updated)
+        attributionStorageRecordVisits += node.metadataPayload.observations
         node.invocationName = updated.invocation.flatMap {
             adapters.workloadInvocationName(
                 node.recognizedProviders, invokedAs: $0, executable: node.sample.executable)
@@ -277,11 +406,12 @@ public struct Monitor: Sendable {
             if !node.runtimeProviders.isEmpty || !providers.isEmpty { advanceDetachedGeneration() }
         }
         node.runtimeProviders = providers
+        nodePayload.subtract(previousStorage)
+        nodePayload.add(node.payloadSize)
         nodes[identity] = node
         if changed {
             for provider in runtimes.keys { runtimes[provider]?.remove(identity) }
-            listedSessions[identity] = nil
-            listedSessionNames[identity] = nil
+            setListedSession(nil, name: nil, for: identity)
             indexRuntime(identity)
         }
     }
@@ -351,12 +481,10 @@ public struct Monitor: Sendable {
                 listed.count == 1, let session = listed.first, session.active, let id = session.sessionID
             {
                 profile?.increment(.registryMatchedBindings)
-                listedSessions[runtime] = id
-                listedSessionNames[runtime] = session.name
+                setListedSession(id, name: session.name, for: runtime)
                 registryObservedAt[runtime] = observedAt
             } else {
-                listedSessions[runtime] = nil
-                listedSessionNames[runtime] = nil
+                setListedSession(nil, name: nil, for: runtime)
                 registryObservedAt[runtime] = nil
             }
             if listedSessions[runtime] != previous {
@@ -417,6 +545,13 @@ public struct Monitor: Sendable {
     /// Resolution depends on graph/metadata changes, not new counter or footprint values.
     /// Window collection needs every row but defers display ordering to window projection.
     mutating func accountingFindings(sorted: Bool = false) -> [HeavyProcess] {
+        accountingFindings(sorted: sorted, validatingStorage: { _ in })
+    }
+
+    mutating func accountingFindings(
+        sorted: Bool = false, validatingStorage: (MonitoringPayloadSize) throws -> Void
+    ) rethrows -> [HeavyProcess] {
+        try validatingStorage(attributionPayloadSize)
         var misses: UInt64 = 0
         var rows: [HeavyProcess] = []
         rows.reserveCapacity(live.count)
@@ -427,7 +562,13 @@ public struct Monitor: Sendable {
                 resolution = cached
             } else {
                 resolution = resolveUncached(identity)
-                resolutions[identity] = resolution
+                // A bounded graph can still produce quadratic cached ancestry; the deep-chain
+                // guard in AttributionStorageTests requires admission before retaining each miss.
+                var proposed = attributionPayloadSize
+                if let previous = resolutions[identity] { proposed.subtract(previous.payloadSize) }
+                proposed.add(resolution.payloadSize)
+                try validatingStorage(proposed)
+                setResolution(resolution, for: identity)
                 misses += 1
             }
             rows.append(finding(node, owner: resolution.attribution))
