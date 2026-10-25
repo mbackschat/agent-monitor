@@ -347,7 +347,8 @@ struct IndependentMonitoringPipeline: Sendable {
                         scan.snapshot.promptEvidence.filter { $0.status.hasMetadata }
                             .map { ($0.process, $0) }, uniquingKeysWith: { _, last in last }),
                     requestedAt: scan.finishedAt))
-            let findings = state.monitor.findings(scope: .allProcesses)
+            let findings = state.monitor.accountingFindings(
+                sorted: configuration.reportIntervalSeconds == nil)
             var queries: [RegistryRefreshRequest] = []
             for (provider, runtimes) in state.monitor.sessionRegistryRuntimes(
                 in: findings, excludingChildrenOf: getpid())

@@ -142,6 +142,8 @@ struct AccountingWindow: Sendable {
     private var indices: [Key: Int] = [:]
     private var crossings: [Crossing] = []
     private var observations: [ProcessIdentity: Observation] = [:]
+    private var observationPayload = MonitoringPayloadSize(observations: 0, textBytes: 0)
+    private var runPayload = MonitoringPayloadSize(observations: 0, textBytes: 0)
     private var excludedCount = 0
     private var excludedLifetimes: Set<ProcessIdentity> = []
     private var evictions: Set<ProcessIdentity> = []
@@ -189,34 +191,46 @@ struct AccountingWindow: Sendable {
         for observation in scan.observations {
             let id = observation.id.process
             guard let row = byID[id] else { continue }
-            let category = RecentWorkerCategory(
-                process: id, owner: RecentSession(row, roots: roots), executable: row.executable,
-                isAgentRuntime: runtimes.contains(id))
             let index: Int
             if let previous = observations[id], previous.row.attribution == row.attribution,
-                runs[previous.run].key.category == category
+                runs[previous.run].key.category.executable == row.executable,
+                runs[previous.run].key.category.isAgentRuntime == runtimes.contains(id),
+                runs[previous.run].key.category.owner.rootSessionID == roots.root(for: row.attribution)
             {
                 index = previous.run
-                runs[index].memory.observe(
-                    row, scan: scan.id.sequence,
+                observeMemory(
+                    index, row: row, scan: scan.id.sequence,
                     time: observation.sample.sampledAt, evidenceAt: attributionTimes[id])
             } else {
+                let category = RecentWorkerCategory(
+                    process: id, owner: RecentSession(row, roots: roots), executable: row.executable,
+                    isAgentRuntime: runtimes.contains(id))
                 let key = Key(category: category, attribution: row.attribution)
                 if let found = indices[key] {
                     index = found
-                    runs[index].memory.observe(
-                        row, scan: scan.id.sequence,
+                    observeMemory(
+                        index, row: row, scan: scan.id.sequence,
                         time: observation.sample.sampledAt, evidenceAt: attributionTimes[id])
                 } else {
                     index = runs.count
                     indices[key] = index
-                    runs.append(
-                        Run(
-                            key: key,
-                            memory: RecentWorkerRecord(
-                                category: category, row: row, scan: scan.id.sequence,
-                                time: observation.sample.sampledAt, evidenceAt: attributionTimes[id])))
+                    let run = Run(
+                        key: key,
+                        memory: RecentWorkerRecord(
+                            category: category, row: row, scan: scan.id.sequence,
+                            time: observation.sample.sampledAt, evidenceAt: attributionTimes[id]))
+                    runs.append(run)
+                    runPayload.add(Self.size(of: run))
                 }
+            }
+            if let previous = observations[id] {
+                if !Self.sameRowCharge(previous.row, row) {
+                    observationPayload.subtract(
+                        MonitoringPayloadSize([previous.row], includeAttribution: false))
+                    observationPayload.add(MonitoringPayloadSize([row], includeAttribution: false))
+                }
+            } else {
+                observationPayload.add(MonitoringPayloadSize([row], includeAttribution: false))
             }
             observations[id] = Observation(
                 row: row.usingAttribution(runs[index].key.attribution), sequence: scan.id.sequence,
@@ -259,6 +273,7 @@ struct AccountingWindow: Sendable {
         else {
             throw CounterWindowError.incompatibleContribution
         }
+        defer { recountStorage() }
         var remapped: [Int] = []
         for incoming in other.runs {
             if let index = indices[incoming.key] {
@@ -361,24 +376,70 @@ struct AccountingWindow: Sendable {
             collapsedContributions: Array(collapsed.values))
     }
 
-    var payloadSize: MonitoringPayloadSize {
-        // Observation rows explicitly share their canonical run attribution, including after merge.
-        // The storage-identity regression guards this omission from the row charge.
-        var size = MonitoringPayloadSize(observations.values.map(\.row), includeAttribution: false)
+    private static func sameRowCharge(_ left: HeavyProcess, _ right: HeavyProcess) -> Bool {
+        left.executable.utf8.count == right.executable.utf8.count
+            && left.name.utf8.count == right.name.utf8.count
+            && left.cwd?.utf8.count == right.cwd?.utf8.count
+            && sameCommandCharge(left.command, right.command)
+    }
+
+    private static func sameCommandCharge(_ left: [String]?, _ right: [String]?) -> Bool {
+        // String equality is canonically equivalent; the retention contract charges UTF-8 bytes.
+        (left?.count ?? 0) == (right?.count ?? 0)
+            && (left?.reduce(0) { $0 + $1.utf8.count } ?? 0)
+                == (right?.reduce(0) { $0 + $1.utf8.count } ?? 0)
+    }
+
+    private static func size(of run: Run) -> MonitoringPayloadSize {
+        var size = run.memory.payloadSize
+        size.add(MonitoringPayloadSize(attribution: run.key.attribution))
+        size.observations += 1
+        return size
+    }
+
+    private mutating func observeMemory(
+        _ index: Int, row: HeavyProcess, scan: UInt64, time: Double, evidenceAt: Double?
+    ) {
+        let changed =
+            runs[index].memory.name.utf8.count != row.name.utf8.count
+            || runs[index].memory.cwd?.utf8.count != row.cwd?.utf8.count
+            || !Self.sameCommandCharge(runs[index].memory.command, row.command)
+        let previous = changed ? runs[index].memory.payloadSize : nil
+        runs[index].memory.observe(row, scan: scan, time: time, evidenceAt: evidenceAt)
+        if let previous {
+            runPayload.subtract(previous)
+            runPayload.add(runs[index].memory.payloadSize)
+        }
+    }
+
+    private mutating func recountStorage() {
+        observationPayload = MonitoringPayloadSize(observations.values.map(\.row), includeAttribution: false)
+        runPayload = MonitoringPayloadSize(observations: 0, textBytes: 0)
+        for run in runs { runPayload.add(Self.size(of: run)) }
+    }
+
+    private func withVariableStorage(_ fixed: MonitoringPayloadSize) -> MonitoringPayloadSize {
+        var size = fixed
         size.observations += collapsed.keys.reduce(0) {
             $0 + 1 + $1.candidates.count + ($1.runtime == nil ? 0 : 1)
         }
         size.textBytes += collapsed.keys.reduce(0) { $0 + $1.textBytes }
         size.observations +=
             crossings.count + excludedLifetimes.count + evictions.count + readCoverage.retainedCount
-        for run in runs {
-            let key = run.key
-            let memorySize = run.memory.payloadSize
-            let context = MonitoringPayloadSize(attribution: key.attribution)
-            size.observations += 1 + context.observations + memorySize.observations
-            size.textBytes += memorySize.textBytes + context.textBytes
-        }
         return size
+    }
+
+    var payloadSize: MonitoringPayloadSize {
+        var size = observationPayload
+        size.add(runPayload)
+        return withVariableStorage(size)
+    }
+
+    /// A full retained-storage walk verifies the incremental charge after arbitrary updates.
+    var recountedPayloadSize: MonitoringPayloadSize {
+        var size = MonitoringPayloadSize(observations.values.map(\.row), includeAttribution: false)
+        for run in runs { size.add(Self.size(of: run)) }
+        return withVariableStorage(size)
     }
 
     @discardableResult mutating func compact(to limits: MonitoringPipelineLimits) -> MonitoringPayloadSize {
@@ -434,6 +495,7 @@ struct AccountingWindow: Sendable {
         }
         excludedLifetimes.formIntersection(observations.keys)
         evictions.formIntersection(observations.keys)
+        recountStorage()
         if !fits(payloadSize), !collapsed.isEmpty {
             // Arbitrary session churn is also unbounded. Preserve resources and count bounds while
             // visibly releasing category names, separately for agent-associated and other work.

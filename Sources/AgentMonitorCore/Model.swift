@@ -71,7 +71,7 @@ public enum MetadataStatus: String, Codable, Sendable {
     case markerRead, notObserved, unavailable, malformed, truncated
 }
 
-public struct ProcessMetadata: Sendable {
+public struct ProcessMetadata: Equatable, Sendable {
     /// At most one per provider; two only when one agent runs inside the other, and attribution
     /// then chooses by the nearest runtime.
     public var markers: [SessionMarker]

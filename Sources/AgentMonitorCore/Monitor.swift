@@ -27,7 +27,16 @@ public struct Monitor: Sendable {
         }
     }
 
+    private struct Resolution: Sendable {
+        let attribution: Attribution
+        let marker: SessionMarker?
+        let detachedGeneration: UInt64?
+    }
     private var nodes: [ProcessIdentity: Node] = [:]
+    private var children: [ProcessIdentity: Set<ProcessIdentity>] = [:]
+    private var resolutions: [ProcessIdentity: Resolution] = [:]
+    private var detachedGeneration: UInt64 = 0
+
     private var counterLedger = CounterLedger()
     public private(set) var counterScan: CounterScan?
     private var previousHostCounters: HostCPUCounters?
@@ -42,6 +51,23 @@ public struct Monitor: Sendable {
     public init() { adapters = .builtIn }
 
     init(adapters: AttributionAdapters) { self.adapters = adapters }
+
+    private mutating func invalidate(_ identity: ProcessIdentity) {
+        var pending = [identity]
+        var visited: Set<ProcessIdentity> = []
+        while let next = pending.popLast() {
+            guard visited.insert(next).inserted else { continue }
+            resolutions[next] = nil
+            pending.append(contentsOf: children[next] ?? [])
+        }
+    }
+
+    private func cachedResolution(_ identity: ProcessIdentity) -> Resolution? {
+        guard let value = resolutions[identity],
+            value.detachedGeneration == nil || value.detachedGeneration == detachedGeneration
+        else { return nil }
+        return value
+    }
 
     @discardableResult public mutating func ingest(_ snapshot: ProcessSnapshot) -> CPUAccounting {
         let accounting = counterLedger.ingest(
@@ -78,14 +104,22 @@ public struct Monitor: Sendable {
             uniquingKeysWith: { first, _ in first })
         let byPID = Dictionary(
             samples.map { ($0.identity.pid, $0.identity) }, uniquingKeysWith: { _, new in new })
+        let previouslyLive = live
         live = Set(samples.map(\.identity))
+        for identity in previouslyLive.subtracting(live) {
+            resolutions[identity] = nil
+            if nodes[identity]?.runtimeProviders.isEmpty == false { detachedGeneration += 1 }
+        }
         for sample in samples {
             var node =
                 nodes[sample.identity]
                 ?? Node(
                     sample: sample, recognizedProviders: adapters.runtimeProviders(for: sample.executable))
+            let old = nodes[sample.identity]
+            let previousParent = node.parent
             node.cpuContribution = contributions[sample.identity]
-            if node.execution.update(sample) {
+            let executed = node.execution.update(sample)
+            if executed {
                 node.executionObservedAt = sample.sampledAt
                 node.metadata = ProcessMetadata(status: .unavailable)
                 node.markerObservedAt = nil
@@ -99,12 +133,33 @@ public struct Monitor: Sendable {
             {
                 node.parent = parent
             }
+            if node.parent != previousParent {
+                if let previousParent {
+                    children[previousParent]?.remove(sample.identity)
+                    if children[previousParent]?.isEmpty == true { children[previousParent] = nil }
+                }
+                if let parent = node.parent { children[parent, default: []].insert(sample.identity) }
+            }
+            let changed =
+                old == nil || executed || node.parent != previousParent
+                || old?.sample.terminal != sample.terminal
+                || old?.sample.terminalDevice != sample.terminalDevice
+            if changed { invalidate(sample.identity) }
+            if (changed || !previouslyLive.contains(sample.identity))
+                && (old?.runtimeProviders.isEmpty == false || !node.runtimeProviders.isEmpty)
+            {
+                detachedGeneration += 1
+            }
             node.sample = sample
             nodes[sample.identity] = node
         }
         runtimes = [:]
         for identity in live { indexRuntime(identity) }
-        listedSessions = listedSessions.filter { live.contains($0.key) }
+        for identity in listedSessions.keys where !live.contains(identity) {
+            listedSessions[identity] = nil
+            invalidate(identity)
+            detachedGeneration += 1
+        }
         registryObservedAt = registryObservedAt.filter { live.contains($0.key) }
 
         // Retain departed ancestors only while a live descendant needs them; see
@@ -117,7 +172,15 @@ public struct Monitor: Sendable {
             }
         }
         let departed = nodes.keys.filter { !retained.contains($0) }
-        for identity in departed { nodes[identity] = nil }
+        for identity in departed {
+            if let parent = nodes[identity]?.parent {
+                children[parent]?.remove(identity)
+                if children[parent]?.isEmpty == true { children[parent] = nil }
+            }
+            children[identity] = nil
+            resolutions[identity] = nil
+            nodes[identity] = nil
+        }
     }
 
     public mutating func enrich(
@@ -153,6 +216,7 @@ public struct Monitor: Sendable {
             }
         }
         updated.invocation = updated.invocation ?? node.metadata.invocation
+        let metadataChanged = node.metadata != updated
         node.metadata = updated
         let providers =
             updated.invocation.map {
@@ -160,6 +224,10 @@ public struct Monitor: Sendable {
                     node.recognizedProviders, invokedAs: $0, executable: node.sample.executable)
             } ?? node.recognizedProviders
         let changed = providers != node.runtimeProviders
+        if metadataChanged || changed {
+            invalidate(identity)
+            if !node.runtimeProviders.isEmpty || !providers.isEmpty { detachedGeneration += 1 }
+        }
         node.runtimeProviders = providers
         nodes[identity] = node
         if changed {
@@ -218,6 +286,7 @@ public struct Monitor: Sendable {
             {
                 continue
             }
+            let previous = listedSessions[runtime]
             let listed = byPID[runtime.pid] ?? []
             if verified?.contains(runtime) != false,
                 listed.count == 1, let session = listed.first, session.active, let id = session.sessionID
@@ -227,6 +296,10 @@ public struct Monitor: Sendable {
             } else {
                 listedSessions[runtime] = nil
                 registryObservedAt[runtime] = nil
+            }
+            if listedSessions[runtime] != previous {
+                invalidate(runtime)
+                detachedGeneration += 1
             }
         }
         return parsed != nil
@@ -277,6 +350,15 @@ public struct Monitor: Sendable {
             }
         }
         return targets.intersection(live).compactMap { nodes[$0]?.sample }
+    }
+
+    /// Resolution depends on graph/metadata changes, not new counter or footprint values.
+    /// Window collection needs every row but defers display ordering to window projection.
+    mutating func accountingFindings(sorted: Bool = false) -> [HeavyProcess] {
+        for identity in live where cachedResolution(identity) == nil {
+            resolutions[identity] = resolveUncached(identity)
+        }
+        return sorted ? findings() : live.compactMap { finding(for: $0) }
     }
 
     public func findings(
@@ -389,10 +471,13 @@ public struct Monitor: Sendable {
         var unresolvedMetadata = false
     }
 
-    private func resolve(_ identity: ProcessIdentity) -> (
-        attribution: Attribution, marker: SessionMarker?, markerOwner: ProcessIdentity?
-    ) {
+    private func resolve(_ identity: ProcessIdentity) -> Resolution {
+        cachedResolution(identity) ?? resolveUncached(identity)
+    }
+
+    private func resolveUncached(_ identity: ProcessIdentity) -> Resolution {
         var walk = self.walk(from: identity)
+        let detached = walk.runtime == nil && walk.marker != nil
         if walk.runtime == nil, let marker = walk.marker, let owner = walk.markerOwner {
             walk.runtime = detachedRuntime(for: marker, owner: owner)
         }
@@ -418,7 +503,9 @@ public struct Monitor: Sendable {
             terminal: runtime?.metadata.terminal ?? runtime?.sample.terminal,
             runtimeDirectory: runtime?.metadata.cwd, candidateThreadIDs: candidates, ancestry: walk.path
         )
-        return (attribution, walk.marker, walk.markerOwner)
+        return Resolution(
+            attribution: attribution, marker: walk.marker,
+            detachedGeneration: detached ? detachedGeneration : nil)
     }
 
     private func walk(from identity: ProcessIdentity) -> Walk {

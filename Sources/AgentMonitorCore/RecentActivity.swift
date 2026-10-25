@@ -108,7 +108,11 @@ public struct RecentWorkerRecord: Equatable, Sendable {
         }
         kernelPeakUnavailable = row.kernelPeakFootprintBytes == nil
         if let bytes = row.kernelPeakFootprintBytes { kernelPeak = reading(bytes) }
-        evidenceKinds.insert(row.attribution.evidence)
+        // Accounting admission retains the prior window for rollback. Avoid copying a shared
+        // evidence set when this scan adds no new kind (CPU-01 unchanged-context optimization).
+        if !evidenceKinds.contains(row.attribution.evidence) {
+            evidenceKinds.insert(row.attribution.evidence)
+        }
         if let evidenceAt {
             earliestEvidenceAt = min(earliestEvidenceAt ?? evidenceAt, evidenceAt)
             latestEvidenceAt = max(latestEvidenceAt ?? evidenceAt, evidenceAt)

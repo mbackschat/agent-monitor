@@ -27,7 +27,7 @@ public struct MonitoringPipelineLimits: Sendable {
     var isValid: Bool { pendingScans > 0 && pendingObservations > 0 && pendingTextBytes > 0 }
 }
 
-struct MonitoringPayloadSize: Sendable {
+struct MonitoringPayloadSize: Equatable, Sendable {
     var observations: Int
     var textBytes: Int
 
@@ -50,6 +50,16 @@ struct MonitoringPayloadSize: Sendable {
                 textBytes += context.textBytes
             }
         }
+    }
+
+    mutating func add(_ other: Self) {
+        observations += other.observations
+        textBytes += other.textBytes
+    }
+
+    mutating func subtract(_ other: Self) {
+        observations -= other.observations
+        textBytes -= other.textBytes
     }
 
     init(attribution owner: Attribution) {
