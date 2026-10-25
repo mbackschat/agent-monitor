@@ -60,7 +60,7 @@ private struct ResolutionState: Sendable {
     var cadence = SessionRegistryCadence()
     var window: AccountingWindow?
     var latest: ResolvedScan?
-    var display: AccountingWindow?
+    var displayStartedAt: Double?
     var published = false
 }
 
@@ -77,6 +77,7 @@ private struct ResolvedScan: Sendable {
     let findings: [HeavyProcess]
     var window: AccountingWindow?
     var recent: RecentActivitySnapshot? = nil
+    var reportDue = true
 
     static func coalesced(_ old: inout ResolvedScan, _ new: ResolvedScan, limits: MonitoringPipelineLimits)
         throws -> MonitoringPayloadSize
@@ -89,6 +90,7 @@ private struct ResolvedScan: Sendable {
         old.acquired = new.acquired
         old.accounting = new.accounting
         old.recent = new.recent
+        old.reportDue = old.reportDue || new.reportDue
         return size
     }
 }
@@ -113,7 +115,7 @@ struct IndependentMonitoringPipeline: Sendable {
     let clock: any SamplingClock
     let registry: any SessionRegistryReading
     let excluded: Set<Int32>
-    var recentActivity: RecentActivityStore? = nil
+    var recentActivity: (any RecentActivityCollecting)? = nil
     var profile: PipelineProfile? = nil
 
     func run(
@@ -128,6 +130,8 @@ struct IndependentMonitoringPipeline: Sendable {
             initial: AcquisitionState(resolution: ResolutionState(monitor: Monitor(profile: profile))),
             profile: profile,
             role: .acquisition)
+        let publication = SerialBlockingWorker<ResolvedScan?>(
+            name: "AgentMonitor publication", initial: nil, profile: profile, role: .publication)
         let limits = configuration.pipelineLimits
         let coalesce: (@Sendable (inout ResolvedScan, ResolvedScan) throws -> MonitoringPayloadSize)?
         if configuration.reportIntervalSeconds == nil {
@@ -139,13 +143,29 @@ struct IndependentMonitoringPipeline: Sendable {
         }
         let reports = MonitoringChannel<ResolvedScan>(
             stage: .presentation, limits: limits, coalesce: coalesce)
+        let mergeUnits: (@Sendable (inout ResolvedScan, ResolvedScan) throws -> MonitoringPayloadSize)?
+        if let coalesce {
+            mergeUnits = { old, new in
+                let size = try coalesce(&old, new)
+                old.window?.coalescePublication()
+                return size
+            }
+        } else {
+            mergeUnits = nil
+        }
+        let units = MonitoringChannel<ResolvedScan>(
+            stage: .publication, limits: limits, coalesce: mergeUnits)
+
         do {
             try await withTaskCancellationHandler {
                 try await withThrowingTaskGroup(of: Void.self) { group in
                     group.addTask {
                         await collect(
-                            on: acquisition, into: reports, interval: live,
+                            on: acquisition, into: units, interval: live,
                             enrichment: enrichment, cancellation: cancellation)
+                    }
+                    group.addTask {
+                        await publish(from: units, on: publication, into: reports, cancellation: cancellation)
                     }
                     group.addTask {
                         try await enrichment.refreshMetadata(
@@ -220,6 +240,7 @@ struct IndependentMonitoringPipeline: Sendable {
                         enrichment.finish()
                         cancellation.cancel()
                         group.cancelAll()
+                        await units.cancel()
                         await reports.cancel()
                         throw error
                     }
@@ -229,13 +250,15 @@ struct IndependentMonitoringPipeline: Sendable {
             }
         } catch {
             await acquisition.close()
+            await publication.close()
             throw error
         }
         await acquisition.close()
+        await publication.close()
     }
 
     private func collect(
-        on worker: SerialBlockingWorker<AcquisitionState>, into reports: MonitoringChannel<ResolvedScan>,
+        on worker: SerialBlockingWorker<AcquisitionState>, into units: MonitoringChannel<ResolvedScan>,
         interval live: LiveInterval?, enrichment: PipelineEnrichment, cancellation: PipelineCancellation
     ) async {
         defer { enrichment.finish() }
@@ -284,30 +307,30 @@ struct IndependentMonitoringPipeline: Sendable {
                     return (startedAt: start, sequence: counters.id.sequence, report: report)
                 }
                 if let report = scan.report {
-                    try await reports.send(
+                    try await units.send(
                         report, size: report.window?.payloadSize ?? MonitoringPayloadSize(report.findings),
                         sequence: report.window.map { $0.baseline.id.sequence + 1 } ?? scan.sequence)
-                    count += 1
+                    if report.reportDue { count += 1 }
                     if configuration.samples > 0, count >= configuration.samples { break }
                 }
                 interval = try await wait(live, since: scan.startedAt)
             }
             if let pending = try await drainPending(on: worker), let window = pending.window {
-                try await reports.send(
+                try await units.send(
                     pending, size: window.payloadSize, sequence: window.baseline.id.sequence + 1)
             }
-            await reports.finish()
+            await units.finish()
         } catch {
             if let pending = try? await drainPending(on: worker), let window = pending.window {
                 do {
-                    try await reports.send(
+                    try await units.send(
                         pending, size: window.payloadSize, sequence: window.baseline.id.sequence + 1)
                 } catch {
-                    await reports.finish(throwing: error)
+                    await units.finish(throwing: error)
                     return
                 }
             }
-            await reports.finish(throwing: error)
+            await units.finish(throwing: error)
         }
     }
 
@@ -377,7 +400,6 @@ struct IndependentMonitoringPipeline: Sendable {
             scanWorkSeconds: max(0, scan.finishedAt - scan.startedAt),
             resolutionDelaySeconds: max(0, clock.monotonicNow() - scan.finishedAt),
             promptCapture: PromptCaptureSummary(scan.snapshot.promptEvidence))
-        var window: AccountingWindow?
         if let refresh = configuration.reportIntervalSeconds {
             let accountingStart = profile.map { _ in PipelineProfile.Stamp() }
             var accountingEnded = false
@@ -409,58 +431,93 @@ struct IndependentMonitoringPipeline: Sendable {
             }
             if let accountingStart { profile?.end(.windowAccounting, since: accountingStart) }
             accountingEnded = true
-            let historyStart = profile.map { _ in PipelineProfile.Stamp() }
-            defer { if let historyStart { profile?.end(.historyClosure, since: historyStart) } }
-            recentActivity?.append(
-                accumulated.seal(scope: configuration.scope),
-                current: accumulated.current, present: accumulated.present)
-            if state.display == nil {
-                state.display = accumulated
-            } else {
-                try state.display?.merge(accumulated)
-            }
             state.window = AccountingWindow(baseline: scan.counters)
-            state.display?.compact(to: configuration.pipelineLimits)
-            guard let display = state.display else { return nil }
-            let start = display.baseline.listedAt ?? opening
+            let displayStart = state.displayStartedAt ?? opening
             let period = state.published ? refresh : min(1, refresh)
-            guard (scan.counters.listedAt ?? scan.startedAt) - start + 1e-9 >= period else {
-                return nil
-            }
-            window = display
-            state.display = nil
-            state.published = true
+            let due = (scan.counters.listedAt ?? scan.startedAt) - displayStart + 1e-9 >= period
+            state.displayStartedAt = due ? nil : displayStart
+            if due { state.published = true }
+            var unit = ResolvedScan(
+                acquired: scan, accounting: accounting.withAcquisition(timing), findings: [],
+                window: accumulated)
+            unit.reportDue = due
+            return unit
         }
         return ResolvedScan(
             acquired: scan, accounting: accounting.withAcquisition(timing),
-            findings: window == nil
-                ? findings.filter { configuration.scope.includes($0.attribution) } : [],
-            window: window,
-            recent: profile.measure(.historyProjection) { recentActivity?.snapshot() })
+            findings: findings.filter { configuration.scope.includes($0.attribution) }, window: nil)
     }
 
     private func drainPending(on worker: SerialBlockingWorker<AcquisitionState>) async throws -> ResolvedScan?
     {
         try await worker.perform { collection in
-            var state = collection.resolution
-            defer {
-                state.window = nil
-                state.display = nil
-                collection.resolution = state
-            }
-            guard let latest = state.latest else { return Optional<ResolvedScan>.none }
-            var display = state.display
-            if let partial = state.window, partial.final.id.sequence > partial.baseline.id.sequence {
-                recentActivity?.append(
-                    partial.seal(scope: configuration.scope), current: partial.current,
-                    present: partial.present)
-                if display == nil { display = partial } else { try display?.merge(partial) }
-            }
-            guard let display else { return nil }
-            state.display = nil
+            defer { collection.resolution.window = nil }
+            guard let latest = collection.resolution.latest,
+                let partial = collection.resolution.window,
+                partial.final.id.sequence > partial.baseline.id.sequence
+            else { return nil }
             return ResolvedScan(
-                acquired: latest.acquired, accounting: latest.accounting, findings: [], window: display,
-                recent: profile.measure(.historyProjection) { recentActivity?.snapshot() })
+                acquired: latest.acquired, accounting: latest.accounting, findings: [], window: partial)
+        }
+    }
+
+    private func publish(
+        from units: MonitoringChannel<ResolvedScan>, on worker: SerialBlockingWorker<ResolvedScan?>,
+        into reports: MonitoringChannel<ResolvedScan>, cancellation: PipelineCancellation
+    ) async {
+        func send(_ report: ResolvedScan?) async throws {
+            guard let report else { return }
+            try await reports.send(
+                report, size: report.window?.payloadSize ?? MonitoringPayloadSize(report.findings),
+                sequence: report.window.map { $0.baseline.id.sequence + 1 }
+                    ?? report.accounting.acquisition?.scanSequence ?? 0)
+        }
+        func drain() async throws -> ResolvedScan? {
+            try await worker.perform { pending in
+                guard var report = pending else { return nil }
+                pending = nil
+                report.recent = profile.measure(.historyProjection) { recentActivity?.snapshot() }
+                return report
+            }
+        }
+        do {
+            while let unit = try await units.next() {
+                let report = try await worker.perform { pending -> ResolvedScan? in
+                    guard let window = unit.window else { return unit }
+                    var next = pending ?? unit
+                    if pending != nil {
+                        let size = try ResolvedScan.coalesced(
+                            &next, unit, limits: configuration.pipelineLimits)
+                        guard size.observations <= configuration.pipelineLimits.pendingObservations,
+                            size.textBytes <= configuration.pipelineLimits.pendingTextBytes
+                        else {
+                            throw MonitoringError.overloaded(
+                                stage: .publication, rejectedScan: window.baseline.id.sequence + 1)
+                        }
+                    }
+                    profile.measure(.historyClosure) {
+                        recentActivity?.append(
+                            window.seal(scope: configuration.scope), current: window.current,
+                            present: window.present)
+                    }
+                    pending = next
+                    guard unit.reportDue else { return nil }
+                    pending = nil
+                    next.recent = profile.measure(.historyProjection) { recentActivity?.snapshot() }
+                    return next
+                }
+                try await send(report)
+            }
+            try await send(drain())
+            await reports.finish()
+        } catch {
+            cancellation.cancel()
+            await units.cancel()
+            do { try await send(drain()) } catch {
+                await reports.finish(throwing: error)
+                return
+            }
+            await reports.finish(throwing: error)
         }
     }
 

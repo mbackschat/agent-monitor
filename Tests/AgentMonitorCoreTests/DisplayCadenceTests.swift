@@ -68,7 +68,85 @@ private final class WindowReader: ProcessReading, SamplingClock, Sendable {
     func now() -> Date { Date(timeIntervalSince1970: monotonicNow()) }
 }
 
+private final class BlockedHistory: RecentActivityCollecting, Sendable {
+    let store = RecentActivityStore()
+    let entered = AsyncStream<Void>.makeStream()
+    let resume = DispatchSemaphore(value: 0)
+    private let first = Mutex(true)
+    func append(_ unit: RecentActivityUnit, current: [RecentWorkerRecord]?, present: Set<ProcessIdentity>?) {
+        let block = first.withLock { value in
+            defer { value = false }
+            return value
+        }
+        if block {
+            entered.continuation.yield(())
+            resume.wait()
+        }
+        store.append(unit, current: current, present: present)
+    }
+    func snapshot() -> RecentActivitySnapshot? { store.snapshot() }
+}
+
+private struct NoPublicationRegistry: SessionRegistryReading {
+    func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
+}
+
 @Suite struct DisplayCadenceTests {
+    @Test(.timeLimit(.minutes(1))) func blockedHistoryCannotStopScansAndBacklogKeepsExactUnits() async throws
+    {
+        let reader = WindowReader(failAt: 41, pauseAfterFirstWindow: true)
+        let history = BlockedHistory()
+        let results = Mutex<[MonitoringSnapshot]>([])
+        let pipeline = IndependentMonitoringPipeline(
+            configuration: try MonitoringConfiguration(
+                intervalSeconds: 0.1, samples: 0, reportIntervalSeconds: 1),
+            reader: reader, clock: reader, registry: NoPublicationRegistry(), excluded: [],
+            recentActivity: history)
+        let run = Task {
+            await #expect(throws: WindowFixtureError.stopped) {
+                try await pipeline.run(thresholds: nil, interval: nil) { snapshot in
+                    results.withLock { $0.append(snapshot) }
+                }
+            }
+        }
+        for await _ in history.entered.stream { break }
+        reader.firstDelivery.continuation.yield(())
+        for await _ in reader.finalScan.stream { break }
+        #expect(reader.state.withLock { $0.scans } == 41)
+        history.resume.signal()
+        await run.value
+        let values = results.withLock { $0 }
+        let summary = try #require(values.last?.recentActivity?.units.first)
+        #expect(summary.publicationCoverage.sourceUnitCount == 4)
+        #expect(summary.publicationCoverage.publishedUnitCount == 2)
+        #expect(summary.publicationCoverage.coalescedUnitCount == 3)
+        #expect(abs(summary.publicationCoverage.maximumUnitSpanSeconds - 3) < 1e-8)
+        #expect(abs(try #require(values.last?.recentActivity?.cpuSeconds) - 0.4) < 1e-8)
+        #expect(
+            abs(values.compactMap(\.window).flatMap(\.contributions).reduce(0) { $0 + $1.cpuSeconds } - 0.4)
+                < 1e-8)
+        #expect(summary.acquisitionCoverage.scanCount == 40)
+        #expect(summary.acquisitionCoverage.overrunCount == 0)
+        #expect(abs(try #require(summary.acquisitionCoverage.maximumGapSeconds) - 0.1) < 1e-8)
+        #expect(values.last?.window?.publicationCoverage.coalescedUnitCount == 3)
+    }
+
+    @Test func closedUnitsPublishOnTheirOwnWorker() async throws {
+        let reader = WindowReader()
+        let profile = PipelineProfile()
+        let history = RecentActivityStore()
+        let session = MonitoringSession(
+            configuration: try MonitoringConfiguration(
+                intervalSeconds: 0.1, samples: 2, reportIntervalSeconds: 5),
+            reader: reader, clock: reader, recentActivity: history
+        ).profiling(profile)
+        try await session.run { _ in }
+        let result = profile.snapshot()
+        #expect((result.workers["publication"]?.jobs.count ?? 0) > 0)
+        #expect(result.workers["publication"]?.threadCPUSeconds != nil)
+        #expect(history.snapshot()?.finalScan == UInt64(reader.state.withLock { $0.scans } - 1))
+    }
+
     @Test func rejectedAccountingScanDrainsOnlyTheLastAcceptedPartial() async throws {
         let reader = WindowReader(expandsAt: 2)
         let reports = Mutex<[MonitoringSnapshot]>([])
@@ -156,7 +234,9 @@ private final class WindowReader: ProcessReading, SamplingClock, Sendable {
         #expect(reader.state.withLock { $0.scans } == 41)
         #expect(reader.state.withLock { $0.waits.count } == 41)
         #expect(abs(reader.monotonicNow() - 4.1) < 1e-9)
-        #expect(snapshots.count == 2)
+        // Acquisition completion can precede publication draining. Ready pending reports
+        // coalesce, but that does not require waiting for still-unpublished units.
+        #expect((2...4).contains(snapshots.count))
         let seconds = snapshots.compactMap(\.window).reduce(0.0) { total, window in
             total
                 + window.contributions.filter { $0.openingScan >= window.baselineScan }.reduce(0) {

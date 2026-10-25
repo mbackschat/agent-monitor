@@ -100,6 +100,9 @@ public enum LiveReportLayout {
                 + (state.snapshot?.window.map {
                     " · window " + ReportNumber.text($0.durationSeconds) + " s; point candidates"
                 } ?? ""), style: .muted)
+        let publication =
+            state.snapshot?.window.flatMap { AccountingContext.publication($0.publicationCoverage) }
+            .map { [ReportLine($0, style: .warning)] } ?? []
         let pressure =
             state.snapshot?.window.flatMap(AccountingContext.pressure).map {
                 [ReportLine($0, style: .warning)]
@@ -112,18 +115,18 @@ public enum LiveReportLayout {
                     title + " | " + abbreviated(status, width: width - title.count - filters.count - 6)
                         + " | " + filters, style: .title),
                 context,
-            ] + pressure
+            ] + pressure + publication
         case 85..<120:
             return [
                 ReportLine(
                     title + " | " + abbreviated(status, width: width - title.count - 3), style: .title),
                 ReportLine(filters, style: .muted), context,
-            ] + pressure
+            ] + pressure + publication
         default:
             return [
                 ReportLine(title, style: .title), ReportLine(status, style: .title),
                 ReportLine(filters, style: .muted), context,
-            ] + pressure
+            ] + pressure + publication
         }
     }
 

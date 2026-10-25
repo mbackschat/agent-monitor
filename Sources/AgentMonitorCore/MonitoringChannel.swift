@@ -1,12 +1,13 @@
 import Foundation
 
 public enum MonitoringStage: String, Sendable {
-    case accounting, presentation
+    case accounting, publication, presentation
 
     var capacityDescription: String {
         switch self {
         case .accounting: "the open accounting unit"
         case .presentation: "the pending report"
+        case .publication: "the closed accounting units awaiting publication"
         }
     }
 }

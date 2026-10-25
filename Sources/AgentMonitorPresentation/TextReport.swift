@@ -28,6 +28,9 @@ public enum TextReport {
         lines.append(ReportLine(CPUContext.text(report.cpuAccounting), style: .muted))
         if let window = report.window {
             lines.append(ReportLine(AccountingContext.window(window), style: .muted))
+            if let publication = AccountingContext.publication(window.publicationCoverage) {
+                lines.append(ReportLine(publication, style: .warning))
+            }
             lines += window.collapsedContributions.map {
                 ReportLine(AccountingContext.collapsed($0), style: .warning)
             }

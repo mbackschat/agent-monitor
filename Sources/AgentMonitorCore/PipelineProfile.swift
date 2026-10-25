@@ -10,7 +10,7 @@ package final class PipelineProfile: Sendable {
         case windowAccounting, historyClosure, historyProjection, pendingMerge, reportProjection
         case metadataBatch, providerRequest
     }
-    enum Worker: String, CaseIterable, Sendable { case acquisition, metadata, providers }
+    enum Worker: String, CaseIterable, Sendable { case acquisition, metadata, providers, publication }
     enum Counter: String, CaseIterable, Sendable {
         case resolutionHits, resolutionMisses, detachedGenerationChanges, registryAncestorChecks
     }

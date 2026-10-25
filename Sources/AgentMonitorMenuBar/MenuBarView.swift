@@ -236,6 +236,12 @@ struct MenuBarView: View {
             .font(.caption).foregroundStyle(.secondary)
             if !model.report.showsOverview, let window = model.report.snapshot?.window {
                 Text(AccountingContext.window(window)).font(.caption2).foregroundStyle(.secondary)
+                if let disclosure = AccountingContext.publication(window.publicationCoverage) {
+                    Label(disclosure, systemImage: "clock.arrow.circlepath")
+                        .font(.caption2).foregroundStyle(.orange)
+                        .help(
+                            "Publication backlog reduced history time resolution; measured CPU is conserved.")
+                }
                 if let pressure = AccountingContext.pressure(window) {
                     Label(pressure, systemImage: "exclamationmark.triangle")
                         .font(.caption2).foregroundStyle(.orange)

@@ -95,6 +95,7 @@ public struct ReportWindowSummary: Equatable, Codable, Sendable {
     public private(set) var evictedBaselineCountRange: LifetimeCountRange? = nil
     public private(set) var readCoverage = ReadCoverage()
     public private(set) var acquisitionCoverage = AcquisitionCoverage()
+    public private(set) var publicationCoverage = PublicationCoverage()
     public private(set) var collapsedContributions: [CollapsedContribution] = []
     public var identityDetailsComplete: Bool { collapsedContributions.isEmpty }
     public var durationSeconds: Double { max(0, endedAt - startedAt) }
@@ -158,6 +159,17 @@ struct AccountingWindow: Sendable {
     }
     private var readCoverage = ReadCoverage()
     private var acquisitionCoverage = AcquisitionCoverage()
+    private var publication: PublicationCoverage?
+
+    var publicationCoverage: PublicationCoverage {
+        publication ?? PublicationCoverage(start: baseline.listedAt ?? 0, end: final.endedAt ?? 0)
+    }
+
+    mutating func coalescePublication() {
+        var coverage = publicationCoverage
+        coverage.coalesce(start: baseline.listedAt ?? 0, end: final.endedAt ?? 0)
+        publication = coverage
+    }
     private var collapsed: [CollapsedCategory: CollapsedContribution] = [:]
 
     init(baseline: CounterScan) {
@@ -273,6 +285,9 @@ struct AccountingWindow: Sendable {
         else {
             throw CounterWindowError.incompatibleContribution
         }
+        var coverage = publicationCoverage
+        coverage.merge(other.publicationCoverage)
+        publication = coverage
         defer { recountStorage() }
         var remapped: [Int] = []
         for incoming in other.runs {
@@ -373,6 +388,7 @@ struct AccountingWindow: Sendable {
                 count(evictions, released: releasedEvictions)
             },
             readCoverage: readCoverage, acquisitionCoverage: acquisitionCoverage,
+            publicationCoverage: publicationCoverage,
             collapsedContributions: Array(collapsed.values))
     }
 
@@ -552,6 +568,7 @@ struct AccountingWindow: Sendable {
             crossings: crossings.filter { identities.contains($0.key.category.process) }.map {
                 RecentCrossing(contribution: $0.value, category: $0.key.category)
             }, excluded: excludedCount, coverage: readCoverage,
+            acquisition: acquisitionCoverage, publication: publicationCoverage,
             collapsed: collapsed.values.filter { scope == .allProcesses || $0.category.includedInAgentScope })
     }
 
@@ -573,6 +590,7 @@ struct AccountingWindow: Sendable {
             unmeasuredLifetimeCountRange: window.unmeasuredLifetimeCountRange,
             evictedBaselineCountRange: window.evictedBaselineCountRange, readCoverage: window.readCoverage,
             acquisitionCoverage: window.acquisitionCoverage,
+            publicationCoverage: window.publicationCoverage,
             collapsedContributions: window.collapsedContributions.filter {
                 scope == .allProcesses || $0.category.includedInAgentScope
             })

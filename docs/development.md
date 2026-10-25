@@ -10,6 +10,8 @@ For downloadable archives and GitHub publication, follow the [release guide](rel
 
 `BaselineEvictionTests` compares eviction order and the conservative newborn floor against a full-sort oracle across seeded histories. Its churn guard bounds the number of sorted identities, and a long-missing lifetime fixture checks bounded lazy references without losing its retained counter endpoint. These are mechanism guards, not native cost measurements.
 
+`DisplayCadenceTests` blocks the history sink on the publication worker while the production pipeline continues scanning, then checks exact CPU, endpoints, unit counts and timing coverage after backlog merging. `PublicationCoverageTests` checks memory/gap extrema, ordinary display aggregation without a backlog flag, and whole-unit history eviction. These guards do not establish a constant-time actor handoff or native deadline guarantees.
+
 Select checks by the behavior and artifacts affected, not by running every available probe. During implementation, use red/green tests for the changed behavior; before committing, run the affected suites and integration checks. Use the full Swift suite for shared or cross-target behavior changes. Repeat checks only after relevant edits, failures or unresolved concerns. CI and release gates remain unchanged.
 
 | Change | Required verification |

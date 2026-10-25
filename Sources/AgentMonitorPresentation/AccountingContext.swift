@@ -6,6 +6,20 @@ public enum AccountingContext {
             + acquisition(window.acquisitionCoverage)
     }
 
+    public static func publication(_ coverage: PublicationCoverage) -> String? {
+        guard coverage.coalescedUnitCount > 0 else { return nil }
+        return
+            "\(coverage.coalescedUnitCount) units coalesced · max unit \(ReportNumber.text(coverage.maximumUnitSpanSeconds)) s"
+    }
+
+    public static func publicationRange(_ coverage: PublicationCoverage, endingAt end: Double) -> String? {
+        guard let first = coverage.coalescedStartedAt, let last = coverage.coalescedEndedAt else {
+            return nil
+        }
+        return
+            "coalesced range \(ReportNumber.text(max(0, end - last)))–\(ReportNumber.text(max(0, end - first))) s before range end"
+    }
+
     public static func pressure(_ window: ReportWindowSummary) -> String? {
         let values = window.collapsedContributions
         guard let first = values.map(\.startedAt).min(), let last = values.map(\.endedAt).max() else {

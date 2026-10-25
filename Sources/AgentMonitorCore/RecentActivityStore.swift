@@ -95,8 +95,13 @@ public struct RecentActivityDiagnostics: Codable, Sendable {
     public let coverageRecords: Int
 }
 
-/// Collection admits ordered units; Mutex also permits snapshot leases to be released by UI tasks.
-public final class RecentActivityStore: Sendable {
+protocol RecentActivityCollecting: Sendable {
+    func append(_ unit: RecentActivityUnit, current: [RecentWorkerRecord]?, present: Set<ProcessIdentity>?)
+    func snapshot() -> RecentActivitySnapshot?
+}
+
+/// Publication admits ordered units; Mutex also permits snapshot leases to be released by UI tasks.
+public final class RecentActivityStore: RecentActivityCollecting {
     private struct Lease: Sendable {
         let units: [UUID: MonitoringPayloadSize]
         let extra: MonitoringPayloadSize

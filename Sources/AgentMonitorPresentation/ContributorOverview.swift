@@ -593,6 +593,9 @@ public struct ContributorOverview: Equatable, Sendable {
                 "\(Set(collapsedDisplay.keys).union(collapsedRecent.keys).count) collapsed categories · \(number(max(0, recent.endedAt - newest)))–\(number(max(0, recent.endedAt - oldest))) s ago"
             )
         }
+        var publication = PublicationCoverage()
+        for unit in recent.units { publication.merge(unit.publicationCoverage) }
+        if let disclosure = AccountingContext.publication(publication) { warnings.append(disclosure) }
         if let timing = snapshot.window?.acquisitionCoverage, timing.overrunCount > 0 {
             warnings.append("\(timing.overrunCount) sampling overruns")
         }
@@ -625,6 +628,9 @@ public struct ContributorOverview: Equatable, Sendable {
             + " · \(totals.exclusions) excluded readings · \(number(totals.recoveredCPU)) s older-opening recovery"
             + (recent.currentContextAvailable ? "" : " · current presence unavailable")
             + " · run \(recent.runID.uuidString.prefix(6))"
+        if let range = AccountingContext.publicationRange(publication, endingAt: recent.endedAt) {
+            coverage += " · " + range
+        }
         if let timing = snapshot.window?.acquisitionCoverage {
             coverage += " · " + AccountingContext.acquisition(timing)
         }

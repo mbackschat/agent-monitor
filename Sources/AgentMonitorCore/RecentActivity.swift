@@ -196,13 +196,17 @@ public final class RecentActivityUnit: Sendable {
     public let crossings: [RecentCrossing]
     public let excludedObservationCount: Int
     public let readCoverage: ReadCoverage
+    public let acquisitionCoverage: AcquisitionCoverage
+    public let publicationCoverage: PublicationCoverage
     public let collapsedContributions: [CollapsedContribution]
     let size: MonitoringPayloadSize
 
     init(
         runID: UUID, baseline: UInt64, final: UInt64, start: Double, end: Double,
         scope: ProcessScope, records: [RecentWorkerRecord], crossings: [RecentCrossing],
-        excluded: Int, coverage: ReadCoverage = ReadCoverage(), collapsed: [CollapsedContribution] = []
+        excluded: Int, coverage: ReadCoverage = ReadCoverage(),
+        acquisition: AcquisitionCoverage = AcquisitionCoverage(), publication: PublicationCoverage? = nil,
+        collapsed: [CollapsedContribution] = []
     ) {
         self.runID = runID
         baselineScan = baseline
@@ -229,6 +233,8 @@ public final class RecentActivityUnit: Sendable {
         }
         excludedObservationCount = excluded
         readCoverage = coverage
+        acquisitionCoverage = acquisition
+        publicationCoverage = publication ?? PublicationCoverage(start: start, end: end)
         collapsedContributions = collapsed
         var size = MonitoringPayloadSize(
             observations: 1 + crossings.count + coverage.retainedCount
@@ -261,6 +267,8 @@ extension RecentActivityUnit {
         var crossings: [RecentCrossing] = []
         var collapsed: [CollapsedCategory: CollapsedContribution] = [:]
         var coverage = ReadCoverage()
+        var acquisition = AcquisitionCoverage()
+        var publication = PublicationCoverage()
         var excluded = 0
         for unit in units {
             precondition(unit.runID == first.runID && unit.scope == first.scope)
@@ -280,6 +288,8 @@ extension RecentActivityUnit {
                 }
             }
             coverage.merge(unit.readCoverage)
+            acquisition.merge(unit.acquisitionCoverage)
+            publication.merge(unit.publicationCoverage)
             excluded += unit.excludedObservationCount
         }
         var recovered: [RecentCrossing] = []
@@ -298,7 +308,8 @@ extension RecentActivityUnit {
                 runID: first.runID, baseline: first.baselineScan, final: last.finalScan,
                 start: first.startedAt, end: last.endedAt, scope: first.scope,
                 records: Array(records.values), crossings: recovered, excluded: excluded,
-                coverage: coverage, collapsed: Array(collapsed.values))
+                coverage: coverage, acquisition: acquisition, publication: publication,
+                collapsed: Array(collapsed.values))
         ]
     }
 }
