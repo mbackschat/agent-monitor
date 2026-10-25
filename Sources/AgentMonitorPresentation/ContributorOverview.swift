@@ -189,6 +189,13 @@ public struct ContributorOverview: Equatable, Sendable {
     public mutating func sort(by order: ContributorOrder) {
         self.order = order
         main = contributionOrder(main)
+        sortChildren()
+    }
+    private mutating func sortChildren() {
+        for id in Array(nodes.keys) {
+            let children = contributionOrder(nodes[id]?.children ?? [])
+            nodes[id]?.children = children
+        }
     }
     private func contributionOrder(_ ids: [ContributorID], by metric: ContributorOrder? = nil)
         -> [ContributorID]
@@ -529,7 +536,6 @@ public struct ContributorOverview: Equatable, Sendable {
                 nodes[id]?.labels = ["Exact session: \(provider)/\(session)"]
             }
         }
-        for id in Array(nodes.keys) { nodes[id]?.children.sort { identity($0) < identity($1) } }
         for id in exact {
             if let child = nodes[id]?.children, child.count == 1, case .session = child[0],
                 let nested = nodes[child[0]]
@@ -656,9 +662,7 @@ public struct ContributorOverview: Equatable, Sendable {
             nodes[.section(section)]?.children.append(id)
             nodes[.section(section)]?.stats.merge(node.stats)
         }
-        for section in [ContributorSection.recent, .remainder] {
-            nodes[.section(section)]?.children.sort { identity($0) < identity($1) }
-        }
+        sortChildren()
     }
 
     private func rank(

@@ -4,7 +4,7 @@ Status: **unapproved**, 2026-10-24. The user authorized this proposal only. Impl
 
 ## Purpose and boundary
 
-Explain agent-launched container work that the host Docker client does not measure. The [live Docker investigation](../research/menu-bar-load-cost.md#docker-workload-attribution-and-nested-resources--2026-10-24) found an idle, exactly attributed client, a busy Lean container and an unattributed shared host VM. The design adds engine-API container totals, separately from [native process accounting](../architecture.md#resource-visibility-requirements). It does not infer ownership from project directories or assign the VM to a single client.
+Extend the [agent/session resource question](../product.md) to container totals without turning it into generic infrastructure monitoring. Explain agent-launched container work that the host Docker client does not measure. The [live Docker investigation](../research/menu-bar-load-cost.md#docker-workload-attribution-and-nested-resources--2026-10-24) found an idle, exactly attributed client, a busy Lean container and an unattributed shared host VM. The design adds engine-API container totals, separately from [native process accounting](../architecture.md#resource-visibility-requirements). It does not infer ownership from project directories or assign the VM to a single client.
 
 ## Required
 

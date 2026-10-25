@@ -4,6 +4,7 @@ Users start with the [project README](../README.md). Each folder below has its o
 
 | Document | What it owns |
 | --- | --- |
+| [Product goal](product.md) | Central user question, information requirements and default-off recording boundary. |
 | [Installation](installation.md) | Installing the CLI, TUI and menu bar app. |
 | [Usage](usage.md) | Controls, options, output formats and examples. |
 | [Architecture](architecture.md) | Accepted contracts, ownership boundaries and implemented behavior. |

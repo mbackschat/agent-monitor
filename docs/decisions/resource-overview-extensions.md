@@ -4,7 +4,7 @@ Status: **deferred**, 2026-10-24. The approved overview addendum was implemented
 
 | Extension | Decision and reconsideration condition |
 | --- | --- |
-| Separate native Explorer / graphical ancestry navigation | Deferred: the existing Mac/TUI disclosure and details deliver the initial statistics. Reconsider with a concrete investigation/navigation need and separate approval. |
+| Separate native Explorer / graphical ancestry navigation | Deferred: initial statistics are available in existing Mac/TUI views, but that does not establish usable orientation. The [product contract](../product.md) and UX-01 require a clearer agent/session/process comparison; an Explorer is not a prerequisite. Reconsider a separate window only with a concrete unmet navigation need and separate approval. |
 | Historical session memory peak | Gated: compact worker maxima cannot reconstruct simultaneous session footprint. Requires per-scan aggregates, observation-time labels and an explicit evidence/coverage contract. |
 | Monotonic distinct totals since start | Deferred: exact cumulative identities require explicit bounded retention/reset semantics. The shipped no-longer-observed counter is rolling and is not confirmed termination. |
 | Retroactive live-history revisions | Deferred: labels freeze at unit closure. Reconsider only with owned-workload evidence of material unresolved short-worker CPU due to late evidence, a numeric revision horizon and a revised capacity budget. Recording retains its separate revision contract. |

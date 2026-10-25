@@ -6,17 +6,19 @@
 
 <p align="center"><strong>Find the session behind the load.</strong></p>
 
-Trace heavy CPU and memory usage to **Codex CLI and Claude Code sessions** on macOS.
+**Which agent, session and process is consuming CPU or memory—and in which working directory?** Agent Monitor is built to answer that question for Codex CLI and Claude Code on macOS.
 
-When several coding agents are running, a busy `node`, `java`, or `python` process tells you little on its own. Agent Monitor connects heavy processes to their agent session, terminal, and project, so you can see where the work started. Then act on it: message the agent, jump to its terminal, or stop the process.
+When several coding agents are running, compare their workloads together: agent, session, working directory, executable (such as `rustc`, `java` or `node`), CPU and memory. Inspect relevant arguments on demand, then message the verified agent, jump to its terminal or review stopping an exact process.
 
-The UX goal is a clear, actionable resource overview under pressure: spot the contributor, understand its session and recent activity, then inspect or act in context. Mac and TUI use structured metrics and visual summaries; disclosure should reveal useful detail without a wall of explanation.
+The [product goal](docs/product.md) is a clear, actionable resource overview under pressure, rather than another general-purpose process list. **Presentation acceptance is still open:** current group headings can obscure session identity behind “Multiple directories”, and human-readable session names are not yet available. The [Mac/TUI review](PLAN.md#resource-accounting-priority) must resolve those gaps; the controls below describe the current interface.
 
 This README describes the current source build, which can be ahead of the [latest release](https://github.com/mbackschat/agent-monitor/releases/latest); newer controls, history and the menu bar app require a [source build](docs/installation.md#build-from-source).
 
 **Current accounting limitation:** a busy agent build can be substantially underreported when workers start and finish between scans. Reliable identification and complete understanding of agent CPU and memory use is the project's highest priority; the current sampler does not yet meet it. See the [measurement limits](docs/usage.md#filters-and-measurements) and [active accounting work](PLAN.md#resource-accounting-priority). A low agent total does not establish that agents are causing little load.
 
-**Performance acceptance remains open:** compact accounting now passes stall/churn and history-retention guards, and an earlier provider-enabled native run completed without history loss. The [last retained provider-enabled 10.5-minute profile](docs/research/menu-bar-load-cost.md#aggregate-acceptance-profile--2026-10-25) measured 20.68% of one core including helpers, 309 ms p99 acquisition periods and a 1.47 s maximum gap; both provisional cost/cadence targets were missed before the unchanged-context optimization. Grouped totals split CPU by frozen session labels even when a worker changes labels within one display window. Collection now reuses unchanged attribution and accounting context while continuing to read counters and memory at the same cadence. A subsequent provider-enabled background-load baseline met the numeric targets, but substantial agent load was absent and CPU headroom was small; its profile files were deleted as requested. The subsequent controlled saturated trial failed sampling-cadence acceptance despite high cache reuse. Heavy-load performance acceptance remains open, alongside short-worker coverage and the native Mac checks; see [remaining acceptance work](PLAN.md#resource-accounting-priority).
+**Performance acceptance remains open:** bounded accounting and retention guards pass, but native collection cost, heavy-load short-worker coverage, a process-wide heap ceiling and the Mac smoke checks remain open. See [remaining acceptance work](PLAN.md#resource-accounting-priority) and [dated measurement evidence](docs/research/menu-bar-load-cost.md). Passing accounting tests does not establish acceptable cost or complete sampling coverage.
+
+**No automatic recording:** normal monitoring uses bounded rolling history in memory, with no process-data log written to disk. [Diagnostic recording](docs/proposals/diagnostic-recording.md) is a separate, unimplemented opt-in proposal; live history and Pause do not enable it.
 
 ## Features
 
@@ -66,7 +68,7 @@ The default **Main contributors** overview combines aligned CPU, memory and rece
 
 *Illustrative process view with the selected process pinned (`@`) and details open. The text comes from the real layout renderer using entirely synthetic data; terminal colors and window decoration are illustrative. Press `g` to switch between this view and session groups.*
 
-In the overview, use **↑ / ↓** to select, **← / →** to disclose details, **a** to show all session groups, **.** to pin a session, **c / m** to order by CPU or memory, **i** for details, **Enter** to inspect a current process without changing grouping, and **Page Up / Down** to scroll detail. **v** switches between overview and process inspection.
+In the overview, use **↑ / ↓** to select, **← / →** to disclose details, **a** to show all session groups, **.** to pin a session, **c / m** to order by CPU or memory, including entries inside groups, **i** for details, **Enter** to inspect a current process without changing grouping, and **Page Up / Down** to scroll detail. **v** switches between overview and process inspection.
 
 In the process view, use **↑ / ↓** to select, **← / →** to collapse/expand a session or process details, **Shift+← / Shift+→** to collapse/expand session groups at the current level, **g** to toggle grouping, **o** for Stable order, **h** to change the history metric, **t** for 10-minute/hour history, **< / >** to update less or more often, **.** to pin/unpin the selected row, **p** to pause/resume the view, **d** for a finite CPU diagnosis, and **q** to quit. The controls and current filters are shown in the terminal.
 

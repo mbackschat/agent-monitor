@@ -2,6 +2,12 @@
 
 Follow the [installation guide](installation.md), then start with the [README quick start](../README.md#quick-start). The commands below use the installed `agent-monitor` executable and work from any directory.
 
+## Reading responsibility and retaining data
+
+The [product question](product.md) is which agent/session and executable consume CPU or memory, with the workload CWD as context. The current overview expands sessions into executable groups and exact processes. CPU/memory ordering applies within those groups too. Full paths, available arguments and attribution evidence are inspection details. Session IDs currently identify sessions; human-readable session names are not available. “Multiple directories” is a directory summary, not a session name; improving that confusing primary label is tracked in [UX-01](../PLAN.md#resource-accounting-priority).
+
+Normal monitoring keeps bounded rolling data in memory, including the detailed recent window and scalar chart. It does not automatically write process-data logs or accumulate an unbounded history. Pause freezes a bounded view while collection continues. Diagnostic recording is a [separate, unimplemented proposal](proposals/diagnostic-recording.md), off by default and requiring explicit opt-in. Selecting JSONL or saving an export explicitly is distinct from automatic capture.
+
 ## Finite CPU diagnosis and local guides
 
 ```sh

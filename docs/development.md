@@ -96,6 +96,7 @@ Size documentation images for their displayed dimensions, allowing 2× resolutio
 
 | Information | Canonical home and maintenance rule |
 | --- | --- |
+| Product question and information requirements | [Product contract](product.md); implementation gaps belong in PLAN, not claims of shipped UX. |
 | User-facing purpose, features, quick start and support | [README](../README.md); detailed controls and examples belong in [usage](usage.md). |
 | Accepted behavior and ownership | [Architecture](architecture.md); update alongside code. Keep source ownership, contributor guidance and implemented/deferred status aligned rather than leaving accepted contracts as proposals. |
 | Build/check recipes and coverage limits | This guide. Release-specific evidence belongs in the GitHub release notes drafted by [releasing](releasing.md), not an append-only validation log. |
@@ -224,6 +225,14 @@ uv run scripts/verify-json-schema.py .build/debug/agent-monitor --diagnosis --re
 The validator also checks the [approved diagnosis example](../Tests/Fixtures/Diagnosis/example.json), rejects unknown properties in every encoded object, and checks omitted/null fields and fixed-window constants. Its pinned RFC 3339 dependency enables `date-time` checking; a startup guard rejects a missing format checker, and malformed-date tests cover report and diagnosis timestamps, including nested footprint and attribution times. `--schema` supports resource validation independently of CLI wiring; omit it to verify diagnosis schema discovery through the built command. Diagnosis validation requires synthetic `--records` and never starts a live session listing.
 
 Run `uv run scripts/verify-json-schema.py .build/release/agent-monitor` to validate real JSONL records using the pinned development-only JSON Schema validator. Run `python3 scripts/verify-sustained.py .build/release/agent-monitor --output /tmp/agent-monitor-sustained.json` for a ten-minute watch with native footprint/CPU observations and controlled process churn. The latter records launch-origin findings only for heavy terminal Codex candidates; it does not read transcripts or generate agent work.
+
+## Resource overview UX review
+
+Review Mac and TUI against the [product question and information contract](product.md), not against a generic system monitor. Use deterministic fixtures with several simultaneous CPU/memory contributors, two sessions in one CWD, one session across several CWDs, repeated executables, departed workers and unavailable/uncertain data. Check that agent/session, workload CWD, executable and contribution remain understandable together before inspecting every PID. Check nested CPU/memory ordering on receipt and explicit sort, and that row selection/disclosure remain attached to identity.
+
+Use offscreen native renders at compact widths and narrow/wide terminal layouts. Verify text/value legibility, truncation priorities, structured disclosure, contextual action safety and meaning without color. Height limits alone are not a UX oracle. Tooltips may explain metrics or reveal full paths/arguments; they must not be the only way to learn which agent/session is responsible. Human-readable names require verified source evidence and a provider/ID fallback. Physical macOS interaction remains the user-owned smoke test. Track the review in [UX-01](../PLAN.md#resource-accounting-priority).
+
+Do not generate saturation, burners or churn as part of a routine UX review. The user stopped the 2026-10-25 stress workload; repeating artificial load requires fresh explicit authorization. Data retention for probes follows the user's scope and [artifact policy](#build-and-probe-artifact-retention), not the product recorder setting.
 
 ## Menu bar app
 
