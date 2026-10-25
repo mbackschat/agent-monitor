@@ -17,8 +17,12 @@ final class SerialBlockingWorker<WorkerState: Sendable>: Sendable {
     private let mailbox = Mutex(Mailbox())
     private let ready = DispatchSemaphore(value: 0)
 
-    init(name: String, initial: WorkerState, qualityOfService: QualityOfService = .userInitiated) {
+    init(
+        name: String, initial: WorkerState, qualityOfService: QualityOfService = .userInitiated,
+        profile: PipelineProfile? = nil, role: PipelineProfile.Worker = .acquisition
+    ) {
         let thread = Thread { [self] in
+            let threadStart = profile.map { _ in PipelineProfile.Stamp() }
             var state = initial
             while true {
                 ready.wait()
@@ -26,8 +30,15 @@ final class SerialBlockingWorker<WorkerState: Sendable>: Sendable {
                     defer { box.job = nil }
                     return (box.job, box.stopping)
                 }
-                if let job { autoreleasepool { job(&state) } } else if stop { break }
+                if let job {
+                    let start = profile.map { _ in PipelineProfile.Stamp() }
+                    autoreleasepool { job(&state) }
+                    if let start { profile?.endJob(role, since: start) }
+                } else if stop {
+                    break
+                }
             }
+            if let threadStart { profile?.endThread(role, since: threadStart) }
             let join = mailbox.withLock { box in
                 box.finished = true
                 defer { box.join = nil }

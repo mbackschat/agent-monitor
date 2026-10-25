@@ -193,6 +193,7 @@ public struct MonitoringSession: Sendable {
     private let registry: any SessionRegistryReading
     private let excluded: Set<Int32>
     private let recentActivity: RecentActivityStore?
+    private var profile: PipelineProfile? = nil
 
     public init(
         configuration: MonitoringConfiguration, reader: any ProcessReading,
@@ -218,6 +219,12 @@ public struct MonitoringSession: Sendable {
         self.recentActivity = recentActivity
     }
 
+    package func profiling(_ profile: PipelineProfile) -> Self {
+        var session = self
+        session.profile = profile
+        return session
+    }
+
     public var initialThresholds: Thresholds { configuration.thresholds }
     public var initialInterval: Double { configuration.intervalSeconds }
 
@@ -229,7 +236,7 @@ public struct MonitoringSession: Sendable {
     ) async throws {
         try await IndependentMonitoringPipeline(
             configuration: configuration, reader: reader, clock: clock, registry: registry,
-            excluded: excluded, recentActivity: recentActivity
+            excluded: excluded, recentActivity: recentActivity, profile: profile
         ).run(thresholds: currentThresholds, interval: live, receive)
     }
 }

@@ -321,7 +321,7 @@ struct MenuBarView: View {
         case .process(let process):
             processRow(process, session: sessions[process.process])
         case .group(let group):
-            if !model.report.isPinned(row.id), group.processes.count == 1,
+            if !model.report.isPinned(row.id), group.canFlatten,
                 let process = model.rowIndex.projection.childrenByGroup[group.id]?.first
             {
                 processRow(process, session: group)
@@ -426,7 +426,7 @@ struct MenuBarView: View {
         }
         .id(LiveReportRowID.group(group.id))
         .disclosureGroupStyle(
-            disclosureStyle(for: .group(group.id), disclosure: .group(count: group.processes.count))
+            disclosureStyle(for: .group(group.id), disclosure: .group(count: group.observedCount))
         )
         .contextMenu { rowCommands(.group(group.id)) }
     }

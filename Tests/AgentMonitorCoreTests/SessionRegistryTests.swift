@@ -221,14 +221,17 @@ private enum RegistryTestCompletion: Error { case exactSession }
     #expect(findings.withLock { $0.first?.attribution.threadID } == nil)
 }
 
-@Test func providerDiscoveryDoesNotRecursivelyListItsOwnHelpers() throws {
+@Test(arguments: [false, true])
+func providerDiscoveryDoesNotRecursivelyListItsOwnHelpers(nested: Bool) throws {
     let ownPID: Int32 = 8000
-    let helper = sample(10, parent: ownPID, executable: claudeExecutable)
+    let launcher = sample(9, parent: ownPID)
+    let helper = sample(10, parent: nested ? launcher.identity.pid : ownPID, executable: claudeExecutable)
     let runtime = sample(20, parent: 1, executable: claudeExecutable)
     var monitor = Monitor()
-    monitor.ingest([helper, runtime])
+    monitor.ingest([launcher, helper, runtime])
+    if nested { monitor.ingest([helper, runtime]) }
     let findings = monitor.findings(scope: .allProcesses)
-    #expect(findings.count == 2)
+    #expect(findings.contains { $0.process == helper.identity })
     #expect(
         monitor.sessionRegistryRuntimes(in: findings, excludingChildrenOf: ownPID) == [
             .claude: [runtime.identity]
@@ -246,4 +249,29 @@ private enum RegistryTestCompletion: Error { case exactSession }
     }
     #expect(fake.calls.withLock { $0 } == 0)
     #expect(sessions.withLock { $0 } == [sessionA, sessionA, sessionA])
+}
+
+@Test func delayedRegistryCannotRebindAcrossDetectedExecButOtherRuntimesStillRefresh() throws {
+    var runtime = sample(10, executable: claudeExecutable, at: 0)
+    runtime.kernelPeakFootprintBytes = 100
+    var other = sample(20, executable: claudeExecutable, at: 0)
+    var monitor = Monitor()
+    monitor.ingest([runtime, other])
+    monitor.bindSessions(
+        try listing([entry(pid: 10, session: sessionA), entry(pid: 20, session: sessionA)]),
+        provider: .claude, observedAt: 0)
+    runtime.sampledAt = 3
+    runtime.kernelPeakFootprintBytes = 20
+    other.sampledAt = 3
+    monitor.ingest([runtime, other])
+    #expect(monitor.finding(for: runtime.identity)?.attribution.threadID == nil)
+    monitor.bindSessions(
+        try listing([entry(pid: 10, session: sessionA), entry(pid: 20, session: sessionB)]),
+        provider: .claude, observedAt: 4, requestedAt: [runtime.identity: 0, other.identity: 0])
+    #expect(monitor.finding(for: runtime.identity)?.attribution.threadID == nil)
+    #expect(monitor.finding(for: other.identity)?.attribution.threadID == sessionB)
+    monitor.bindSessions(
+        try listing([entry(pid: 10, session: sessionB), entry(pid: 20, session: sessionB)]),
+        provider: .claude, observedAt: 5, requestedAt: [runtime.identity: 3, other.identity: 3])
+    #expect(monitor.finding(for: runtime.identity)?.attribution.threadID == sessionB)
 }

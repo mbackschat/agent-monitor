@@ -44,7 +44,7 @@ public enum TextReport {
                     "Grouped by launch session; totals include all observed members, independent of filters. Sampling may miss short-lived work.",
                     style: .muted))
             let displayed = Set(report.findings.map(\.process))
-            for group in SessionGrouping.groups(report.observedFindings)
+            for group in SessionGrouping.groups(report.observedFindings, window: report.window)
             where group.containsDisplayedProcess(in: displayed) {
                 let cpu = group.cpuTotal.map { ReportNumber.text($0) + "%" } ?? "unavailable"
                 let memory = group.memoryGBTotal.map { ReportNumber.text($0) + " GB" } ?? "unavailable"

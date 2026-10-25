@@ -25,7 +25,7 @@ final class MenuBarRowIndex {
             switch row {
             case .group(let group):
                 let children = projection.childrenByGroup[group.id] ?? []
-                if !pinned.contains(row.id), group.processes.count == 1, let process = children.first {
+                if !pinned.contains(row.id), group.canFlatten, let process = children.first {
                     return [LiveReportRowID.process(process.process)]
                 }
                 return [row.id]

@@ -36,21 +36,30 @@ struct MonitoringPayloadSize: Sendable {
         self.textBytes = textBytes
     }
 
-    init(_ findings: [HeavyProcess]) {
+    init(_ findings: [HeavyProcess], includeAttribution: Bool = true) {
         observations = findings.count
         textBytes = 0
         for finding in findings {
-            let owner = finding.attribution
             textBytes += finding.executable.utf8.count + finding.name.utf8.count
-            textBytes += (finding.cwd?.utf8.count ?? 0) + (owner.threadID?.utf8.count ?? 0)
-            textBytes += (owner.rootSessionID?.utf8.count ?? 0) + (owner.terminal?.utf8.count ?? 0)
-            textBytes += owner.runtimeDirectory?.utf8.count ?? 0
+            textBytes += finding.cwd?.utf8.count ?? 0
             for value in finding.command ?? [] { textBytes += value.utf8.count }
-            for value in owner.candidateThreadIDs { textBytes += value.utf8.count }
-            observations +=
-                owner.ancestry.count + owner.candidateThreadIDs.count + (finding.command?.count ?? 0)
+            observations += finding.command?.count ?? 0
+            if includeAttribution {
+                let context = Self(attribution: finding.attribution)
+                observations += context.observations
+                textBytes += context.textBytes
+            }
         }
     }
+
+    init(attribution owner: Attribution) {
+        observations = owner.ancestry.count + owner.candidateThreadIDs.count
+        textBytes =
+            (owner.threadID?.utf8.count ?? 0) + (owner.rootSessionID?.utf8.count ?? 0)
+            + (owner.terminal?.utf8.count ?? 0) + (owner.runtimeDirectory?.utf8.count ?? 0)
+        for value in owner.candidateThreadIDs { textBytes += value.utf8.count }
+    }
+
 }
 
 /// Bounded single-consumer delivery; accounting windows may merge by unique endpoints.

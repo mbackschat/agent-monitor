@@ -14,7 +14,7 @@ This README describes the current source build, which can be ahead of the [lates
 
 **Current accounting limitation:** a busy agent build can be substantially underreported when workers start and finish between scans. Reliable identification and complete understanding of agent CPU and memory use is the project's highest priority; the current sampler does not yet meet it. See the [measurement limits](docs/usage.md#filters-and-measurements) and [active accounting work](PLAN.md#resource-accounting-priority). A low agent total does not establish that agents are causing little load.
 
-**Performance acceptance remains open:** compact accounting now passes stall/churn and history-retention guards, and the final provider-enabled native run completed without history loss. Collector CPU still exceeds the provisional 15% of one core target. This source build is not performance-ready; see [remaining acceptance work](PLAN.md#resource-accounting-priority).
+**Performance acceptance remains open:** compact accounting now passes stall/churn and history-retention guards, and the final provider-enabled native run completed without history loss. Collector plus provider-helper CPU exceeded the provisional 15% of one core target in the previous run; acceptance requires a fresh provider-enabled ten-minute profile. Grouped totals now split CPU by its frozen session labels even when a worker changes labels within one display window. This source build is not performance-ready; see [remaining acceptance work](PLAN.md#resource-accounting-priority).
 
 ## Features
 

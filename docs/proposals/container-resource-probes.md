@@ -10,9 +10,9 @@ Explain agent-launched container work that the host Docker client does not measu
 
 ### Resource observations
 
-Core owns a read-only local engine reader. Engine compatibility is verified through health/version capabilities, rather than inferred from the application name. Docker-compatible engines may be provided by Docker Desktop or Rancher Desktop; containerd is a different backend and excluded. The selected endpoint is explicit; discovery must not connect to arbitrary configured remote contexts.
+Core owns a read-only local engine reader. Engine compatibility is verified through health/version capabilities, rather than inferred from the application name. Docker-compatible engines may be provided by Docker Desktop or Rancher Desktop; containerd is a different backend and excluded. The selected endpoint is explicit; discovery must not connect to arbitrary configured remote contexts. Enforce read-only access with a host-owned request allowlist: GET `/_ping`, `/version`, `/info` for engine identity, `/containers/json`, `/containers/{id}/json`, and `/containers/{id}/stats` with streaming disabled. Reject every other method, endpoint and streaming request; controlled contract tests must verify these rejections.
 
-Container identity includes the engine collection run, full container ID and creation time. Each start/restart establishes a separate counter epoch. Engine timestamps identify reported lifecycle events but are not host-monotonic acquisition timestamps. Each response retains host-monotonic request/response bounds; unavailable values remain unavailable.
+Container identity includes the engine-reported identity, verified local endpoint, full container ID and creation time. Deduplicate endpoint aliases only when verified to reach the same engine; a collection-run UUID is provenance, not engine identity. If engine identity is unavailable, report that capability gap rather than inventing a stable identity. Each start/restart establishes a separate counter epoch. Engine timestamps identify reported lifecycle events but are not host-monotonic acquisition timestamps. Each response retains host-monotonic request/response bounds; unavailable values remain unavailable.
 
 CPU uses cumulative engine counters and differences between compatible observations in one epoch. The first successful counter establishes the baseline. Pre-baseline accumulated CPU may be shown separately, without a rate or inferred zero opening from engine wall time. Counter decreases, restart, endpoint replacement and unavailable reads carry explicit continuity/coverage semantics. Disappearance does not prove a final CPU observation.
 
@@ -22,7 +22,8 @@ A minimal typed observation is:
 
 ```swift
 struct ContainerRunID: Hashable {
-    let engineRun: UUID
+    let engineID: String
+    let endpoint: String
     let containerID: String
     let createdAt: Date
     let startedAt: Date
@@ -58,7 +59,7 @@ Freeze association evidence when established for a container run. The client's l
 
 The engine reader runs independently of host acquisition, on a seconds-scale cadence with a deadline, one request in flight per engine, cancellation, newest-observation coalescing and bounded container/context storage. Specify and measure those numeric bounds before implementation acceptance. Engine slowness must not delay host scans. Missing snapshots can still yield a later cumulative delta when identity and counter continuity remain valid; lost intermediate attribution or memory peaks stay disclosed.
 
-Mac and TUI share the resulting resource and association projection. A session shows host CPU and associated container CPU as separate components of equal prominence, with evidence strength and freshness in progressive disclosure. Container totals belong to the guest accounting domain; the host VM remains separately measured infrastructure with unallocated ownership. Never add guest totals to host totals, subtract guest CPU from host VM CPU, or sum unlike memory metrics. Only verified containment edges may connect those views. No inferred ownership follows from a containment edge.
+Mac and TUI share the resulting resource and association projection. A session shows host CPU and associated container CPU as separate components of equal prominence, with evidence strength and freshness in progressive disclosure. The menu-bar agent CPU indicator remains host-only. Container totals belong to the guest accounting domain; the host VM remains separately measured infrastructure with unallocated ownership. Never add guest totals to host totals, subtract guest CPU from host VM CPU, or sum unlike memory metrics. Only verified containment edges may connect those views. No inferred ownership follows from a containment edge.
 
 ## Optional
 

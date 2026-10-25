@@ -50,6 +50,10 @@ public enum AccountingContext {
                 : "Observed in the final scan",
             "Measured CPU: \(usage.cpuSeconds.map { ReportNumber.text($0) + " s" } ?? "unavailable") · point candidate \(ReportNumber.text(usage.pointCandidateCPUSeconds)) s · uncertain/unresolved \(ReportNumber.text(usage.uncertainCPUSeconds)) s",
         ]
+        if usage.labelChangedInWindow {
+            lines.append(
+                "Label changed in window · process CPU spans labels; group CPU follows frozen labels")
+        }
         if usage.recoveredCPUSeconds > 0 {
             lines.append(
                 "Recovered CPU: \(ReportNumber.text(usage.recoveredCPUSeconds)) s across an earlier boundary; excluded from this window's rate"

@@ -114,6 +114,7 @@ struct IndependentMonitoringPipeline: Sendable {
     let registry: any SessionRegistryReading
     let excluded: Set<Int32>
     var recentActivity: RecentActivityStore? = nil
+    var profile: PipelineProfile? = nil
 
     func run(
         thresholds currentThresholds: (@Sendable () async -> Thresholds)?, interval live: LiveInterval?,
@@ -121,14 +122,18 @@ struct IndependentMonitoringPipeline: Sendable {
     ) async throws {
         try Task.checkCancellation()
         let cancellation = PipelineCancellation()
-        let enrichment = PipelineEnrichment()
-        let acquisition = SerialBlockingWorker(name: "AgentMonitor acquisition", initial: AcquisitionState())
+        let enrichment = PipelineEnrichment(profile: profile)
+        let acquisition = SerialBlockingWorker(
+            name: "AgentMonitor acquisition", initial: AcquisitionState(), profile: profile,
+            role: .acquisition)
         let limits = configuration.pipelineLimits
         let coalesce: (@Sendable (inout ResolvedScan, ResolvedScan) throws -> MonitoringPayloadSize)?
         if configuration.reportIntervalSeconds == nil {
             coalesce = nil
         } else {
-            coalesce = { old, new in try ResolvedScan.coalesced(&old, new, limits: limits) }
+            coalesce = { old, new in
+                try profile.measure(.pendingMerge) { try ResolvedScan.coalesced(&old, new, limits: limits) }
+            }
         }
         let reports = MonitoringChannel<ResolvedScan>(
             stage: .presentation, limits: limits, coalesce: coalesce)
@@ -161,28 +166,28 @@ struct IndependentMonitoringPipeline: Sendable {
                             guard thresholds.cpuPercent.isFinite, thresholds.cpuPercent >= 0 else {
                                 throw MonitoringError.invalidConfiguration
                             }
-                            let projection = try report.window?.projection(scope: configuration.scope)
-                            let rows = projection?.rows ?? report.findings
-                            let summary = projection?.summary
-                            let accounting: CPUAccounting
-                            if let summary, let window = report.window {
-                                let measured =
-                                    (projection?.counters.cpuSeconds ?? 0) + window.collapsedCPUSeconds
-                                accounting = CPUAccounting(
-                                    hostBusyPercent: window.final.source?.hostCounters?.busyPercent(
-                                        since: window.baseline.source?.hostCounters),
-                                    logicalCPUCount: report.accounting.logicalCPUCount,
-                                    measuredUserPercent: summary.durationSeconds > 0
-                                        ? 100 * measured / summary.durationSeconds : 0,
-                                    unmeasuredLifetimeCount: summary.unmeasuredLifetimeCount,
-                                    previousScanSeconds: report.accounting.previousScanSeconds,
-                                    acquisition: report.accounting.acquisition,
-                                    unmeasuredLifetimeCountRange: summary.unmeasuredLifetimeCountRange)
-                            } else {
-                                accounting = report.accounting
-                            }
-                            try await receive(
-                                MonitoringSnapshot(
+                            let snapshot = try profile.measure(.reportProjection) {
+                                let projection = try report.window?.projection(scope: configuration.scope)
+                                let rows = projection?.rows ?? report.findings
+                                let summary = projection?.summary
+                                let accounting: CPUAccounting
+                                if let summary, let window = report.window {
+                                    let measured =
+                                        (projection?.counters.cpuSeconds ?? 0) + window.collapsedCPUSeconds
+                                    accounting = CPUAccounting(
+                                        hostBusyPercent: window.final.source?.hostCounters?.busyPercent(
+                                            since: window.baseline.source?.hostCounters),
+                                        logicalCPUCount: report.accounting.logicalCPUCount,
+                                        measuredUserPercent: summary.durationSeconds > 0
+                                            ? 100 * measured / summary.durationSeconds : 0,
+                                        unmeasuredLifetimeCount: summary.unmeasuredLifetimeCount,
+                                        previousScanSeconds: report.accounting.previousScanSeconds,
+                                        acquisition: report.accounting.acquisition,
+                                        unmeasuredLifetimeCountRange: summary.unmeasuredLifetimeCountRange)
+                                } else {
+                                    accounting = report.accounting
+                                }
+                                return MonitoringSnapshot(
                                     cpuAccounting: accounting, timestamp: report.acquired.timestamp,
                                     intervalSeconds: report.acquired.interval,
                                     cpuThresholdPercent: thresholds.cpuPercent,
@@ -204,7 +209,9 @@ struct IndependentMonitoringPipeline: Sendable {
                                         report.window.map {
                                             recent.displaying($0.seal(scope: configuration.scope))
                                         } ?? recent
-                                    }))
+                                    })
+                            }
+                            try await receive(snapshot)
                         }
                         try await group.waitForAll()
                     } catch {
@@ -242,11 +249,15 @@ struct IndependentMonitoringPipeline: Sendable {
                 let scan = try await worker.perform { state in
                     try cancellation.check()
                     let start = clock.monotonicNow()
-                    let raw = try reader.snapshot(excluding: excluded)
+                    let raw = try profile.measure(.nativeSampling) {
+                        try reader.snapshot(excluding: excluded)
+                    }
                     try cancellation.check()
-                    let evidence = state.promptCapture.capture(
-                        raw.samples, sequence: state.sequence, using: reader, clock: clock,
-                        limits: configuration.promptCaptureLimits)
+                    let evidence = profile.measure(.promptCapture) {
+                        state.promptCapture.capture(
+                            raw.samples, sequence: state.sequence, using: reader, clock: clock,
+                            limits: configuration.promptCaptureLimits)
+                    }
                     state.sequence += 1
                     let snapshot = ProcessSnapshot(
                         samples: raw.samples, enumeratedCount: raw.enumeratedCount,
@@ -255,9 +266,11 @@ struct IndependentMonitoringPipeline: Sendable {
                         logicalCPUCount: raw.logicalCPUCount, nativeOutcomes: raw.nativeOutcomes,
                         nativeTiming: raw.nativeTiming, promptEvidence: evidence)
                     try cancellation.check()
-                    let counters = state.ledger.ingest(
-                        snapshot.samples, listedAt: snapshot.listedAt, scanSeconds: snapshot.scanSeconds,
-                        source: snapshot)
+                    let counters = profile.measure(.counterAccounting) {
+                        state.ledger.ingest(
+                            snapshot.samples, listedAt: snapshot.listedAt, scanSeconds: snapshot.scanSeconds,
+                            source: snapshot)
+                    }
                     let period = state.previousStart.map { max(0, start - $0) }
                     state.previousStart = start
                     let scan = AcquiredScan(
@@ -301,49 +314,53 @@ struct IndependentMonitoringPipeline: Sendable {
         enrichment: PipelineEnrichment, cancellation: PipelineCancellation
     ) throws -> ResolvedScan? {
         try cancellation.check()
-        let accounting = state.monitor.ingest(scan.snapshot, accounting: scan.counters)
-        for evidence in scan.snapshot.promptEvidence where evidence.status == .captured {
-            if let metadata = evidence.metadata {
+        let (accounting, findings) = profile.measure(.attribution) {
+            let accounting = state.monitor.ingest(scan.snapshot, accounting: scan.counters)
+            for evidence in scan.snapshot.promptEvidence where evidence.status.hasMetadata {
+                if let metadata = evidence.metadata {
+                    state.monitor.enrich(
+                        metadata, for: evidence.process, observedAt: evidence.observedAt)
+                }
+            }
+            let samples = Dictionary(
+                scan.snapshot.samples.map { ($0.identity, $0) }, uniquingKeysWith: { _, last in last })
+            let (metadata, registries) = enrichment.takeResults()
+            for result in metadata {
+                guard let current = samples[result.sample.identity],
+                    current.executable == result.sample.executable,
+                    current.name == result.sample.name
+                else { continue }
                 state.monitor.enrich(
-                    metadata, for: evidence.process, observedAt: evidence.observedAt)
+                    result.metadata, for: result.sample.identity, observedAt: result.observedAt,
+                    launchObservedAt: result.launchObservedAt, requestedAt: result.sample.sampledAt)
             }
-        }
-        let samples = Dictionary(
-            scan.snapshot.samples.map { ($0.identity, $0) }, uniquingKeysWith: { _, last in last })
-        let (metadata, registries) = enrichment.takeResults()
-        for result in metadata {
-            guard let current = samples[result.sample.identity],
-                current.executable == result.sample.executable,
-                current.name == result.sample.name
-            else { continue }
-            state.monitor.enrich(
-                result.metadata, for: result.sample.identity, observedAt: result.observedAt,
-                launchObservedAt: result.launchObservedAt)
-        }
-        for result in registries {
-            state.monitor.bindSessions(
-                result.output, provider: result.provider,
-                restrictingTo: result.verified.intersection(samples.keys), observedAt: result.observedAt)
-        }
-        enrichment.requestMetadata(
-            MetadataRefreshRequest(
-                samples: scan.snapshot.samples,
-                prompt: Dictionary(
-                    scan.snapshot.promptEvidence.filter { $0.status == .captured }
-                        .map { ($0.process, $0) }, uniquingKeysWith: { _, last in last }),
-                requestedAt: scan.finishedAt))
-        let findings = state.monitor.findings(scope: .allProcesses)
-        var queries: [RegistryRefreshRequest] = []
-        for (provider, runtimes) in state.monitor.sessionRegistryRuntimes(
-            in: findings, excludingChildrenOf: getpid())
-        where state.cadence.due(provider, runtimes: runtimes, at: scan.timestamp) {
-            if let query = state.monitor.sessionRegistry(for: provider) {
-                queries.append(
-                    RegistryRefreshRequest(
-                        provider: provider, query: query, samples: runtimes.compactMap { samples[$0] }))
+            for result in registries {
+                state.monitor.bindSessions(
+                    result.output, provider: result.provider,
+                    restrictingTo: result.verified.intersection(samples.keys), observedAt: result.observedAt,
+                    requestedAt: result.requestedAt)
             }
+            enrichment.requestMetadata(
+                MetadataRefreshRequest(
+                    samples: scan.snapshot.samples,
+                    prompt: Dictionary(
+                        scan.snapshot.promptEvidence.filter { $0.status.hasMetadata }
+                            .map { ($0.process, $0) }, uniquingKeysWith: { _, last in last }),
+                    requestedAt: scan.finishedAt))
+            let findings = state.monitor.findings(scope: .allProcesses)
+            var queries: [RegistryRefreshRequest] = []
+            for (provider, runtimes) in state.monitor.sessionRegistryRuntimes(
+                in: findings, excludingChildrenOf: getpid())
+            where state.cadence.due(provider, runtimes: runtimes, at: scan.timestamp) {
+                if let query = state.monitor.sessionRegistry(for: provider) {
+                    queries.append(
+                        RegistryRefreshRequest(
+                            provider: provider, query: query, samples: runtimes.compactMap { samples[$0] }))
+                }
+            }
+            enrichment.requestRegistries(queries)
+            return (accounting, findings)
         }
-        enrichment.requestRegistries(queries)
         guard scan.counters.id.sequence > 0 else {
             if configuration.reportIntervalSeconds != nil {
                 state.window = AccountingWindow(baseline: scan.counters)
@@ -359,6 +376,13 @@ struct IndependentMonitoringPipeline: Sendable {
             promptCapture: PromptCaptureSummary(scan.snapshot.promptEvidence))
         var window: AccountingWindow?
         if let refresh = configuration.reportIntervalSeconds {
+            let accountingStart = profile.map { _ in PipelineProfile.Stamp() }
+            var accountingEnded = false
+            defer {
+                if !accountingEnded, let accountingStart {
+                    profile?.end(.windowAccounting, since: accountingStart)
+                }
+            }
             let times = state.monitor.attributionObservationTimes(for: findings)
             // Keep the last admitted partial intact until the next scan fits; a failed
             // admission must drain it with its matching endpoint (CPU-01 accounting contract).
@@ -380,6 +404,10 @@ struct IndependentMonitoringPipeline: Sendable {
             guard (scan.counters.listedAt ?? scan.startedAt) - opening + 1e-9 >= min(1, refresh) else {
                 return nil
             }
+            if let accountingStart { profile?.end(.windowAccounting, since: accountingStart) }
+            accountingEnded = true
+            let historyStart = profile.map { _ in PipelineProfile.Stamp() }
+            defer { if let historyStart { profile?.end(.historyClosure, since: historyStart) } }
             recentActivity?.append(
                 accumulated.seal(scope: configuration.scope),
                 current: accumulated.current, present: accumulated.present)
@@ -405,7 +433,7 @@ struct IndependentMonitoringPipeline: Sendable {
             findings: window == nil
                 ? findings.filter { configuration.scope.includes($0.attribution) } : [],
             window: window,
-            recent: recentActivity?.snapshot())
+            recent: profile.measure(.historyProjection) { recentActivity?.snapshot() })
     }
 
     private func drainPending(on worker: SerialBlockingWorker<AcquisitionState>) async throws -> ResolvedScan?
@@ -429,7 +457,7 @@ struct IndependentMonitoringPipeline: Sendable {
             state.display = nil
             return ResolvedScan(
                 acquired: latest.acquired, accounting: latest.accounting, findings: [], window: display,
-                recent: recentActivity?.snapshot())
+                recent: profile.measure(.historyProjection) { recentActivity?.snapshot() })
         }
     }
 

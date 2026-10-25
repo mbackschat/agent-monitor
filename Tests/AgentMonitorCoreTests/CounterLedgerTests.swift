@@ -222,3 +222,26 @@ import Testing
         }
     }
 }
+
+@Test func peakResetAcrossUnavailableCountersMarksOnlyTheEnclosingAcceptedInterval() throws {
+    var ledger = CounterLedger()
+    var value = sample(42, at: 0, cpu: 0)
+    value.kernelPeakFootprintBytes = 100
+    _ = ledger.ingest([value], listedAt: 0)
+    value.sampledAt = 1
+    value.cpuSeconds = nil
+    value.kernelPeakFootprintBytes = 20
+    let unavailable = ledger.ingest([value], listedAt: 1)
+    #expect(unavailable.contributions.isEmpty)
+    value.sampledAt = 2
+    value.cpuSeconds = 0.2
+    value.kernelPeakFootprintBytes = nil
+    let reset = try #require(ledger.ingest([value], listedAt: 2).contributions.first)
+    #expect(reset.executableChanged)
+    #expect(reset.cpuSeconds == 0.2)
+    value.sampledAt = 3
+    value.cpuSeconds = 0.3
+    value.kernelPeakFootprintBytes = 30
+    let stable = try #require(ledger.ingest([value], listedAt: 3).contributions.first)
+    #expect(!stable.executableChanged)
+}

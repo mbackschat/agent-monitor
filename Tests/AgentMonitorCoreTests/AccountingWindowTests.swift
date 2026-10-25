@@ -61,9 +61,11 @@ import Testing
             try window.append(counters, rows: monitor.findings(scope: .allProcesses))
         }
         let row = try #require(try window.findings(scope: .agentsOnly).first)
-        #expect(row.attribution.threadID == nil)
-        #expect(row.attribution.evidence == .ambiguous)
-        #expect(Set(row.attribution.candidateThreadIDs) == [sessionA, sessionB])
+        #expect(row.attribution.threadID == sessionB)
+        #expect(row.attribution.evidence == .marker)
+        #expect(row.accounting?.labelChangedInWindow == true)
+        #expect(row.accounting?.pointCandidateCPUSeconds == 0.1)
+        #expect(row.accounting?.uncertainCPUSeconds == 0)
         #expect(window.summary.contributions.first?.attribution.threadID == sessionA)
     }
 

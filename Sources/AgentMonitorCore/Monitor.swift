@@ -3,6 +3,8 @@ import Foundation
 public struct Monitor: Sendable {
     private struct Node: Sendable {
         var sample: ProcessSample
+        var execution: ObservedExecution
+        var executionObservedAt: Double?
         var parent: ProcessIdentity?
         var metadata = ProcessMetadata(status: .unavailable)
         var markerObservedAt: Double?
@@ -19,6 +21,7 @@ public struct Monitor: Sendable {
 
         init(sample: ProcessSample, recognizedProviders: Set<AgentProvider>) {
             self.sample = sample
+            execution = ObservedExecution(sample)
             self.recognizedProviders = recognizedProviders
             runtimeProviders = recognizedProviders
         }
@@ -82,7 +85,8 @@ public struct Monitor: Sendable {
                 ?? Node(
                     sample: sample, recognizedProviders: adapters.runtimeProviders(for: sample.executable))
             node.cpuContribution = contributions[sample.identity]
-            if node.sample.executable != sample.executable {
+            if node.execution.update(sample) {
+                node.executionObservedAt = sample.sampledAt
                 node.metadata = ProcessMetadata(status: .unavailable)
                 node.markerObservedAt = nil
                 node.metadataObservedAt = nil
@@ -118,18 +122,24 @@ public struct Monitor: Sendable {
 
     public mutating func enrich(
         _ metadata: ProcessMetadata, for identity: ProcessIdentity,
-        observedAt: Double? = nil, launchObservedAt: Double? = nil
+        observedAt: Double? = nil, launchObservedAt: Double? = nil, requestedAt: Double? = nil
     ) {
         guard var node = nodes[identity] else { return }
         let markerTime = launchObservedAt ?? observedAt
+        if let boundary = node.executionObservedAt,
+            [requestedAt, observedAt, markerTime].compactMap({ $0 }).contains(where: { $0 < boundary })
+        {
+            return
+        }
         let olderMarker =
             markerTime.flatMap { incoming in node.markerObservedAt.map { incoming < $0 } } ?? false
         let olderMetadata =
             observedAt.flatMap { incoming in node.metadataObservedAt.map { incoming < $0 } } ?? false
         var updated = olderMetadata ? node.metadata : metadata
         if !olderMetadata { node.metadataObservedAt = observedAt }
-        // Async refresh can finish after a newer launch read. Empty successful reads also revoke markers.
-        // Freshness follows observation time, not completion/delivery order (resource accounting contract).
+        // A process may overwrite its argument area without exec. Empty parser reads keep launch
+        // markers until a polling-visible exec boundary; older async evidence cannot cross that boundary.
+        // See architecture's attribution contract and the parser/exec regression tests.
         if olderMarker {
             updated.markers = node.metadata.markers
         } else {
@@ -174,7 +184,13 @@ public struct Monitor: Sendable {
                 else { continue }
                 // A provider CLI spawned by the collector must not trigger its next listing.
                 // The 2026-10-24 live audit observed 12 helpers and 12 listings in six seconds.
-                if let collectorPID, nodes[runtime]?.sample.parentPID == collectorPID { continue }
+                if let collectorPID,
+                    chain(from: runtime).contains(where: {
+                        nodes[$0]?.sample.parentPID == collectorPID
+                    })
+                {
+                    continue
+                }
                 result[provider, default: []].insert(runtime)
             case .marker, .inheritedMarker, .writerLock, .ambiguous, .unknown:
                 continue
@@ -191,12 +207,17 @@ public struct Monitor: Sendable {
     /// one removes them. Each live runtime binds only to the single active entry naming its PID.
     @discardableResult package mutating func bindSessions(
         _ output: Data?, provider: AgentProvider, restrictingTo verified: Set<ProcessIdentity>? = nil,
-        observedAt: Double? = nil
+        observedAt: Double? = nil, requestedAt: [ProcessIdentity: Double]? = nil
     ) -> Bool {
         let parsed = output.flatMap { try? adapters.runtimeSessions(provider, fromRegistry: $0) }
         let sessions = parsed ?? []
         let byPID = Dictionary(grouping: sessions, by: \.runtimePID)
         for runtime in runtimes[provider] ?? [] {
+            if let boundary = nodes[runtime]?.executionObservedAt,
+                [requestedAt?[runtime], observedAt].compactMap({ $0 }).contains(where: { $0 < boundary })
+            {
+                continue
+            }
             let listed = byPID[runtime.pid] ?? []
             if verified?.contains(runtime) != false,
                 listed.count == 1, let session = listed.first, session.active, let id = session.sessionID

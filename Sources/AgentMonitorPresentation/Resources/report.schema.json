@@ -340,6 +340,11 @@
           "type": "integer",
           "minimum": 0,
           "description": "Argument areas exceeding the bounded prompt read; not parsed. Background metadata may retry at full size."
+        },
+        "capturedWithoutMarker": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Successful argument reads with no allowlisted session marker; reusable launch observations, not unavailable reads."
         }
       },
       "required": [
@@ -349,7 +354,8 @@
         "unsupported",
         "reservedBytes",
         "readSeconds",
-        "truncated"
+        "truncated",
+        "capturedWithoutMarker"
       ]
     },
     "processWindowAccounting": {
@@ -384,6 +390,14 @@
         },
         "currentAttribution": {
           "$ref": "#/$defs/attribution"
+        },
+        "labelChangedInWindow": {
+          "type": "boolean",
+          "description": "The process CPU spans different observed labels; group CPU follows each frozen contribution, while the row attribution is its last observed label."
+        },
+        "lastObservedCorroboratedRootSessionID": {
+          "type": "string",
+          "description": "Root corroborated at the last process observation, independent of whether that observation had a CPU reading."
         }
       },
       "required": [
@@ -391,7 +405,8 @@
         "pointCandidateCPUSeconds",
         "uncertainCPUSeconds",
         "isHistorical",
-        "lastObservedAt"
+        "lastObservedAt",
+        "labelChangedInWindow"
       ]
     },
     "frozenCPUContribution": {
@@ -456,6 +471,10 @@
         "missingEvidenceTimeCount": {
           "type": "integer",
           "minimum": 0
+        },
+        "corroboratedRootSessionID": {
+          "type": "string",
+          "description": "Root corroborated at the closing observation and frozen for this contribution; later observations cannot regroup this CPU."
         }
       },
       "required": [

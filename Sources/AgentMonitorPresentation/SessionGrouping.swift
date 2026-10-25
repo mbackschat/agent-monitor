@@ -14,19 +14,25 @@ public struct SessionGroup: Equatable, Sendable {
     public let sessionID: String?
     public let isRoot: Bool
     public let processes: [HeavyProcess]
+    public let contributingProcesses: Set<ProcessIdentity>
+    public let labelChangedInWindow: Bool
+    fileprivate let windowCPU: Double?
+    fileprivate let hasWindow: Bool
+    public var observedCount: Int { contributingProcesses.count }
+    public var canFlatten: Bool { processes.count == 1 && observedCount == 1 && !labelChangedInWindow }
 
     public func containsDisplayedProcess(in identities: Set<ProcessIdentity>) -> Bool {
-        processes.contains { identities.contains($0.process) }
+        !contributingProcesses.isDisjoint(with: identities)
     }
 
-    public var cpuTotal: Double? { sum(processes.map(\.cpuPercent)) }
+    public var cpuTotal: Double? { hasWindow ? windowCPU : sum(processes.map(\.cpuPercent)) }
     public var memoryGBTotal: Double? {
         let current = processes.filter { !$0.isHistorical }
         return current.isEmpty ? 0 : sum(current.map { $0.footprintBytes.map { Double($0) / 1e9 } })
     }
     public var cpuPartial: Bool { processes.contains { $0.cpuPercent == nil } }
     public var memoryPartial: Bool { processes.contains { !$0.isHistorical && $0.footprintBytes == nil } }
-    public var minimumPID: Int32 { processes.map(\.process.pid).min() ?? 0 }
+    public var minimumPID: Int32 { contributingProcesses.map(\.pid).min() ?? 0 }
     public var project: String {
         if isSharedRuntime { return "Shared runtime" }
         let workloads = processes.filter { $0.process != $0.attribution.runtime }
@@ -46,11 +52,12 @@ public struct SessionGroup: Equatable, Sendable {
         let session = sessionID.map { String($0.prefix(8)) } ?? sessionDescription
         let kind = isSharedRuntime ? "" : (isRoot ? " root" : " session")
         let evidence =
-            processes.contains { $0.accounting != nil }
+            hasWindow || processes.contains { $0.accounting != nil }
             ? (sessionID == nil ? " | uncertain CPU" : " | point-candidate CPU") : ""
         let partial = cpuPartial || memoryPartial ? " | partial totals" : ""
+        let changed = labelChangedInWindow ? " | Label changed in window" : ""
         return
-            "\(provider?.rawValue ?? "unknown")/\(session)\(kind) | \(processes.count) observed | \(project)\(partial)\(evidence)"
+            "\(provider?.rawValue ?? "unknown")/\(session)\(kind) | \(observedCount) observed | \(project)\(partial)\(evidence)\(changed)"
     }
 
     private func sum(_ values: [Double?]) -> Double? {
@@ -60,40 +67,64 @@ public struct SessionGroup: Equatable, Sendable {
 }
 
 public enum SessionGrouping {
-    public static func groups(_ findings: [HeavyProcess]) -> [SessionGroup] {
+    public static func groups(_ findings: [HeavyProcess], window: ReportWindowSummary? = nil)
+        -> [SessionGroup]
+    {
         var seen: Set<ProcessIdentity> = []
         let rows = findings.filter { seen.insert($0.process).inserted }
         let roots = SessionCorroboration(rows)
         var order: [SessionGroupID] = []
         var members: [SessionGroupID: [HeavyProcess]] = [:]
+        var contributors: [SessionGroupID: Set<ProcessIdentity>] = [:]
+        var providers: [SessionGroupID: AgentProvider] = [:]
+        var cpu: [SessionGroupID: Double] = [:]
         var rootGroups: Set<SessionGroupID> = []
-        for row in rows {
-            let owner = row.attribution
+        var changedGroups: Set<SessionGroupID> = []
+        let changed = Set(rows.filter { $0.accounting?.labelChangedInWindow == true }.map(\.process))
+        func admit(_ owner: Attribution, process: ProcessIdentity, root: String?) -> SessionGroupID {
             let key: SessionGroupID
             if SessionCorroboration.isExact(owner), let provider = owner.provider, let thread = owner.threadID
             {
-                var target = thread
-                if let root = roots.root(for: owner) {
-                    target = root
-                    rootGroups.insert(.session(provider: provider.rawValue, id: root))
-                }
-                key = .session(provider: provider.rawValue, id: target)
+                key = .session(provider: provider.rawValue, id: root ?? thread)
+                if root != nil { rootGroups.insert(key) }
             } else {
-                key = .unresolved(row.process)
+                key = .unresolved(process)
             }
-            if members[key] == nil { order.append(key) }
+            if contributors[key] == nil { order.append(key) }
+            contributors[key, default: []].insert(process)
+            if let provider = owner.provider { providers[key] = provider }
+            if changed.contains(process) { changedGroups.insert(key) }
+            return key
+        }
+        for row in rows {
+            let root =
+                row.accounting.map { $0.lastObservedCorroboratedRootSessionID }
+                ?? roots.root(for: row.attribution)
+            let key = admit(row.attribution, process: row.process, root: root)
             members[key, default: []].append(row)
         }
+        if let window, window.durationSeconds > 0 {
+            for record in window.contributions
+            where seen.contains(record.process)
+                && record.openingScan >= window.baselineScan
+            {
+                let key = admit(
+                    record.attribution, process: record.process, root: record.corroboratedRootSessionID)
+                cpu[key, default: 0] += 100 * record.cpuSeconds / window.durationSeconds
+            }
+        }
         return order.map { key in
-            let processes = members[key] ?? []
             let session: String?
             switch key {
             case .session(_, let id): session = id
             case .unresolved: session = nil
             }
             return SessionGroup(
-                id: key, provider: processes.first?.attribution.provider,
-                sessionID: session, isRoot: rootGroups.contains(key), processes: processes)
+                id: key, provider: providers[key], sessionID: session,
+                isRoot: rootGroups.contains(key), processes: members[key] ?? [],
+                contributingProcesses: contributors[key] ?? [],
+                labelChangedInWindow: changedGroups.contains(key),
+                windowCPU: cpu[key], hasWindow: window != nil)
         }
     }
 

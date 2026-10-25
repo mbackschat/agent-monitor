@@ -25,7 +25,9 @@ public struct PromptCaptureLimits: Sendable {
 }
 
 public enum PromptEvidenceStatus: String, Sendable {
-    case captured, unavailable, deferred, unsupported, truncated
+    case captured, capturedWithoutMarker, unavailable, deferred, unsupported, truncated
+
+    var hasMetadata: Bool { self == .captured || self == .capturedWithoutMarker }
 }
 
 /// A launch observation is point evidence. Neither a stable path nor successful capture
@@ -43,6 +45,7 @@ public struct PromptEvidence: Sendable {
 
 public struct PromptCaptureSummary: Equatable, Codable, Sendable {
     public let captured: Int
+    public let capturedWithoutMarker: Int
     public let unavailable: Int
     public let truncated: Int
     public let deferred: Int
@@ -52,6 +55,7 @@ public struct PromptCaptureSummary: Equatable, Codable, Sendable {
 
     init(_ evidence: [PromptEvidence]) {
         captured = evidence.filter { $0.status == .captured }.count
+        capturedWithoutMarker = evidence.filter { $0.status == .capturedWithoutMarker }.count
         truncated = evidence.filter { $0.status == .truncated }.count
         unavailable = evidence.filter { $0.status == .unavailable }.count
         deferred = evidence.filter { $0.status == .deferred }.count
@@ -65,9 +69,7 @@ struct PromptEvidenceCapture: Sendable {
     private struct Discovery: Sendable {
         var discoveredAt: Double
         var lastSeen: UInt64
-        var executable: String
-        var name: String
-        var peak: UInt64?
+        var execution: ObservedExecution
         var attempted = false
     }
     private var discoveries: [ProcessIdentity: Discovery] = [:]
@@ -82,18 +84,12 @@ struct PromptEvidenceCapture: Sendable {
             var discovery =
                 discoveries[sample.identity]
                 ?? Discovery(
-                    discoveredAt: sample.sampledAt, lastSeen: sequence, executable: sample.executable,
-                    name: sample.name, peak: sample.kernelPeakFootprintBytes)
-            let peakFell =
-                discovery.peak.flatMap { old in sample.kernelPeakFootprintBytes.map { $0 < old } } ?? false
-            if discovery.executable != sample.executable || discovery.name != sample.name || peakFell {
+                    discoveredAt: sample.sampledAt, lastSeen: sequence, execution: ObservedExecution(sample))
+            if discovery.execution.update(sample) {
                 discovery.discoveredAt = sample.sampledAt
                 discovery.attempted = false
             }
             discovery.lastSeen = sequence
-            discovery.executable = sample.executable
-            discovery.name = sample.name
-            discovery.peak = sample.kernelPeakFootprintBytes ?? discovery.peak
             discoveries[sample.identity] = discovery
             if !discovery.attempted { candidates.append(sample) }
         }
@@ -129,7 +125,8 @@ struct PromptEvidenceCapture: Sendable {
             switch metadata?.status {
             case .none: status = .unsupported
             case .truncated: status = .truncated
-            case .unavailable, .notObserved: status = .unavailable
+            case .unavailable: status = .unavailable
+            case .notObserved: status = .capturedWithoutMarker
             case .markerRead, .malformed: status = .captured
             }
             discoveries[sample.identity]?.attempted = true

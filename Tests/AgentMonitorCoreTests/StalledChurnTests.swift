@@ -6,7 +6,8 @@ import Testing
 @Suite struct StalledChurnTests {
     @Test(arguments: [60, 600], [0, 5, 50])
     func stalledConsumerConservesStableAndChurningWork(seconds: Int, birthsPerSecond: Int) async throws {
-        let limits = MonitoringPipelineLimits()
+        // A deliberately smaller budget keeps both churn cases exercising collapse as storage sharing improves.
+        let limits = MonitoringPipelineLimits(pendingObservations: 32_768)
         var ledger = CounterLedger()
         var expected = 0.0
         var expectedIntervals = 0
@@ -22,7 +23,7 @@ import Testing
             stage: .presentation, limits: limits,
             coalesce: { old, new in
                 try old.merge(new)
-                old.compact(to: MonitoringPipelineLimits())
+                old.compact(to: limits)
                 return old.payloadSize
             })
         for unit in 0..<seconds {

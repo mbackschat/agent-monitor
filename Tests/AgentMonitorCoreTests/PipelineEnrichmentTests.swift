@@ -73,7 +73,7 @@ final class StalledEnrichment: ProcessReading, SamplingClock, SessionRegistryRea
         #expect(abs(try #require(report.window).contributions.reduce(0) { $0 + $1.cpuSeconds } - 0.1) < 1e-9)
     }
 
-    @Test func delayedMetadataCannotOverwriteNewerMarkersOrResurrectClearedMarkers() throws {
+    @Test func delayedMetadataCannotOverwriteNewerMarkersAndEmptyParserReadsKeepThem() throws {
         var monitor = Monitor()
         let process = sample(42, at: 0, cpu: 0)
         monitor.ingest([process])
@@ -84,9 +84,11 @@ final class StalledEnrichment: ProcessReading, SamplingClock, SessionRegistryRea
         monitor.enrich(stale, for: process.identity, observedAt: 3, launchObservedAt: 1)
         #expect(monitor.finding(for: process.identity)?.attribution.threadID == sessionB)
         #expect(monitor.attributionObservationTimes()[process.identity] == 2)
-        monitor.enrich(ProcessMetadata(status: .markerRead), for: process.identity, observedAt: 4)
+        let empty = ProcessArguments.parse(argumentBuffer(environment: []))
+        #expect(empty.status == .notObserved)
+        monitor.enrich(empty, for: process.identity, observedAt: 4)
         monitor.enrich(stale, for: process.identity, observedAt: 5, launchObservedAt: 1)
-        #expect(monitor.finding(for: process.identity)?.attribution.threadID == nil)
+        #expect(monitor.finding(for: process.identity)?.attribution.threadID == sessionB)
     }
 
     @Test func persistentReadFailuresCountPIDValuesInsteadOfScanMultiples() throws {
@@ -122,7 +124,11 @@ private final class MetadataBatchFixture: ProcessReading, SamplingClock, Sendabl
     let entered = AsyncStream<Void>.makeStream()
     let release = DispatchSemaphore(value: 0)
     let blockFirst: Bool
-    init(blockFirst: Bool = false) { self.blockFirst = blockFirst }
+    let readSeconds: Double
+    init(blockFirst: Bool = false, readSeconds: Double = 0) {
+        self.blockFirst = blockFirst
+        self.readSeconds = readSeconds
+    }
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot { diagnosisScan([], at: monotonicNow()) }
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
         let first = calls.withLock { value in
@@ -133,6 +139,7 @@ private final class MetadataBatchFixture: ProcessReading, SamplingClock, Sendabl
             entered.continuation.yield(())
             _ = release.wait(timeout: .now() + 3)
         }
+        time.withLock { $0 += readSeconds }
         return ProcessMetadata(status: .markerRead)
     }
     func wait(seconds: Double) async throws { time.withLock { $0 += seconds } }
@@ -206,4 +213,92 @@ private final class MetadataBatchFixture: ProcessReading, SamplingClock, Sendabl
     enrichment.finish()
     try await worker.value
     #expect(fixture.calls.withLock { $0 } == [42, 42, 42, 42])
+}
+
+@Test func metadataCadenceUsesAdmissionTimeWhileEvidenceKeepsActualReadTime() throws {
+    let fixture = MetadataBatchFixture(readSeconds: 0.005)
+    let enrichment = PipelineEnrichment()
+    var cache = PipelineEnrichment.Cache()
+    for second in 0...2 {
+        let at = Double(second)
+        fixture.time.withLock { $0 = at }
+        try enrichment.refreshMetadataBatch(
+            MetadataRefreshRequest(
+                samples: (1...100).map { sample(Int32($0), at: at) }, prompt: [:], requestedAt: at),
+            cache: &cache, reader: fixture, clock: fixture, includeCommand: false, checking: {})
+        let results = enrichment.takeResults().0
+        #expect(results.count == 100)
+        #expect(fixture.calls.withLock { $0.count } == (second + 1) * 100)
+        if let first = results.map(\.observedAt).min(), let last = results.map(\.observedAt).max() {
+            #expect(abs(first - at - 0.005) < 1e-9)
+            #expect(abs(last - at - 0.5) < 1e-9)
+        }
+    }
+}
+
+private enum ExecBoundary: CaseIterable { case path, name, peak }
+
+@Test(arguments: ExecBoundary.allCases)
+private func parserMarkersSurviveEmptyReadsButNotDetectedExec(boundary: ExecBoundary) throws {
+    var monitor = Monitor()
+    var process = sample(42, at: 0)
+    process.kernelPeakFootprintBytes = 100
+    monitor.ingest([process])
+    let marked = ProcessArguments.parse(argumentBuffer(environment: ["CODEX_THREAD_ID=\(sessionA)"]))
+    let empty = ProcessArguments.parse(argumentBuffer(environment: []))
+    monitor.enrich(marked, for: process.identity, observedAt: 1)
+    monitor.enrich(empty, for: process.identity, observedAt: 2)
+    #expect(monitor.finding(for: process.identity)?.attribution.threadID == sessionA)
+    process.sampledAt = 3
+    switch boundary {
+    case .path: process.executable = "/bin/other"
+    case .name: process.name = "other"
+    case .peak: process.kernelPeakFootprintBytes = 20
+    }
+    monitor.ingest([process])
+    #expect(monitor.finding(for: process.identity)?.attribution.threadID == nil)
+    monitor.enrich(marked, for: process.identity, observedAt: 1)
+    #expect(monitor.finding(for: process.identity)?.attribution.threadID == nil)
+    monitor.enrich(empty, for: process.identity, observedAt: 4)
+    #expect(monitor.finding(for: process.identity)?.attribution.threadID == nil)
+}
+
+private struct EmptyMarkerReader: ProcessReading, SamplingClock {
+    func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot { diagnosisScan([], at: 1) }
+    func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata { ProcessMetadata() }
+    func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
+        ProcessArguments.parse(argumentBuffer(environment: []))
+    }
+    func wait(seconds: Double) async throws {}
+    func monotonicNow() -> Double { 1 }
+    func now() -> Date { Date(timeIntervalSince1970: 1) }
+}
+
+@Test func successfulEmptyPromptReadIsCapturedRatherThanUnavailable() throws {
+    var capture = PromptEvidenceCapture()
+    let reader = EmptyMarkerReader()
+    let evidence = capture.capture(
+        [sample(42, at: 1)], sequence: 1, using: reader, clock: reader, limits: .init())
+    #expect(evidence.first?.status.rawValue == "capturedWithoutMarker")
+    #expect(PromptCaptureSummary(evidence).unavailable == 0)
+    #expect(evidence.first?.metadata?.status == .notObserved)
+}
+
+@Test func anExecWithUnavailablePeakDoesNotCarryThePreviousExecutionPeak() {
+    var process = sample(42)
+    process.kernelPeakFootprintBytes = 100
+    var execution = ObservedExecution(process)
+    process.executable = "/new"
+    process.kernelPeakFootprintBytes = nil
+    let changedPath = execution.update(process)
+    #expect(changedPath)
+    process.kernelPeakFootprintBytes = 20
+    let firstPeak = execution.update(process)
+    #expect(!firstPeak)
+    process.kernelPeakFootprintBytes = nil
+    let unavailable = execution.update(process)
+    #expect(!unavailable)
+    process.kernelPeakFootprintBytes = 10
+    let reset = execution.update(process)
+    #expect(reset)
 }

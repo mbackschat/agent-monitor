@@ -33,7 +33,9 @@ extension LiveReportState {
                 .map(LiveReportRow.process)
         case .session:
             unpinned = sessions.filter {
-                !isPinned(.group($0.id)) && $0.containsDisplayedProcess(in: unpinnedProcesses)
+                !isPinned(.group($0.id))
+                    && $0.containsDisplayedProcess(
+                        in: $0.labelChangedInWindow ? displayed : unpinnedProcesses)
             }.map(LiveReportRow.group)
         }
         let pinnedIDs = Set(pins.map(\.id))

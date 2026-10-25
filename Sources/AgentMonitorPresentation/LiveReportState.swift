@@ -146,7 +146,7 @@ public struct LiveReportState: Equatable, Sendable {
         let displayed = rows
         let identities = Set(displayed.map(\.process))
         let hidden = (snapshot?.observedFindings ?? []).filter { !identities.contains($0.process) }
-        return SessionGrouping.groups(displayed + hidden).sorted { left, right in
+        return SessionGrouping.groups(displayed + hidden, window: snapshot?.window).sorted { left, right in
             switch sortKey {
             case .stable:
                 let leftRank = stableGroupRanks[left.id] ?? Int.max
@@ -373,7 +373,7 @@ public struct LiveReportState: Equatable, Sendable {
             return nil
         }
         func flattened(_ group: SessionGroup) -> Bool {
-            flattenSingletons && group.processes.count == 1 && !children(of: group).isEmpty
+            flattenSingletons && group.canFlatten && !children(of: group).isEmpty
                 && !isPinned(.group(group.id))
         }
         var targets = groups.filter { !flattened($0) }

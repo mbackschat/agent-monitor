@@ -165,12 +165,23 @@ private struct CapacityPopulation {
 
 private final class PipelinePopulation: ProcessReading, SamplingClock, SessionRegistryReading, Sendable {
     private let time = Mutex(0.0)
+    let count: Int
+    let sharedDepth: Int?
+    init(count: Int = 1_000, sharedDepth: Int? = nil) {
+        self.count = count
+        self.sharedDepth = sharedDepth
+    }
 
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
         let at = time.withLock { $0 }
-        let samples: [ProcessSample] = (1...1_000).map { (index: Int) in
+        let samples: [ProcessSample] = (1...count).map { (index: Int) in
             let pid = Int32(42_000 + index)
-            let parent: Int32 = index % 5 == 1 ? 0 : pid - 1
+            let parent: Int32
+            if let sharedDepth {
+                parent = index == 1 ? 0 : index <= sharedDepth ? pid - 1 : Int32(42_000 + sharedDepth)
+            } else {
+                parent = index % 5 == 1 ? 0 : pid - 1
+            }
             return ProcessSample(
                 identity: ProcessIdentity(pid: pid, startMicroseconds: 1), parentPID: parent,
                 executable: "/fake/worker", name: "worker", sampledAt: at,
@@ -192,4 +203,69 @@ private final class PipelinePopulation: ProcessReading, SamplingClock, SessionRe
     }
     func monotonicNow() -> Double { time.withLock { $0 } }
     func now() -> Date { Date(timeIntervalSince1970: monotonicNow()) }
+}
+
+@Test(.timeLimit(.minutes(5)))
+func productionPipelineSupportsThreeThousandLifetimesWithTenAncestors() async throws {
+    let fixture = PipelinePopulation(count: 3_000, sharedDepth: 10)
+    let store = RecentActivityStore()
+    let session = MonitoringSession(
+        configuration: try MonitoringConfiguration(
+            intervalSeconds: 0.1, samples: 2, scope: .allProcesses,
+            collectAgentLoad: true, reportIntervalSeconds: 5),
+        reader: fixture, clock: fixture, registry: fixture, recentActivity: store)
+    let reports = Mutex<[MonitoringSnapshot]>([])
+    try await session.run { value in reports.withLock { $0.append(value) } }
+    let values = reports.withLock { $0 }
+    #expect(values.last?.window?.finalScan == 60)
+    #expect(values.allSatisfy { $0.observedFindings.count == 3_000 })
+    let cpu = values.compactMap(\.window).flatMap(\.contributions).reduce(0) { $0 + $1.cpuSeconds }
+    #expect(abs(cpu - 180) < 1e-7)
+    #expect(store.diagnostics.chargedRecords <= 65_536)
+}
+
+@Test func retainedObservationUsesItsCanonicalRunAttributionStorage() throws {
+    var ledger = CounterLedger()
+    var window = AccountingWindow(baseline: CapacityPopulation(count: 1).scan(0, ledger: &ledger))
+    for tick in 1...3 {
+        let fixture = CapacityPopulation(count: 1)
+        let scan = fixture.scan(tick, ledger: &ledger)
+        try window.append(scan, rows: fixture.rows)
+    }
+    let row = try #require(try window.findings(scope: .allProcesses).first)
+    let contribution = try #require(window.summary.contributions.first)
+    let shared = row.attribution.ancestry.withUnsafeBufferPointer { left in
+        contribution.attribution.ancestry.withUnsafeBufferPointer { right in
+            left.baseAddress == right.baseAddress
+        }
+    }
+    #expect(shared)
+}
+
+@Test func mergedRecoveredContributionSharesCanonicalAttributionStorage() throws {
+    var ledger = CounterLedger()
+    func scan(_ tick: Int, cpu: Double?) -> CounterScan {
+        let row = CapacityPopulation(count: 1).rows[0]
+        let observation = ProcessSample(
+            identity: row.process, parentPID: 1,
+            executable: row.executable, name: row.name, sampledAt: Double(tick), cpuSeconds: cpu,
+            footprintBytes: row.footprintBytes)
+        return ledger.ingest([observation], listedAt: Double(tick))
+    }
+    _ = scan(0, cpu: 0)
+    var window = AccountingWindow(baseline: scan(1, cpu: nil))
+    let middle = scan(2, cpu: nil)
+    try window.append(middle, rows: CapacityPopulation(count: 1).rows)
+    var later = AccountingWindow(baseline: middle)
+    try later.append(scan(3, cpu: 0.3), rows: CapacityPopulation(count: 1).rows)
+    try window.merge(later)
+    let row = try #require(try window.findings(scope: .allProcesses).first)
+    let recovered = try #require(window.summary.contributions.first)
+    #expect(recovered.openingScan < window.baseline.id.sequence)
+    let shared = row.attribution.ancestry.withUnsafeBufferPointer { left in
+        recovered.attribution.ancestry.withUnsafeBufferPointer { right in
+            left.baseAddress == right.baseAddress
+        }
+    }
+    #expect(shared)
 }

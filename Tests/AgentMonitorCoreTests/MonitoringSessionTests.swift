@@ -8,6 +8,7 @@ private enum SessionFixtureError: Error { case collection, consumer }
 
 private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
     let events = Mutex<[String]>([])
+    let metadataRead = AsyncStream<Void>.makeStream()
     let scans = Mutex(0)
     let collected = Mutex<[MonitoringSnapshot]>([])
     let failCollection: Bool
@@ -45,9 +46,16 @@ private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
 
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
         events.withLock { $0.append("metadata") }
+        metadataRead.continuation.yield(())
         return ProcessMetadata(
             markers: [SessionMarker(threadID: sessionA, provider: .codex)],
             command: includeCommand ? ["worker"] : nil)
+    }
+
+    func metadata(for sample: ProcessSample, includeCommand: Bool, capturedLaunch: ProcessMetadata?)
+        -> ProcessMetadata
+    {
+        metadata(for: sample, includeCommand: includeCommand)
     }
 
     func wait(seconds: Double) async throws {
@@ -270,11 +278,25 @@ private final class SummaryClock: SamplingClock, Sendable {
     let elapsed = Mutex(0.0)
     let waits = Mutex(0)
     let rollbackAtWait: Int?
-    init(rollbackAtWait: Int? = nil) { self.rollbackAtWait = rollbackAtWait }
+    let metadataReads: AsyncStream<Void>?
+    let lastMetadataWait = Mutex(-Double.infinity)
+    init(rollbackAtWait: Int? = nil, metadataReads: AsyncStream<Void>? = nil) {
+        self.rollbackAtWait = rollbackAtWait
+        self.metadataReads = metadataReads
+    }
     func now() -> Date { Date(timeIntervalSince1970: time.withLock { $0 }) }
     func monotonicNow() -> Double { elapsed.withLock { $0 } }
     func wait(seconds: Double) async throws {
         try Task.checkCancellation()
+        let at = monotonicNow()
+        let needsMetadata = lastMetadataWait.withLock { last in
+            guard at - last >= 1 else { return false }
+            last = at
+            return true
+        }
+        if needsMetadata, let metadataReads {
+            for await _ in metadataReads { break }
+        }
         let count = waits.withLock {
             $0 += 1
             return $0
@@ -319,10 +341,10 @@ func defaultReportIncludesIdleSmallAgent(measurementsAvailable: Bool) throws {
     #expect(finding.attribution.threadID == sessionA)
 }
 
-@Test(arguments: [0.25, 1.0, 15.0, 30.0])
+@Test(.timeLimit(.minutes(1)), arguments: [0.25, 1.0, 15.0, 30.0])
 func resourceTotalsDoNotWaitForMetadataRefresh(interval: Double) async throws {
     let fixture = SessionFixture()
-    let clock = SummaryClock()
+    let clock = SummaryClock(metadataReads: fixture.metadataRead.stream)
     let count = Int(30 / interval) + 1
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(
@@ -337,20 +359,22 @@ func resourceTotalsDoNotWaitForMetadataRefresh(interval: Double) async throws {
             == stride(from: interval, through: Double(count) * interval, by: interval).map { $0 })
     #expect(snapshots.count == count)
     #expect(fixture.scans.withLock { $0 } == count + 1)
-    #expect(
-        fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count <= Int(Double(count) * interval) + 1)
+    let calls = fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count
+    #expect(calls >= Int(Double(count - 1) * interval / max(1, interval)) + 1)
+    #expect(calls <= Int(Double(count) * interval / max(1, interval)) + 1)
 }
 
-@Test func summaryAndAttributionRefreshTogether() async throws {
+@Test(.timeLimit(.minutes(1))) func summaryAndAttributionRefreshTogether() async throws {
     let fixture = SessionFixture()
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(samples: 16, collectAgentLoad: true),
-        reader: fixture, clock: SummaryClock())
+        reader: fixture, clock: SummaryClock(metadataReads: fixture.metadataRead.stream))
     try await session.run { fixture.receive($0) }
     let snapshots = fixture.collected.withLock { $0 }
     #expect(snapshots.filter { $0.agentLoad != nil }.count == 16)
     #expect(snapshots.allSatisfy { $0.findings.first?.attribution.threadID == sessionA })
-    #expect(fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count <= 17)
+    let calls = fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count
+    #expect((16...17).contains(calls))
 }
 
 @Test func summaryCadenceRecoversAfterAWallClockRollback() async throws {

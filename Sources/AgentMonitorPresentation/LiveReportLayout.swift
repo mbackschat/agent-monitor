@@ -234,7 +234,7 @@ public enum LiveReportLayout {
     ) -> ReportLine {
         let prefix = table.rowPrefix(
             marker: rowMarker(selected: selected, pinned: state.isPinned(.group(group.id))),
-            pid: String(group.processes.count), cpu: group.cpuTotal,
+            pid: String(group.observedCount), cpu: group.cpuTotal,
             memoryGB: group.memoryGBTotal, partialCPU: group.cpuPartial, partialMemory: group.memoryPartial)
         let disclosure = state.openGroups.contains(group.id) ? "[-]" : "[+]"
         return ReportLine(prefix + "\(disclosure) \(group.label)", style: selected ? .selected : .heading)

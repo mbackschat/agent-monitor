@@ -114,13 +114,14 @@ struct CounterLedger: Sendable {
         let sampledAt: Double
         let cpu: Double
         let raw: NativeCPUCounters?
-        let executable: String
-        let name: String
+        let executionGeneration: UInt64
     }
 
     private struct State: Sendable {
         var baseline: Baseline?
         var canUseNewbornOpening = true
+        var execution: ObservedExecution
+        var executionGeneration: UInt64 = 0
         var lastSeen: UInt64
         var lastReadAt: Double
     }
@@ -167,8 +168,9 @@ struct CounterLedger: Sendable {
             var state =
                 states[sample.identity]
                 ?? State(
-                    lastSeen: scan.sequence,
+                    execution: ObservedExecution(sample), lastSeen: scan.sequence,
                     lastReadAt: sample.sampledAt.isFinite ? sample.sampledAt : .infinity)
+            if state.execution.update(sample) { state.executionGeneration += 1 }
             state.lastSeen = scan.sequence
             if sample.sampledAt.isFinite { state.lastReadAt = max(state.lastReadAt, sample.sampledAt) }
             switch accept(observation, state: &state) {
@@ -201,7 +203,7 @@ struct CounterLedger: Sendable {
         guard sample.sampledAt.isFinite else { return .failure(.invalidTime) }
         let next = Baseline(
             id: observation.id, sampledAt: sample.sampledAt, cpu: cpu, raw: sample.rawCPU,
-            executable: sample.executable, name: sample.name)
+            executionGeneration: state.executionGeneration)
         if let old = state.baseline {
             guard sample.sampledAt > old.sampledAt, observation.id.scan.sequence > old.id.scan.sequence else {
                 return .failure(.invalidTime)
@@ -226,7 +228,7 @@ struct CounterLedger: Sendable {
                 CPUContribution(
                     id: .init(opening: .observation(old.id), closing: observation.id), cpuSeconds: delta,
                     startedAt: old.sampledAt, endedAt: sample.sampledAt,
-                    executableChanged: old.executable != sample.executable || old.name != sample.name))
+                    executableChanged: old.executionGeneration != state.executionGeneration))
         }
         let canUseNewbornOpening = state.canUseNewbornOpening
         state.baseline = next

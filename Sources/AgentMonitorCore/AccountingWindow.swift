@@ -9,11 +9,14 @@ public struct ProcessWindowAccounting: Equatable, Codable, Sendable {
     public let lastObservedAt: Double
     public let lastObservedFootprintBytes: UInt64?
     public let currentAttribution: Attribution?
+    public let labelChangedInWindow: Bool
+    public let lastObservedCorroboratedRootSessionID: String?
 
     init(
         cpuSeconds: Double?, recoveredCPUSeconds: Double, pointCandidateCPUSeconds: Double,
         uncertainCPUSeconds: Double, isHistorical: Bool, lastObservedAt: Double,
-        lastObservedFootprintBytes: UInt64?, currentAttribution: Attribution? = nil
+        lastObservedFootprintBytes: UInt64?, currentAttribution: Attribution? = nil,
+        labelChangedInWindow: Bool = false, lastObservedCorroboratedRootSessionID: String? = nil
     ) {
         self.cpuSeconds = cpuSeconds
         self.recoveredCPUSeconds = recoveredCPUSeconds
@@ -23,6 +26,8 @@ public struct ProcessWindowAccounting: Equatable, Codable, Sendable {
         self.lastObservedAt = lastObservedAt
         self.lastObservedFootprintBytes = lastObservedFootprintBytes
         self.currentAttribution = currentAttribution
+        self.labelChangedInWindow = labelChangedInWindow
+        self.lastObservedCorroboratedRootSessionID = lastObservedCorroboratedRootSessionID
     }
 }
 
@@ -37,6 +42,7 @@ public struct FrozenCPUContribution: Equatable, Codable, Sendable {
     public let startedAt: Double
     public let endedAt: Double
     public let attribution: Attribution
+    public let corroboratedRootSessionID: String?
     public let earliestEvidenceObservedAt: Double?
     public let latestEvidenceObservedAt: Double?
     public let missingEvidenceTimeCount: Int
@@ -46,7 +52,8 @@ public struct FrozenCPUContribution: Equatable, Codable, Sendable {
 
     init(
         _ value: CPUContribution, attribution: Attribution, observedAt: Double?,
-        latestObservedAt: Double? = nil, missingEvidenceTimeCount: Int? = nil
+        latestObservedAt: Double? = nil, missingEvidenceTimeCount: Int? = nil,
+        corroboratedRootSessionID: String? = nil
     ) {
         runID = value.id.closing.scan.runID
         openingScan = value.id.opening.scan.sequence
@@ -63,6 +70,7 @@ public struct FrozenCPUContribution: Equatable, Codable, Sendable {
         startedAt = value.startedAt
         endedAt = value.endedAt
         self.attribution = attribution
+        self.corroboratedRootSessionID = corroboratedRootSessionID
         earliestEvidenceObservedAt = observedAt
         latestEvidenceObservedAt = latestObservedAt ?? observedAt
         self.missingEvidenceTimeCount =
@@ -211,8 +219,8 @@ struct AccountingWindow: Sendable {
                 }
             }
             observations[id] = Observation(
-                row: row, sequence: scan.id.sequence, time: observation.sample.sampledAt,
-                run: index, evidenceAt: attributionTimes[id])
+                row: row.usingAttribution(runs[index].key.attribution), sequence: scan.id.sequence,
+                time: observation.sample.sampledAt, run: index, evidenceAt: attributionTimes[id])
         }
         for contribution in scan.contributions {
             guard let observation = observations[contribution.id.closing.process],
@@ -271,20 +279,23 @@ struct AccountingWindow: Sendable {
             }
         }
         for crossing in other.crossings {
-            if crossing.value.id.opening.scan.sequence >= baseline.id.sequence,
-                let index = indices[crossing.key]
-            {
+            guard let index = indices[crossing.key] else {
+                preconditionFailure("A retained crossing must have a canonical run")
+            }
+            if crossing.value.id.opening.scan.sequence >= baseline.id.sequence {
                 runs[index].add(
                     crossing.value, earliest: crossing.evidenceAt, latest: crossing.evidenceAt,
                     missing: crossing.evidenceAt == nil ? 1 : 0)
             } else {
-                crossings.append(crossing)
+                crossings.append(
+                    Crossing(value: crossing.value, key: runs[index].key, evidenceAt: crossing.evidenceAt))
             }
         }
         for (identity, observation) in other.observations {
             if observations[identity].map({ $0.sequence > observation.sequence }) == true { continue }
             observations[identity] = Observation(
-                row: observation.row, sequence: observation.sequence, time: observation.time,
+                row: observation.row.usingAttribution(runs[remapped[observation.run]].key.attribution),
+                sequence: observation.sequence, time: observation.time,
                 run: remapped[observation.run], evidenceAt: observation.evidenceAt)
         }
         for (category, contribution) in other.collapsed {
@@ -317,11 +328,14 @@ struct AccountingWindow: Sendable {
             run.cpu.map {
                 FrozenCPUContribution(
                     $0, attribution: run.key.attribution, observedAt: run.earliest,
-                    latestObservedAt: run.latest, missingEvidenceTimeCount: run.missingTimes)
+                    latestObservedAt: run.latest, missingEvidenceTimeCount: run.missingTimes,
+                    corroboratedRootSessionID: run.key.category.owner.rootSessionID)
             }
         }
         records += crossings.map {
-            FrozenCPUContribution($0.value, attribution: $0.key.attribution, observedAt: $0.evidenceAt)
+            FrozenCPUContribution(
+                $0.value, attribution: $0.key.attribution, observedAt: $0.evidenceAt,
+                corroboratedRootSessionID: $0.key.category.owner.rootSessionID)
         }
         records.sort {
             if $0.closingScan != $1.closingScan { return $0.closingScan < $1.closingScan }
@@ -348,7 +362,9 @@ struct AccountingWindow: Sendable {
     }
 
     var payloadSize: MonitoringPayloadSize {
-        var size = MonitoringPayloadSize(observations.values.map(\.row))
+        // Observation rows explicitly share their canonical run attribution, including after merge.
+        // The storage-identity regression guards this omission from the row charge.
+        var size = MonitoringPayloadSize(observations.values.map(\.row), includeAttribution: false)
         size.observations += collapsed.keys.reduce(0) {
             $0 + 1 + $1.candidates.count + ($1.runtime == nil ? 0 : 1)
         }
@@ -358,11 +374,9 @@ struct AccountingWindow: Sendable {
         for run in runs {
             let key = run.key
             let memorySize = run.memory.payloadSize
-            size.observations += 1 + key.attribution.ancestry.count + memorySize.observations
-            size.textBytes +=
-                memorySize.textBytes
-                + (key.attribution.terminal?.utf8.count ?? 0)
-                + (key.attribution.runtimeDirectory?.utf8.count ?? 0)
+            let context = MonitoringPayloadSize(attribution: key.attribution)
+            size.observations += 1 + context.observations + memorySize.observations
+            size.textBytes += memorySize.textBytes + context.textBytes
         }
         return size
     }
@@ -519,16 +533,19 @@ struct AccountingWindow: Sendable {
             let eligible = eligibleByProcess[original.process] ?? []
             let seconds = eligible.isEmpty ? nil : eligible.reduce(0) { $0 + $1.cpuSeconds }
             let recovered = (recoveredByProcess[original.process] ?? []).reduce(0) { $0 + $1.cpuSeconds }
-            let labels =
-                records.map(\.attribution)
-                + (live.contains(original.process) ? [original.attribution] : [])
-            let owner = Self.combinedAttribution(labels.isEmpty ? [original.attribution] : labels)
+            let owner = original.attribution
+            let root = runs[observation.run].key.category.owner.rootSessionID
+            let changed = records.contains {
+                !Self.sameOwner($0.attribution, owner) || $0.corroboratedRootSessionID != root
+            }
             guard scope.includes(owner) || records.contains(where: { scope.includes($0.attribution) })
             else {
                 return nil
             }
-            let candidate =
-                owner.threadID != nil && owner.evidence != .ambiguous && owner.evidence != .unknown
+            let candidateSeconds = records.filter {
+                $0.openingScan >= baseline.id.sequence && SessionCorroboration.isExact($0.attribution)
+                    && $0.attribution.threadID != nil && $0.attribution.provider != nil
+            }.reduce(0) { $0 + $1.cpuSeconds }
             let historical = !live.contains(original.process)
             return HeavyProcess(
                 process: original.process, executable: original.executable, name: original.name,
@@ -539,31 +556,23 @@ struct AccountingWindow: Sendable {
                 attribution: owner,
                 accounting: ProcessWindowAccounting(
                     cpuSeconds: seconds, recoveredCPUSeconds: recovered,
-                    pointCandidateCPUSeconds: candidate ? (seconds ?? 0) : 0,
-                    uncertainCPUSeconds: candidate ? 0 : (seconds ?? 0), isHistorical: historical,
+                    pointCandidateCPUSeconds: candidateSeconds,
+                    uncertainCPUSeconds: max(0, (seconds ?? 0) - candidateSeconds), isHistorical: historical,
                     lastObservedAt: observation.time, lastObservedFootprintBytes: original.footprintBytes,
-                    currentAttribution: historical ? nil : original.attribution))
+                    currentAttribution: historical ? nil : original.attribution,
+                    labelChangedInWindow: changed,
+                    lastObservedCorroboratedRootSessionID: runs[observation.run].key.category.owner
+                        .rootSessionID))
         }.sorted {
             if $0.process.pid != $1.process.pid { return $0.process.pid < $1.process.pid }
             return $0.process.startMicroseconds < $1.process.startMicroseconds
         }
     }
 
-    private static func combinedAttribution(_ labels: [Attribution]) -> Attribution {
-        let first = labels[0]
-        if labels.allSatisfy({
-            $0.provider == first.provider && $0.threadID == first.threadID
-                && $0.rootSessionID == first.rootSessionID && $0.runtime == first.runtime
-                && $0.candidateThreadIDs == first.candidateThreadIDs
-        }) {
-            return first
-        }
-        let candidates = Set(labels.flatMap { ($0.threadID.map { [$0] } ?? []) + $0.candidateThreadIDs })
-            .sorted()
-        return Attribution(
-            provider: labels.allSatisfy { $0.provider == first.provider } ? first.provider : nil,
-            evidence: .ambiguous, context: .unverified, threadID: nil, rootSessionID: nil,
-            runtime: labels.allSatisfy { $0.runtime == first.runtime } ? first.runtime : nil,
-            terminal: nil, runtimeDirectory: nil, candidateThreadIDs: candidates, ancestry: [])
+    private static func sameOwner(_ left: Attribution, _ right: Attribution) -> Bool {
+        left.provider == right.provider && left.threadID == right.threadID
+            && left.rootSessionID == right.rootSessionID && left.runtime == right.runtime
+            && left.candidateThreadIDs == right.candidateThreadIDs
+            && SessionCorroboration.isExact(left) == SessionCorroboration.isExact(right)
     }
 }

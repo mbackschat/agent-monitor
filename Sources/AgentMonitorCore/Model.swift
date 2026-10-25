@@ -169,6 +169,14 @@ public struct HeavyProcess: Equatable, Codable, Sendable {
         self.accounting = accounting
     }
 
+    func usingAttribution(_ owner: Attribution) -> HeavyProcess {
+        HeavyProcess(
+            process: process, executable: executable, name: name, cpuPercent: cpuPercent,
+            footprintBytes: footprintBytes, kernelPeakFootprintBytes: kernelPeakFootprintBytes,
+            cwd: cwd, command: command, metadataStatus: metadataStatus, attribution: owner,
+            accounting: accounting)
+    }
+
     /// Provider evidence identifies shared runtime usage without assigning it to one thread.
     public var isSharedRuntime: Bool { AttributionAdapters.builtIn.isSharedRuntime(self) }
 }

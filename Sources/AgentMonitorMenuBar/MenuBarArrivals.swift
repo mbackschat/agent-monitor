@@ -11,7 +11,7 @@ struct MenuBarArrivals {
             return
         }
         let processes = snapshot.findings.map { LiveReportRowID.process($0.process) }
-        let sessions = SessionGrouping.groups(snapshot.observedFindings)
+        let sessions = SessionGrouping.groups(snapshot.observedFindings, window: snapshot.window)
         let groups = sessions.map { LiveReportRowID.group($0.id) }
         let current = Set(processes + groups)
         expire(at: now)
