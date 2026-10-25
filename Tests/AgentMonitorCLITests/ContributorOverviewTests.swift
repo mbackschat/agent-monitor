@@ -31,7 +31,9 @@ import Testing
     }
 }
 
-func overviewFixture(sessionNames: [String?] = []) throws -> MonitoringSnapshot {
+func overviewFixture(
+    sessionNames: [String?] = [], invocationName: String? = nil, includeProcesses: Bool = false
+) throws -> MonitoringSnapshot {
     var ledger = CounterLedger()
     func samples(_ time: Double, includeBurst: Bool) -> [ProcessSample] {
         var values: [ProcessSample] = []
@@ -57,7 +59,8 @@ func overviewFixture(sessionNames: [String?] = []) throws -> MonitoringSnapshot 
                     context: .unverified, threadID: "session-\(value.identity.pid)", rootSessionID: nil,
                     runtime: nil, terminal: nil, runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []),
                 sessionName: value.identity.pid == 1 && !sessionNames.isEmpty
-                    ? sessionNames[min(sessionNames.count - 1, max(0, Int(value.sampledAt) - 1))] : nil)
+                    ? sessionNames[min(sessionNames.count - 1, max(0, Int(value.sampledAt) - 1))] : nil,
+                invocationName: value.identity.pid == 1 ? invocationName : nil)
         }
     }
     let baseline = ledger.ingest(samples(0, includeBurst: true), listedAt: 0)
@@ -78,7 +81,9 @@ func overviewFixture(sessionNames: [String?] = []) throws -> MonitoringSnapshot 
             hostBusyPercent: nil, logicalCPUCount: 8,
             measuredUserPercent: 0, unmeasuredLifetimeCount: 0, previousScanSeconds: nil), timestamp: Date(),
         intervalSeconds: 0.1, cpuThresholdPercent: 0, memoryThresholdBytes: 0,
-        sampledProcessCount: 21, unreadableProcessCount: 0, findings: [], recentActivity: store.snapshot())
+        sampledProcessCount: 21, unreadableProcessCount: 0,
+        findings: includeProcesses ? rows(samples(2, includeBurst: false)) : [],
+        recentActivity: store.snapshot())
 }
 
 extension ContributorOverviewTests {
@@ -274,4 +279,35 @@ extension ContributorOverviewTests {
     #expect(overview.nodes[id]?.title == "codex · Index work · session- · /fixture")
     #expect(overview.nodes[id]?.details.contains("Listed name: Index work") == true)
     #expect(overview.nodes[id]?.stats == reference.nodes[id]?.stats)
+}
+
+@Test(arguments: [60, 100, 160])
+func invocationLabelsReachOverviewProcessTableAndTextWithoutReplacingPaths(width: Int) throws {
+    let snapshot = try overviewFixture(invocationName: "ugrep", includeProcesses: true)
+    var overview = ContributorOverview()
+    overview.receive(snapshot)
+    #expect(overview.nodes.values.contains { $0.title == "ugrep" })
+    let leaf = try #require(overview.nodes.values.first { $0.process?.pid == 1 })
+    #expect(leaf.inspectionFields.contains { $0.label == "Invoked as" && $0.value == "ugrep" })
+    #expect(leaf.inspectionFields.contains { $0.label == "Executable" && $0.value == "/bin/node" })
+    var state = LiveReportState(grouping: .none)
+    state.receive(snapshot)
+    state.overview.enabled = false
+    let lines = LiveReportLayout.lines(state: state, width: width, height: 40)
+    #expect(lines.contains { $0.text.contains("ugrep") })
+    let text = TextReport.render(snapshot)
+    #expect(text.contains("Invoked as: ugrep"))
+    #expect(text.contains("/bin/node"))
+}
+
+@Test func collapsedInvocationRemainsNamedAndDirectoryReleaseIsExplicit() throws {
+    let snapshot = try overviewFixture(invocationName: "ugrep")
+    let record = try #require(
+        snapshot.recentActivity?.units.flatMap(\.records).first { $0.category.invocationName == "ugrep" })
+    let value = CollapsedContribution(
+        category: CollapsedCategory(record.category, includedInAgentScope: true),
+        memory: record, cpu: nil, earliestEvidence: nil, latestEvidence: nil, missingEvidence: 0)
+    let text = AccountingContext.collapsed(value)
+    #expect(text.contains("ugrep"))
+    #expect(text.contains("directory detail released"))
 }

@@ -40,20 +40,24 @@ public struct RecentWorkerCategory: Hashable, Sendable {
     public let executable: String
     public let isAgentRuntime: Bool
     public let executableName: String
+    public let invocationName: String?
     /// The workload directory observed with this category's intervals; `nil` when it was unreadable.
     /// Frozen like the owner label, so a later `cd` opens a new category instead of relabeling
     /// earlier CPU (product contract: no historical CPU under a latest directory without evidence).
     public let cwd: String?
 
     init(
-        process: ProcessIdentity, owner: RecentSession, executable: String, isAgentRuntime: Bool, cwd: String?
+        process: ProcessIdentity, owner: RecentSession, executable: String, isAgentRuntime: Bool,
+        cwd: String?, invocationName: String? = nil
     ) {
         self.process = process
         self.owner = owner
         self.executable = executable
         self.isAgentRuntime = isAgentRuntime
         self.cwd = cwd
-        executableName = executable.split(separator: "/").last.map(String.init) ?? "Unknown executable"
+        self.invocationName = invocationName
+        executableName =
+            invocationName ?? executable.split(separator: "/").last.map(String.init) ?? "Unknown executable"
     }
 }
 
@@ -167,7 +171,8 @@ public struct RecentWorkerRecord: Equatable, Sendable {
         var copy = self
         copy.category = RecentWorkerCategory(
             process: category.process, owner: owner,
-            executable: category.executable, isAgentRuntime: category.isAgentRuntime, cwd: category.cwd)
+            executable: category.executable, isAgentRuntime: category.isAgentRuntime, cwd: category.cwd,
+            invocationName: category.invocationName)
         return copy
     }
 
@@ -178,6 +183,7 @@ public struct RecentWorkerRecord: Equatable, Sendable {
         let owner = category.owner
         var bytes = category.executable.utf8.count + category.executableName.utf8.count + name.utf8.count
         bytes += sessionName?.utf8.count ?? 0
+        bytes += category.invocationName?.utf8.count ?? 0
         bytes +=
             (cwd?.utf8.count ?? 0) + (owner.sessionID?.utf8.count ?? 0)
             + (owner.rootSessionID?.utf8.count ?? 0)
@@ -238,7 +244,8 @@ public final class RecentActivityUnit: Sendable {
                 category: RecentWorkerCategory(
                     process: $0.category.process,
                     owner: sharedOwner($0.category.owner), executable: $0.category.executable,
-                    isAgentRuntime: $0.category.isAgentRuntime, cwd: $0.category.cwd))
+                    isAgentRuntime: $0.category.isAgentRuntime, cwd: $0.category.cwd,
+                    invocationName: $0.category.invocationName))
         }
         excludedObservationCount = excluded
         readCoverage = coverage

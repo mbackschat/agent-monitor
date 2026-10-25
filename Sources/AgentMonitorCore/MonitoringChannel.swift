@@ -44,6 +44,7 @@ struct MonitoringPayloadSize: Equatable, Sendable {
             textBytes += finding.executable.utf8.count + finding.name.utf8.count
             textBytes += finding.cwd?.utf8.count ?? 0
             textBytes += finding.sessionName?.utf8.count ?? 0
+            textBytes += finding.invocationName?.utf8.count ?? 0
             for value in finding.command ?? [] { textBytes += value.utf8.count }
             observations += finding.command?.count ?? 0
             if includeAttribution {

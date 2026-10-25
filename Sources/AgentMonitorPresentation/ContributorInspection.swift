@@ -123,6 +123,7 @@ struct ContributorEvidence: Equatable, Sendable {
                 "Intervals", "\(stats.recentMeasurements) accepted · \(stats.exclusions) excluded",
                 kind: .evidence),
         ]
+        if let name = key.invocationName { fields.insert(InspectionField("Invoked as", name), at: 4) }
         if let name = record.sessionName { fields.insert(InspectionField("Listed name", name), at: 1) }
         if let maximum = stats.maximumWorkerFootprint {
             fields.append(InspectionField("Sampled maximum", memory(maximum), kind: .evidence))

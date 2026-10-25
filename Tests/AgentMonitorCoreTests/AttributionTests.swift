@@ -509,6 +509,9 @@ private func claudeTree(tool invocation: String, toolMetadata: ProcessMetadata? 
     #expect(row.attribution.evidence == .marker)
     #expect(row.attribution.threadID == sessionA)
     #expect(row.attribution.runtime == runtime.identity)
+    #expect(row.invocationName == "ugrep")
+    #expect(row.command == nil)
+    #expect(row.executable == tool.executable)
     monitor.enrich(ProcessMetadata(status: .unavailable), for: tool.identity)
     #expect(monitor.finding(for: tool.identity)?.attribution.runtime == runtime.identity)
 }

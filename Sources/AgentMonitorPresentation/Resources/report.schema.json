@@ -191,6 +191,11 @@
             "type": "string"
           }
         },
+        "invocationName": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Optional observed argv[0] basename for an adapter-recognised embedded workload. A presentation label, not executable identity or ownership evidence; name remains the native process name and executable remains the observed path."
+        },
         "sessionName": {
           "type": "string",
           "maxLength": 160,
@@ -773,6 +778,11 @@
         },
         "executable": {
           "type": "string"
+        },
+        "invocationName": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Frozen adapter-recognised embedded workload invocation, when available. Released with other category labels under pressure."
         },
         "isAgentRuntime": {
           "type": "boolean"

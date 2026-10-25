@@ -192,7 +192,7 @@ public enum LiveReportLayout {
         let metrics =
             state.rows.map { ($0.cpuPercent, $0.footprintBytes.map { Double($0) / 1e9 }) }
             + (state.grouping == .session ? state.groups.map { ($0.cpuTotal, $0.memoryGBTotal) } : [])
-        let table = ReportTable(metrics: metrics, processNames: state.rows.map(\.name))
+        let table = ReportTable(metrics: metrics, processNames: state.rows.map(\.observedName))
         let columns = table.columns(for: width)
         var lines = [
             ReportLine(table.header(columns: columns, grouped: state.grouping == .session), style: .heading)
@@ -266,7 +266,7 @@ public enum LiveReportLayout {
         let agent = "\(provider)/\(sessionLabel(row, width: sessionWidth))"
         let description =
             state.grouping == .session
-            ? "  \(row.name) \(agent) [\(row.attribution.evidence.rawValue), \(row.attribution.context.rawValue)]"
+            ? "  \(row.observedName) \(agent) [\(row.attribution.evidence.rawValue), \(row.attribution.context.rawValue)]"
             : flatDescription(row, agent: agent, columns: columns)
         return ReportLine(
             prefix + (row.isHistorical ? "[past] " : "") + description,
@@ -281,9 +281,9 @@ public enum LiveReportLayout {
         case .wide(let processWidth, let agentWidth):
             let project = row.isSharedRuntime ? nil : row.cwd
             return
-                "\(ReportTable.pad(row.name, to: processWidth)) \(ReportTable.pad(agent, to: agentWidth)) \(row.attribution.terminal ?? "no tty") / \(project.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "?")"
+                "\(ReportTable.pad(row.observedName, to: processWidth)) \(ReportTable.pad(agent, to: agentWidth)) \(row.attribution.terminal ?? "no tty") / \(project.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "?")"
         case .compact(let processWidth, let agentWidth):
-            return ReportTable.pad(abbreviated(row.name, width: processWidth), to: processWidth) + " "
+            return ReportTable.pad(abbreviated(row.observedName, width: processWidth), to: processWidth) + " "
                 + abbreviated(agent, width: agentWidth)
         }
     }

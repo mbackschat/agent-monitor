@@ -77,6 +77,7 @@ public enum TextReport {
 
     private static func processLines(_ row: HeavyProcess, window: ReportWindowSummary?) -> [ReportLine] {
         var lines: [ReportLine] = []
+        if let name = row.invocationName { lines.append(ReportLine("Invoked as: " + safe(name))) }
         let owner = row.attribution
         let provider =
             switch owner.provider {

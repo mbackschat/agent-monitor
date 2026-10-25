@@ -294,3 +294,30 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
             to: URL(fileURLWithPath: path))
     }
 }
+
+@Test @MainActor func processLabelShowsEmbeddedInvocationInsteadOfVersionName() throws {
+    _ = NSApplication.shared
+    let original = try #require(try nativeOverviewFixture().findings.first)
+    let process = HeavyProcess(
+        process: original.process, executable: "/fixture/claude/versions/2.1.299",
+        name: "2.1.299", cpuPercent: 75, footprintBytes: original.footprintBytes, cwd: original.cwd,
+        command: nil, metadataStatus: original.metadataStatus, attribution: original.attribution,
+        invocationName: "ugrep")
+    let host = NSHostingView(
+        rootView: MenuBarProcessLabel(
+            process: process, session: nil,
+            cpuText: "75%", footprintText: "20 MB"
+        ).padding(8).frame(width: 400)
+            .background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: .aqua)
+    host.layoutSubtreeIfNeeded()
+    host.frame.size = host.fittingSize
+    let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = .accurate
+    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
+    let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+    #expect(text.contains("ugrep"), "\(text)")
+    #expect(!text.contains("2.1.299"), "\(text)")
+}

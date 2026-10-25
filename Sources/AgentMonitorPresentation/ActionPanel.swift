@@ -40,7 +40,7 @@ public enum ActionWording {
     public static func target(_ process: HeavyProcess) -> [String] {
         let attribution = process.attribution
         return [
-            "Process PID \(process.process.pid): \(process.name)",
+            "Process PID \(process.process.pid): \(process.observedName)",
             "Executable: \(process.executable)",
             "\(process.isSharedRuntime ? "Attribution" : "Attributed session"): \(attribution.provider?.rawValue ?? "unknown")/\(process.sessionDescription)",
         ]

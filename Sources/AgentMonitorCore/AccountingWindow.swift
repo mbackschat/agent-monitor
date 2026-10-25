@@ -206,6 +206,7 @@ struct AccountingWindow: Sendable {
             let index: Int
             if let previous = observations[id], previous.row.attribution == row.attribution,
                 runs[previous.run].key.category.executable == row.executable,
+                runs[previous.run].key.category.invocationName == row.invocationName,
                 runs[previous.run].key.category.cwd == row.cwd,
                 runs[previous.run].key.category.isAgentRuntime == runtimes.contains(id),
                 runs[previous.run].key.category.owner.rootSessionID == roots.root(for: row.attribution)
@@ -217,7 +218,7 @@ struct AccountingWindow: Sendable {
             } else {
                 let category = RecentWorkerCategory(
                     process: id, owner: RecentSession(row, roots: roots), executable: row.executable,
-                    isAgentRuntime: runtimes.contains(id), cwd: row.cwd)
+                    isAgentRuntime: runtimes.contains(id), cwd: row.cwd, invocationName: row.invocationName)
                 let key = Key(category: category, attribution: row.attribution)
                 if let found = indices[key] {
                     index = found
@@ -396,6 +397,7 @@ struct AccountingWindow: Sendable {
     private static func sameRowCharge(_ left: HeavyProcess, _ right: HeavyProcess) -> Bool {
         left.executable.utf8.count == right.executable.utf8.count
             && left.name.utf8.count == right.name.utf8.count
+            && left.invocationName?.utf8.count == right.invocationName?.utf8.count
             && left.sessionName?.utf8.count == right.sessionName?.utf8.count
             && left.cwd?.utf8.count == right.cwd?.utf8.count
             && sameCommandCharge(left.command, right.command)
@@ -645,7 +647,8 @@ struct AccountingWindow: Sendable {
                     currentAttribution: historical ? nil : original.attribution,
                     labelChangedInWindow: changed,
                     lastObservedCorroboratedRootSessionID: runs[observation.run].key.category.owner
-                        .rootSessionID), sessionName: original.sessionName)
+                        .rootSessionID), sessionName: original.sessionName,
+                invocationName: original.invocationName)
         }.sorted {
             if $0.process.pid != $1.process.pid { return $0.process.pid < $1.process.pid }
             return $0.process.startMicroseconds < $1.process.startMicroseconds

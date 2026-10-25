@@ -5,6 +5,7 @@ public struct Monitor: Sendable {
         var sample: ProcessSample
         var execution: ObservedExecution
         var executionObservedAt: Double?
+        var invocationName: String?
         var parent: ProcessIdentity?
         var metadata = ProcessMetadata(status: .unavailable)
         var markerObservedAt: Double?
@@ -47,6 +48,7 @@ public struct Monitor: Sendable {
             if executed {
                 executionObservedAt = next.sampledAt
                 metadata = ProcessMetadata(status: .unavailable)
+                invocationName = nil
                 markerObservedAt = nil
                 metadataObservedAt = nil
                 recognizedProviders = adapters.runtimeProviders(for: next.executable)
@@ -260,6 +262,10 @@ public struct Monitor: Sendable {
         updated.invocation = updated.invocation ?? node.metadata.invocation
         let metadataChanged = node.metadata != updated
         node.metadata = updated
+        node.invocationName = updated.invocation.flatMap {
+            adapters.workloadInvocationName(
+                node.recognizedProviders, invokedAs: $0, executable: node.sample.executable)
+        }
         let providers =
             updated.invocation.map {
                 adapters.runtimeProviders(
@@ -453,7 +459,7 @@ public struct Monitor: Sendable {
             cpuPercent: node.cpuPercent, footprintBytes: node.sample.footprintBytes,
             kernelPeakFootprintBytes: node.sample.kernelPeakFootprintBytes,
             cwd: node.metadata.cwd, command: node.metadata.command, metadataStatus: node.metadata.status,
-            attribution: owner, sessionName: name)
+            attribution: owner, sessionName: name, invocationName: node.invocationName)
     }
 
     /// The primary label's actual point-observation time, never a claim of interval support.

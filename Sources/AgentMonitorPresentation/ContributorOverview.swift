@@ -543,7 +543,8 @@ public struct ContributorOverview: Equatable, Sendable {
             }
             let id = ContributorID.collapsed(key)
             let label =
-                key.executable?.split(separator: "/").last.map(String.init) ?? "category detail released"
+                key.invocationName ?? key.executable?.split(separator: "/").last.map(String.init)
+                ?? "category detail released"
             var node = ContributorNode(id: id, title: "Collapsed · " + label)
             node.stats = stats
             node.labels =
@@ -848,7 +849,8 @@ private func identity(_ id: ContributorID) -> String {
         return "c"
             + [
                 category.provider?.rawValue, category.sessionID, category.rootSessionID,
-                category.resolution?.rawValue, category.executable, category.isAgentRuntime.map(String.init),
+                category.resolution?.rawValue, category.executable, category.invocationName,
+                category.isAgentRuntime.map(String.init),
                 String(category.agentAssociated), String(category.categoryDetailsRetained),
             ].compactMap { $0 }.joined(separator: "|")
     case .session(let provider, let session, let root):

@@ -341,3 +341,7 @@ Session-registry fixtures verify that names follow only the verified runtime/pro
 ### Contributor information checks
 
 Shared inspection fixtures distinguish folding from explicit information, verify typed executable/CWD/state fields and close inspection when its target is filtered out. Native keyboard/model guards keep arrows from moving hidden rows while the information popover is open. An owned offscreen render verifies labelled resource/identity fields with Vision; `MENUBAR_INSPECTION_PREVIEW_PATH` exports the synthetic image for visual checking. The PTY journey opens information with `i` before navigating to a current process. Physical popover anchoring and input delivery remain the user-owned smoke test.
+
+### Embedded workload labels
+
+`InvocationNameTests` verifies adapter-only labels without full command capture, rejected empty/control/oversized names, frozen CPU categories across invocation changes, pressure compaction and incremental text charges. Attribution tests retain the underlying executable path and exact session when Claude runs an embedded tool. Presentation guards check native/TUI names and access to the underlying executable.

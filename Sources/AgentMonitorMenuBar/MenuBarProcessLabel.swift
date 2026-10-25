@@ -10,7 +10,7 @@ struct MenuBarProcessLabel: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(process.name).lineLimit(1).truncationMode(.middle)
+            Text(process.observedName).lineLimit(1).truncationMode(.middle)
             Text(String(process.process.pid)).font(.caption2).foregroundStyle(.secondary).fixedSize()
             if process.isHistorical {
                 Text("Past").font(.caption2).foregroundStyle(.secondary)
@@ -21,7 +21,7 @@ struct MenuBarProcessLabel: View {
         }
         .font(.subheadline)
         .help(
-            "\(process.name) · PID \(process.process.pid)"
+            "\(process.observedName) · PID \(process.process.pid)"
                 + (session.map {
                     " · \($0.project) · \($0.provider?.rawValue ?? "unknown") · \($0.sessionID ?? "unresolved")"
                 } ?? "")

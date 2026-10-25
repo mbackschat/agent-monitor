@@ -189,7 +189,7 @@ public struct LiveReportState: Equatable, Sendable {
             switch id {
             case .process(let identity):
                 guard let row = rows.first(where: { $0.process == identity }) else { return }
-                label = "\(row.name) · PID \(identity.pid)"
+                label = "\(row.observedName) · PID \(identity.pid)"
             case .group(let identity):
                 guard let group = groups.first(where: { $0.id == identity }) else { return }
                 label =

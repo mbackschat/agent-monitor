@@ -22,6 +22,16 @@ struct ClaudeAttributionAdapter: AgentAttributionAdapter {
             || name == URL(filePath: executable, directoryHint: .notDirectory).lastPathComponent
     }
 
+    func workloadInvocationName(_ invocation: String, executable: String) -> String? {
+        guard !acceptsRuntimeInvocation(invocation, executable: executable),
+            let name = invocation.split(separator: "/").last.map(String.init),
+            !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            name.unicodeScalars.count <= 160,
+            !name.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
+        else { return nil }
+        return name
+    }
+
     func marker(in environment: [String: Set<String>]) throws -> SessionMarker? {
         try MarkerEnvironment.uuid("CLAUDE_CODE_SESSION_ID", in: environment).map {
             SessionMarker(

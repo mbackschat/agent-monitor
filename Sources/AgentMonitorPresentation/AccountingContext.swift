@@ -53,7 +53,9 @@ public enum AccountingContext {
         let owner =
             value.category.sessionID.map { "\(value.category.provider?.rawValue ?? "agent")/\($0.prefix(8))" }
             ?? (value.category.agentAssociated ? "Agent-associated work" : "Other observed work")
-        let executable = value.category.executable?.split(separator: "/").last.map(String.init)
+        let executable =
+            value.category.invocationName
+            ?? value.category.executable?.split(separator: "/").last.map(String.init)
         let label = [owner, executable].compactMap { $0 }.joined(separator: " · ")
         let peak =
             value.maximumFootprint.map { " · sampled max \(ReportNumber.text(Double($0.bytes) / 1e6)) MB" }
@@ -62,7 +64,8 @@ public enum AccountingContext {
             "Collapsed · \(label) · \(ReportNumber.text(value.cpuSeconds)) CPU s · \(value.intervalCount) intervals · \(workers) workers · monotonic \(ReportNumber.text(value.startedAt))–\(ReportNumber.text(value.endedAt)) s"
             + peak
             + (value.category.categoryDetailsRetained
-                ? " · identity detail released" : " · category and identity detail released")
+                ? " · identity and directory detail released"
+                : " · category, identity and directory detail released")
     }
 
     public static func process(_ process: HeavyProcess) -> [String] {

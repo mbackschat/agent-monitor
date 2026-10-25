@@ -28,6 +28,7 @@ public struct CollapsedCategory: Hashable, Codable, Sendable {
     public let includedInAgentScope: Bool
     public let resolution: RecentSession.Resolution?
     public let executable: String?
+    public let invocationName: String?
     public let isAgentRuntime: Bool?
     public let agentAssociated: Bool
     public let categoryDetailsRetained: Bool
@@ -41,6 +42,7 @@ public struct CollapsedCategory: Hashable, Codable, Sendable {
         rootSessionID = category.owner.rootSessionID
         resolution = category.owner.resolution
         executable = category.executable
+        invocationName = category.invocationName
         isAgentRuntime = category.isAgentRuntime
         agentAssociated = category.owner.isAgent
         categoryDetailsRetained = true
@@ -55,13 +57,14 @@ public struct CollapsedCategory: Hashable, Codable, Sendable {
         rootSessionID = nil
         resolution = nil
         executable = nil
+        invocationName = nil
         self.isAgentRuntime = isAgentRuntime
         agentAssociated = remainingAgentWork
         categoryDetailsRetained = false
     }
 
     var textBytes: Int {
-        ([sessionID, rootSessionID, executable].compactMap { $0 } + candidates).reduce(0) {
+        ([sessionID, rootSessionID, executable, invocationName].compactMap { $0 } + candidates).reduce(0) {
             $0 + $1.utf8.count
         }
     }

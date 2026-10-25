@@ -34,6 +34,16 @@ package struct AttributionAdapters: Sendable {
         }
     }
 
+    func workloadInvocationName(
+        _ claims: Set<AgentProvider>, invokedAs invocation: String, executable: String
+    ) -> String? {
+        let names = Set(
+            claims.compactMap {
+                adapter(for: $0)?.workloadInvocationName(invocation, executable: executable)
+            })
+        return names.count == 1 ? names.first : nil
+    }
+
     private func recognizing(_ executable: String, invokedAs invocation: String?)
         -> [any AgentAttributionAdapter]
     {

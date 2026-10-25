@@ -10,6 +10,8 @@ protocol AgentAttributionAdapter: Sendable {
     /// Whether a process recognized from `executable` is still a runtime when invoked as
     /// `invocation` (`argv[0]`). Consulted only for recognized executables whose arguments were read.
     func acceptsRuntimeInvocation(_ invocation: String, executable: String) -> Bool
+    /// An observed embedded-tool label; executable identity and ownership remain independent.
+    func workloadInvocationName(_ invocation: String, executable: String) -> String?
     func marker(in environment: [String: Set<String>]) throws -> SessionMarker?
     func runtimeEvidence(from observations: RuntimeObservations) -> RuntimeEvidence
     func runtimeLink(for marker: SessionMarker) -> RuntimeLink?
@@ -21,6 +23,7 @@ protocol AgentAttributionAdapter: Sendable {
 }
 
 extension AgentAttributionAdapter {
+    func workloadInvocationName(_ invocation: String, executable: String) -> String? { nil }
     func acceptsRuntimeInvocation(_ invocation: String, executable: String) -> Bool { true }
     var sessionRegistry: SessionRegistryQuery? { nil }
     func runtimeSessions(fromRegistry output: Data) throws -> [RuntimeSession] { [] }

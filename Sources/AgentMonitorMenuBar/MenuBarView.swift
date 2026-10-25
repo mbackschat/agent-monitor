@@ -195,7 +195,7 @@ struct MenuBarView: View {
         return VStack(alignment: .leading, spacing: model.report.showsOverview ? 8 : 12) {
             if let saved = model.savedMessage {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Unsent message to \(saved.process.name)").font(.subheadline.bold())
+                    Text("Unsent message to \(saved.process.observedName)").font(.subheadline.bold())
                     Text(
                         "PID \(String(saved.process.process.pid)) · \(saved.recipientID ?? "unavailable recipient")"
                     )
@@ -495,7 +495,7 @@ struct MenuBarView: View {
 
     private func actionPanel(_ panel: ActionPanel) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(panel.process.name).font(.headline)
+            Text(panel.process.observedName).font(.headline)
             ForEach(ActionWording.target(panel.process), id: \.self) { Text($0).font(.caption) }
             Divider()
             switch panel.phase {
