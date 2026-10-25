@@ -25,6 +25,44 @@ public struct Monitor: Sendable {
             self.recognizedProviders = recognizedProviders
             runtimeProviders = recognizedProviders
         }
+
+        struct Update {
+            let previousParent: ProcessIdentity?
+            let parent: ProcessIdentity?
+            let invalidatesResolution: Bool
+            let executed: Bool
+            let touchesRuntime: Bool
+        }
+
+        mutating func update(
+            _ next: ProcessSample, contribution: CPUContribution?, parent candidate: ProcessIdentity?,
+            isNew: Bool, adapters: AttributionAdapters
+        ) -> Update {
+            let previousParent = parent
+            let wasRuntime = !runtimeProviders.isEmpty
+            let terminalChanged =
+                sample.terminal != next.terminal || sample.terminalDevice != next.terminalDevice
+            cpuContribution = contribution
+            let executed = execution.update(next)
+            if executed {
+                executionObservedAt = next.sampledAt
+                metadata = ProcessMetadata(status: .unavailable)
+                markerObservedAt = nil
+                metadataObservedAt = nil
+                recognizedProviders = adapters.runtimeProviders(for: next.executable)
+                runtimeProviders = recognizedProviders
+            }
+            if let candidate, candidate != next.identity,
+                candidate.startMicroseconds <= next.identity.startMicroseconds
+            {
+                parent = candidate
+            }
+            sample = next
+            return Update(
+                previousParent: previousParent, parent: parent,
+                invalidatesResolution: isNew || executed || parent != previousParent || terminalChanged,
+                executed: executed, touchesRuntime: wasRuntime || !runtimeProviders.isEmpty)
+        }
     }
 
     private struct Resolution: Sendable {
@@ -127,48 +165,30 @@ public struct Monitor: Sendable {
             resolutions[identity] = nil
             if nodes[identity]?.runtimeProviders.isEmpty == false { advanceDetachedGeneration() }
         }
+        let adapters = self.adapters
         for sample in samples {
-            var node =
-                nodes[sample.identity]
-                ?? Node(
+            let isNew = nodes.index(forKey: sample.identity) == nil
+            let update = nodes[
+                sample.identity,
+                default: Node(
                     sample: sample, recognizedProviders: adapters.runtimeProviders(for: sample.executable))
-            let old = nodes[sample.identity]
-            let previousParent = node.parent
-            node.cpuContribution = contributions[sample.identity]
-            let executed = node.execution.update(sample)
-            if executed {
-                node.executionObservedAt = sample.sampledAt
-                node.metadata = ProcessMetadata(status: .unavailable)
-                node.markerObservedAt = nil
-                node.metadataObservedAt = nil
-                node.recognizedProviders = adapters.runtimeProviders(for: sample.executable)
-                node.runtimeProviders = node.recognizedProviders
-                listedSessions[sample.identity] = nil
-            }
-            if let parent = byPID[sample.parentPID], parent != sample.identity,
-                parent.startMicroseconds <= sample.identity.startMicroseconds
-            {
-                node.parent = parent
-            }
-            if node.parent != previousParent {
-                if let previousParent {
+            ].update(
+                sample, contribution: contributions[sample.identity], parent: byPID[sample.parentPID],
+                isNew: isNew, adapters: adapters)
+            if update.executed { listedSessions[sample.identity] = nil }
+            if update.parent != update.previousParent {
+                if let previousParent = update.previousParent {
                     children[previousParent]?.remove(sample.identity)
                     if children[previousParent]?.isEmpty == true { children[previousParent] = nil }
                 }
-                if let parent = node.parent { children[parent, default: []].insert(sample.identity) }
+                if let parent = update.parent { children[parent, default: []].insert(sample.identity) }
             }
-            let changed =
-                old == nil || executed || node.parent != previousParent
-                || old?.sample.terminal != sample.terminal
-                || old?.sample.terminalDevice != sample.terminalDevice
-            if changed { invalidate(sample.identity) }
-            if (changed || !previouslyLive.contains(sample.identity))
-                && (old?.runtimeProviders.isEmpty == false || !node.runtimeProviders.isEmpty)
+            if update.invalidatesResolution { invalidate(sample.identity) }
+            if (update.invalidatesResolution || !previouslyLive.contains(sample.identity))
+                && update.touchesRuntime
             {
                 advanceDetachedGeneration()
             }
-            node.sample = sample
-            nodes[sample.identity] = node
         }
         runtimes = [:]
         for identity in live { indexRuntime(identity) }
