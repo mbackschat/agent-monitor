@@ -448,7 +448,7 @@ struct MenuBarView: View {
                 }
                 if let peak = FootprintContext.kernelPeak(process) { Text(peak) }
                 Text(
-                    "Session: \(process.attribution.threadID ?? (process.isSharedRuntime ? "shared runtime" : "unresolved"))"
+                    "Session: \(process.sessionName.map { $0 + " · " } ?? "")\(process.attribution.threadID ?? (process.isSharedRuntime ? "shared runtime" : "unresolved"))"
                 )
                 Text("\(process.attribution.evidence.rawValue) · \(process.attribution.context.rawValue)")
                 Text("Directory: \(process.cwd ?? "unavailable")")

@@ -288,3 +288,41 @@ func providerDiscoveryDoesNotRecursivelyListItsOwnHelpers(nested: Bool) throws {
         provider: .claude, observedAt: 5, requestedAt: [runtime.identity: 3, other.identity: 3])
     #expect(monitor.finding(for: runtime.identity)?.attribution.threadID == sessionB)
 }
+
+@Test func listedNamesFollowVerifiedSessionIdentityAndClearWithTheBinding() throws {
+    var (monitor, runtime, shell, worker) = claudeSession()
+    var named = entry(pid: 10)
+    named["name"] = "Build the search index"
+    monitor.bindSessions(try listing([named]), provider: .claude)
+    #expect(monitor.finding(for: runtime.identity)?.sessionName == "Build the search index")
+    #expect(monitor.finding(for: shell.identity)?.sessionName == "Build the search index")
+    #expect(monitor.finding(for: worker.identity)?.sessionName == nil)
+    let owner = monitor.finding(for: shell.identity)?.attribution
+    named["name"] = "Index maintenance"
+    monitor.bindSessions(try listing([named]), provider: .claude)
+    #expect(monitor.finding(for: shell.identity)?.sessionName == "Index maintenance")
+    #expect(monitor.finding(for: shell.identity)?.attribution == owner)
+    monitor.bindSessions(nil, provider: .claude)
+    #expect(monitor.finding(for: shell.identity)?.sessionName == nil)
+    monitor.bindSessions(try listing([named, named]), provider: .claude)
+    #expect(monitor.finding(for: runtime.identity)?.sessionName == nil)
+    monitor.bindSessions(try listing([named]), provider: .claude, restrictingTo: [])
+    #expect(monitor.finding(for: runtime.identity)?.sessionName == nil)
+    monitor.bindSessions(try listing([named]), provider: .claude)
+    var executed = runtime
+    executed.executable = "/usr/bin/node"
+    monitor.ingest([executed, shell, worker])
+    #expect(monitor.finding(for: runtime.identity)?.sessionName == nil)
+}
+
+@Test func invalidOptionalNamesDoNotInvalidateSessionOwnership() throws {
+    for name: Any in [17, "", "\nmisleading", String(repeating: "x", count: 161)] {
+        var (monitor, runtime, _, _) = claudeSession()
+        var named = entry(pid: 10)
+        named["name"] = name
+        monitor.bindSessions(try listing([named]), provider: .claude)
+        let row = try #require(monitor.finding(for: runtime.identity))
+        #expect(row.attribution.threadID == sessionB)
+        #expect(row.sessionName == nil)
+    }
+}

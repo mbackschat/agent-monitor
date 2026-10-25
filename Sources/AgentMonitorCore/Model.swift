@@ -140,6 +140,7 @@ public struct HeavyProcess: Equatable, Codable, Sendable {
     public let process: ProcessIdentity
     public let executable: String
     public let name: String
+    public let sessionName: String?
     public let cpuPercent: Double?
     public let footprintBytes: UInt64?
     public let kernelPeakFootprintBytes: UInt64?
@@ -154,11 +155,12 @@ public struct HeavyProcess: Equatable, Codable, Sendable {
         process: ProcessIdentity, executable: String, name: String, cpuPercent: Double?,
         footprintBytes: UInt64?, kernelPeakFootprintBytes: UInt64? = nil, cwd: String?,
         command: [String]?, metadataStatus: MetadataStatus, attribution: Attribution,
-        accounting: ProcessWindowAccounting? = nil
+        accounting: ProcessWindowAccounting? = nil, sessionName: String? = nil
     ) {
         self.process = process
         self.executable = executable
         self.name = name
+        self.sessionName = sessionName
         self.cpuPercent = cpuPercent
         self.footprintBytes = footprintBytes
         self.kernelPeakFootprintBytes = kernelPeakFootprintBytes
@@ -174,7 +176,10 @@ public struct HeavyProcess: Equatable, Codable, Sendable {
             process: process, executable: executable, name: name, cpuPercent: cpuPercent,
             footprintBytes: footprintBytes, kernelPeakFootprintBytes: kernelPeakFootprintBytes,
             cwd: cwd, command: command, metadataStatus: metadataStatus, attribution: owner,
-            accounting: accounting)
+            accounting: accounting,
+            sessionName: SessionCorroboration.isExact(owner)
+                && owner.provider == attribution.provider && owner.threadID == attribution.threadID
+                ? sessionName : nil)
     }
 
     /// Provider evidence identifies shared runtime usage without assigning it to one thread.

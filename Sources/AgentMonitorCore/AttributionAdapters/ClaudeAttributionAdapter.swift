@@ -58,7 +58,7 @@ struct ClaudeAttributionAdapter: AgentAttributionAdapter {
             return RuntimeSession(
                 runtimePID: runtimePID,
                 sessionID: entry.sessionId.flatMap(UUID.init(uuidString:))?.uuidString.lowercased(),
-                active: entry.status.flatMap(ListedStatus.init(rawValue:)) != nil)
+                active: entry.status.flatMap(ListedStatus.init(rawValue:)) != nil, name: entry.name)
         }
     }
 
@@ -67,6 +67,27 @@ struct ClaudeAttributionAdapter: AgentAttributionAdapter {
         let pid: Int?
         let sessionId: String?
         let status: String?
+        let name: String?
+
+        private enum CodingKeys: String, CodingKey { case pid, sessionId, status, name }
+
+        init(from decoder: any Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            pid = try values.decodeIfPresent(Int.self, forKey: .pid)
+            sessionId = try values.decodeIfPresent(String.self, forKey: .sessionId)
+            status = try values.decodeIfPresent(String.self, forKey: .status)
+            // Optional display context must not invalidate ownership. The existing listing's
+            // name field is observed in docs/research/claude-session-messaging.md.
+            if let value = try? values.decode(String.self, forKey: .name),
+                !value.trimmingCharacters(in: .whitespaces).isEmpty,
+                value.unicodeScalars.count <= 160,
+                value.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) })
+            {
+                name = value
+            } else {
+                name = nil
+            }
+        }
     }
 
     private enum ListedStatus: String {

@@ -44,13 +44,20 @@ public struct SessionGroup: Equatable, Sendable {
         return Set(members.map(\.cwd))
     }
 
+    public var sessionName: String? {
+        let names = Set(processes.filter { $0.attribution.threadID == sessionID }.compactMap(\.sessionName))
+        return names.count == 1 ? names.first : nil
+    }
+
     public var heading: String {
-        let identity = sessionID.map { String($0.prefix(8)) } ?? sessionDescription
+        let identity =
+            sessionID.map { SessionDisplayNames.identity($0, name: sessionName) } ?? sessionDescription
         return "\(provider?.rawValue ?? "unknown") · \(identity) · \(project)"
     }
 
     public var headingHelp: String {
         (["\(provider?.rawValue ?? "unknown")/\(sessionDescription)"]
+            + (sessionName.map { ["Listed name: " + $0] } ?? [])
             + workloadDirectories.compactMap { $0 }.sorted()
             + (workloadDirectories.contains(nil) ? ["CWD unavailable"] : [])).joined(separator: "\n")
     }
@@ -65,6 +72,7 @@ public struct SessionGroup: Equatable, Sendable {
 
     public var label: String {
         let session = sessionID.map { String($0.prefix(8)) } ?? sessionDescription
+        let listedName = sessionName.map { " · " + String($0.prefix(40)) } ?? ""
         let kind = isSharedRuntime ? "" : (isRoot ? " root" : " session")
         let evidence =
             hasWindow || processes.contains { $0.accounting != nil }
@@ -72,7 +80,7 @@ public struct SessionGroup: Equatable, Sendable {
         let partial = cpuPartial || memoryPartial ? " | partial totals" : ""
         let changed = labelChangedInWindow ? " | Label changed in window" : ""
         return
-            "\(provider?.rawValue ?? "unknown")/\(session)\(kind) | \(observedCount) observed | \(project)\(partial)\(evidence)\(changed)"
+            "\(provider?.rawValue ?? "unknown")/\(session)\(kind)\(listedName) | \(observedCount) observed | \(project)\(partial)\(evidence)\(changed)"
     }
 
     private func sum(_ values: [Double?]) -> Double? {

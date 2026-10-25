@@ -191,6 +191,11 @@
             "type": "string"
           }
         },
+        "sessionName": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Optional display name from the last verified provider listing for this row's exact provider/session and runtime lifetime. Not an ownership key or transcript-derived title; absent when unavailable."
+        },
         "metadataStatus": {
           "enum": [
             "markerRead",

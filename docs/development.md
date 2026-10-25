@@ -333,3 +333,7 @@ Deterministic acquisition clocks implement the production synchronous deadline/w
 ### On-demand argument inspection checks
 
 `CommandInspectionTests` covers explicit-only reads, active-inspection retention, late-result rejection, one in-flight request and unavailable results. The owned-process native guard checks PID/start and executable mismatches without querying providers. Layout checks use synthetic argument arrays; no commands from user workloads are retained. A read-now timestamp distinguishes the inspection from paused measurements.
+
+### Listed session-name checks
+
+Session-registry fixtures verify that names follow only the verified runtime/provider/session binding, never override a worker's different marker, clear after failed/duplicate/unverified listings and exec, and tolerate invalid optional names without losing ownership. Shared grouping and overview guards compare IDs and resource totals before and after renaming; storage recounts include name changes and canonically equal strings with different UTF-8 lengths. Schema and serialization checks retain the optional bounded name. These use fake listings, not live provider queries.

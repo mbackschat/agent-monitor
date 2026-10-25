@@ -41,6 +41,7 @@ package struct RuntimeSession: Equatable, Sendable {
     /// Normalized lowercase UUID, or nil when the listed value is not one.
     package let sessionID: String?
     package let active: Bool
+    package var name: String? = nil
 }
 
 enum RuntimeObservation: Hashable, Sendable {

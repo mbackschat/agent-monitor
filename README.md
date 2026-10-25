@@ -10,7 +10,7 @@
 
 When several coding agents are running, compare their workloads together: agent, session, working directory, executable (such as `rustc`, `java` or `node`), CPU and memory. Inspect relevant arguments on demand, then message the verified agent, jump to its terminal or review stopping an exact process.
 
-The [product goal](docs/product.md) is a clear, actionable resource overview under pressure, rather than another general-purpose process list. **Presentation acceptance is still open:** session and process-group headings now lead with provider/session identity and compact workload directories; human-readable session names are not yet available. The [Mac/TUI review](PLAN.md#resource-accounting-priority) must resolve those gaps; the controls below describe the current interface.
+The [product goal](docs/product.md) is a clear, actionable resource overview under pressure, rather than another general-purpose process list. **Presentation acceptance is still open:** session and process-group headings now lead with provider/session identity and compact workload directories; Claude names come from its existing verified session listing, with provider/session IDs as the fallback. The [Mac/TUI review](PLAN.md#resource-accounting-priority) still covers multi-workload legibility and native interaction; the controls below describe the current interface.
 
 This README describes the current source build, which can be ahead of the [latest release](https://github.com/mbackschat/agent-monitor/releases/latest); newer controls, history and the menu bar app require a [source build](docs/installation.md#build-from-source).
 

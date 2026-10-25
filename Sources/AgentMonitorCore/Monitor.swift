@@ -83,6 +83,7 @@ public struct Monitor: Sendable {
     private var runtimes: [AgentProvider: Set<ProcessIdentity>] = [:]
     /// Sessions that runtime lifetimes host according to their harness's latest listing.
     private var listedSessions: [ProcessIdentity: String] = [:]
+    private var listedSessionNames: [ProcessIdentity: String] = [:]
     private var registryObservedAt: [ProcessIdentity: Double] = [:]
     private let adapters: AttributionAdapters
     private let profile: PipelineProfile?
@@ -175,7 +176,10 @@ public struct Monitor: Sendable {
             ].update(
                 sample, contribution: contributions[sample.identity], parent: byPID[sample.parentPID],
                 isNew: isNew, adapters: adapters)
-            if update.executed { listedSessions[sample.identity] = nil }
+            if update.executed {
+                listedSessions[sample.identity] = nil
+                listedSessionNames[sample.identity] = nil
+            }
             if update.parent != update.previousParent {
                 if let previousParent = update.previousParent {
                     children[previousParent]?.remove(sample.identity)
@@ -194,6 +198,7 @@ public struct Monitor: Sendable {
         for identity in live { indexRuntime(identity) }
         for identity in listedSessions.keys where !live.contains(identity) {
             listedSessions[identity] = nil
+            listedSessionNames[identity] = nil
             invalidate(identity)
             advanceDetachedGeneration()
         }
@@ -270,6 +275,7 @@ public struct Monitor: Sendable {
         if changed {
             for provider in runtimes.keys { runtimes[provider]?.remove(identity) }
             listedSessions[identity] = nil
+            listedSessionNames[identity] = nil
             indexRuntime(identity)
         }
     }
@@ -332,9 +338,11 @@ public struct Monitor: Sendable {
                 listed.count == 1, let session = listed.first, session.active, let id = session.sessionID
             {
                 listedSessions[runtime] = id
+                listedSessionNames[runtime] = session.name
                 registryObservedAt[runtime] = observedAt
             } else {
                 listedSessions[runtime] = nil
+                listedSessionNames[runtime] = nil
                 registryObservedAt[runtime] = nil
             }
             if listedSessions[runtime] != previous {
@@ -433,12 +441,19 @@ public struct Monitor: Sendable {
     /// Inspect a live process independently of display thresholds.
     public func finding(for identity: ProcessIdentity) -> HeavyProcess? {
         guard live.contains(identity), let node = nodes[identity] else { return nil }
+        let owner = resolve(identity).attribution
+        let name = owner.runtime.flatMap { runtime -> String? in
+            guard let provider = owner.provider, runtimes[provider]?.contains(runtime) == true,
+                listedSessions[runtime] == owner.threadID, SessionCorroboration.isExact(owner)
+            else { return nil }
+            return listedSessionNames[runtime]
+        }
         return HeavyProcess(
             process: identity, executable: node.sample.executable, name: node.sample.name,
             cpuPercent: node.cpuPercent, footprintBytes: node.sample.footprintBytes,
             kernelPeakFootprintBytes: node.sample.kernelPeakFootprintBytes,
             cwd: node.metadata.cwd, command: node.metadata.command, metadataStatus: node.metadata.status,
-            attribution: resolve(identity).attribution)
+            attribution: owner, sessionName: name)
     }
 
     /// The primary label's actual point-observation time, never a claim of interval support.

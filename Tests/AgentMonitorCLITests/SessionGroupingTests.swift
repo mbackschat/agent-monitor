@@ -176,7 +176,8 @@ func sessionTotalsIncludeProcessesHiddenByDisplayFilters(showBusy: Bool) throws 
 private func groupedRow(
     _ pid: Int32, thread: String?, root: String? = nil, provider: AgentProvider = .codex,
     evidence: AttributionEvidence = .marker, cpu: Double? = 50, memory: UInt64? = 1_200_000_000,
-    cwd: String? = "/same/project", runtimeDirectory: String? = "/same/project", peak: UInt64? = nil
+    cwd: String? = "/same/project", runtimeDirectory: String? = "/same/project", peak: UInt64? = nil,
+    sessionName: String? = nil
 ) -> HeavyProcess {
     let identity = ProcessIdentity(pid: pid, startMicroseconds: 1)
     return HeavyProcess(
@@ -187,7 +188,7 @@ private func groupedRow(
             provider: provider, evidence: evidence, context: .terminal,
             threadID: thread, rootSessionID: root, runtime: ProcessIdentity(pid: 999, startMicroseconds: 1),
             terminal: "ttys001", runtimeDirectory: runtimeDirectory, candidateThreadIDs: [],
-            ancestry: [identity]))
+            ancestry: [identity]), sessionName: sessionName)
 }
 
 private func groupedSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
@@ -410,4 +411,28 @@ func directoryLabelsDoNotClaimProjectsOrChangeSessionMembership(
     let handled = state.setSessionDisclosure(expanded: false, from: state.selection)
     #expect(!handled)
     #expect(state == held)
+}
+
+@Test func groupNamesAreDisplayContextAndNeverOverrideIdentityOrConflicts() throws {
+    let named = groupedRow(1, thread: "session-a", provider: .claude, sessionName: "Index work")
+    let group = try #require(SessionGrouping.groups([named]).first)
+    #expect(group.heading == "claude · Index work · session- · /same/project")
+    #expect(group.label.contains("Index work"))
+    let encoded = try #require(
+        JSONSerialization.jsonObject(with: JSONReport.encodeLine(groupedSnapshot([named]))) as? [String: Any])
+    #expect((encoded["findings"] as? [[String: Any]])?.first?["sessionName"] as? String == "Index work")
+    let schema = try #require(JSONSerialization.jsonObject(with: JSONReport.schema()) as? [String: Any])
+    let definitions = try #require(schema["$defs"] as? [String: [String: Any]])
+    let properties = try #require(definitions["heavyProcess"]?["properties"] as? [String: [String: Any]])
+    #expect(properties["sessionName"]?["maxLength"] as? Int == 160)
+
+    let renamed = groupedRow(1, thread: "session-a", provider: .claude, sessionName: "Review index")
+    let changed = try #require(SessionGrouping.groups([renamed]).first)
+    #expect(changed.id == group.id)
+    #expect(changed.cpuTotal == group.cpuTotal)
+    let conflicting = groupedRow(2, thread: "session-a", provider: .claude, sessionName: "Other name")
+    let uncertain = try #require(SessionGrouping.groups([named, conflicting]).first)
+    #expect(!uncertain.heading.contains("Index work"))
+    #expect(!uncertain.heading.contains("Other name"))
+    #expect(uncertain.heading.contains("session-"))
 }

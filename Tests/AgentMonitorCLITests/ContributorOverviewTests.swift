@@ -31,7 +31,7 @@ import Testing
     }
 }
 
-func overviewFixture() throws -> MonitoringSnapshot {
+func overviewFixture(sessionNames: [String?] = []) throws -> MonitoringSnapshot {
     var ledger = CounterLedger()
     func samples(_ time: Double, includeBurst: Bool) -> [ProcessSample] {
         var values: [ProcessSample] = []
@@ -55,7 +55,9 @@ func overviewFixture() throws -> MonitoringSnapshot {
                 attribution: Attribution(
                     provider: .codex, evidence: .marker,
                     context: .unverified, threadID: "session-\(value.identity.pid)", rootSessionID: nil,
-                    runtime: nil, terminal: nil, runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []))
+                    runtime: nil, terminal: nil, runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []),
+                sessionName: value.identity.pid == 1 && !sessionNames.isEmpty
+                    ? sessionNames[min(sessionNames.count - 1, max(0, Int(value.sampledAt) - 1))] : nil)
         }
     }
     let baseline = ledger.ingest(samples(0, includeBurst: true), listedAt: 0)
@@ -257,4 +259,19 @@ extension ContributorOverviewTests {
         #expect(!state.frozen)
         #expect(state.snapshot?.recentActivity?.scope == .allProcesses)
     }
+}
+
+@Test func overviewShowsLatestListedNameWithoutMovingFrozenCPUOrDirectory() throws {
+    let plain = try overviewFixture()
+    let named = try overviewFixture(sessionNames: ["Old title", "Index work"])
+    var reference = ContributorOverview()
+    var overview = ContributorOverview()
+    reference.receive(plain)
+    overview.receive(named)
+    #expect(overview.main == reference.main)
+    #expect(overview.totals == reference.totals)
+    let id = try #require(overview.main.first)
+    #expect(overview.nodes[id]?.title == "codex · Index work · session- · /fixture")
+    #expect(overview.nodes[id]?.details.contains("Listed name: Index work") == true)
+    #expect(overview.nodes[id]?.stats == reference.nodes[id]?.stats)
 }

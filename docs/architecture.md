@@ -4,7 +4,7 @@
 
 The [product contract](product.md) requires Mac and TUI to answer which agents, sessions and processes consume CPU or memory, with their workload CWDs visible in context. Every presentation decision serves comparison of multiple contributors. Use aligned tables, meaningful graphics and structured disclosure; explanations and arguments belong on demand. Measurement semantics, ownership and action guards stay shared, while native and terminal interaction differ.
 
-**Current behavior:** overview and process-group headings lead with provider/session identity, followed by compact workload directory context. Contributor rows pair executable and frozen CWD. Current models carry session IDs, not human-readable names; that remains a [UX-01](../PLAN.md#resource-accounting-priority) gap. Directory summaries never establish ownership or invent session names.
+**Current behavior:** overview and process-group headings lead with provider/session identity, followed by compact workload directory context. Contributor rows pair executable and frozen CWD. Claude session names supplement exact IDs using the existing verified listing; Codex names retain the provider/ID fallback until a native registry relation is established. Directory summaries never establish ownership or invent session names.
 
 ## Purpose and status
 
@@ -267,6 +267,12 @@ Shared display sanitization preserves U+200C/U+200D for script and emoji shaping
 Text, TUI, and GUI share measurement and attribution results. Their rendering and interaction code remain specific to each interface. A SwiftUI-like terminal library does not itself guarantee reusable native SwiftUI views. Any reusable presentation state must remain free of terminal control codes and UI framework types.
 
 The current directory-summary rule (not the required primary session title) uses displayed workload working directories, excluding the runtime’s own directory when workload rows exist. A shared runtime is labeled without a project claim. Groups use the same `WorkloadDirectory` summary as the overview: a compact path for one directory, a count for several (including nested paths), and an explicit unavailable qualifier for missing CWDs. No project-root inference is made. Native subtitles and wide TUI rows do not substitute a shared runtime’s launch directory for workload evidence. Runtime directories remain available in details. Directory labels are presentation only and never alter provider/session identities or attribution confidence.
+
+### Provider-listed session names
+
+The Claude attribution adapter accepts the optional `name` from the existing `claude agents --json` response, as observed in [session-listing research](research/claude-session-messaging.md). A name is retained only for a single active entry bound to a verified live runtime lifetime; a row receives it only when its exact provider/session matches that binding. Failed or ambiguous listings, exec boundaries, provider-role changes and departed runtimes clear the binding. Optional malformed, empty, control-containing or over-160-scalar names are omitted without invalidating otherwise valid ownership. No new query, transcript read or background command capture is introduced.
+
+`HeavyProcess.sessionName` and recent records carry the last listed name as display context, charged to their text budgets. It is not part of attribution, grouping identity or the frozen CPU category. Renaming therefore leaves contributions, totals, pins and selection unchanged. Recent overview labels use the latest retained named observation for the exact provider/session; contradictory names at the same scan fall back to the ID. A child thread's name cannot label its root. Titles abbreviate long names; details retain the full name and exact ID. Report schema 1 includes the optional bounded `sessionName`; absent names remain absent.
 
 ## TUI contract
 

@@ -342,7 +342,7 @@ public enum LiveReportLayout {
         let attribution = row.attribution
         var values = [
             "PID \(row.process.pid) | \(row.executable)",
-            "Session: \(row.sessionDescription) [\(attribution.evidence.rawValue), \(attribution.context.rawValue)]",
+            "Session: \(row.sessionName.map { $0 + " · " } ?? "")\(row.sessionDescription) [\(attribution.evidence.rawValue), \(attribution.context.rawValue)]",
             "Runtime: \(attribution.runtime.map { String($0.pid) } ?? "unresolved") | TTY: \(attribution.terminal ?? "unavailable")",
             "Work directory: \(row.cwd ?? "unavailable")",
             "Runtime directory: \(attribution.runtimeDirectory ?? "unavailable")",

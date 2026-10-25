@@ -95,3 +95,36 @@ func incrementalPayloadMatchesRetainedStorageThroughUpdatesMergesAndCollapse(lim
     // only the observation and run name/command charges grow by the extra UTF-8 byte.
     #expect(sizes[1] == sizes[0] + 5)
 }
+
+@Test func listedNameUpdatesAreChargedWithoutOpeningANewCPUCategory() throws {
+    var ledger = CounterLedger()
+    let initial = sample(42, at: 0, cpu: 0)
+    var window = AccountingWindow(baseline: ledger.ingest([initial], listedAt: 0))
+    var monitor = Monitor()
+    let names = ["A", "Longer listed session", "e\u{301}", "é"]
+    var sizes: [Int] = []
+    for (index, name) in names.enumerated() {
+        let value = sample(42, at: Double(index + 1), cpu: Double(index + 1))
+        let scan = ledger.ingest([value], listedAt: value.sampledAt)
+        monitor.ingest([value])
+        monitor.enrich(
+            ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]),
+            for: value.identity)
+        let base = try #require(monitor.finding(for: value.identity))
+        let row = HeavyProcess(
+            process: base.process, executable: base.executable, name: base.name,
+            cpuPercent: base.cpuPercent, footprintBytes: base.footprintBytes, cwd: base.cwd,
+            command: nil, metadataStatus: base.metadataStatus, attribution: base.attribution,
+            sessionName: name)
+        try window.append(scan, rows: [row])
+        #expect(window.payloadSize == window.recountedPayloadSize)
+        sizes.append(window.payloadSize.textBytes)
+        let unit = window.seal(scope: .agentsOnly)
+        #expect(unit.records.count == 1)
+        #expect(unit.records.first?.sessionName == name)
+        #expect(unit.records.first?.cpuSeconds == Double(index + 1))
+        #expect(try window.findings(scope: .agentsOnly).first?.sessionName == name)
+    }
+    #expect(sizes[1] - sizes[0] == 2 * (names[1].utf8.count - names[0].utf8.count))
+    #expect(sizes[2] - sizes[3] == 2)
+}

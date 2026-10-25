@@ -573,15 +573,19 @@ public struct ContributorOverview: Equatable, Sendable {
             nodes[id] = node
             nodes[leafParent]?.children.append(id)
         }
+        let names = SessionDisplayNames(records: metadata.values)
         for id in Array(nodes.keys) {
             switch id {
             case .session(let provider, let session, let root):
                 let directories = projects[id] ?? []
+                let name = names.name(provider: provider, session: session)
                 nodes[id]?.title =
-                    (root == nil ? "\(provider) · " : "Thread · ") + session.prefix(8)
+                    (root == nil ? "\(provider) · " : "Thread · ")
+                    + SessionDisplayNames.identity(session, name: name)
                     + (directories.isEmpty ? "" : " · " + WorkloadDirectory.summary(directories))
                 nodes[id]?.labels =
                     ["Exact session: \(provider)/\(session)"]
+                    + (name.map { ["Listed name: " + $0] } ?? [])
                     + (directories.isEmpty
                         ? []
                         : [
