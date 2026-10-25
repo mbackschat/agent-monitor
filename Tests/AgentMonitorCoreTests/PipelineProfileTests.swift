@@ -2,6 +2,29 @@ import Testing
 
 @testable import AgentMonitorCore
 
+@Test func profileCountsResolutionReuseAndInvalidationWithoutResourceChanges() {
+    let profile = PipelineProfile()
+    var monitor = Monitor(profile: profile)
+    var runtime = sample(10, executable: "/bin/claude")
+    let middle = sample(20, parent: 10)
+    let leaf = sample(30, parent: 20)
+    monitor.ingest([runtime, middle, leaf])
+    _ = monitor.accountingFindings()
+    _ = monitor.accountingFindings()
+    runtime.cpuSeconds = 1
+    runtime.footprintBytes = 123
+    monitor.ingest([runtime, middle, leaf])
+    _ = monitor.accountingFindings()
+    monitor.enrich(ProcessMetadata(writerThreadIDs: [sessionA]), for: runtime.identity, observedAt: 2)
+    _ = monitor.accountingFindings()
+    monitor.enrich(ProcessMetadata(writerThreadIDs: [sessionA]), for: runtime.identity, observedAt: 3)
+    _ = monitor.accountingFindings()
+    let counters = profile.snapshot().counters
+    #expect(counters["resolutionMisses"] == 6)
+    #expect(counters["resolutionHits"] == 9)
+    #expect(counters["detachedGenerationChanges"] == 2)
+}
+
 @Test func profileAggregatesExactTotalsAndNearestRankPercentiles() throws {
     let profile = PipelineProfile(sampleLimit: 3)
     for value in [3.0, 1, 2] {

@@ -6,6 +6,21 @@ import Testing
 
 private enum SessionFixtureError: Error { case collection, consumer }
 
+@Test func productionCollectionRecordsResolutionCountersWhenProfiling() async throws {
+    let fixture = SessionFixture()
+    let profile = PipelineProfile()
+    let session = MonitoringSession(
+        configuration: try MonitoringConfiguration(intervalSeconds: 2, samples: 2),
+        reader: fixture, clock: fixture
+    ).profiling(profile)
+    try await session.run { _ in }
+    let counters = profile.snapshot().counters
+    let misses = counters["resolutionMisses"] ?? 0
+    let hits = counters["resolutionHits"] ?? 0
+    #expect(misses >= 1)
+    #expect(misses + hits == UInt64(fixture.scans.withLock { $0 }))
+}
+
 private final class SessionFixture: ProcessReading, SamplingClock, Sendable {
     let events = Mutex<[String]>([])
     let metadataRead = AsyncStream<Void>.makeStream()

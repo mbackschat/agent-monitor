@@ -124,7 +124,9 @@ struct IndependentMonitoringPipeline: Sendable {
         let cancellation = PipelineCancellation()
         let enrichment = PipelineEnrichment(profile: profile)
         let acquisition = SerialBlockingWorker(
-            name: "AgentMonitor acquisition", initial: AcquisitionState(), profile: profile,
+            name: "AgentMonitor acquisition",
+            initial: AcquisitionState(resolution: ResolutionState(monitor: Monitor(profile: profile))),
+            profile: profile,
             role: .acquisition)
         let limits = configuration.pipelineLimits
         let coalesce: (@Sendable (inout ResolvedScan, ResolvedScan) throws -> MonitoringPayloadSize)?

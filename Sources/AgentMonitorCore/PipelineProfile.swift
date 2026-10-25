@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 import Synchronization
 
-/// Opt-in acceptance instrumentation accepts only fixed stage names and numeric durations.
+/// Opt-in acceptance instrumentation accepts only fixed names and numeric counts or durations.
 /// CPU stamps must bracket synchronous work on one thread; worker and stage totals overlap.
 package final class PipelineProfile: Sendable {
     enum Stage: String, CaseIterable, Sendable {
@@ -11,6 +11,7 @@ package final class PipelineProfile: Sendable {
         case metadataBatch, providerRequest
     }
     enum Worker: String, CaseIterable, Sendable { case acquisition, metadata, providers }
+    enum Counter: String, Sendable { case resolutionHits, resolutionMisses, detachedGenerationChanges }
     struct Stamp {
         let cpu = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
         let wall = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW)
@@ -34,6 +35,7 @@ package final class PipelineProfile: Sendable {
     package struct Snapshot: Encodable, Sendable {
         package let stages: [String: Statistics]
         package let workers: [String: WorkerStatistics]
+        package let counters: [String: UInt64]
     }
     private struct Samples {
         var count = 0
@@ -75,6 +77,7 @@ package final class PipelineProfile: Sendable {
         var stages: [Stage: Samples] = [:]
         var workers: [Worker: Samples] = [:]
         var threadCPU: [Worker: Double] = [:]
+        var counters: [Counter: UInt64] = [:]
     }
     private let state = Mutex(State())
     private let sampleLimit: Int
@@ -86,6 +89,10 @@ package final class PipelineProfile: Sendable {
         state.withLock {
             $0.stages[stage, default: Samples()].append(cpu: cpu, wall: wall, limit: sampleLimit)
         }
+    }
+    func increment(_ counter: Counter, by count: UInt64 = 1) {
+        guard count > 0 else { return }
+        state.withLock { $0.counters[counter, default: 0] += count }
     }
     func end(_ stage: Stage, since start: Stamp) {
         let end = Stamp()
@@ -116,7 +123,9 @@ package final class PipelineProfile: Sendable {
                                 threadCPUSeconds: state.threadCPU[$0],
                                 jobs: state.workers[$0, default: Samples()].statistics)
                         )
-                    }))
+                    }),
+                counters: Dictionary(uniqueKeysWithValues: state.counters.map { ($0.key.rawValue, $0.value) })
+            )
         }
     }
 }

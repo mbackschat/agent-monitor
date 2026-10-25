@@ -47,10 +47,27 @@ public struct Monitor: Sendable {
     private var listedSessions: [ProcessIdentity: String] = [:]
     private var registryObservedAt: [ProcessIdentity: Double] = [:]
     private let adapters: AttributionAdapters
+    private let profile: PipelineProfile?
 
-    public init() { adapters = .builtIn }
+    public init() {
+        adapters = .builtIn
+        profile = nil
+    }
 
-    init(adapters: AttributionAdapters) { self.adapters = adapters }
+    package init(profile: PipelineProfile?) {
+        adapters = .builtIn
+        self.profile = profile
+    }
+
+    init(adapters: AttributionAdapters) {
+        self.adapters = adapters
+        profile = nil
+    }
+
+    private mutating func advanceDetachedGeneration() {
+        detachedGeneration += 1
+        profile?.increment(.detachedGenerationChanges)
+    }
 
     private mutating func invalidate(_ identity: ProcessIdentity) {
         var pending = [identity]
@@ -108,7 +125,7 @@ public struct Monitor: Sendable {
         live = Set(samples.map(\.identity))
         for identity in previouslyLive.subtracting(live) {
             resolutions[identity] = nil
-            if nodes[identity]?.runtimeProviders.isEmpty == false { detachedGeneration += 1 }
+            if nodes[identity]?.runtimeProviders.isEmpty == false { advanceDetachedGeneration() }
         }
         for sample in samples {
             var node =
@@ -148,7 +165,7 @@ public struct Monitor: Sendable {
             if (changed || !previouslyLive.contains(sample.identity))
                 && (old?.runtimeProviders.isEmpty == false || !node.runtimeProviders.isEmpty)
             {
-                detachedGeneration += 1
+                advanceDetachedGeneration()
             }
             node.sample = sample
             nodes[sample.identity] = node
@@ -158,7 +175,7 @@ public struct Monitor: Sendable {
         for identity in listedSessions.keys where !live.contains(identity) {
             listedSessions[identity] = nil
             invalidate(identity)
-            detachedGeneration += 1
+            advanceDetachedGeneration()
         }
         registryObservedAt = registryObservedAt.filter { live.contains($0.key) }
 
@@ -226,7 +243,7 @@ public struct Monitor: Sendable {
         let changed = providers != node.runtimeProviders
         if metadataChanged || changed {
             invalidate(identity)
-            if !node.runtimeProviders.isEmpty || !providers.isEmpty { detachedGeneration += 1 }
+            if !node.runtimeProviders.isEmpty || !providers.isEmpty { advanceDetachedGeneration() }
         }
         node.runtimeProviders = providers
         nodes[identity] = node
@@ -299,7 +316,7 @@ public struct Monitor: Sendable {
             }
             if listedSessions[runtime] != previous {
                 invalidate(runtime)
-                detachedGeneration += 1
+                advanceDetachedGeneration()
             }
         }
         return parsed != nil
@@ -355,9 +372,13 @@ public struct Monitor: Sendable {
     /// Resolution depends on graph/metadata changes, not new counter or footprint values.
     /// Window collection needs every row but defers display ordering to window projection.
     mutating func accountingFindings(sorted: Bool = false) -> [HeavyProcess] {
+        var misses: UInt64 = 0
         for identity in live where cachedResolution(identity) == nil {
             resolutions[identity] = resolveUncached(identity)
+            misses += 1
         }
+        profile?.increment(.resolutionMisses, by: misses)
+        profile?.increment(.resolutionHits, by: UInt64(live.count) - misses)
         return sorted ? findings() : live.compactMap { finding(for: $0) }
     }
 
