@@ -322,28 +322,13 @@ public struct NativeProcessReader: DiagnosisReading {
         guard let maximum = Self.argumentCapacity, maximumBytes > 0 else {
             return ProcessMetadata(status: .unavailable)
         }
-        var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
-        var needed = 0
-        guard sysctl(&mib, 3, nil, &needed, nil, 0) == 0, needed > MemoryLayout<Int32>.size else {
-            return ProcessMetadata(status: .unavailable)
-        }
-        guard needed <= min(maximum, maximumBytes) else { return ProcessMetadata(status: .truncated) }
-        // XNU sysctl_procargsx returns a successful tail fragment for undersized buffers.
-        // Query the complete size first; never parse a capped argument area (kern_sysctl.c).
-        return withUnsafeTemporaryAllocation(byteCount: needed, alignment: 1) { buffer in
-            guard let base = buffer.baseAddress else { return ProcessMetadata(status: .unavailable) }
-            var count = buffer.count
-            guard sysctl(&mib, 3, base, &count, nil, 0) == 0, count <= buffer.count else {
-                return ProcessMetadata(status: .unavailable)
-            }
-            var after = 0
-            guard sysctl(&mib, 3, nil, &after, nil, 0) == 0 else {
-                return ProcessMetadata(status: .unavailable)
-            }
-            guard after <= buffer.count else { return ProcessMetadata(status: .truncated) }
-            return ProcessArguments.parse(
-                UnsafeRawBufferPointer(rebasing: buffer[..<count]), includeCommand: includeCommand,
-                adapters: adapters)
+        return NativeProcessArguments.read(
+            maximumBytes: min(maximum, maximumBytes), includeCommand: includeCommand, adapters: adapters
+        ) { buffer in
+            var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
+            var count = buffer?.count ?? 0
+            guard sysctl(&mib, 3, buffer?.baseAddress, &count, nil, 0) == 0 else { return nil }
+            return count
         }
     }
 
