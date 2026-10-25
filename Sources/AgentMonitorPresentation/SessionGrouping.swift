@@ -35,9 +35,24 @@ public struct SessionGroup: Equatable, Sendable {
     public var minimumPID: Int32 { contributingProcesses.map(\.pid).min() ?? 0 }
     public var project: String {
         if isSharedRuntime { return "Shared runtime" }
+        return WorkloadDirectory.summary(workloadDirectories)
+    }
+
+    public var workloadDirectories: Set<String?> {
         let workloads = processes.filter { $0.process != $0.attribution.runtime }
         let members = workloads.isEmpty ? processes : workloads
-        return ProjectLabel.make(members.map(\.cwd))
+        return Set(members.map(\.cwd))
+    }
+
+    public var heading: String {
+        let identity = sessionID.map { String($0.prefix(8)) } ?? sessionDescription
+        return "\(provider?.rawValue ?? "unknown") · \(identity) · \(project)"
+    }
+
+    public var headingHelp: String {
+        (["\(provider?.rawValue ?? "unknown")/\(sessionDescription)"]
+            + workloadDirectories.compactMap { $0 }.sorted()
+            + (workloadDirectories.contains(nil) ? ["CWD unavailable"] : [])).joined(separator: "\n")
     }
 
     private var isSharedRuntime: Bool {

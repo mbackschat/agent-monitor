@@ -36,6 +36,7 @@ public struct LiveReportState: Equatable, Sendable {
     mutating func setActionNotice(_ text: String) { notice = text }
 
     public var overview = ContributorOverview()
+    public var commandInspection: CommandInspection?
     public var showsOverview: Bool { overview.enabled && snapshot?.recentActivity != nil }
 
     public var historyMetric: HistoryMetric = .cpu

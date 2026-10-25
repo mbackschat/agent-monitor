@@ -19,6 +19,7 @@ enum TUIFixture {
                     reader: FixtureDiagnosisReader(), excluding: [99], monitorPID: 99
                 ).run()
             },
+            commandSource: { _ in ["fixture-node", "--example", "two words"] },
             source: { currentThresholds, interval, receive in
                 if ProcessInfo.processInfo.environment["AGENT_MONITOR_OVERVIEW_FIXTURE"] == "1" {
                     let session = MonitoringSession(

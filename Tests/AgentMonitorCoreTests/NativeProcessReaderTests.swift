@@ -4,6 +4,27 @@ import Testing
 
 @testable import AgentMonitorCore
 
+@Test func commandInspectionVerifiesItsOwnLifetimeAndExecutable() async throws {
+    let reader = try NativeProcessReader()
+    let own = try #require(try reader.snapshot(processIDs: { [getpid()] }, excluding: []).samples.first)
+    func row(_ identity: ProcessIdentity, executable: String) -> HeavyProcess {
+        HeavyProcess(
+            process: identity, executable: executable, name: own.name, cpuPercent: nil,
+            footprintBytes: nil, cwd: nil, command: nil, metadataStatus: .notObserved,
+            attribution: Attribution(
+                provider: nil, evidence: .unknown, context: .unverified, threadID: nil,
+                rootSessionID: nil, runtime: nil, terminal: nil, runtimeDirectory: nil,
+                candidateThreadIDs: [], ancestry: []))
+    }
+    let command = try await NativeProcessReader.inspectCommand(row(own.identity, executable: own.executable))
+    #expect(command?.isEmpty == false)
+    let reused = ProcessIdentity(pid: own.identity.pid, startMicroseconds: own.identity.startMicroseconds + 1)
+    #expect(try await NativeProcessReader.inspectCommand(row(reused, executable: own.executable)) == nil)
+    #expect(
+        try await NativeProcessReader.inspectCommand(row(own.identity, executable: "/not-the-executable"))
+            == nil)
+}
+
 @Test func nativeReaderMeasuresItsOwnProcess() throws {
     let reader = try NativeProcessReader()
     let snapshot = try reader.snapshot()

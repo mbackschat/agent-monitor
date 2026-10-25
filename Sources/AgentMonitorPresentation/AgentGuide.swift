@@ -112,6 +112,7 @@ public enum AgentGuide {
             Main contributors is the default: v switches to the process view; a opens recent/remainder groups.
             Arrows disclose session → executable → process; i toggles overview details; Page Up/Down scroll detail; Return inspects a current worker without changing grouping.
             . pins the owning overview session (or selected process/session in process view); p pauses/resumes the view while sampling continues.
+            x reads/hides arguments for the expanded current process; read time is live even while paused.
             [/] scroll details; -/+ shrink/grow details by 5 percentage points (10–90%).
             0 minimizes; 9 maximizes; = restores the chosen split (initially 50%).
             d starts CPU diagnosis immediately: three one-second waits plus scans and up to three seconds per queried provider; each run may query again.

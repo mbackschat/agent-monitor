@@ -10,7 +10,7 @@
 
 When several coding agents are running, compare their workloads together: agent, session, working directory, executable (such as `rustc`, `java` or `node`), CPU and memory. Inspect relevant arguments on demand, then message the verified agent, jump to its terminal or review stopping an exact process.
 
-The [product goal](docs/product.md) is a clear, actionable resource overview under pressure, rather than another general-purpose process list. **Presentation acceptance is still open:** current group headings can obscure session identity behind “Multiple directories”, and human-readable session names are not yet available. The [Mac/TUI review](PLAN.md#resource-accounting-priority) must resolve those gaps; the controls below describe the current interface.
+The [product goal](docs/product.md) is a clear, actionable resource overview under pressure, rather than another general-purpose process list. **Presentation acceptance is still open:** session and process-group headings now lead with provider/session identity and compact workload directories; human-readable session names are not yet available. The [Mac/TUI review](PLAN.md#resource-accounting-priority) must resolve those gaps; the controls below describe the current interface.
 
 This README describes the current source build, which can be ahead of the [latest release](https://github.com/mbackschat/agent-monitor/releases/latest); newer controls, history and the menu bar app require a [source build](docs/installation.md#build-from-source).
 
@@ -172,7 +172,7 @@ A Codex runtime holding multiple thread writers is labeled **shared runtime** wh
 
 Session associations identify **where a process was launched**. A shared daemon may later serve other sessions, so its current activity cannot always be assigned to the session that started it. Group totals cover the heavy processes shown, not every process in a session.
 
-The monitor inspects only your user's processes and does not read conversation transcripts. Command arguments are hidden unless you request them with `--commands`.
+The monitor inspects only your user's processes and does not read conversation transcripts. Command arguments are hidden unless you request them with `--commands`, **Read arguments** in a Mac process inspector, or `x` in TUI process details. On-demand inspection reads one verified process now, keeps only the active inspection in memory and does not start recording.
 
 ## Adding more agents
 

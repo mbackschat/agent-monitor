@@ -411,10 +411,8 @@ struct MenuBarView: View {
             }.padding(.top, 8)
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(group.project).font(.subheadline.bold()).lineLimit(1).truncationMode(.middle)
-                    .help(
-                        "\(group.project) · \(group.provider?.rawValue ?? "unknown") · \(group.sessionID ?? "unresolved")"
-                    )
+                Text(group.heading).font(.subheadline.bold()).lineLimit(1).truncationMode(.tail)
+                    .help(group.headingHelp)
                 Spacer(minLength: 2)
                 Text(resource(group.cpuTotal, unit: "%", partial: group.cpuPartial))
                     .monospacedDigit().frame(width: 48, alignment: .trailing)
@@ -461,7 +459,7 @@ struct MenuBarView: View {
                     "Observed chain: \(process.attribution.ancestry.map { String($0.pid) }.joined(separator: " ← "))"
                 )
                 if let root = process.attribution.rootSessionID { Text("Root session: " + root) }
-                if let command = process.command { Text("Command: " + command.joined(separator: " ")) }
+                MenuBarCommandInspection(process: process, controller: model.commands)
                 if !process.attribution.candidateThreadIDs.isEmpty {
                     Text("Candidates: " + process.attribution.candidateThreadIDs.joined(separator: ", "))
                 }

@@ -107,8 +107,12 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("Candidates:") && !$0.contains("PID 42 |")
+        $0.contains("x read arguments on demand") && !$0.contains("PID 42 |")
     }
+    try writeAllBytes(Array("[".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("Candidates:") && !$0.contains("PID 42 |") }
     try writeAllBytes(Array(String(repeating: "[", count: 20).utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
@@ -503,6 +507,14 @@ private func dividerRow(_ text: String) -> Int? {
     ) {
         $0.contains("PID 42 |") && !$0.contains("Main contributors")
     }
+    try writeAllBytes(Array("9x".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("[2] two words") && $0.contains("read on demand") && $0.contains("PAUSED") }
+    try writeAllBytes(Array("x".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("x read arguments on demand") && !$0.contains("[2] two words") }
     try writeAllBytes(Array("q".utf8), to: terminal.master)
     try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
 }

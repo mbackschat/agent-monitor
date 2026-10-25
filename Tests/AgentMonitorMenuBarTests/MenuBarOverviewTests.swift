@@ -203,3 +203,34 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
             to: URL(fileURLWithPath: path))
     }
 }
+
+@Test @MainActor func commandInspectionRendersArgumentBoundariesInABoundedPane() async throws {
+    _ = NSApplication.shared
+    let process = try #require(try nativeOverviewFixture().findings.first)
+    let controller = CommandInspectionController { _ in ["java", "-Xmx2g", "two words"] }
+    #expect(controller.start(process))
+    await controller.wait()
+    let host = NSHostingView(
+        rootView: MenuBarCommandInspection(process: process, controller: controller)
+            .padding(12).frame(width: 400).background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: .aqua)
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize.height <= 220)
+    host.frame.size = host.fittingSize
+    let bitmap = try #require(
+        NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: Int(host.bounds.width * 2),
+            pixelsHigh: Int(host.bounds.height * 2), bitsPerSample: 8,
+            samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+    bitmap.size = host.bounds.size
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = .accurate
+    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
+    let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+    #expect(text.contains("read on demand"), "\(text)")
+    #expect(text.contains("java"), "\(text)")
+    #expect(text.contains("two words"), "\(text)")
+    #expect(text.contains("Hide"), "\(text)")
+}

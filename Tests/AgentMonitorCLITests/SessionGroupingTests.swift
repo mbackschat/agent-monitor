@@ -227,13 +227,13 @@ private func groupedSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
     let second = groupedRow(
         2, thread: "same", cwd: "/work/actual-project", runtimeDirectory: "/launch/old-project")
     let group = try #require(SessionGrouping.groups([first, second]).first)
-    #expect(group.project == "actual-project")
+    #expect(group.project == "/work/actual-project")
     #expect(group.id == .session(provider: "codex", id: "same"))
     #expect(
         SessionGrouping.groups([first, groupedRow(3, thread: "same", cwd: "/work/another-project")]).first?
-            .project == "Multiple directories")
+            .project == "2 dirs")
     #expect(
-        SessionGrouping.groups([groupedRow(4, thread: "same", cwd: nil)]).first?.project == "Unknown project")
+        SessionGrouping.groups([groupedRow(4, thread: "same", cwd: nil)]).first?.project == "CWD unavailable")
     var state = LiveReportState()
     state.receive(groupedSnapshot([first]))
     let text = LiveReportLayout.lines(state: state, width: 140, height: 24).map(\.text).joined(
@@ -258,11 +258,14 @@ func directoryLabelsDoNotClaimProjectsOrChangeSessionMembership(
     let first = try #require(groups.first { $0.sessionID == "first" })
     #expect(first.id == .session(provider: provider.rawValue, id: "first"))
     #expect(first.processes.map(\.process.pid) == [101, 102])
-    #expect(first.project == "Multiple directories")
-    #expect(first.label.contains("Multiple directories"))
+    #expect(first.project == "2 dirs")
+    #expect(first.heading == "\(provider.rawValue) · first · 2 dirs")
+    #expect(first.headingHelp.contains("/work/repo"))
+    #expect(first.headingHelp.contains(otherDirectory))
+    #expect(first.label.contains("2 dirs"))
     let second = try #require(groups.first { $0.sessionID == "second" })
     #expect(second.processes.map(\.process.pid) == [103])
-    #expect(second.project == "repo")
+    #expect(second.project == "/work/repo")
 }
 
 @Test func listedRuntimeJoinsTheSessionItHostsWithoutClaimingLaunchOrigin() throws {

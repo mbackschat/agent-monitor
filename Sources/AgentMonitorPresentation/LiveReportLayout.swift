@@ -363,7 +363,14 @@ public enum LiveReportLayout {
         if !attribution.candidateThreadIDs.isEmpty {
             values.append("Candidates: " + attribution.candidateThreadIDs.joined(separator: ", "))
         }
-        if let command = row.command { values.append("Command: " + command.joined(separator: " ")) }
+        if let inspection = state.commandInspection, inspection.process == row.process {
+            values += inspection.lines
+            values.append("x hide arguments")
+        } else if let command = row.command {
+            values.append("Command: " + command.joined(separator: " "))
+        } else if !row.isHistorical {
+            values.append("x read arguments on demand")
+        }
         return wrapped(values, width: width)
     }
 

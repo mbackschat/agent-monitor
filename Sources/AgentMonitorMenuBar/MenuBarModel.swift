@@ -15,6 +15,7 @@ typealias MenuBarSource =
 final class MenuBarModel {
     var report = LiveReportState(grouping: .session, interval: 0.1) {
         didSet {
+            commands.reconcile(with: report)
             if MenuBarRowIndex.needsUpdate(from: oldValue, to: report) {
                 rowIndex = MenuBarRowIndex(state: report)
             }
@@ -22,6 +23,7 @@ final class MenuBarModel {
     }
     private(set) var rowIndex = MenuBarRowIndex(state: LiveReportState(grouping: .session))
     let diagnosis: CPUDiagnosisController
+    let commands = CommandInspectionController()
     var panelSize: MenuBarPanelSize = .standard
     var showsKeyboardHelp = false
     private(set) var arrivals = MenuBarArrivals()
@@ -143,6 +145,7 @@ final class MenuBarModel {
     }
 
     func close() {
+        commands.dismiss()
         diagnosis.dismiss()
         if let panel = report.actionPanel {
             switch panel.phase {
@@ -171,6 +174,7 @@ final class MenuBarModel {
         await collection?.value
         await action?.value
         await diagnosis.stop()
+        await commands.wait()
         collection = nil
         action = nil
     }

@@ -30,6 +30,7 @@ public enum TerminalReport {
         color: Bool = true,
         actions: any ProcessActions = SessionActions.local(),
         diagnosisSource: @escaping CPUDiagnosisSource = CPUDiagnosisSession.collectLocal,
+        commandSource: @escaping CommandInspectionController.Source = NativeProcessReader.inspectCommand,
         source: @escaping SnapshotSource
     ) async throws {
         let identity = Identity(components: ["agent-monitor"])
@@ -39,6 +40,8 @@ public enum TerminalReport {
             invalidationIdentities: [identity])
         let outcome = TerminalOutcome()
         let diagnosis = CPUDiagnosisController(source: diagnosisSource)
+        let commands = CommandInspectionController(source: commandSource)
+        commands.onChange = { [weak state] value in state?.mutate { $0.commandInspection = value } }
         diagnosis.onChange = { [weak state] value in state?.mutate { $0.diagnosis = value } }
         // SwiftTUI 0.14.0 defaults to mouse reporting, which captures terminal selection drags.
         let host = TerminalHost(
@@ -56,6 +59,7 @@ public enum TerminalReport {
             stateContainer: state,
             focusTracker: FocusTracker(invalidationIdentities: [identity]),
             keyHandler: { key, _, state in
+                defer { commands.reconcile(with: state.state) }
                 if state.state.diagnosis.isVisible {
                     guard key.modifiers.isEmpty else { return .handled }
                     let size = host.surfaceSize
@@ -123,6 +127,12 @@ public enum TerminalReport {
                 case .character("k"): begin(.terminate)
                 case .character("s"): begin(.message)
                 case .character("f"): begin(.focus)
+                case .character("x"):
+                    if commands.state != nil {
+                        commands.dismiss()
+                    } else if let row = state.state.commandInspectionTarget {
+                        commands.start(row)
+                    }
                 case .return: state.mutate { $0.inspectOverviewProcess() }
                 case .character("i"):
                     state.mutate { if $0.showsOverview { $0.overview.toggleDetails() } }
@@ -150,18 +160,23 @@ public enum TerminalReport {
             },
             viewBuilder: { value, _ in
                 TerminalReportView(
-                    state: value, container: state, interval: liveInterval, source: source, outcome: outcome)
+                    state: value, container: state, interval: liveInterval, source: source, outcome: outcome,
+                    commands: commands)
             }
         )
         do {
             _ = try await runtime.run()
         } catch {
+            commands.dismiss()
+            await commands.wait()
             await diagnosis.stop()
             outcome.actionTask?.cancel()
             await outcome.actionTask?.value
             throw error
         }
         await diagnosis.stop()
+        commands.dismiss()
+        await commands.wait()
         outcome.actionTask?.cancel()
         await outcome.actionTask?.value
         if let error = outcome.error { throw error }
@@ -242,6 +257,7 @@ private struct TerminalReportView: View {
     let interval: LiveInterval
     let source: SnapshotSource
     let outcome: TerminalOutcome
+    let commands: CommandInspectionController
     @Environment(\.requestTermination) private var requestTermination
 
     var body: some View {
@@ -259,7 +275,10 @@ private struct TerminalReportView: View {
             do {
                 try await source({ await container.state.thresholds }, interval) {
                     snapshot in
-                    _ = await MainActor.run { container.mutate { $0.receive(snapshot) } }
+                    _ = await MainActor.run {
+                        container.mutate { $0.receive(snapshot) }
+                        commands.reconcile(with: container.state)
+                    }
                 }
             } catch is CancellationError {
                 return

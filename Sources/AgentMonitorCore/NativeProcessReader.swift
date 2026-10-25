@@ -246,6 +246,32 @@ public struct NativeProcessReader: DiagnosisReading {
         return executablePath(sample.identity.pid) == sample.executable
     }
 
+    /// An explicit inspection reads only argv, with the same lifetime/path bracket as metadata.
+    /// The 256 KiB ceiling bounds one inspected command; oversized argument areas remain unavailable.
+    public static func inspectCommand(_ process: HeavyProcess) async throws -> [String]? {
+        guard !process.isHistorical else { return nil }
+        let worker = SerialBlockingWorker(name: "agent-monitor-command", initial: ())
+        do {
+            let command = try await worker.perform { _ -> [String]? in
+                let reader = try NativeProcessReader()
+                let sample = ProcessSample(
+                    identity: process.process, parentPID: 0, executable: process.executable,
+                    name: process.name, sampledAt: 0, cpuSeconds: nil, footprintBytes: nil)
+                guard reader.isCurrent(sample) else { return nil }
+                let command = reader.arguments(
+                    process.process.pid, includeCommand: true, maximumBytes: 256 * 1024
+                ).command
+                guard reader.isCurrent(sample) else { return nil }
+                return command
+            }
+            await worker.close()
+            return command
+        } catch {
+            await worker.close()
+            throw error
+        }
+    }
+
     private func seconds(_ ticks: UInt64) -> Double {
         // XNU task_power_info supplies Mach ticks, confirmed against CLOCK_PROCESS_CPUTIME_ID.
         // See docs/research/macos-process-attribution.md, observation 2026-10-14.
