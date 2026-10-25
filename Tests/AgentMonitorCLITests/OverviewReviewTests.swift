@@ -133,7 +133,7 @@ import Testing
         #expect(abs(state.overview.cpuMeterFraction(state.overview.totals) - 0.002) < 1e-9)
         #expect(state.overview.memoryMeterFraction(state.overview.totals) == 0.0125)
         let lines = ContributorLayout.lines(state: state, width: 120, height: 24)
-        let row = try #require(lines.first { $0.text.contains("project · codex") })
+        let row = try #require(lines.first { $0.text.contains("codex · session- · /project") })
         #expect(row.text.contains("0.2% ▱▱▱▱"))
     }
 
@@ -170,7 +170,10 @@ import Testing
             try reviewSnapshot(
                 cpu: [20, 10], memory: [1, 1], sameSession: true,
                 directories: ["/one/project", "/two/project"]))
-        #expect(overview.nodes[session(1)]?.title.hasPrefix("Multiple directories ·") == true)
+        #expect(overview.nodes[session(1)]?.title == "codex · session- · 2 dirs")
+        // Matching basenames stay distinguishable on the contributor rows.
+        let titles = overview.nodes[session(1)]?.children.compactMap { overview.nodes[$0]?.title }
+        #expect(titles == ["node · /one/project", "node · /two/project"])
     }
 
     @Test func resetCannotInventARecentMainListDeparture() throws {

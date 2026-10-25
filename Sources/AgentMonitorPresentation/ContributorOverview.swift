@@ -14,8 +14,21 @@ public indirect enum ContributorID: Hashable, Sendable {
     case collapsed(CollapsedCategory)
     case session(provider: String, session: String, root: String?)
     case provider(parent: ContributorID, name: String)
-    case executable(parent: ContributorID, name: String)
+    /// One contributor: a display name with its frozen workload directory (`nil` when unreadable,
+    /// or for an agent runtime, whose directory is not a workload directory).
+    case executable(parent: ContributorID, name: String, cwd: String?)
+    /// The quantified remainder of a long contributor list.
+    case more(parent: ContributorID)
     case process(parent: ContributorID, identity: ProcessIdentity)
+
+    var parent: ContributorID? {
+        switch self {
+        case .section, .collapsed, .session: nil
+        case .provider(let parent, _), .executable(let parent, _, _), .more(let parent),
+            .process(let parent, _):
+            parent
+        }
+    }
 }
 
 public struct ContributorStats: Equatable, Sendable {
@@ -130,7 +143,7 @@ public struct ContributorNode: Equatable, Sendable, Identifiable {
         func candidate(_ id: ContributorID) -> Bool {
             switch id {
             case .session: true
-            case .executable(let parent, _), .process(let parent, _): candidate(parent)
+            case .executable(let parent, _, _), .more(let parent), .process(let parent, _): candidate(parent)
             case .section, .provider, .collapsed: false
             }
         }
@@ -188,8 +201,10 @@ public struct ContributorOverview: Equatable, Sendable {
     }
     public mutating func sort(by order: ContributorOrder) {
         self.order = order
+        expandRemainders()
         main = contributionOrder(main)
         sortChildren()
+        limitContributors()
     }
     private mutating func sortChildren() {
         for id in Array(nodes.keys) {
@@ -305,7 +320,8 @@ public struct ContributorOverview: Equatable, Sendable {
             switch id {
             case .session(let provider, let id, let root):
                 return .session(provider: provider, session: root ?? id, root: nil)
-            case .executable(let parent, _), .process(let parent, _): return session(parent)
+            case .executable(let parent, _, _), .more(let parent), .process(let parent, _):
+                return session(parent)
             case .provider, .section, .collapsed: return nil
             }
         }
@@ -439,6 +455,7 @@ public struct ContributorOverview: Equatable, Sendable {
             nodes[id] = ContributorNode(id: id, title: section.rawValue)
         }
         var projects: [ContributorID: Set<String?>] = [:]
+        var runtimeContributors: Set<ContributorID> = []
         var exact: Set<ContributorID> = []
         for (key, var stats) in entries {
             stats.currentAvailable = recent.currentContextAvailable
@@ -464,6 +481,7 @@ public struct ContributorOverview: Equatable, Sendable {
                 }
             }
             let leaf = path.last!.0
+            if key.isAgentRuntime { runtimeContributors.insert(path[path.count - 2].0) }
             nodes[leaf]?.process = key.process
             if let record = metadata[key] {
                 nodes[leaf]?.evidence.append(
@@ -555,11 +573,34 @@ public struct ContributorOverview: Equatable, Sendable {
             nodes[id] = node
             nodes[leafParent]?.children.append(id)
         }
-        for (id, projects) in projects {
-            if case .session(let provider, let session, _) = id {
+        for id in Array(nodes.keys) {
+            switch id {
+            case .session(let provider, let session, let root):
+                let directories = projects[id] ?? []
                 nodes[id]?.title =
-                    "\(ProjectLabel.make(Array(projects))) · \(provider)/\(session.prefix(8))"
-                nodes[id]?.labels = ["Exact session: \(provider)/\(session)"]
+                    (root == nil ? "\(provider) · " : "Thread · ") + session.prefix(8)
+                    + (directories.isEmpty ? "" : " · " + WorkloadDirectory.summary(directories))
+                nodes[id]?.labels =
+                    ["Exact session: \(provider)/\(session)"]
+                    + (directories.isEmpty
+                        ? []
+                        : [
+                            "Directories: "
+                                + directories.map { $0 ?? "unavailable" }.sorted().joined(separator: ", ")
+                        ])
+            case .executable(let parent, let name, let cwd):
+                let owner = sequence(first: parent, next: \.parent).first {
+                    if case .session = $0 { true } else { false }
+                }
+                let workers = nodes[id]?.stats.processes.count ?? 0
+                // A single directory is already shown on the owning session row.
+                let directoryOnOwner = owner.map { (projects[$0]?.count ?? 0) <= 1 } ?? false
+                nodes[id]?.title =
+                    name + (workers > 1 ? " ×\(workers)" : "")
+                    + (runtimeContributors.contains(id) || directoryOnOwner
+                        ? "" : " · " + (cwd.map { WorkloadDirectory.compact($0) } ?? "CWD unavailable"))
+                if let cwd { nodes[id]?.labels = ["Directory: " + cwd] }
+            case .section, .collapsed, .provider, .more, .process: continue
             }
         }
         for id in exact {
@@ -683,6 +724,12 @@ public struct ContributorOverview: Equatable, Sendable {
     }
 
     private mutating func partition(previous: [ContributorID: [ContributorID]]) {
+        expandRemainders()
+        let previous = previous.mapValues { children in
+            children.flatMap { child -> [ContributorID] in
+                if case .more = child { previous[child] ?? [] } else { [child] }
+            }
+        }
         for section in [ContributorSection.recent, .remainder] {
             nodes[.section(section)]?.stats = ContributorStats()
             nodes[.section(section)]?.children = []
@@ -699,6 +746,45 @@ public struct ContributorOverview: Equatable, Sendable {
         for id in Array(nodes.keys) {
             let children = refreshOrder(nodes[id]?.children ?? [], previous: previous[id] ?? [])
             nodes[id]?.children = children
+        }
+        limitContributors()
+    }
+
+    /// Visible contributors per session or provider before the quantified remainder row.
+    private static let visibleContributors = 3
+
+    /// Long contributor lists show the leaders and one remainder row carrying the hidden rows' merged
+    /// statistics, so expansion finds the contributing executables (product contract) while the
+    /// list still conserves CPU, memory and lifetimes. A selection inside the remainder opens it.
+    private mutating func limitContributors() {
+        for id in Array(nodes.keys) {
+            switch id {
+            case .session, .provider: break
+            case .section, .collapsed, .executable, .more, .process: continue
+            }
+            guard let children = nodes[id]?.children, children.count > Self.visibleContributors + 1 else {
+                continue
+            }
+            let hidden = Array(children.dropFirst(Self.visibleContributors))
+            let more = ContributorID.more(parent: id)
+            var node = ContributorNode(id: more, title: "+\(hidden.count) more")
+            for child in hidden { node.stats.merge(nodes[child]?.stats ?? ContributorStats()) }
+            node.children = hidden
+            nodes[more] = node
+            nodes[id]?.children = Array(children.prefix(Self.visibleContributors)) + [more]
+            let concealed = Set(hidden)
+            if let selection, sequence(first: selection, next: \.parent).contains(where: concealed.contains) {
+                open.insert(more)
+            }
+        }
+    }
+
+    private mutating func expandRemainders() {
+        for id in Array(nodes.keys) {
+            guard case .more(let parent) = id, let hidden = nodes[id]?.children else { continue }
+            let shown = nodes[parent]?.children.filter { $0 != id } ?? []
+            nodes[parent]?.children = shown + hidden
+            nodes[id] = nil
         }
     }
 
@@ -749,13 +835,13 @@ public struct ContributorOverview: Equatable, Sendable {
                     "\(provider) · \(owner.resolution.rawValue)"
                 ))
         }
-        let family = ContributorID.executable(parent: result.last!.0, name: key.executableName)
-        result.append((family, "executable \(key.executableName)"))
-        result.append(
-            (
-                .process(parent: family, identity: key.process),
-                "\(key.executableName) · PID \(key.process.pid)"
-            ))
+        // An adapter-recognised runtime's basename can be a version string (Claude's
+        // `versions/<version>` install), so the runtime role names it instead.
+        let name = key.isAgentRuntime ? "\(provider) runtime" : key.executableName
+        let family = ContributorID.executable(
+            parent: result.last!.0, name: name, cwd: key.isAgentRuntime ? nil : key.cwd)
+        result.append((family, name))
+        result.append((.process(parent: family, identity: key.process), "\(name) · PID \(key.process.pid)"))
         return result
     }
 
@@ -826,7 +912,9 @@ private func identity(_ id: ContributorID) -> String {
     case .session(let provider, let session, let root):
         return "g" + field(provider) + field(session) + field(root ?? "")
     case .provider(let parent, let name): return identity(parent) + "p" + field(name)
-    case .executable(let parent, let name): return identity(parent) + "e" + field(name)
+    case .executable(let parent, let name, let cwd):
+        return identity(parent) + "e" + field(name) + (cwd.map { "d" + field($0) } ?? "u")
+    case .more(let parent): return identity(parent) + "m"
     case .process(let parent, let process):
         return identity(parent) + "i\(process.pid):\(process.startMicroseconds)"
     }

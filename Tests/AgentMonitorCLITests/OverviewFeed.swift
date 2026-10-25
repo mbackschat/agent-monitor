@@ -15,6 +15,7 @@ struct OverviewFeed {
         var memory: UInt64 = 1_000_000
         var cwd: String? = "/fixture"
         var command: [String]? = nil
+        var runtime = false
     }
 
     private var ledger = CounterLedger()
@@ -51,7 +52,7 @@ struct OverviewFeed {
                         evidence: worker.session == nil ? .unknown : .marker, context: .unverified,
                         threadID: worker.session, rootSessionID: nil, runtime: nil, terminal: nil,
                         runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []))
-            })
+            }, runtimes: Set(zip(workers, samples).filter { $0.0.runtime }.map(\.1.identity)))
         store.append(window.seal(scope: .agentsOnly), current: window.current, present: window.present)
         return snapshot()
     }

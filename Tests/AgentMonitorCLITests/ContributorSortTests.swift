@@ -23,8 +23,8 @@ import Testing
         }
         var previous = ledger.ingest(samples(0), listedAt: 0)
         let session = ContributorID.session(provider: "claude", session: "fixture", root: nil)
-        let java = ContributorID.executable(parent: session, name: "java")
-        let zsh = ContributorID.executable(parent: session, name: "zsh")
+        let java = ContributorID.executable(parent: session, name: "java", cwd: "/fixture")
+        let zsh = ContributorID.executable(parent: session, name: "zsh", cwd: "/fixture")
         for tick in 1...3 {
             let values = samples(tick)
             let scan = ledger.ingest(values, listedAt: Double(tick))
@@ -66,8 +66,8 @@ import Testing
             let cpuRows = state.overview.visibleRows
             #expect(cpuRows.filter { $0.node.process != nil }.compactMap { $0.node.process?.pid } == [2, 1])
             let lines = ContributorLayout.lines(state: state, width: 120, height: 40).map(\.text)
-            let javaLine = try #require(lines.firstIndex { $0.contains("executable java") })
-            let zshLine = try #require(lines.firstIndex { $0.contains("executable zsh") })
+            let javaLine = try #require(lines.firstIndex { $0.contains("java ×2") })
+            let zshLine = try #require(lines.firstIndex { $0.contains("zsh") })
             #expect(javaLine < zshLine)
             state.overview.sort(by: .memory)
             #expect(state.overview.nodes[session]?.children == [zsh, java])
@@ -104,8 +104,8 @@ extension ContributorSortTests {
         try tick(0, 0, java: 0, rustc: 0)
         try tick(4, 0.5, java: 0.9, rustc: 0.1)
         #expect(overview.main == [session("alpha"), session("beta")])
-        let java = ContributorID.executable(parent: session("alpha"), name: "java")
-        let rustc = ContributorID.executable(parent: session("alpha"), name: "rustc")
+        let java = ContributorID.executable(parent: session("alpha"), name: "java", cwd: "/fixture")
+        let rustc = ContributorID.executable(parent: session("alpha"), name: "rustc", cwd: "/fixture")
         #expect(overview.nodes[session("alpha")]?.children == [java, rustc])
 
         try tick(0.4, 3, java: 0.1, rustc: 0.9)

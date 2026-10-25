@@ -154,6 +154,32 @@ public struct ReportPin: Equatable, Sendable {
     public let label: String
 }
 
+/// Compact workload-directory labels; full paths stay in details (product contract: compact,
+/// distinguishable paths with the full path on access).
+enum WorkloadDirectory {
+    /// Abbreviates the home directory and keeps the last two components of deeper paths.
+    static func compact(_ path: String, home: String = NSHomeDirectory()) -> String {
+        let relative =
+            path == home || path.hasPrefix(home + "/") ? "~" + path.dropFirst(home.count) : path
+        let components = relative.split(separator: "/", omittingEmptySubsequences: true)
+        let leading = relative.hasPrefix("~") ? 1 : 0
+        guard components.count - leading > 2 else { return relative }
+        return "…/" + components.suffix(2).joined(separator: "/")
+    }
+
+    /// One directory by path, several by count; an unreadable directory stays disclosed.
+    static func summary(_ directories: Set<String?>) -> String {
+        let known = directories.compactMap { $0 }
+        let base: String
+        switch known.count {
+        case 0: return "CWD unavailable"
+        case 1: base = compact(known[0])
+        default: base = "\(known.count) dirs"
+        }
+        return directories.contains(nil) ? base + " + CWD unavailable" : base
+    }
+}
+
 enum ProjectLabel {
     static func make(_ directories: [String?]) -> String {
         let known = Set(directories.compactMap { $0 })
