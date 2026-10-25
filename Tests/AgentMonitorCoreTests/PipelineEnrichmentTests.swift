@@ -121,12 +121,10 @@ final class StalledEnrichment: ProcessReading, SamplingClock, SessionRegistryRea
 private final class MetadataBatchFixture: ProcessReading, SamplingClock, Sendable {
     let time = Mutex(0.0)
     let calls = Mutex<[Int32]>([])
-    let entered = AsyncStream<Void>.makeStream()
-    let release = DispatchSemaphore(value: 0)
-    let blockFirst: Bool
+    let onFirstRead: @Sendable () -> Void
     let readSeconds: Double
-    init(blockFirst: Bool = false, readSeconds: Double = 0) {
-        self.blockFirst = blockFirst
+    init(readSeconds: Double = 0, onFirstRead: @escaping @Sendable () -> Void = {}) {
+        self.onFirstRead = onFirstRead
         self.readSeconds = readSeconds
     }
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot { diagnosisScan([], at: monotonicNow()) }
@@ -135,10 +133,7 @@ private final class MetadataBatchFixture: ProcessReading, SamplingClock, Sendabl
             value.append(sample.identity.pid)
             return value.count == 1
         }
-        if first, blockFirst {
-            entered.continuation.yield(())
-            _ = release.wait(timeout: .now() + 3)
-        }
+        if first { onFirstRead() }
         time.withLock { $0 += readSeconds }
         return ProcessMetadata(status: .markerRead)
     }
@@ -148,8 +143,8 @@ private final class MetadataBatchFixture: ProcessReading, SamplingClock, Sendabl
 }
 
 @Test(.timeLimit(.minutes(1))) func finishingEnrichmentSkipsTheRestOfAnAcceptedBatch() async throws {
-    let fixture = MetadataBatchFixture(blockFirst: true)
     let enrichment = PipelineEnrichment()
+    let fixture = MetadataBatchFixture(onFirstRead: { enrichment.finish() })
     let worker = Task {
         try await enrichment.refreshMetadata(
             reader: fixture, clock: fixture, includeCommand: false, checking: {})
@@ -157,9 +152,6 @@ private final class MetadataBatchFixture: ProcessReading, SamplingClock, Sendabl
     enrichment.requestMetadata(
         MetadataRefreshRequest(
             samples: (1...100).map { sample(Int32($0), at: 0) }, prompt: [:], requestedAt: 0))
-    for await _ in fixture.entered.stream { break }
-    enrichment.finish()
-    fixture.release.signal()
     try await worker.value
     #expect(fixture.calls.withLock { $0.count } == 1)
 }
