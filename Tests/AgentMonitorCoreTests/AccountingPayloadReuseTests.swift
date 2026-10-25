@@ -2,6 +2,28 @@ import Testing
 
 @testable import AgentMonitorCore
 
+@Test func categoryReuseKeepsRuntimeRoleChangesSeparate() throws {
+    var ledger = CounterLedger()
+    var monitor = Monitor()
+    var process = sample(42, at: 0, cpu: 0)
+    var window = AccountingWindow(baseline: ledger.ingest([process], listedAt: 0))
+    for tick in 1...2 {
+        process.sampledAt = Double(tick)
+        process.cpuSeconds = Double(tick)
+        let scan = ledger.ingest([process], listedAt: Double(tick))
+        monitor.ingest([process])
+        try window.append(
+            scan, rows: monitor.accountingFindings(), runtimes: tick == 1 ? [] : [process.identity])
+    }
+    let records = window.seal(scope: .allProcesses).records
+    #expect(records.count == 2)
+    #expect(Set(records.map { $0.category.isAgentRuntime }) == [false, true])
+    #expect(records.allSatisfy { $0.cpuSeconds == 1 && $0.measuredIntervals == 1 })
+    #expect(Set(records.map { $0.category.owner }).count == 1)
+    #expect(Set(records.map { $0.category.executable }).count == 1)
+    #expect(window.payloadSize == window.recountedPayloadSize)
+}
+
 @Test(arguments: [80, 10_000])
 func incrementalPayloadMatchesRetainedStorageThroughUpdatesMergesAndCollapse(limit: Int) throws {
     var ledger = CounterLedger()
