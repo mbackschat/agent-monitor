@@ -11,7 +11,7 @@ package final class PipelineProfile: Sendable {
         case metadataBatch, providerRequest
     }
     enum Worker: String, CaseIterable, Sendable { case acquisition, metadata, providers }
-    enum Counter: String, Sendable {
+    enum Counter: String, CaseIterable, Sendable {
         case resolutionHits, resolutionMisses, detachedGenerationChanges, registryAncestorChecks
     }
     struct Stamp {
@@ -126,7 +126,10 @@ package final class PipelineProfile: Sendable {
                                 jobs: state.workers[$0, default: Samples()].statistics)
                         )
                     }),
-                counters: Dictionary(uniqueKeysWithValues: state.counters.map { ($0.key.rawValue, $0.value) })
+                counters: Dictionary(
+                    uniqueKeysWithValues: Counter.allCases.map {
+                        ($0.rawValue, state.counters[$0, default: 0])
+                    })
             )
         }
     }

@@ -2,6 +2,18 @@ import Testing
 
 @testable import AgentMonitorCore
 
+@Test func profileEmitsZeroForEveryCounterBeforeItFires() {
+    let profile = PipelineProfile()
+    var expected: [String: UInt64] = [
+        "resolutionHits": 0, "resolutionMisses": 0,
+        "detachedGenerationChanges": 0, "registryAncestorChecks": 0,
+    ]
+    #expect(profile.snapshot().counters == expected)
+    profile.increment(.resolutionHits, by: 3)
+    expected["resolutionHits"] = 3
+    #expect(profile.snapshot().counters == expected)
+}
+
 @Test func registryDiscoveryChecksEachRuntimeOnceAndExcludesNestedHelpers() {
     let profile = PipelineProfile()
     var monitor = Monitor(profile: profile)
@@ -19,7 +31,7 @@ import Testing
         monitor.sessionRegistryRuntimes(in: findings)[.claude] == [
             external.identity, helper.identity, nested.identity,
         ])
-    #expect(profile.snapshot().counters["registryAncestorChecks"] == nil)
+    #expect(profile.snapshot().counters["registryAncestorChecks"] == 0)
     #expect(
         monitor.sessionRegistryRuntimes(in: findings + findings, excludingChildrenOf: 5)
             == [.claude: [external.identity]])
