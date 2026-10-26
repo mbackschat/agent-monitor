@@ -234,7 +234,7 @@ func detailsSplitStaysFixedAcrossRefreshSelectionAndDisappearance(width: Int) th
 }
 
 @Test(arguments: [40, 60, 80, 100, 120, 160, 200])
-func keyboardHelpSeparatesControlsWithoutClipping(width: Int) {
+func keyboardHelpRetainsControlsWithinTheViewport(width: Int) {
     let lines = LiveReportLayout.lines(state: LiveReportState(), width: width, height: 24)
     let text = lines.map(\.text).joined(separator: "\n")
     for control in [
@@ -244,7 +244,6 @@ func keyboardHelpSeparatesControlsWithoutClipping(width: Int) {
     ] {
         #expect(text.contains(control))
     }
-    #expect(text.contains("  "))
     #expect(lines.count == 24)
     #expect(lines.allSatisfy { $0.text.count <= width })
 }

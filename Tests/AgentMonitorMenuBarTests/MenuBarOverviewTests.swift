@@ -65,7 +65,7 @@ import Vision
     }
 }
 
-@Test @MainActor func samplingExplanationUsesCompactProgressiveDisclosure() throws {
+@Test @MainActor func collapsedSamplingDisclosureFitsACompactRow() throws {
     _ = NSApplication.shared
     let host = NSHostingView(
         rootView: MenuBarSamplingCoverage(snapshot: try nativeOverviewFixture()).frame(width: 376))

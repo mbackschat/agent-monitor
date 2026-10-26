@@ -12,7 +12,7 @@ For downloadable archives and GitHub publication, follow the [release guide](rel
 
 `DisplayCadenceTests` blocks the history sink on the publication worker while the production pipeline continues scanning, then checks exact CPU, endpoints, unit counts and timing coverage after backlog merging. `PublicationCoverageTests` checks memory/gap extrema, ordinary display aggregation without a backlog flag, and whole-unit history eviction. `SelfClockedAcquisitionTests` exercises the same synchronous deadline loop as the native clock, including interval changes, cancellation and overruns without catch-up scans. `AcquisitionHandoffTests` checks ring capacity, ordering and rejection without displacement. The native loop does not await actor admission; these guards do not establish OS scheduling guarantees.
 
-Select checks by the behavior and artifacts affected, not by running every available probe. During implementation, use red/green tests for the changed behavior; before committing, run the affected suites and integration checks. Use the full Swift suite for shared or cross-target behavior changes. Repeat checks only after relevant edits, failures or unresolved concerns. CI and release gates remain unchanged.
+Select checks by the behavior and artifacts affected, not by running every available probe. During implementation, use red/green tests for the changed behavior; before committing, run the affected suites and integration checks. Use the full Swift suite for shared or cross-target behavior changes. Repeat checks only after relevant edits, failures or unresolved concerns. Batch related edits before integration validation; a new commit alone is not a reason to repeat a full suite or optimized build. Use debug tests for red/green work. Build optimized products for a native integration, packaging, optimization-specific correctness or performance checkpoint, and run performance measurements against that optimized build. Always report the test configuration separately from the build configuration: a release build is not a release-mode test run. Save slow-command output once and inspect the same log. CI and release gates remain unchanged.
 
 | Change | Required verification |
 | --- | --- |
@@ -40,6 +40,12 @@ uv run scripts/verify-json-schema.py "$(swift build --show-bin-path)/agent-monit
 The Swift Testing suite covers attribution, ambiguity, PID reuse, nested runtimes, parsing, thresholds, native measurement, action identity/routing guards, a fake Codex protocol server and bounded subprocess behavior. Action integration tests signal only a disposable `sleep` child; PTY tests use an injected fake action service. No test should queue messages to live agents or signal user workloads. The smoke check compiles a disposable Swift fixture and launches controlled terminal process trees. It checks exact session IDs, same-directory sessions, detached workers, a scrubbed-marker fallback, CPU normalization, footprint, and exclusion of a small worker. An exited intermediate launcher leaves a marked worker under PID 1 while its Codex runtime keeps the thread writer descriptor open; the check requires the exact runtime and terminal context, independently of monitor history. It also verifies that a worker whose runtime exited retains only its marked session. It terminates only its own fixtures. Python 3 is needed for this development check, not for the monitor.
 
 The [doctor](../scripts/doctor.sh) checks macOS, Swift, the active macOS SDK, Git, the canonical instruction symlink, and any installed project skills. It does not install dependencies or change configuration. Missing optional skills do not fail the check; an incomplete or modified installed skill setup does. It is a prerequisite check, not a replacement for building and testing.
+
+### Keep tests useful
+
+Retain tests for distinct invariants and independently checkable failure classes. Remove repetition only after identifying which existing oracle and boundary still cover it; retain cold/warm, pre/post-pressure and whole-range eviction cases where they differ. Expensive production-composition, differential, allocated-capacity and lease-lifetime guards are not interchangeable with small unit tests. Inject an owned PID when a native test only checks that PID, preserving a separate enumeration guard. Gate a performance acceptance test on an explicit metric; measurement-only opt-in probes remain diagnostic tools, with their provenance and retained research links. Do not delete them merely because they are not ordinary regression tests.
+
+A new oracle should fail for a representative wrong result. The production stall fixture checks per-session CPU and memory maxima in addition to global conservation, so transferring work between sessions cannot pass merely because the total is unchanged. Its smaller injected budget forces compaction, and its duration crosses the rolling-history boundary; production-population capacity has separate guards.
 
 ## Validation coverage
 
@@ -177,7 +183,6 @@ Do not request Full Disk Access merely because a process field is unavailable. M
 
 SwiftTUI’s 0.14.0 scene launcher attempts to bind a Unix discovery socket, rejected by this sandbox. The monitor uses its documented public `RunLoop`, `TerminalHost`, `InputReader`, and `SignalReader` instead. This single-screen terminal host needs no discovery service or permission changes. See the [runtime findings](research/terminal-ui.md#sandbox-compatible-terminal-host).
 
-
 ## Build and probe artifact retention
 
 `.build` is disposable working storage, not a project archive. Source, pinned dependencies (`Package.resolved`), maintained probe sources and indexed measurements in [research](research/README.md) are the durable inputs. Before deleting an experimental output that supports a retained claim, save its small sanitized result and interpretation in research; do not retain raw machine-wide traces merely because they are ignored by Git.
@@ -267,6 +272,17 @@ Quit any already-running Agent Monitor through its status menu, then run `bash s
 5. **Quit:** choose Quit in the status menu and confirm the icon disappears. Report the tested commit, macOS version, pass/fail/skipped for each step and a short reproduction for failures; redact workload identities in any screenshots.
 
 This smoke test does not establish provider message delivery, process termination, terminal Automation, VoiceOver, multiple-display/Space behavior or sustained energy cost. Those remain targeted checks below, not prerequisites for every edit. Actual send/signal tests require disposable owned targets; do not use real workloads to fill a coverage gap.
+
+Targeted follow-ups, tracked by MENUBAR-01/03 in [PLAN](../PLAN.md#existing-validation-follow-ups):
+
+- Compare simultaneous sessions/CWDs/executables, nested CPU/memory ordering, recent departed contributions and coverage disclosure at narrow and wide sizes; watch shifting directory suffixes and truncated common prefixes.
+- Verify five-second display updates and close/reopen with live and static icons; measure ten-minute closed-panel CPU/wakeups and inspect App Nap separately from CLI results.
+- Check diagnosis Cancel/Back/Run again with blocking reads, plus continued collection and cancellation after detachment; assess concurrent diagnosis cost separately.
+- Verify `y`/Copy PID, contextual actions, pin hover/focus and Unpin all, enlarged disclosure/info hit targets, VoiceOver meanings and modifier handling. Exercise real actions only with disposable targets.
+
+### Manual TUI workflow check
+
+At narrow and wide sizes, compare the main overview and secondary process view against the [product contract](product.md). The [dated feedback triage](research/terminal-ui.md#feedback-triage--2026-10-26) distinguishes implemented overview behavior from remaining process-view defects. Check leading hierarchy, per-process CWD, details versus folding, a discoverable close action, scoped scrolling and pin symbols. Verify German-keyboard Option+5/6 delivery in the actual terminal; source checks cannot prove which key/modifier events arrive. Diagnosis Page Up/Down is implemented; alternative Space/top/bottom bindings remain ideas, not shipped controls.
 
 ### Build and coverage details
 

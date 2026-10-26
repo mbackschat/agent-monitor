@@ -50,3 +50,41 @@ Conclusion: neither a bufferingNewest wrapper nor a bounded custom reader establ
 The [0.16.0 release](https://github.com/SwiftTUI/swift-tui/releases/tag/0.16.0) advertises bounded input ownership. Read-only comparison against the already available local tag object `9ef8feec9fee6fc199767a52aa1c913976bdb2c9` shows that its bounded ingress applies to WebHost, not this native reader path. No checkout, fetch or dependency update was performed. The raw drain and public custom-host initializers are unchanged; native reader production, partial paste storage and the eager event pump remain unbounded. Chunk recovery and recursive-parser fixes do not supply a storage limit.
 
 The new [InputAdmission](https://github.com/SwiftTUI/swift-tui/blob/9ef8feec9fee6fc199767a52aa1c913976bdb2c9/Sources/SwiftTUIRuntime/Input/ScopedInputReading.swift) follows scoped events through their queued/dispatched lifetime, but it and the pulling interfaces are package-only. WebHost uses that machinery; ordinary macOS `InputReader` does not. Public host paste dispatch is still missing. A simple version bump therefore does not close TUI-INPUT-01. Extending the existing reservation mechanism to native/custom-host input is a more focused candidate than introducing another parallel queue model; source review establishes feasibility direction, not an implemented solution.
+
+## User feedback — 2026-10-17
+
+Moved from PLAN on 2026-10-26. These are the original user reports and ideas, not assertions that every described behavior remains current. The source triage below distinguishes current defects from partial improvements and unapproved bindings.
+
+- **FEEDBACK-02 — Separate folding from opening details.** TUI, possibly Mac app: ←/→ currently feels overloaded between root expand/collapse and child details. Footer calls this “fold”. The explanation “←/→ collapses/expands processes; ↑/↓ selects a process, then → opens its details.” appears only inside details, although it describes general navigation. User recommends separate functions and discoverable general help.
+- **FEEDBACK-03 — Make grouped hierarchy visible at the leading edge.** TUI: no clear symbol or indentation at/before the first column; `[-]` in the middle of the “LAUNCH SESSION / HEAVY PROCESS” column is easy to overlook. Screenshot 1 shows group count `1` and child PID `51519` aligned without a clear leading hierarchy cue.
+- **FEEDBACK-04 — Distinguish expandable rows.** TUI: it is not visually obvious which rows support expand/collapse. Related to FEEDBACK-03, but track the affordance independently from indentation.
+- **FEEDBACK-05 — Distinguish session rows from column headers.** TUI: user reports launch sessions appear white like table headers, while processes are orange, making row roles confusing.
+- **FEEDBACK-06 — Investigate missing per-process project information after grouping.** TUI bug candidate; assess shared grouping and Mac app impact. Before grouping, PID `64679`, process `2.1.299`, session `claude/b62cf475-622b-4ae8-8098-1fad1101babc`, TTY `ttys010` shows project `conceptgraph`; sibling node workloads show `client-activity`. After grouping, the session header shows `client-activity`, and `conceptgraph` is absent. PID `64679` is still visible in screenshot 3, so the screenshots support loss of the project label rather than disappearance of that process. Root cause and intended grouped display remain unverified; the screenshots also show different node PIDs/sample totals.
+- **FEEDBACK-07 — Open keyboard help with `?`.** Idea for both TUI and Mac app: provide discoverable keyboard help through `?`.
+- **FEEDBACK-08 — Visually scope details controls.** TUI: footer segment `| [/] scroll  -/+ size  0 min  9 max  = restore` concerns details, but identical color/spacing and an overlooked separator fail to communicate that scope.
+- **FEEDBACK-09 — Make hiding details discoverable.** TUI: user cannot tell how to hide the details pane. Track separately from footer styling so the close interaction is explicitly resolved.
+- **FEEDBACK-10 — Remove ambiguity from the details size percentage.** TUI: `Details 45%` after pressing `-` resembles CPU utilization. User suggests removing the percentage or moving it beside `-/+ size` in keyboard help.
+- **FEEDBACK-11 — Clarify pin state across focus changes.** TUI: `@` and `+` shown while changing focus do not communicate pinning clearly. Assess shared pin state/Mac app impact if investigation indicates a common cause.
+- **FEEDBACK-12 — Add larger diagnosis scrolling steps and endpoint jumps.** TUI idea: long diagnosis output is cumbersome to scroll line by line; proposed Space/Shift+Space scroll by one-third page, `t` jumps to top, and `b` to bottom. Check interaction conflicts before accepting bindings.
+- **FEEDBACK-13 — Fix usable, clearly scoped scrolling on German keyboards.** TUI: user asks what scroll keys target and reports `[`/`]`, entered as Option+5/Option+6 on their German keyboard, do not work. Verify input handling and provide usable bindings; coordinate scope labeling with FEEDBACK-08 and longer navigation with FEEDBACK-12.
+
+Screenshot provenance: user attachments in the 2026-10-17 feedback conversation. Image 1: `/Users/mbackschat/Desktop/missing indent when grouped.png`; image 2: `/Users/mbackschat/Desktop/lost before.png`; image 3: `/Users/mbackschat/Desktop/lost after.png`. These are local source references, not portable repository assets; the observations and identifying values needed for triage are recorded above.
+
+## Feedback triage — 2026-10-26
+
+Read-only review of `79c9255`; no fresh physical terminal testing. The main overview and secondary process view have different input/rendering paths, so overview improvements do not close process-view reports. Unfinished work remains in [PLAN](../../PLAN.md#temporary-feedback-intake--2026-10-17).
+
+| ID | Source finding and remaining gap |
+| --- | --- |
+| FEEDBACK-02 | Overview uses separate fold and `i` details; [process disclosure](../../Sources/AgentMonitorPresentation/LiveReportState.swift) still combines them. |
+| FEEDBACK-03 | Overview has leading symbols/indentation; [wide process grouping](../../Sources/AgentMonitorPresentation/LiveReportLayout.swift) still places disclosure after resource columns. |
+| FEEDBACK-04 | Overview distinguishes expandable rows and leaves; process rows lack an equivalent leading details affordance. |
+| FEEDBACK-05 | Process column headers and unselected session rows share the `.heading` style. |
+| FEEDBACK-06 | Narrow process rows include CWD; wide grouped child descriptions omit it. This establishes a current omission, not the retrospective cause of the screenshot. [Native process labels](../../Sources/AgentMonitorMenuBar/MenuBarProcessLabel.swift) also use group context rather than a row CWD. |
+| FEEDBACK-07 | Native menu help exists, but `?` is absent from [shared shortcuts](../../Sources/AgentMonitorPresentation/ReportShortcut.swift) and [terminal input](../../Sources/AgentMonitorTUI/TerminalReport.swift); the binding remains an idea. |
+| FEEDBACK-08 | Process footer still lists scroll/size controls without an explicit Details scope label. |
+| FEEDBACK-09 | Overview `i` hides details; the process footer does not explicitly advertise hiding them. |
+| FEEDBACK-10 | Process split-pane heading still shows `Details N%`. |
+| FEEDBACK-11 | Selected/unselected pins still use `@`/`+`. This is a presentation concern; no shared pin-state defect was established. |
+| FEEDBACK-12 | Diagnosis implements Page Up/Down. Proposed Space/Shift+Space and endpoint jumps remain unapproved; `t` already has a browsing meaning. |
+| FEEDBACK-13 | Bracket scrolling follows an empty-modifier guard; Page Up/Down does not route to process details. Actual German-keyboard event delivery is still unverified. |

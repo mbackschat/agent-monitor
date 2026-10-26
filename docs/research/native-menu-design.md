@@ -50,11 +50,9 @@ Apple's [NSPopover.contentSize](https://developer.apple.com/documentation/appkit
 
 The subsequent [sizing experiment](development-tools.md#content-sizing-application--2026-10-15) distinguishes source guidance from observed offscreen behavior. The original fixed-height and draft-loss observations above describe the pre-change implementation; current accepted behavior is in [architecture](../architecture.md#native-menu-bar-app).
 
-
 ## Fixed-height clarification — 2026-10-15
 
 The user explicitly requested a stable panel height with optional user resizing, and a freeze control for inspecting rows that reorder. This is a distinct requirement from compact row spacing. Apple's general content-fitting guidance does not establish that a continuously updating process list should resize its outer panel on each membership/disclosure change. The [accepted contract](../architecture.md#native-menu-bar-app) now uses explicit height presets and shared snapshot pause; earlier content-sizing observations above retain their historical context.
-
 
 ## Pin controls and keyboard intent — 2026-10-15
 
@@ -77,3 +75,7 @@ Apple’s [`popoverShouldDetach(_:)` documentation](https://developer.apple.com/
 The user prefers iStat Menus, especially its status items and dropdown, and explicitly requested established UI conventions, graphics over prose, tooltips and progressive disclosure. The same direction applies to TUI, with terminal-native references rather than a copied graphical dropdown. [Bjango's official iStat Menus page](https://bjango.com/mac/istatmenus/) describes compact menu-bar status, detailed menus, history graphs and top CPU/memory application lists. [btop's official repository](https://github.com/aristocratos/btop#screenshots) and [htop's official site](https://htop.dev/) supply the terminal resource-monitor comparison. These public sources were read on this date; no reference app was launched and no upstream code/artwork was copied.
 
 Design consequence: prefer compact resource summaries and visually comparable meters, aligned numeric columns, familiar disclosure/navigation and persistent coverage signals. Put repeated definitions into tooltips or expanded detail. Native SwiftUI/AppKit controls remain the Mac baseline; terminal rows use cell-aware columns, Unicode meters where space permits, and conventional arrow/Page Up/Page Down controls. These are interaction/layout references, not justification for new metrics or weakened accounting qualifiers. The initial preference for CodexBar above remains historical research; iStat Menus now supplies the user's primary resource-monitor comparison.
+
+## User-confirmed interaction checkpoints — 2026-10-17 and 2026-10-24
+
+Moved from PLAN on 2026-10-26 to preserve historical evidence without implying current acceptance. On 2026-10-17 the user confirmed action-review drag detachment, row focus/copy/disclosure behavior and the revised header/presentation; the fixed leading inset replaced the rejected post-release top padding. On 2026-10-24 the user confirmed improved responsiveness after the row-command lookup fix. These reports do not validate later filtering, accounting, inspection or lifecycle changes. Remaining physical checks live in the [development checklist](../development.md#manual-macos-smoke-test) and [PLAN](../../PLAN.md#existing-validation-follow-ups).

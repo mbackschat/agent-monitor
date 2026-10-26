@@ -117,7 +117,8 @@ private final class AncestorHandoffFixture: ProcessReading, AcquisitionClock, Se
             pendingObservations: constrainText ? 1_000_000 : 5_000,
             pendingTextBytes: constrainText ? baseline.textBytes + 100 : 16 * 1_024 * 1_024)
         let oracle = monitor.findings()
-        for _ in 0..<3 {
+        // Cold and warm projections cover admission and recomputation without graph mutation.
+        for _ in 0..<2 {
             let rows = try monitor.accountingFindings(sorted: true, limits: limits, sequence: 1)
             #expect(rows == oracle)
             #expect(rows.allSatisfy { $0.attribution.threadID == sessionA })

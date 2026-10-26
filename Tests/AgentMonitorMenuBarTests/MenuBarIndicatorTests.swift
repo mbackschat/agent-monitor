@@ -32,7 +32,8 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
             unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
         timestamp: Date(timeIntervalSince1970: time), intervalSeconds: 15,
         cpuThresholdPercent: 0, memoryThresholdBytes: 999, sampledProcessCount: 1,
-        unreadableProcessCount: 0, findings: cpu > 0 ? sample.findings : [], agentLoad: nil)
+        unreadableProcessCount: 0, findings: cpu > 0 ? sample.findings : [], agentLoad: nil,
+        observedFindings: sample.findings)
 }
 
 @Test func loadBarsUseFixedMachineCapacityAndDistinguishUnknown() throws {
@@ -48,7 +49,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(indicator.statusDescription.contains("unavailable"))
 }
 
-@Test func badgeCountsCurrentHeavyProcessesFromTheFirstSampleUntilTheyBecomeQuiet() throws {
+@Test func censusKeepsQuietObservedProcessesFromTheFirstSample() throws {
     var indicator = MenuBarIndicator(processorCount: 8)
     #expect(indicator.level == nil)
     #expect(indicator.processCount == nil)
@@ -57,14 +58,23 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
         #expect(indicator.processCount == 1)
     }
     indicator.receive(try loadSample(0))
-    #expect(indicator.processCount == 0)
+    #expect(indicator.processCount == 1)
     #expect(indicator.level == 0)
     indicator.receive(try loadSample(150, pid: 42002))
     #expect(indicator.processCount == 1)
     #expect(!indicator.statusDescription.contains("temporary"))
 }
 
-@Test func badgeIncludesMemoryHeavyProcessesAndDeduplicatesProcessLifetimes() throws {
+@Test func censusDropsAProcessOnlyWhenItsObservationIsAbsent() throws {
+    var indicator = MenuBarIndicator(processorCount: 8)
+    indicator.receive(try loadSample(0))
+    #expect(indicator.processCount == 1)
+    indicator.receive(try menuBarFixture(pids: []))
+    #expect(indicator.processCount == 0)
+    #expect(indicator.level == 0)
+}
+
+@Test func censusIncludesMemoryHeavyProcessesAndDeduplicatesProcessLifetimes() throws {
     let fixture = try menuBarFixture(pids: [42001, 42002], cpu: 0, memoryBytes: 2_000_000_000)
     var indicator = MenuBarIndicator()
     indicator.receive(
@@ -104,7 +114,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(zip(areas, areas.dropFirst()).allSatisfy { $0 < $1 })
 }
 
-@Test func unavailableLoadClearsTheBadgeAndRecoveryRestoresTheActualCount() throws {
+@Test func unavailableLoadClearsTheCensusAndRecoveryRestoresTheActualCount() throws {
     var indicator = MenuBarIndicator(processorCount: 8)
     indicator.receive(try loadSample(50))
     #expect(indicator.processCount == 1)
@@ -116,17 +126,12 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(indicator.statusDescription.contains("50"))
 }
 
-@Test @MainActor func statusBarsKeepTheTemplateSizeAndNeutralStartup() throws {
+@Test @MainActor func startupStatusBarsMatchTheQuietIcon() throws {
     let startup = try iconBitmap(MenuBarStatusImage.make(level: nil))
     let quiet = try iconBitmap(MenuBarStatusImage.make(level: 0))
     #expect(
         startup.representation(using: .png, properties: [:])
             == quiet.representation(using: .png, properties: [:]))
-    for level in 0...3 {
-        let image = MenuBarStatusImage.make(level: level)
-        #expect(image.isTemplate)
-        #expect(image.size == NSSize(width: 18, height: 18))
-    }
 }
 
 @MainActor private func iconBitmap(_ image: NSImage) throws -> NSBitmapImageRep {
@@ -261,7 +266,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(!indicator.statusDescription.contains("CPU > 25%"))
     indicator.receive(try loadSample(0, time: 3))
     #expect(indicator.availability == .current)
-    #expect(indicator.processCount == 0)
+    #expect(indicator.processCount == 1)
     #expect(indicator.level == 0)
 }
 

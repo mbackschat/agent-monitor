@@ -13,6 +13,8 @@ private final class ChurningPipeline: ProcessReading, AcquisitionClock, SessionR
         var oracle = CounterLedger()
         var cpu = 0.0
         var intervals = 0
+        var sessionCPU: [String: Double] = [:]
+        var sessionMemory: [String: UInt64] = [:]
     }
     let state = Mutex(State())
     let consumerEntered = ClockGate()
@@ -28,11 +30,12 @@ private final class ChurningPipeline: ProcessReading, AcquisitionClock, SessionR
             }
             let tick = state.tick
             let generation = tick / 10
-            let pids = Array(1...200) + (0..<5).map { 10_000 + generation * 5 + $0 }
+            let pids = Array(1...8) + (0..<5).map { 10_000 + generation * 5 + $0 }
             let samples = pids.map { pid in
                 var value = sample(
                     Int32(pid), at: state.time,
-                    cpu: Double(pid < 10_000 ? tick : tick % 10 + 1) / 1_000)
+                    cpu: Double(pid < 10_000 ? tick : tick % 10 + 1) / 1_000
+                        * (pid.isMultiple(of: 2) ? 2 : 1), memory: UInt64(pid) * 1_000)
                 value.executable = pid < 10_000 ? "/bin/worker" : "/bin/worker-\(pid)"
                 if pid >= 10_000 { value.startedAt = Double(generation) - 0.05 }
                 return value
@@ -40,6 +43,17 @@ private final class ChurningPipeline: ProcessReading, AcquisitionClock, SessionR
             let counters = state.oracle.ingest(samples, listedAt: state.time)
             state.cpu += counters.contributions.reduce(0) { $0 + $1.cpuSeconds }
             state.intervals += counters.contributions.reduce(0) { $0 + $1.intervalCount }
+            for contribution in counters.contributions {
+                let owner = contribution.id.closing.process.pid.isMultiple(of: 2) ? sessionA : sessionB
+                state.sessionCPU[owner, default: 0] += contribution.cpuSeconds
+            }
+            if tick > 0 {
+                for sample in samples {
+                    let owner = sample.identity.pid.isMultiple(of: 2) ? sessionA : sessionB
+                    state.sessionMemory[owner] = max(
+                        state.sessionMemory[owner] ?? 0, sample.footprintBytes ?? 0)
+                }
+            }
             state.tick += 1
             return diagnosisScan(samples, at: state.time, scan: 0)
         }
@@ -66,11 +80,13 @@ private final class ChurningPipeline: ProcessReading, AcquisitionClock, SessionR
     func now() -> Date { Date(timeIntervalSince1970: monotonicNow()) }
 }
 
-@Test(.timeLimit(.minutes(5)), arguments: [60, 600])
-func productionConsumerStallPreservesChurningAccountingAndHistory(seconds: Int) async throws {
-    let fixture = ChurningPipeline(stallSeconds: seconds)
+@Test(.timeLimit(.minutes(2)))
+func productionConsumerStallPreservesChurningAccountingAndHistory() async throws {
+    // Thirteen workers fit prompt capture; every interval has known ownership without enrichment races.
+    // Eighty seconds crosses history eviction; the smaller budget forces delivery compaction.
+    let fixture = ChurningPipeline(stallSeconds: 80)
     let history = RecentActivityStore()
-    let limits = MonitoringPipelineLimits(pendingObservations: 4_000)
+    let limits = MonitoringPipelineLimits(pendingObservations: 1_000)
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(
             intervalSeconds: 0.1, samples: 0,
@@ -101,9 +117,40 @@ func productionConsumerStallPreservesChurningAccountingAndHistory(seconds: Int) 
     }
     #expect(abs(cpu - fixture.state.withLock { $0.cpu }) < 1e-7)
     #expect(intervals == fixture.state.withLock { $0.intervals })
-    if seconds == 600 { #expect(windows.contains { !$0.collapsedContributions.isEmpty }) }
+    #expect(windows.contains { !$0.collapsedContributions.isEmpty })
+    var sessionCPU: [String: Double] = [:]
+    for window in windows {
+        for contribution in window.contributions {
+            let owner = try #require(contribution.attribution.threadID)
+            sessionCPU[owner, default: 0] += contribution.cpuSeconds
+        }
+        for contribution in window.collapsedContributions {
+            #expect(contribution.category.categoryDetailsRetained)
+            let owner = try #require(contribution.category.sessionID)
+            sessionCPU[owner, default: 0] += contribution.cpuSeconds
+        }
+    }
+    let expectedCPU = fixture.state.withLock { $0.sessionCPU }
+    #expect(Set(sessionCPU.keys) == Set(expectedCPU.keys))
+    for (owner, expected) in expectedCPU { #expect(abs((sessionCPU[owner] ?? 0) - expected) < 1e-7) }
+    var sessionMemory: [String: UInt64] = [:]
+    for report in reports.withLock({ $0 }) {
+        let recent = try #require(report.recentActivity)
+        for unit in recent.displayUnits {
+            for record in unit.records {
+                let owner = try #require(record.category.owner.sessionID)
+                sessionMemory[owner] = max(sessionMemory[owner] ?? 0, record.maximumFootprint?.bytes ?? 0)
+            }
+            for record in unit.collapsedContributions {
+                let owner = try #require(record.category.sessionID)
+                sessionMemory[owner] = max(sessionMemory[owner] ?? 0, record.maximumFootprint?.bytes ?? 0)
+            }
+        }
+    }
+    #expect(sessionMemory == fixture.state.withLock { $0.sessionMemory })
     #expect(history.diagnostics.chargedRecords <= 65_536)
     let last = try #require(reports.withLock { $0.last })
     #expect(last.recentActivity?.currentContextAvailable == true)
-    #expect(last.observedFindings.filter { !$0.isHistorical }.count == 205)
+    #expect(try #require(last.recentActivity).baselineScan > 0)
+    #expect(last.observedFindings.filter { !$0.isHistorical }.count == 13)
 }

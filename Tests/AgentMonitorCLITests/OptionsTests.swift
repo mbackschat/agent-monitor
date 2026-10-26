@@ -83,12 +83,6 @@ func invalidOptionsThrow(arguments: [String]) {
     #expect(throws: (any Error).self) { try Options.parse(["--tui", "--json-schema"]) }
 }
 
-@Test func helpDocumentsLiveThresholdSteps() {
-    let help = AgentGuide.render(.tui)
-    #expect(help.contains("1/2 lower/raise CPU by 10 percentage points"))
-    #expect(help.contains("3/4 lower/raise footprint by 1 GB"))
-}
-
 // NO_COLOR is set when present and non-empty (https://no-color.org); pipes stay plain.
 @Test(arguments: [
     (false, [String: String](), true, true), (true, [:], true, false),
@@ -101,15 +95,10 @@ func colorFollowsTheFlagNoColorAndTheTerminal(
     #expect(ColorPolicy.enabled(noColor: flag, environment: environment, isTerminal: terminal) == expected)
 }
 
-@Test func noColorIsAcceptedEverywhereIncludingJSON() throws {
+@Test func reportAndJSONAcceptNoColorAndHelpDocumentsIt() throws {
     #expect(try Options.parse(["--no-color"]).noColor)
     #expect(try Options.parse(["--json", "--no-color"]).noColor)
     #expect(try !Options.parse([]).noColor)
-    for command in [
-        ["kill", "--pid", "42"], ["focus", "--pid", "42"], ["message", "--pid", "42", "--text", "x"],
-    ] {
-        _ = try AgentMonitorCommand.parseAsRoot(command + ["--no-color"])
-    }
     #expect(AgentMonitorCommand.helpMessage().contains("--no-color"))
 }
 

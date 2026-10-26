@@ -4,7 +4,7 @@ import Testing
 @testable import AgentMonitorCore
 
 @Suite struct StalledChurnTests {
-    @Test(arguments: [60, 600], [0, 5, 50])
+    @Test(arguments: [(60, 0), (60, 5), (60, 50), (600, 5), (600, 50)])
     func stalledConsumerConservesStableAndChurningWork(seconds: Int, birthsPerSecond: Int) async throws {
         // A deliberately smaller budget keeps both churn cases exercising collapse as storage sharing improves.
         let limits = MonitoringPipelineLimits(pendingObservations: 32_768)

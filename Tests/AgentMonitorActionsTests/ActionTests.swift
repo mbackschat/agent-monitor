@@ -101,6 +101,7 @@ func unverifiableRecipientsAreRejected(row: HeavyProcess) async {
     try await actions.send(draft, text: text, recipient: childID)
     #expect(provider.sent.withLock { $0 } == [childID + "\n" + draft.message(text)])
     await #expect(throws: (any Error).self) { try await actions.send(draft, text: text, recipient: "other") }
+    #expect(provider.sent.withLock { $0 } == [childID + "\n" + draft.message(text)])
 }
 
 @Test func claudeRowsRouteOnlyToTheClaudeAdapter() async throws {

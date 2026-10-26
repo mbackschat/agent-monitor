@@ -216,7 +216,7 @@ private actor NativeDiagnosisGate {
 }
 
 @Test(arguments: [false, true])
-@MainActor func diagnosisContributorCardsWrapWithinThePanel(dark: Bool) async throws {
+@MainActor func diagnosisContributorCardsHaveExpectedPanelGeometry(dark: Bool) async throws {
     let controller = CPUDiagnosisController(source: { try await menuBarDiagnosisFixture(processCount: 2) })
     controller.start()
     await controller.waitForCompletion()

@@ -6,6 +6,8 @@
 
 Monitoring must work transparently with already-running agents. Requiring workloads to launch through Agent Monitor or adopt cooperative worker hooks cannot satisfy the core coverage requirement. New observation mechanisms still need a supported deployment and permission model; this requirement does not authorize privileged helpers, security changes or native experiments.
 
+Short-worker precision is especially important while the user inspects the UI: discover workers promptly, keep their measured CPU and memory contribution visible under the responsible session, and disclose what was missed. Older workers may become bounded aggregate summaries with qualified precision rather than indefinitely retained rows. This prioritizes inspection without waiving general transparent coverage, independent display cadence, attribution correctness or the prohibition on inventing unseen CPU.
+
 The experience should be a **clear, actionable resource overview**, usable while the machine is busy and the user is under pressure. “Dashboard” and “cockpit” describe the desired orientation, not a required screen layout. iStat Menus and htop/btop inform familiar controls and resource displays; agent/session responsibility defines this product's information model.
 
 ## Information that belongs together

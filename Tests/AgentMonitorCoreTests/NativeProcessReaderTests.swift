@@ -46,7 +46,7 @@ import Testing
     var clock = timespec()
     #expect(clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &clock) == 0)
     let before = Double(clock.tv_sec) + Double(clock.tv_nsec) / 1_000_000_000
-    let snapshot = try NativeProcessReader().snapshot()
+    let snapshot = try NativeProcessReader().snapshot(processIDs: { [getpid()] }, excluding: [])
     let own = try #require(snapshot.samples.first { $0.identity.pid == getpid() })
     #expect(clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &clock) == 0)
     let after = Double(clock.tv_sec) + Double(clock.tv_nsec) / 1_000_000_000
@@ -126,7 +126,8 @@ import Testing
     }
     try #require(ready.fileHandleForReading.readData(ofLength: 1) == Data("R".utf8))
     let reader = try NativeProcessReader()
-    let process = try #require(reader.snapshot().samples.first { $0.identity.pid == child.processIdentifier })
+    let process = try #require(
+        reader.snapshot(processIDs: { [child.processIdentifier] }, excluding: []).samples.first)
     let limited = try #require(reader.captureLaunchEvidence(for: process, maximumBytes: 65_536))
     #expect(limited.status == .truncated)
     #expect(limited.invocation == nil)

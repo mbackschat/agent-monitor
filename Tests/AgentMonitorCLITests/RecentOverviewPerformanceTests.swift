@@ -75,7 +75,6 @@ func compactRecentHistoryFitsOneMinuteAtTenScansPerSecond() throws {
         let recent = try #require(store.snapshot())
         #expect(recent.duration == 60)
         #expect(recent.units.flatMap(\.records).count == count)
-        #expect(recent.duration == 60)
         #expect(!recent.retentionLimited)
         #expect(abs(recent.cpuSeconds - Double(count) * 0.6) < 1e-6)
         _ = getrusage(RUSAGE_SELF, &usage)
@@ -93,7 +92,8 @@ func compactRecentHistoryFitsOneMinuteAtTenScansPerSecond() throws {
         ])
     }
     try JSONSerialization.data(
-        withJSONObject: ["date": "2026-10-24", "runs": results], options: [.prettyPrinted, .sortedKeys]
+        withJSONObject: ["date": Date().ISO8601Format(), "runs": results],
+        options: [.prettyPrinted, .sortedKeys]
     )
     .write(to: URL(fileURLWithPath: path))
 }
