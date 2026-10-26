@@ -26,6 +26,8 @@ Before changing a subsystem, read its relevant contract below; do not reread unr
 
 For measurement and presentation changes, assess whether the Mac app and TUI would also benefit. Recommend useful shared improvements separately when they would expand the authorized scope; do not silently add them.
 
+Do not fork or vendor-patch SwiftTUI; preserve the user's [dependency decision](docs/decisions/swifttui-fork.md).
+
 ## Ownership and essential invariants
 
 | Target under `Sources/` | Owns |

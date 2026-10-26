@@ -1,6 +1,6 @@
 # Bounded, ordered terminal input
 
-Status: **unapproved**, 2026-10-26. Proposed dependency boundary for TUI-INPUT-01; no fork, dependency replacement or publication is authorized by this document.
+Status: **on hold**, 2026-10-26. Waiting for an upstream solution or a verified public-API alternative; the user rejected a SwiftTUI fork.
 
 ## Purpose and scope
 
@@ -42,6 +42,6 @@ Excluded: dropping old/new keyboard events to achieve a cap; manufacturing key e
 
 ## Decision and feasibility
 
-Recommend extending SwiftTUI's existing admission machinery to native/custom-host input rather than replacing its runtime in Agent Monitor. The [0.16.0 source comparison](../research/terminal-ui.md#upstream-0160-comparison) confirms that its WebHost reservation mechanism is package-only and does not bound this native path; upgrading alone is insufficient. It preserves the established terminal behavior and fixes every retaining stage under one owner. Integrating it requires either a reviewed upstream revision or explicit approval to carry a pinned local fork with notices and license retained. No change to the current dependency pin is implied.
+Recommend extending SwiftTUI's existing admission machinery to native/custom-host input rather than replacing its runtime in Agent Monitor. The [0.16.0 source comparison](../research/terminal-ui.md#upstream-0160-comparison) confirms that its WebHost reservation mechanism is package-only and does not bound this native path; upgrading alone is insufficient. It preserves the established terminal behavior and fixes every retaining stage under one owner. The user [rejected a SwiftTUI fork](../decisions/swifttui-fork.md). Integration waits for an official upstream fix or a verified solution using supported public APIs. No change to the current dependency pin is implied.
 
 The numeric limits and whole-paste rejection are proposed host policy. The dependency must expose a deterministic dispatch-stall seam and reservation diagnostics so tests can establish backpressure, FIFO effects and cancellation without native load generation. Those guards must observe upstream advancement, not merely the size of Agent Monitor's wrapper. A logical input bound does not close CPU-01's whole-process memory, native cost or short-worker coverage gates.
