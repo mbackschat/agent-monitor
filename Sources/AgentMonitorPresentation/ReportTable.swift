@@ -1,9 +1,10 @@
 import Foundation
 
 struct ReportTable {
-    enum Columns {
-        case compact(process: Int, agent: Int)
-        case wide(process: Int, agent: Int)
+    struct Columns {
+        let process: Int
+        let agent: Int
+        let directory: Int
     }
 
     let cpuWidth: Int
@@ -19,18 +20,10 @@ struct ReportTable {
 
     func columns(for width: Int, leadingInset: Int = 0) -> Columns {
         let prefixWidth = prefix(marker: " ", pid: "", cpu: "", memory: "").count + leadingInset
-        let minimumProcess = 18
-        let minimumAgent = 21
-        let minimumLocation = "TTY / PROJECT".count
-        let extra = width - prefixWidth - minimumProcess - minimumAgent - minimumLocation - 2
-        guard width >= 85, extra >= 0 else {
-            let available = max(0, width - prefixWidth - 1)
-            let process = min(preferredProcessWidth, available / 2)
-            return .compact(process: process, agent: available - process)
-        }
-        let process = min(preferredProcessWidth, minimumProcess + extra / 3)
-        let agent = min(43, width - prefixWidth - process - minimumLocation - 2)
-        return .wide(process: process, agent: agent)
+        let available = max(0, width - prefixWidth - 2)
+        let process = min(preferredProcessWidth, available / 3)
+        let agent = min(43, available - process - available / 3)
+        return Columns(process: process, agent: agent, directory: available - process - agent)
     }
 
     func header(columns: Columns, grouped: Bool = false) -> String {
@@ -38,14 +31,9 @@ struct ReportTable {
         if grouped {
             description = "LAUNCH SESSION / PROCESS | all observed totals"
         } else {
-            switch columns {
-            case .compact(let process, let agent):
-                description = Self.pad("PROCESS", to: process) + " " + Self.pad("AGENT / SESSION", to: agent)
-            case .wide(let process, let agent):
-                description =
-                    Self.pad("PROCESS", to: process) + " " + Self.pad("AGENT / SESSION", to: agent)
-                    + " TTY / PROJECT"
-            }
+            description =
+                Self.pad("PROCESS", to: columns.process) + " "
+                + Self.pad("AGENT / SESSION", to: columns.agent) + " CWD"
         }
         return prefix(marker: " ", pid: grouped ? "PID/#" : "PID", cpu: "CPU%", memory: "GB") + description
     }

@@ -160,9 +160,9 @@ func tableColumnsAlignWithHeadersAndReserveThresholdMarkers(width: Int) throws {
                 == processColumn)
         if width >= 85 {
             let agentColumn = try #require(header.range(of: "AGENT")).lowerBound.utf16Offset(in: header)
-            let terminalColumn = try #require(header.range(of: "TTY")).lowerBound.utf16Offset(in: header)
+            let directoryColumn = try #require(header.range(of: "CWD")).lowerBound.utf16Offset(in: header)
             #expect(row.range(of: "codex/")?.lowerBound.utf16Offset(in: row) == agentColumn)
-            #expect(row.range(of: "no tty")?.lowerBound.utf16Offset(in: row) == terminalColumn)
+            #expect(row.range(of: "/project")?.lowerBound.utf16Offset(in: row) == directoryColumn)
         }
     }
     let high = try #require(rows.first { $0.contains("189.90*") })
@@ -350,7 +350,7 @@ func responsiveTablePreservesAgentIdentityBesideLongProcessNames(width: Int) thr
     if width >= 160 {
         #expect(text.contains(row.name))
         #expect(text.contains("codex/" + session))
-        #expect(text.contains("ttys001 / long-project-directory-name"))
+        #expect(text.contains("/projects/long-project-directory-name"))
     } else {
         #expect(text.contains("long-running"))
         #expect(text.contains("codex/12345678"))
@@ -395,7 +395,7 @@ func processColumnFitsNamesInsteadOfAbsorbingSpareTerminalWidth(width: Int) thro
     }
 }
 
-@Test func shortProcessNamesLeaveRoomForFullSessionAndProjectAt120Columns() throws {
+@Test func shortProcessNamesLeaveRoomForFullSessionAndDirectoryAt120Columns() throws {
     let original = liveRow(42)
     let session = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
     let row = HeavyProcess(
@@ -412,7 +412,7 @@ func processColumnFitsNamesInsteadOfAbsorbingSpareTerminalWidth(width: Int) thro
         LiveReportLayout.lines(state: state, width: 120, height: 24).first { $0.style == .selected }
     ).text
     #expect(text.contains("claude/" + session))
-    #expect(text.contains("no tty / sample-agent-project"))
+    #expect(text.contains("/projects/sample-agent-project"))
 }
 
 // Roles, not colors, are the contract; the TUI maps them to colors and NO_COLOR drops them.

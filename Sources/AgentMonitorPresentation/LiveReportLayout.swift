@@ -194,7 +194,7 @@ public enum LiveReportLayout {
         }
         let metrics =
             state.rows.map { ($0.cpuPercent, $0.footprintBytes.map { Double($0) / 1e9 }) } + groupMetrics
-        let table = ReportTable(metrics: metrics, processNames: state.rows.map(\.observedName))
+        let table = ReportTable(metrics: metrics, processNames: state.rows.map(processName))
         let narrow = width < 85
         let columns = table.columns(for: width, leadingInset: narrow ? 0 : 2)
         let heading =
@@ -349,21 +349,23 @@ public enum LiveReportLayout {
     ) -> ReportLine {
         let prefix = processPrefix(row, state: state, table: table, showInspectionMarker: true)
         let provider = row.attribution.provider?.rawValue ?? "unknown"
-        let sessionWidth =
-            switch columns {
-            case .compact: 8
-            case .wide(_, let agent): max(8, agent - provider.count - 1)
-            }
+        let sessionWidth = max(8, columns.agent - provider.count - 1)
         let agent = "\(provider)/\(sessionLabel(row, width: state.grouping == .session ? 8 : sessionWidth))"
         let historical = row.isHistorical ? "[past] " : ""
-        let description =
-            state.grouping == .session
-            ? groupedProcessDescription(
-                row, agent: agent, directory: directories.label(for: row),
-                width: width - TerminalCells.width(prefix + historical))
-            : flatDescription(row, agent: agent, columns: columns)
+        let description: String
+        switch state.grouping {
+        case .session:
+            description =
+                historical
+                + groupedProcessDescription(
+                    row, agent: agent, directory: directories.label(for: row),
+                    width: width - TerminalCells.width(prefix + historical))
+        case .none:
+            description = flatDescription(
+                row, agent: agent, directory: directories.label(for: row), columns: columns)
+        }
         return ReportLine(
-            prefix + historical + description,
+            prefix + description,
             style: row.process == state.selected
                 ? .selected : (state.isPinned(.process(row.process)) ? .heading : .heavy))
     }
@@ -382,18 +384,16 @@ public enum LiveReportLayout {
             + " · " + abbreviated(agent, width: agentWidth)
     }
 
-    private static func flatDescription(_ row: HeavyProcess, agent: String, columns: ReportTable.Columns)
-        -> String
-    {
-        switch columns {
-        case .wide(let processWidth, let agentWidth):
-            let project = row.isSharedRuntime ? nil : row.cwd
-            return
-                "\(ReportTable.pad(row.observedName, to: processWidth)) \(ReportTable.pad(agent, to: agentWidth)) \(row.attribution.terminal ?? "no tty") / \(project.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "?")"
-        case .compact(let processWidth, let agentWidth):
-            return ReportTable.pad(abbreviated(row.observedName, width: processWidth), to: processWidth) + " "
-                + abbreviated(agent, width: agentWidth)
-        }
+    private static func processName(_ row: HeavyProcess) -> String {
+        (row.isHistorical ? "[past] " : "") + row.observedName
+    }
+
+    private static func flatDescription(
+        _ row: HeavyProcess, agent: String, directory: String, columns: ReportTable.Columns
+    ) -> String {
+        ReportTable.pad(abbreviated(processName(row), width: columns.process), to: columns.process) + " "
+            + ReportTable.pad(abbreviated(agent, width: columns.agent), to: columns.agent) + " "
+            + abbreviated(directory, width: columns.directory)
     }
 
     private static func sessionLabel(_ row: HeavyProcess, width: Int) -> String {

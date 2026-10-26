@@ -12,7 +12,7 @@ import Testing
 
     private func snapshot(
         missingReadings: Bool = false, historical: Bool = false, mixedDirectories: Bool = false,
-        highReadings: Bool = false
+        readings: (cpu: Double, memory: UInt64)? = nil
     ) -> MonitoringSnapshot {
         let rows = (0..<4).map { index in
             let group = index / 2
@@ -21,10 +21,10 @@ import Testing
                 executable: index.isMultiple(of: 2) ? "/bin/java" : "/bin/rustc",
                 name: historical
                     ? "rust-analyzer-proc-macro-srv" : (index.isMultiple(of: 2) ? "java" : "rustc"),
-                cpuPercent: highReadings
-                    ? 999.9 : index.isMultiple(of: 2) ? (group == 0 ? 90 : 80) : (missingReadings ? nil : 0),
-                footprintBytes: highReadings
-                    ? 99_990_000_000 : index.isMultiple(of: 2) ? 320_000_000 : (missingReadings ? nil : 0),
+                cpuPercent: readings?.cpu
+                    ?? (index.isMultiple(of: 2) ? (group == 0 ? 90 : 80) : (missingReadings ? nil : 0)),
+                footprintBytes: readings?.memory
+                    ?? (index.isMultiple(of: 2) ? 320_000_000 : (missingReadings ? nil : 0)),
                 cwd: directories[mixedDirectories ? index % 2 : group], command: nil,
                 metadataStatus: .markerRead,
                 attribution: Attribution(
@@ -176,6 +176,48 @@ import Testing
         #expect(!lines.contains { $0.text.contains("▾") })
     }
 
+    enum FlatScenario: CaseIterable {
+        case live, historical, wideCounters
+    }
+
+    @Test(arguments: [85, 120, 160], FlatScenario.allCases)
+    func flatRowsDistinguishWorkloadDirectoriesWithMatchingBasenames(width: Int, scenario: FlatScenario)
+        throws
+    {
+        var state = LiveReportState(grouping: .none)
+        let report = snapshot(
+            historical: scenario == .historical, mixedDirectories: true,
+            readings: scenario == .wideCounters ? (1_234_567.89, 123_450_000_000) : nil)
+        state.receive(report)
+        for process in report.findings {
+            state.select(.process(process.process))
+            let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
+            let selected = try #require(lines.first { $0.style == .selected }).text
+            let directory = process.process.pid.isMultiple(of: 2) ? directories[1] : directories[0]
+            #expect(selected.contains(directory.hasPrefix("/tmp") ? "/tmp" : "/work"))
+            let session = try #require(process.attribution.threadID)
+            #expect(selected.contains("claude/" + String(session.prefix(8))))
+            let header = try #require(lines.first { $0.text.contains("AGENT / SESSION") }).text
+            for (heading, value) in [
+                ("PROCESS", scenario == .historical ? "[past]" : process.observedName),
+                ("AGENT", "claude/"), ("CWD", directory.hasPrefix("/tmp") ? "/tmp" : "/work"),
+            ] {
+                let headingStart = try #require(header.range(of: heading)).lowerBound
+                let valueStart = try #require(selected.range(of: value)).lowerBound
+                #expect(
+                    TerminalCells.width(String(header[..<headingStart]))
+                        == TerminalCells.width(String(selected[..<valueStart])))
+            }
+            if scenario == .wideCounters { #expect(selected.contains("1234567.89")) }
+            if width >= 120 {
+                #expect(selected.contains(directory))
+            } else if !selected.contains(directory) {
+                #expect(selected.contains("…"))
+            }
+            #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
+        }
+    }
+
     @Test(arguments: [60, 85, 120, 160], [ReportGrouping.none, .session])
     func groupControlsLeadRowsAndHeadersRemainDistinct(width: Int, grouping: ReportGrouping) throws {
         var state = LiveReportState(grouping: grouping)
@@ -207,7 +249,7 @@ import Testing
 
     @Test func pinnedGroupTotalsDetermineNumericColumnWidthsInFlatMode() throws {
         var state = LiveReportState(grouping: .none)
-        state.receive(snapshot(highReadings: true))
+        state.receive(snapshot(readings: (999.9, 99_990_000_000)))
         let group = try #require(state.groups.first)
         state.togglePin(.group(group.id))
         state.select(.group(group.id))
