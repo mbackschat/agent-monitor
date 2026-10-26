@@ -11,7 +11,7 @@ swift build -c release --product monitor-workload-capture
 
 Preparation does not record processes. The executable is a development target, not one of the declared release products. Rebuild after changing the reader or recorder. Record the source commit and whether the checkout is dirty alongside any retained analysis; the header identifies the capture format and OS, not the source commit.
 
-If the default build stalls in `clang-stat-cache`, diagnose and stop that owned build first. On the 2026-10-26 runner, `swift build --build-system native -c release --product monitor-workload-capture` completed; this deprecated backend is a local preparation fallback, not a project-wide toolchain change. See the [restricted-environment guidance](../../docs/development.md#restricted-agent-environments) for cache/access setup.
+If the default build stalls in `clang-stat-cache`, see the [restricted-environment guidance](../../docs/development.md#restricted-agent-environments) for the local fallback and cache/access setup.
 
 ## Start when explicitly requested
 

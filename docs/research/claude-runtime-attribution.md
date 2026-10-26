@@ -18,6 +18,8 @@ Read-only: one `agent-monitor --json --cpu 0 --memory-gb 0 --commands` sample, `
 - `claude agents --help` describes the subcommand as managing background agents; `--json` prints "active sessions (interactive and background)", and `--all` adds completed background sessions.
 - `startedAt` was 2–38 s later than the owning process's start time for all six entries. None of these sessions is known to have been cleared or resumed, so whether `startedAt` changes on `/clear` or `/resume` remains open; for these entries it tracks process registration rather than a later session start.
 
+A subsequent production-adapter check on 2026-10-16 used one `--json --cpu 0 --memory-gb 0` report. It bound all six live native Claude Code runtimes (2.1.296–2.1.301) and ten marker-less children through `claude agents --json`, while nine marker-carrying children retained their markers. In a separate disposable Bash-tool `tail -f /dev/null | grep` check under native Claude Code 2.1.301, the embedded `ugrep` resolved to that session's marker and runtime rather than being classified as a runtime. These observations do not establish coverage for npm-based Claude installations or other versions.
+
 ## Embedded tools invoked under another name
 
 - A process recognized as a Claude runtime was the versioned Claude executable started with `argv[0]` `ugrep`, as a child of a Bash-tool `/bin/zsh`, in a `tail -f <file> | grep …` pipeline. Its arguments began `-G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn …`. The kernel process name (`pbi_comm`) was the version file name, as for genuine runtimes, so only `argv[0]` distinguished it.
