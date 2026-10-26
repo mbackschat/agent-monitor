@@ -140,7 +140,7 @@ public enum LiveReportLayout {
             ],
             [frozen ? "p resume" : "p pause", "k terminate", "s message", "f focus"],
             ["1/2 CPU -/+10%", "3/4 GB -/+1", "</> interval"],
-            ["i details", "[/] scroll", "-/+ size", "0 hide", "9 max", "= restore", "q/Ctrl-C quit"],
+            ["i details", "Pg↑↓ scroll", "-/+ size", "0 hide", "9 max", "= restore", "q/Ctrl-C quit"],
         ]
         var lines: [String] = []
         var line = ""
@@ -413,7 +413,7 @@ public enum LiveReportLayout {
         switch state.detailsMode {
         case .minimized: title = "Details min | i/= show"
         case .maximized: title = "Details max | launch origin"
-        case .split: title = "Details \(state.detailsPercent)% | launch origin"
+        case .split: title = "Details | pane \(state.detailsPercent)% | launch origin"
         }
         let range =
             details.isEmpty || visible == 0

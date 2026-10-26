@@ -84,10 +84,10 @@ Read-only review of `79c9255`; no fresh physical terminal testing. The main over
 | FEEDBACK-07 | Native menu help exists, but `?` is absent from [shared shortcuts](../../Sources/AgentMonitorPresentation/ReportShortcut.swift) and [terminal input](../../Sources/AgentMonitorTUI/TerminalReport.swift); the binding remains an idea. |
 | FEEDBACK-08 | Process footer still lists scroll/size controls without an explicit Details scope label. |
 | FEEDBACK-09 | The process footer now advertises `i details` and `0 hide`; the minimized divider uses `i/= show`. Physical discoverability remains part of the user smoke check. |
-| FEEDBACK-10 | Process split-pane heading still shows `Details N%`. |
+| FEEDBACK-10 | Resolved by the inspection-controls follow-up below: the divider labels the requested size as `Details | pane N%`. |
 | FEEDBACK-11 | Selected/unselected pins still use `@`/`+`. This is a presentation concern; no shared pin-state defect was established. |
 | FEEDBACK-12 | Diagnosis implements Page Up/Down. Proposed Space/Shift+Space and endpoint jumps remain unapproved; `t` already has a browsing meaning. |
-| FEEDBACK-13 | Bracket scrolling follows an empty-modifier guard; Page Up/Down does not route to process details. Actual German-keyboard event delivery is still unverified. |
+| FEEDBACK-13 | Page Up/Down now route to the visible inspector, verified through the PTY. Modified bracket input and actual German-keyboard event delivery remain unverified; no physical-layout fix is claimed. |
 
 
 ### Process-directory follow-up — 2026-10-26
@@ -114,3 +114,12 @@ A failing guard established the old layout at 60/85/120/160 columns in grouped a
 The same review found a related flat-mode width defect: pinned group totals were omitted from the metrics used to size numeric columns. A synthetic group with 1,999.80% CPU and 199.98 GB needed more digits than its individual rows; the failing guard showed CPU shifted one cell and memory two cells. Column sizing now includes the groups actually represented in the row projection, independently of grouping mode. The guard retains exact resource values and compares numeric endpoints, rather than accepting clipped totals.
 
 Validation on 2026-10-26: all 224 CLI/presentation, four PTY and five preview debug tests pass. The generated README preview was checked in an isolated headless browser; muted headers remain legible and column spacing is unchanged in the flat example. Strict formatting, documentation and preview checks pass. This TUI-only rendering change required no Core-suite rerun, optimized build, native app interaction or workload measurement.
+
+
+### Inspection-controls follow-up — 2026-10-26
+
+Page Up/Down always changed the overview offset, even while the process inspector was displayed. Replacing bracket-only scrolling with actual terminal Page Down/Up sequences in the existing PTY journey reproduced the unchanged process pane. The TUI now routes paging and single-line bracket scrolling to the visible inspector only, leaving hidden offsets untouched. It preserves the existing five-line paging increment, one-line bracket increment and process scroll clamping after resize. The process footer advertises the page keys, and its split divider says `Details | pane N%`: this is the remembered requested pane share, subject to minimum geometry, not a resource percentage. Mac uses its native scroll area and is unaffected.
+
+This closes FEEDBACK-10 and the source-level Page Up/Down part of FEEDBACK-13. The PTY verifies key decoding, reaching the end, scrolling back one line and returning to the start; it does not establish German-keyboard modified-bracket delivery. Contextual footer grouping, process-leaf affordances and pin symbols remain separate UX work.
+
+Validation on 2026-10-26: all 224 CLI/presentation, four PTY and five preview debug tests pass. Existing 80/100/120-column footer budgets remain unchanged: Page Up/Down is the compact primary hint, and brackets remain documented aliases. The updated synthetic preview was inspected in an isolated headless browser. Formatting, documentation and preview checks pass; no Core-suite rerun, optimized rebuild or live measurement was needed for this TUI-only change.

@@ -54,7 +54,7 @@ agent-monitor --tui --group session
 | `v` / `a` | Switch overview/process view / open recent and remainder sections |
 | Return | Inspect the selected current overview process in the action-capable process view |
 | `i` | Show/hide selected details in either view without folding children |
-| Page Up / Page Down | Scroll expanded overview details |
+| Page Up / Page Down | Scroll visible details in either view by five lines |
 | **d** | Start a finite CPU diagnosis immediately; three one-second waits plus scans and up to three seconds per queried provider |
 | ↑ / ↓ | Select a row |
 | ← / → | Collapse/expand children; process leaves do not expand |
@@ -74,7 +74,7 @@ agent-monitor --tui --group session
 | `.` | Pin/unpin the selected process or session, including absent targets; values keep updating |
 | `u` | Unpin all processes and sessions in both views |
 | `p` | Pause/resume the view; sampling continues and resuming shows the latest data |
-| `[` / `]` | Scroll process details |
+| `[` / `]` | Scroll visible details in either view by one line |
 | `-` / `+` | Shrink/grow the details pane by 5 percentage points |
 | `0` / `9` | Minimize/maximize the details pane |
 | `=` | Restore the chosen details split |
@@ -86,7 +86,7 @@ Session rows have a leading `▸` when collapsed and `▾` when expanded. Column
 
 These are the current source-build keys. An installed release can differ; use its on-screen help and `agent-monitor guide tui`.
 
-Text, JSONL and TUI reports request a 100 ms acquisition period. Native acquisition runs independently of background metadata, provider queries and display. Scan overruns delay the next scan without overlapping or catch-up scans; delivery can lag acquisition. An explicit `--interval` overrides it. The header shows the update interval and, while frozen, `PAUSED at` the time of the displayed sample. The shortest currently selectable acquisition period is 100 ms. While frozen, selection, sorting, details and actions keep working on the frozen rows; actions still recheck the live process, and threshold changes stay pending until you unfreeze. Selection follows the process across sorting and refreshes. Details start minimized; opening them uses an initial 50% split. The adjustable split ranges from 10–90%, subject to available terminal space. Minimizing or maximizing does not overwrite your chosen split.
+Text, JSONL and TUI reports request a 100 ms acquisition period. Native acquisition runs independently of background metadata, provider queries and display. Scan overruns delay the next scan without overlapping or catch-up scans; delivery can lag acquisition. An explicit `--interval` overrides it. The header shows the update interval and, while frozen, `PAUSED at` the time of the displayed sample. The shortest currently selectable acquisition period is 100 ms. While frozen, selection, sorting, details and actions keep working on the frozen rows; actions still recheck the live process, and threshold changes stay pending until you unfreeze. Selection follows the process across sorting and refreshes. Details start minimized; opening them uses an initial 50% split. The adjustable split ranges from 10–90%, subject to available terminal space. Minimizing or maximizing does not overwrite your chosen split. The divider’s `pane N%` is the requested share of the content area for details, not CPU usage.
 
 The layout adapts to terminal size. Below 85 columns, process inspection uses two linked lines: agent/session and process name above PID/count, CPU, memory and CWD. Session IDs use eight characters; names and paths abbreviate as needed, with full information in details. Matching directory suffixes gain enough leading components to distinguish workloads in group headings; if the terminal still cannot fit them, an ellipsis marks truncation and details provide the full paths. The viewport keeps each identity/resource pair together; very small panes show a resize hint. Executable paths and optional command arguments remain in details.
 

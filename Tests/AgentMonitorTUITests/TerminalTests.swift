@@ -87,8 +87,8 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
         $0.contains("PID descending") && $0.contains("PID 42 |")
     }
     for (key, label, divider) in [
-        ("+", "Details 55%", 12), ("9", "Details max", 5), ("0", "Details min", 20),
-        ("=", "Details 55%", 12), ("-", "Details 50%", 13),
+        ("+", "Details | pane 55%", 12), ("9", "Details max", 5), ("0", "Details min", 20),
+        ("=", "Details | pane 55%", 12), ("-", "Details | pane 50%", 13),
     ] {
         try writeAllBytes(Array(key.utf8), to: terminal.master)
         _ = try await waitForANSIVisibleScreen(
@@ -109,7 +109,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
         $0.contains("PID descending") && $0.contains("PID 42 |") && $0.contains("unresolved")
             && dividerRow($0) == 9
     }
-    try writeAllBytes(Array(String(repeating: "]", count: 20).utf8), to: terminal.master)
+    try writeAllBytes(Array(String(repeating: "\u{1b}[6~", count: 4).utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
@@ -119,7 +119,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) { $0.contains("Candidates:") && !$0.contains("PID 42 |") }
-    try writeAllBytes(Array(String(repeating: "[", count: 20).utf8), to: terminal.master)
+    try writeAllBytes(Array(String(repeating: "\u{1b}[5~", count: 4).utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
@@ -174,7 +174,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("fixture-42") && !$0.contains("launch groups") && $0.contains("Details 50%")
+        $0.contains("fixture-42") && !$0.contains("launch groups") && $0.contains("Details | pane 50%")
     }
     try writeAllBytes(Array("0".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(

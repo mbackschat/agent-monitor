@@ -109,6 +109,18 @@ public enum TerminalReport {
                     state.mutate { effect = $0.beginAction(kind) }
                     outcome.perform(effect, actions: actions, state: state)
                 }
+                @MainActor func scrollInspection(by delta: Int) {
+                    let size = host.surfaceSize
+                    state.mutate {
+                        if $0.showsOverview {
+                            if $0.overview.detailsVisible { $0.overview.scroll(by: delta) }
+                        } else if $0.detailsMode != .minimized {
+                            let maximum = LiveReportLayout.maximumDetailOffset(
+                                state: $0, width: size.width, height: size.height)
+                            $0.scrollDetails(by: delta, maximum: maximum)
+                        }
+                    }
+                }
                 let shortcut: ReportShortcut?
                 switch key.key {
                 case .character(let character): shortcut = ReportShortcut(rawValue: String(character))
@@ -136,8 +148,8 @@ public enum TerminalReport {
                 case .return: state.mutate { $0.inspectOverviewProcess() }
                 case .character("i"):
                     state.mutate { $0.toggleDetails() }
-                case .pageUp: state.mutate { $0.overview.scroll(by: -5) }
-                case .pageDown: state.mutate { $0.overview.scroll(by: 5) }
+                case .pageUp: scrollInspection(by: -5)
+                case .pageDown: scrollInspection(by: 5)
                 case .arrowUp: state.mutate { $0.moveSelection(by: -1) }
                 case .arrowDown: state.mutate { $0.moveSelection(by: 1) }
                 case .arrowLeft: state.mutate { $0.setChildDisclosure(expanded: false) }
@@ -148,12 +160,7 @@ public enum TerminalReport {
                 case .character("9"): state.mutate { $0.maximizeDetails() }
                 case .character("="): state.mutate { $0.restoreDetails() }
                 case .character("["), .character("]"):
-                    let size = host.surfaceSize
-                    state.mutate {
-                        let maximum = LiveReportLayout.maximumDetailOffset(
-                            state: $0, width: size.width, height: size.height)
-                        $0.scrollDetails(by: key.key == .character("[") ? -1 : 1, maximum: maximum)
-                    }
+                    scrollInspection(by: key.key == .character("[") ? -1 : 1)
                 default: return .ignored
                 }
                 return .handled
