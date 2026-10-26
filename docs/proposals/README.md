@@ -9,6 +9,7 @@ The table is generated from each proposal's `Status:` line; do not edit it by ha
 | --- | --- | --- |
 | [Resource accounting across process lifetimes](resource-accounting.md) | approved | 2026-10-24 |
 | [Bounded diagnostic recordings](diagnostic-recording.md) | unapproved | 2026-10-23 |
+| [Bounded, ordered terminal input](bounded-terminal-input.md) | unapproved | 2026-10-26 |
 | [Container resource probes](container-resource-probes.md) | unapproved | 2026-10-24 |
 | [Proposed agent working model](agent-working-model.md) | unapproved | 2026-10-15 |
 <!-- status-table:end -->

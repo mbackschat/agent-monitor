@@ -281,6 +281,8 @@ The Claude attribution adapter accepts the optional `name` from the existing `cl
 
 ## TUI contract
 
+Input retention remains an open boundary: bounded composer text does not bound the pinned reader's raw/partial-paste storage, AsyncStreams or runtime event batches. The host wrapper also applies paste in its producer while keys await runtime dispatch, so backlog can change the action phase against which paste is applied. The [source findings](research/terminal-ui.md#ordered-input-and-retention-boundary--2026-10-26) and [unapproved dependency contract](proposals/bounded-terminal-input.md) specify the gap; no backpressure or ordered-paste fix is claimed by the current host.
+
 Below 60 columns, the secondary process view uses complete two-line blocks: provider/session identity and executable or group disclosure first, then PID/member count, CPU, memory and compact CWD. Numeric formatting, partial-value markers and pin/selection identities are unchanged. The viewport admits whole blocks only; insufficient pane height shows a resize hint. Full paths and evidence stay in details. Wider process tables retain their single-line columns.
 
 The default live view is the shared [contributor overview](#contributor-overview-and-recent-activity). `v` switches to the process table described below; `n`/`o`/`g` also enter that view, while `c`/`m` reorder the overview. `a` opens recent/remainder disclosure, arrows navigate/fold, `i` toggles selected details, `.` pins the owning session, Page Up/Down scroll details, and Return inspects an eligible current process without changing grouping.
