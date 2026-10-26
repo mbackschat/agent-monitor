@@ -80,7 +80,7 @@ Read-only review of `79c9255`; no fresh physical terminal testing. The main over
 | FEEDBACK-03 | Overview has leading symbols/indentation; [wide process grouping](../../Sources/AgentMonitorPresentation/LiveReportLayout.swift) still places disclosure after resource columns. |
 | FEEDBACK-04 | Overview distinguishes expandable rows and leaves; process rows lack an equivalent leading details affordance. |
 | FEEDBACK-05 | Process column headers and unselected session rows share the `.heading` style. |
-| FEEDBACK-06 | Narrow process rows include CWD; wide grouped child descriptions omit it. This establishes a current omission, not the retrospective cause of the screenshot. [Native process labels](../../Sources/AgentMonitorMenuBar/MenuBarProcessLabel.swift) also use group context rather than a row CWD. |
+| FEEDBACK-06 | At the reviewed checkpoint, wide grouped children omitted CWD and native rows used group context. The follow-up below addresses this omission; it does not prove the retrospective screenshot cause. |
 | FEEDBACK-07 | Native menu help exists, but `?` is absent from [shared shortcuts](../../Sources/AgentMonitorPresentation/ReportShortcut.swift) and [terminal input](../../Sources/AgentMonitorTUI/TerminalReport.swift); the binding remains an idea. |
 | FEEDBACK-08 | Process footer still lists scroll/size controls without an explicit Details scope label. |
 | FEEDBACK-09 | Overview `i` hides details; the process footer does not explicitly advertise hiding them. |
@@ -88,3 +88,8 @@ Read-only review of `79c9255`; no fresh physical terminal testing. The main over
 | FEEDBACK-11 | Selected/unselected pins still use `@`/`+`. This is a presentation concern; no shared pin-state defect was established. |
 | FEEDBACK-12 | Diagnosis implements Page Up/Down. Proposed Space/Shift+Space and endpoint jumps remain unapproved; `t` already has a browsing meaning. |
 | FEEDBACK-13 | Bracket scrolling follows an empty-modifier guard; Page Up/Down does not route to process details. Actual German-keyboard event delivery is still unverified. |
+
+
+### Process-directory follow-up — 2026-10-26
+
+The wide grouped TUI renderer substituted per-row evidence/context text for CWD, while the native process label showed no CWD outside details. Synthetic mixed-directory sessions reproduced both omissions: the new per-row TUI guards failed at 60/85/120/160 columns, and offscreen native OCR found neither child directory. The fix uses the shared population-level directory labels in both hosts, keeps CPU/memory on the same compact row and leaves full paths/evidence on demand. Matching suffixes remain distinguishable and absent CWD does not borrow sibling/runtime context. Independent review found that concatenation still lost CWD for long executables and session identity when a group heading scrolled away at 60 columns; both were reproduced with failing guards. Below 85 columns the fix keeps complete two-line identity/resource blocks; wider grouped rows reserve all three fields and abbreviate each explicitly. Row-scoped native OCR also caught middle truncation hiding a distinguishing leading directory component; native CWD now truncates at the tail. Offscreen inspection confirms the compact native layout; physical input and overall workflow acceptance remain user-owned. FEEDBACK-06's demonstrated omission is resolved, not the other process-view feedback.

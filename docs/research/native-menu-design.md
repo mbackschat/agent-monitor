@@ -79,3 +79,8 @@ Design consequence: prefer compact resource summaries and visually comparable me
 ## User-confirmed interaction checkpoints — 2026-10-17 and 2026-10-24
 
 Moved from PLAN on 2026-10-26 to preserve historical evidence without implying current acceptance. On 2026-10-17 the user confirmed action-review drag detachment, row focus/copy/disclosure behavior and the revised header/presentation; the fixed leading inset replaced the rejected post-release top padding. On 2026-10-24 the user confirmed improved responsiveness after the row-command lookup fix. These reports do not validate later filtering, accounting, inspection or lifecycle changes. Remaining physical checks live in the [development checklist](../development.md#manual-macos-smoke-test) and [PLAN](../../PLAN.md#existing-validation-follow-ups).
+
+
+## Secondary process-row context — 2026-10-26
+
+Source review and synthetic offscreen rendering of the process-directory fix establish that grouped child rows now show their own compact CWD beside executable and resources. A 280-point row fixture with a long executable and matching directory suffixes exposed middle truncation hiding a distinguishing leading component; tail truncation preserves it, with full paths in tooltips/details. These tests do not establish arbitrary-path legibility or physical interaction. A pre-existing UX-01 gap remains: flattened singletons and ungrouped native process rows expose provider/session context only through their tooltip, so the main product question is not fully answered by those rows alone. Their documented behavior must not imply visible ownership that the renderer does not show.

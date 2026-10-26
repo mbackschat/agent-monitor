@@ -282,7 +282,7 @@ Targeted follow-ups, tracked by MENUBAR-01/03 in [PLAN](../PLAN.md#existing-vali
 
 ### Manual TUI workflow check
 
-At narrow and wide sizes, compare the main overview and secondary process view against the [product contract](product.md). The [dated feedback triage](research/terminal-ui.md#feedback-triage--2026-10-26) distinguishes implemented overview behavior from remaining process-view defects. Check leading hierarchy, per-process CWD, details versus folding, a discoverable close action, scoped scrolling and pin symbols. Verify German-keyboard Option+5/6 delivery in the actual terminal; source checks cannot prove which key/modifier events arrive. Diagnosis Page Up/Down is implemented; alternative Space/top/bottom bindings remain ideas, not shipped controls.
+At narrow and wide sizes, compare the main overview and secondary process view against the [product contract](product.md). The [dated feedback triage](research/terminal-ui.md#feedback-triage--2026-10-26) distinguishes implemented overview behavior from remaining process-view defects. Check leading hierarchy, compact per-process CWD (including matching suffixes and long paths), details versus folding, a discoverable close action, scoped scrolling and pin symbols. Verify German-keyboard Option+5/6 delivery in the actual terminal; source checks cannot prove which key/modifier events arrive. Diagnosis Page Up/Down is implemented; alternative Space/top/bottom bindings remain ideas, not shipped controls.
 
 ### Build and coverage details
 

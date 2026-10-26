@@ -192,7 +192,7 @@ public enum LiveReportLayout {
             + (state.grouping == .session ? state.groups.map { ($0.cpuTotal, $0.memoryGBTotal) } : [])
         let table = ReportTable(metrics: metrics, processNames: state.rows.map(\.observedName))
         let columns = table.columns(for: width)
-        let narrow = width < 60
+        let narrow = width < 85
         let heading =
             narrow
             ? table.directoryHeader(grouped: state.grouping == .session)
@@ -210,11 +210,7 @@ public enum LiveReportLayout {
             start -= 1
             occupied += rowHeight(rows[start])
         }
-        let directories =
-            narrow
-            ? WorkloadDirectory.compactLabels(
-                for: Set(state.rows.compactMap { $0.isSharedRuntime ? nil : $0.cwd }))
-            : [:]
+        let directories = ProcessDirectoryLabels(state.rows)
         for entry in rows.dropFirst(start) {
             guard lines.count + rowHeight(entry) <= height else {
                 if lines.count == 1 && capacity > 0 {
@@ -237,7 +233,10 @@ public enum LiveReportLayout {
                         row, selected: selected, state: state, table: table, directories: directories,
                         width: width)
                 } else {
-                    lines.append(processLine(row, state: state, table: table, columns: columns))
+                    lines.append(
+                        processLine(
+                            row, state: state, table: table, columns: columns, directories: directories,
+                            width: width))
                 }
             case .unavailable(let pin):
                 lines.append(
@@ -279,7 +278,7 @@ public enum LiveReportLayout {
 
     private static func narrowProcessLines(
         _ row: HeavyProcess, selected: Bool, state: LiveReportState, table: ReportTable,
-        directories: [String: String], width: Int
+        directories: ProcessDirectoryLabels, width: Int
     ) -> [ReportLine] {
         let marker = rowMarker(selected: selected, pinned: state.isPinned(.process(row.process)))
         let agent =
@@ -288,11 +287,7 @@ public enum LiveReportLayout {
             "\(marker) " + (row.isHistorical ? "[past] " : "") + "\(agent) · \(row.observedName)"
         let style: ReportLine.Style =
             selected ? .selected : (state.isPinned(.process(row.process)) ? .heading : .heavy)
-        let directory =
-            row.isSharedRuntime
-            ? "Shared runtime"
-            : row.cwd.map { directories[$0] ?? WorkloadDirectory.compact($0) }
-                ?? "CWD unavailable"
+        let directory = directories.label(for: row)
         let prefix = processPrefix(row, state: state, table: table)
         return [
             ReportLine(abbreviated(title, width: width), style: style),
@@ -342,7 +337,8 @@ public enum LiveReportLayout {
     }
 
     private static func processLine(
-        _ row: HeavyProcess, state: LiveReportState, table: ReportTable, columns: ReportTable.Columns
+        _ row: HeavyProcess, state: LiveReportState, table: ReportTable, columns: ReportTable.Columns,
+        directories: ProcessDirectoryLabels, width: Int
     ) -> ReportLine {
         let prefix = processPrefix(row, state: state, table: table)
         let provider = row.attribution.provider?.rawValue ?? "unknown"
@@ -351,15 +347,32 @@ public enum LiveReportLayout {
             case .compact: 8
             case .wide(_, let agent): max(8, agent - provider.count - 1)
             }
-        let agent = "\(provider)/\(sessionLabel(row, width: sessionWidth))"
+        let agent = "\(provider)/\(sessionLabel(row, width: state.grouping == .session ? 8 : sessionWidth))"
+        let historical = row.isHistorical ? "[past] " : ""
         let description =
             state.grouping == .session
-            ? "  \(row.observedName) \(agent) [\(row.attribution.evidence.rawValue), \(row.attribution.context.rawValue)]"
+            ? groupedProcessDescription(
+                row, agent: agent, directory: directories.label(for: row),
+                width: width - TerminalCells.width(prefix + historical))
             : flatDescription(row, agent: agent, columns: columns)
         return ReportLine(
-            prefix + (row.isHistorical ? "[past] " : "") + description,
+            prefix + historical + description,
             style: row.process == state.selected
                 ? .selected : (state.isPinned(.process(row.process)) ? .heading : .heavy))
+    }
+
+    private static func groupedProcessDescription(
+        _ row: HeavyProcess, agent: String, directory: String, width: Int
+    ) -> String {
+        // A scrolled-away group header cannot supply ownership: reserve all three fields
+        // before clipping individual text (product contract: information that belongs together).
+        let agentWidth = min(TerminalCells.width(TextReport.safe(agent)), max(16, width / 3))
+        let workloadWidth = max(0, width - agentWidth - 8)
+        let processWidth = min(
+            TerminalCells.width(TextReport.safe(row.observedName)), max(8, workloadWidth / 2))
+        return "  " + abbreviated(row.observedName, width: processWidth)
+            + " · " + abbreviated(directory, width: max(0, workloadWidth - processWidth))
+            + " · " + abbreviated(agent, width: agentWidth)
     }
 
     private static func flatDescription(_ row: HeavyProcess, agent: String, columns: ReportTable.Columns)

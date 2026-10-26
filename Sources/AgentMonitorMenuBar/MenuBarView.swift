@@ -482,6 +482,7 @@ struct MenuBarView: View {
         } label: {
             MenuBarProcessLabel(
                 process: process, session: session,
+                directory: model.rowIndex.directories.label(for: process),
                 cpuText: resource(process.cpuPercent, unit: "%"),
                 footprintText: resource(process.footprintBytes.map { Double($0) / 1e9 }, unit: " GB"))
         }

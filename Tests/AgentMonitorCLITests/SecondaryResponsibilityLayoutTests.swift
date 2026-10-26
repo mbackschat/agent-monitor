@@ -10,7 +10,9 @@ import Testing
     ]
     private let directories = ["/work/alpha/project", "/tmp/alpha/project"]
 
-    private func snapshot(missingReadings: Bool = false, historical: Bool = false) -> MonitoringSnapshot {
+    private func snapshot(
+        missingReadings: Bool = false, historical: Bool = false, mixedDirectories: Bool = false
+    ) -> MonitoringSnapshot {
         let rows = (0..<4).map { index in
             let group = index / 2
             return HeavyProcess(
@@ -20,7 +22,8 @@ import Testing
                     ? "rust-analyzer-proc-macro-srv" : (index.isMultiple(of: 2) ? "java" : "rustc"),
                 cpuPercent: index.isMultiple(of: 2) ? (group == 0 ? 90 : 80) : (missingReadings ? nil : 0),
                 footprintBytes: index.isMultiple(of: 2) ? 320_000_000 : (missingReadings ? nil : 0),
-                cwd: directories[group], command: nil, metadataStatus: .markerRead,
+                cwd: directories[mixedDirectories ? index % 2 : group], command: nil,
+                metadataStatus: .markerRead,
                 attribution: Attribution(
                     provider: .claude, evidence: .marker, context: .terminal,
                     threadID: sessions[group], rootSessionID: nil, runtime: nil,
@@ -96,6 +99,99 @@ import Testing
         }
         #expect(lines.filter { $0.style == .selected }.count == 2)
         #expect(lines.count <= height)
+    }
+
+    @Test(arguments: [60, 85, 120, 160])
+    func groupedChildrenKeepTheirOwnDirectoryBesideResources(width: Int) throws {
+        var state = LiveReportState(grouping: .session)
+        let report = snapshot(mixedDirectories: true)
+        state.receive(report)
+        state.overview.enabled = false
+        for group in state.groups {
+            state.select(.group(group.id))
+            state.setDisclosure(expanded: true)
+        }
+        for process in report.findings {
+            state.select(.process(process.process))
+            let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
+            let selected = lines.filter { $0.style == .selected }
+            try #require(!selected.isEmpty)
+            let row = ReportLine(selected.map(\.text).joined(separator: " "))
+            #expect(row.text.contains(process.observedName))
+            #expect(
+                row.text.contains(
+                    process.process.pid.isMultiple(of: 2) ? "/tmp/alpha/project" : "/work/alpha/project"))
+            #expect(
+                row.text.contains(
+                    process.process.pid.isMultiple(of: 2)
+                        ? "0.00" : (process.process.pid == 1 ? "90.00" : "80.00")))
+            #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
+        }
+    }
+
+    @Test(arguments: [60, 85, 120])
+    func groupedLongNamesRetainDirectoryAndExplicitTruncation(width: Int) throws {
+        var state = LiveReportState(grouping: .session)
+        let report = snapshot(historical: true, mixedDirectories: true)
+        state.receive(report)
+        state.overview.enabled = false
+        for group in state.groups {
+            state.select(.group(group.id))
+            state.setDisclosure(expanded: true)
+        }
+        for process in report.findings {
+            state.select(.process(process.process))
+            let selected = LiveReportLayout.lines(state: state, width: width, height: 24)
+                .filter { $0.style == .selected }
+            try #require(!selected.isEmpty)
+            let row = ReportLine(selected.map(\.text).joined(separator: " "))
+            #expect(row.text.contains("[past]"))
+            #expect(row.text.contains("rust"))
+            #expect(row.text.contains(process.process.pid.isMultiple(of: 2) ? "/tmp" : "/work"))
+            if !row.text.contains(process.observedName) { #expect(row.text.contains("…")) }
+            #expect(selected.allSatisfy { TerminalCells.width($0.text) <= width })
+        }
+    }
+
+    @Test func scrolledGroupedChildKeepsSessionWhenItsHeadingDoesNotFit() throws {
+        var state = LiveReportState(grouping: .session)
+        let report = snapshot(mixedDirectories: true)
+        state.receive(report)
+        state.overview.enabled = false
+        for group in state.groups {
+            state.select(.group(group.id))
+            state.setDisclosure(expanded: true)
+        }
+        let process = try #require(report.findings.last)
+        state.select(.process(process.process))
+        let lines = LiveReportLayout.lines(state: state, width: 60, height: 12)
+        let selected = lines.filter { $0.style == .selected }.map(\.text).joined(separator: " ")
+        #expect(selected.contains("claude/12345678"))
+        #expect(selected.contains("rustc"))
+        #expect(selected.contains("/tmp/alpha/project"))
+        #expect(selected.contains("0.00"))
+        #expect(!lines.contains { $0.text.contains("[-]") })
+    }
+
+    @Test func processDirectoryLabelsDoNotBorrowRuntimeOrSiblingDirectories() {
+        func row(_ pid: Int32, cwd: String?, shared: Bool = false) -> HeavyProcess {
+            let identity = ProcessIdentity(pid: pid, startMicroseconds: 1)
+            return HeavyProcess(
+                process: identity, executable: "/bin/codex", name: "codex", cpuPercent: 10,
+                footprintBytes: 1_000, cwd: cwd, command: nil, metadataStatus: .markerRead,
+                attribution: Attribution(
+                    provider: .codex, evidence: shared ? .ambiguous : .marker, context: .unverified,
+                    threadID: shared ? nil : sessions[0], rootSessionID: nil,
+                    runtime: shared ? identity : nil, terminal: nil, runtimeDirectory: "/runtime/only",
+                    candidateThreadIDs: shared ? [sessions[0], sessions[1]] : [], ancestry: []))
+        }
+        let missing = row(1, cwd: nil)
+        let shared = row(2, cwd: "/runtime/only", shared: true)
+        let worker = row(3, cwd: "/work/api")
+        let labels = ProcessDirectoryLabels([missing, shared, worker])
+        #expect(labels.label(for: missing) == "CWD unavailable")
+        #expect(labels.label(for: shared) == "Shared runtime")
+        #expect(labels.label(for: worker) == "/work/api")
     }
 
     @Test func historicalMarkerPrecedesLongExecutableAndTruncationIsExplicit() throws {

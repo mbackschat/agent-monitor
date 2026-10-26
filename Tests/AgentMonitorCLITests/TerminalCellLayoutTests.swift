@@ -49,7 +49,21 @@ import Testing
         state.receive(snapshot())
         let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
         #expect(lines.allSatisfy { cells($0.text) <= width })
-        guard width >= 60 else { return }
+        if width < 85 {
+            let header = try #require(lines.first { $0.style == .heading && $0.text.contains("CWD") })
+            let column = try #require(header.text.range(of: "CWD"))
+            let expected = cells(String(header.text[..<column.lowerBound]))
+            let resourceRows = lines.enumerated().filter { $0.element.text.contains("/项目") }
+            #expect(!resourceRows.isEmpty)
+            for (index, line) in resourceRows {
+                let start = try #require(line.text.range(of: "/项目"))
+                #expect(cells(String(line.text[..<start.lowerBound])) == expected)
+                try #require(index > 0)
+                #expect(lines[index - 1].text.contains("codex/"))
+                #expect(lines[index - 1].style == line.style)
+            }
+            return
+        }
         let header = try #require(lines.first { $0.text.contains("AGENT / SESSION") })
         let column = try #require(header.text.range(of: "AGENT / SESSION"))
         let expected = cells(String(header.text[..<column.lowerBound]))

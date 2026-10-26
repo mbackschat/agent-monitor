@@ -220,7 +220,8 @@ private struct DisclosureChevronFixture: View {
     _ = NSApplication.shared
     let host = NSHostingView(
         rootView: MenuBarProcessLabel(
-            process: process, session: showsSession ? session : nil, cpuText: "184.6%",
+            process: process, session: showsSession ? session : nil,
+            directory: ProcessDirectoryLabels(snapshot.findings).label(for: process), cpuText: "184.6%",
             footprintText: "1.4 GB"
         ).frame(width: width))
     host.layoutSubtreeIfNeeded()

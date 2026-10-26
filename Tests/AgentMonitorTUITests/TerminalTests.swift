@@ -125,6 +125,15 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     ) {
         $0.contains("fixture-42") && !$0.contains("Runtime: 1234")
     }
+    // Complete identity/resource blocks need eight rows for two expanded singleton groups.
+    // Exercise bulk disclosure with room for all rows, then restore the small inspection viewport.
+    size.ws_row = 24
+    try #require(ioctl(terminal.slave, TIOCSWINSZ, &size) == 0)
+    screen = ANSIVisibleScreen(size: .init(width: 60, height: 24))
+    try #require(kill(pid, SIGWINCH) == 0)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("fixture-42") && $0.contains("fixture-84") && $0.contains("q/Ctrl-C quit") }
     try writeAllBytes(Array("g".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
@@ -146,6 +155,10 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
         $0.contains("[-]") && $0.contains("fixture-42") && !$0.contains("fixture-84")
     }
     try writeAllBytes(Array("\u{1b}[B\u{1b}[C".utf8), to: terminal.master)
+    size.ws_row = 16
+    try #require(ioctl(terminal.slave, TIOCSWINSZ, &size) == 0)
+    screen = ANSIVisibleScreen(size: .init(width: 60, height: 16))
+    try #require(kill(pid, SIGWINCH) == 0)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
@@ -155,8 +168,12 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("fixture-42") && $0.contains("fixture-84") && !$0.contains("launch groups")
+        $0.contains("fixture-42") && !$0.contains("launch groups") && $0.contains("Details 50%")
     }
+    try writeAllBytes(Array("0".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("fixture-42") && $0.contains("fixture-84") && $0.contains("Details min") }
     for (keys, filter, empty) in [
         ("44" + String(repeating: "2", count: 10), "CPU > 100.00% OR footprint > 2.00 GB", true),
         (String(repeating: "1", count: 10), "footprint > 2.00 GB", true),

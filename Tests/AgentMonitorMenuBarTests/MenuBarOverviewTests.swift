@@ -311,6 +311,7 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     let host = NSHostingView(
         rootView: MenuBarProcessLabel(
             process: process, session: nil,
+            directory: ProcessDirectoryLabels([process]).label(for: process),
             cpuText: "75%", footprintText: "20 MB"
         ).padding(8).frame(width: 400)
             .background(Color(nsColor: .windowBackgroundColor)))

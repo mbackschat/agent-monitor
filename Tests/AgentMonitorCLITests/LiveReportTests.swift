@@ -145,11 +145,19 @@ func tableColumnsAlignWithHeadersAndReserveThresholdMarkers(width: Int) throws {
             liveRow(123456, cpu: nil, memory: 12_340_000_000),
         ]))
     let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
-    let header = try #require(lines.first { $0.text.contains("PROCESS") }).text
-    let processColumn = try #require(header.range(of: "PROCESS")).lowerBound.utf16Offset(in: header)
-    let rows = lines.filter { $0.style == .selected || $0.style == .heavy }.map(\.text)
+    let columnLabel = width < 85 ? "CWD" : "PROCESS"
+    let header = try #require(lines.first { $0.style == .heading && $0.text.contains(columnLabel) }).text
+    let processColumn = try #require(header.range(of: columnLabel)).lowerBound.utf16Offset(in: header)
+    let displayed = lines.filter { $0.style == .selected || $0.style == .heavy }.map(\.text)
+    let rows = width < 85 ? displayed.filter { $0.contains("/project") } : displayed
+    #expect(rows.count == 3)
+    if width < 85 {
+        #expect(displayed.filter { $0.contains("worker") && $0.contains("codex/") }.count == rows.count)
+    }
     for row in rows {
-        #expect(row.range(of: "worker")?.lowerBound.utf16Offset(in: row) == processColumn)
+        #expect(
+            row.range(of: width < 85 ? "/project" : "worker")?.lowerBound.utf16Offset(in: row)
+                == processColumn)
         if width >= 85 {
             let agentColumn = try #require(header.range(of: "AGENT")).lowerBound.utf16Offset(in: header)
             let terminalColumn = try #require(header.range(of: "TTY")).lowerBound.utf16Offset(in: header)
@@ -370,7 +378,7 @@ func responsiveLayoutStaysWithinBothViewportDimensions(width: Int, height: Int) 
     }
 }
 
-@Test(arguments: [60, 85, 120, 160, 200])
+@Test(arguments: [85, 120, 160, 200])
 func processColumnFitsNamesInsteadOfAbsorbingSpareTerminalWidth(width: Int) throws {
     var state = LiveReportState()
     for names in [["codex", "java"], ["worker", "background-task"]] {
@@ -413,7 +421,7 @@ func statusChromeAndKeysUseTheirOwnRoles(width: Int) {
     var state = LiveReportState()
     state.receive(liveSnapshot([liveRow(42)]))
     let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
-    let status = lines.prefix { !$0.text.contains("PROCESS") }
+    let status = lines.prefix { $0.style != .heading }
     #expect(status.first?.style == .title)
     #expect(status.contains { $0.text.contains("Updates:") && $0.style == .title })
     #expect(status.allSatisfy { $0.style == .title || $0.style == .muted })

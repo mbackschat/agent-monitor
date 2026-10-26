@@ -89,6 +89,81 @@ import Vision
     await model.stop()
 }
 
+@Test @MainActor func nativeGroupedProcessRowsKeepTheirOwnDirectoriesVisible() async throws {
+    _ = NSApplication.shared
+    let snapshot = try namedSessionSnapshot(
+        workersPerSession: 2, directories: ["/work/api", "/tmp/web"], directoriesByWorker: true)
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    model.report.overview.enabled = false
+    for group in model.report.groups {
+        model.report.select(.group(group.id))
+        model.report.setDisclosure(expanded: true)
+    }
+    let host = NSHostingView(
+        rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: .aqua)
+    host.frame = NSRect(x: 0, y: 0, width: 420, height: 700)
+    host.layoutSubtreeIfNeeded()
+    let text = try processDirectoryRenderText(
+        host, output: ProcessInfo.processInfo.environment["MENUBAR_PROCESS_DIRECTORY_PREVIEW_PATH"])
+    #expect(text.contains("work/api"), "\(text)")
+    #expect(text.contains("tmp/web"), "\(text)")
+    #expect(text.contains("java"), "\(text)")
+    await model.stop()
+}
+
+@Test(arguments: [0, 1])
+@MainActor func nativeLongProcessRowsKeepTheirOwnDirectoryAndValues(index: Int) throws {
+    _ = NSApplication.shared
+    let snapshot = try namedSessionSnapshot()
+    let original = snapshot.findings[index]
+    let process = HeavyProcess(
+        process: ProcessIdentity(pid: Int32(42001 + index), startMicroseconds: 1),
+        executable: "/bin/rust-analyzer-proc-macro-srv", name: "rust-analyzer-proc-macro-srv",
+        cpuPercent: original.cpuPercent, footprintBytes: original.footprintBytes, cwd: original.cwd,
+        command: nil, metadataStatus: original.metadataStatus, attribution: original.attribution)
+    let host = NSHostingView(
+        rootView: MenuBarProcessLabel(
+            process: process, session: nil,
+            directory: ProcessDirectoryLabels(snapshot.findings).label(for: process),
+            cpuText: index == 0 ? "75%" : "25%", footprintText: index == 0 ? "20 MB" : "40 MB"
+        ).frame(width: 280).padding(8).background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: .aqua)
+    host.layoutSubtreeIfNeeded()
+    host.frame.size = host.fittingSize
+    let output = ProcessInfo.processInfo.environment["MENUBAR_PROCESS_DIRECTORY_PREVIEW_PATH"]
+        .map { URL(fileURLWithPath: $0).deletingPathExtension().path + "-row-\(index).png" }
+    let text = try processDirectoryRenderText(host, output: output)
+    #expect(text.contains("rust"), "\(text)")
+    #expect(text.contains(index == 0 ? "work" : "tmp"), "\(text)")
+    #expect(!text.contains(index == 0 ? "tmp" : "work"), "\(text)")
+    #expect(text.contains(index == 0 ? "75%" : "25%"), "\(text)")
+    #expect(text.replacingOccurrences(of: " ", with: "").contains(index == 0 ? "20mb" : "40mb"), "\(text)")
+    #expect(host.fittingSize.height <= 36)
+}
+
+@MainActor private func processDirectoryRenderText(_ host: NSView, output: String?) throws -> String {
+    let bitmap = try #require(
+        NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: Int(host.bounds.width * 2),
+            pixelsHigh: Int(host.bounds.height * 2), bitsPerSample: 8,
+            samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+            bytesPerRow: 0, bitsPerPixel: 0))
+    bitmap.size = host.bounds.size
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = .accurate
+    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
+    if let output {
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: output))
+    }
+    return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+        .joined(separator: " ").lowercased()
+}
+
 private func namedSessionOverview() throws -> ContributorOverview {
     var overview = ContributorOverview()
     overview.receive(try namedSessionSnapshot())
@@ -96,7 +171,8 @@ private func namedSessionOverview() throws -> ContributorOverview {
 }
 
 private func namedSessionSnapshot(
-    workersPerSession: Int = 1, directories: [String] = ["/work/alpha/project", "/tmp/alpha/project"]
+    workersPerSession: Int = 1, directories: [String] = ["/work/alpha/project", "/tmp/alpha/project"],
+    directoriesByWorker: Bool = false
 ) throws -> MonitoringSnapshot {
     let sessions = [
         "abcdabcd-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "12345678-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
@@ -122,7 +198,7 @@ private func namedSessionSnapshot(
             process: value.identity, executable: value.executable, name: value.name,
             cpuPercent: (session == 0 ? 90 : 80) / Double(workersPerSession),
             footprintBytes: value.footprintBytes,
-            cwd: directories[session], command: nil,
+            cwd: directories[directoriesByWorker ? index % workersPerSession : session], command: nil,
             metadataStatus: .markerRead,
             attribution: Attribution(
                 provider: .claude, evidence: .marker, context: .unverified,
