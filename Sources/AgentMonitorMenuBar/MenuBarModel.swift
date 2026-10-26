@@ -36,15 +36,16 @@ final class MenuBarModel {
     private(set) var messageCopyStatus: String?
     private(set) var diagnosisCopyStatus: String?
     private(set) var liveIcon = true
+    private(set) var isPerformingAction = false
     private(set) var indicator = MenuBarIndicator()
     @ObservationIgnored var onIndicatorChange: (() -> Void)?
     @ObservationIgnored private let liveInterval = LiveInterval(0.25)
     @ObservationIgnored private var needsStartupSample = true
-    @ObservationIgnored private var collection: Task<Void, Never>?
-    @ObservationIgnored private var action: Task<Void, Never>?
+    @ObservationIgnored private(set) var collection: Task<Void, Never>?
+    @ObservationIgnored private(set) var action: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var collectionGeneration = UUID()
-    @ObservationIgnored private var isCollecting = false
+    @ObservationIgnored private var restartCollectionAfterDrain = false
     @ObservationIgnored private var latestSnapshot: MonitoringSnapshot?
     @ObservationIgnored private let source: MenuBarSource
     @ObservationIgnored private let actions: any ProcessActions
@@ -104,17 +105,23 @@ final class MenuBarModel {
 
     private func startCollection() {
         liveInterval.set(samplingInterval)
-        guard !isCollecting else { return }
-        isCollecting = true
+        if let collection {
+            if collection.isCancelled { restartCollectionAfterDrain = true }
+            return
+        }
         error = nil
-        let previous = collection
         let previousAction = action
         let token = UUID()
         collectionGeneration = token
         collection = Task { [self] in
-            await previous?.value
+            defer {
+                collection = nil
+                if restartCollectionAfterDrain {
+                    restartCollectionAfterDrain = false
+                    startCollection()
+                }
+            }
             await previousAction?.value
-            defer { if collectionGeneration == token { isCollecting = false } }
             do {
                 try Task.checkCancellation()
                 try await source(
@@ -179,13 +186,15 @@ final class MenuBarModel {
         action = nil
     }
 
-    func waitForCollection() async { await collection?.value }
+    func waitForCollection() async {
+        while let current = collection { await current.value }
+    }
     func waitForAction() async { await action?.value }
 
     private func cancelCollection() {
+        restartCollectionAfterDrain = false
         collectionGeneration = UUID()
         collection?.cancel()
-        isCollecting = false
         latestSnapshot = nil
         indicator = MenuBarIndicator()
         onIndicatorChange?()
@@ -241,7 +250,8 @@ final class MenuBarModel {
     }
 
     func canBegin(_ kind: ProcessActionKind, row: LiveReportRowID) -> Bool {
-        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, rowIndex.visible.contains(row)
+        guard isOpen, !isPerformingAction, !diagnosis.state.isVisible, report.actionPanel == nil,
+            rowIndex.visible.contains(row)
         else { return false }
         switch row {
         case .group(let id):
@@ -260,7 +270,9 @@ final class MenuBarModel {
     }
 
     func begin(_ kind: ProcessActionKind, row: LiveReportRowID) {
-        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil else { return }
+        guard isOpen, !isPerformingAction, !diagnosis.state.isVisible, report.actionPanel == nil else {
+            return
+        }
         if case .message = kind, let savedMessage {
             if row == .process(savedMessage.process.process) { resumeMessage() }
             return
@@ -322,7 +334,9 @@ final class MenuBarModel {
     }
 
     func resumeMessage() {
-        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, let savedMessage else { return }
+        guard isOpen, !isPerformingAction, !diagnosis.state.isVisible, report.actionPanel == nil,
+            let savedMessage
+        else { return }
         perform(report.beginMessage(for: savedMessage.process, sampledAt: savedMessage.sampledAt))
     }
 
@@ -357,9 +371,14 @@ final class MenuBarModel {
     }
 
     private func perform(_ effect: ActionEffect?) {
-        guard let effect else { return }
+        guard let effect, !isPerformingAction else { return }
+        isPerformingAction = true
         let token = generation
         action = Task {
+            defer {
+                action = nil
+                isPerformingAction = false
+            }
             lastActionResult = nil
             do {
                 try Task.checkCancellation()
