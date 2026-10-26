@@ -77,8 +77,7 @@ extension MenuBarModel {
                 toggleFreeze()
             case .pin:
                 if report.showsOverview {
-                    report.overview.togglePin()
-                    return true
+                    return report.overview.togglePin()
                 }
                 guard let row else { return false }
                 return togglePin(row)

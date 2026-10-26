@@ -536,6 +536,9 @@ struct MenuBarView: View {
             TextEditor(text: Binding(get: { model.report.actionPanel?.text ?? "" }, set: model.setMessage))
                 .font(.body).frame(height: 130).border(.quaternary)
                 .accessibilityLabel("Message to agent")
+            if let notice = panel.inputNotice {
+                Text(notice).font(.caption).foregroundStyle(.orange)
+            }
             HStack {
                 Button("Cancel") { model.input(.escape) }
                 Spacer()

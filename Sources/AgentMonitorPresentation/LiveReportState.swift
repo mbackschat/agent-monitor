@@ -180,27 +180,37 @@ public struct LiveReportState: Equatable, Sendable {
         }
     }
 
-    public mutating func togglePin(_ id: LiveReportRowID) {
-        guard actionPanel == nil else { return }
+    @discardableResult public mutating func togglePin(_ id: LiveReportRowID) -> Bool {
+        guard actionPanel == nil else { return false }
         if let index = pins.firstIndex(where: { $0.id == id }) {
             pins.remove(at: index)
         } else {
             let label: String
             switch id {
             case .process(let identity):
-                guard let row = rows.first(where: { $0.process == identity }) else { return }
+                guard let row = rows.first(where: { $0.process == identity }) else { return false }
                 label = "\(row.observedName) · PID \(identity.pid)"
             case .group(let identity):
-                guard let group = groups.first(where: { $0.id == identity }) else { return }
+                guard let group = groups.first(where: { $0.id == identity }) else { return false }
                 label =
                     "\(group.project) · \(group.provider?.rawValue ?? "unknown")/\(group.sessionID ?? "unresolved")"
             }
-            pins.append(ReportPin(id: id, label: label))
+            let pin = ReportPin(id: id, label: label)
+            guard
+                PinLimits.admits(
+                    count: pins.count, bytes: pins.reduce(0) { $0 + $1.textBytes }, adding: pin.textBytes)
+            else {
+                notice = PinLimits.refusal
+                return false
+            }
+            pins.append(pin)
         }
+        notice = nil
         if !visibleRows.contains(where: { $0.id == selection }) {
             selection = visibleRows.first?.id
             expanded = nil
         }
+        return true
     }
 
     public mutating func toggleSelectedPin() {
@@ -209,6 +219,19 @@ public struct LiveReportState: Equatable, Sendable {
             return
         }
         if let selection { togglePin(selection) }
+    }
+
+    public var hasPins: Bool { !pins.isEmpty || !overview.pinned.isEmpty }
+
+    public mutating func unpinAll() {
+        guard actionPanel == nil else { return }
+        pins.removeAll()
+        overview.unpinAll()
+        notice = nil
+        if !visibleRows.contains(where: { $0.id == selection }) {
+            selection = visibleRows.first?.id
+            expanded = nil
+        }
     }
 
     public mutating func resetCollection() {

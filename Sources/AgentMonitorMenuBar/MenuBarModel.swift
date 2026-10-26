@@ -296,8 +296,12 @@ final class MenuBarModel {
     @discardableResult func togglePin(_ row: LiveReportRowID) -> Bool {
         guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, rowIndex.visible.contains(row)
         else { return false }
-        report.togglePin(row)
-        return true
+        return report.togglePin(row)
+    }
+
+    func unpinAll() {
+        guard !diagnosis.state.isVisible, report.actionPanel == nil else { return }
+        report.unpinAll()
     }
 
     func selectRow(_ row: LiveReportRowID) {
@@ -354,8 +358,7 @@ final class MenuBarModel {
     func setMessage(_ text: String) {
         guard report.actionPanel?.phase == .compose else { return }
         messageCopyStatus = nil
-        report.actionPanel?.text = ""
-        _ = report.actionInput(.text(text))
+        report.actionPanel?.replaceText(text)
     }
 
     @discardableResult
@@ -398,7 +401,7 @@ final class MenuBarModel {
                                 "The original recipient is unavailable. Your draft is still saved.")
                         }
                         report.messagePrepared(draft)
-                        report.actionPanel?.text = saved.text
+                        report.actionPanel?.replaceText(saved.text)
                         report.actionPanel?.recipientIndex = index
                         savedMessage = nil
                         return

@@ -157,6 +157,8 @@ public struct ContributorOverview: Equatable, Sendable {
     public var showAll = false
     public var enabled = true
     public private(set) var pinned: [ContributorID] = []
+    public private(set) var pinNotice: String?
+    private var unavailablePins: Set<ContributorID> = []
     private var cpuRank: [ContributorID] = []
     private var memoryRank: [ContributorID] = []
     private var formerlySelected: [ContributorID: Double] = [:]
@@ -260,6 +262,7 @@ public struct ContributorOverview: Equatable, Sendable {
 
     public mutating func resetInspection() {
         source = nil
+        unavailablePins = []
         detailsVisible = false
         main = []
         formerlySelected = [:]
@@ -300,7 +303,7 @@ public struct ContributorOverview: Equatable, Sendable {
         detailOffset = 0
         if expanded { open.insert(selection) } else { open.remove(selection) }
     }
-    public mutating func togglePin() {
+    @discardableResult public mutating func togglePin() -> Bool {
         func session(_ id: ContributorID) -> ContributorID? {
             switch id {
             case .session(let provider, let id, let root):
@@ -310,9 +313,41 @@ public struct ContributorOverview: Equatable, Sendable {
             case .provider, .section, .collapsed: return nil
             }
         }
-        guard let selection, let id = session(selection) else { return }
-        if let index = pinned.firstIndex(of: id) { pinned.remove(at: index) } else { pinned.append(id) }
+        guard let selection, let id = session(selection) else { return false }
+        if let index = pinned.firstIndex(of: id) {
+            pinned.remove(at: index)
+            if unavailablePins.remove(id) != nil { nodes.removeValue(forKey: id) }
+        } else {
+            guard
+                PinLimits.admits(
+                    count: pinned.count, bytes: pinned.reduce(0) { $0 + $1.pinTextBytes },
+                    adding: id.pinTextBytes)
+            else {
+                pinNotice = PinLimits.refusal
+                return false
+            }
+            pinned.append(id)
+        }
+        reconcilePins()
+        return true
+    }
+
+    public mutating func unpinAll() {
+        pinned.removeAll()
+        for id in unavailablePins { nodes.removeValue(forKey: id) }
+        unavailablePins.removeAll()
+        reconcilePins()
+    }
+
+    private mutating func reconcilePins() {
+        pinNotice = nil
         partition(previous: nodes.mapValues(\.children))
+        open.formIntersection(nodes.keys)
+        if !visibleRows.contains(where: { $0.id == selection }) {
+            selection = visibleRows.first?.id
+            detailsVisible = false
+            detailOffset = 0
+        }
     }
 
     public mutating func receive(_ snapshot: MonitoringSnapshot) {
@@ -631,7 +666,8 @@ public struct ContributorOverview: Equatable, Sendable {
         formerlySelected = formerlySelected.filter { latestTime - $0.value <= 60 && nodes[$0.key] != nil }
         main = refreshOrder(Array(selected), previous: main)
         partition(previous: previousChildren)
-        for id in pinned where nodes[id] == nil {
+        unavailablePins = Set(pinned.filter { nodes[$0] == nil })
+        for id in unavailablePins {
             nodes[id] = ContributorNode(id: id, title: "Pinned · outside retained range")
         }
         open.formIntersection(nodes.keys)

@@ -15,7 +15,7 @@ struct MenuBarKeyboardHelp: View {
                 shortcut("↑ / ↓", "Previous / next row")
                 shortcut("← / →", "Collapse / expand row")
                 shortcut("⇧← / ⇧→", "Collapse / expand session groups")
-                shortcut(".", "Pin / unpin session (process view: row)")
+                shortcut(". / u", "Pin or unpin / unpin all views")
                 shortcut("i", "Contributor information")
                 shortcut("v / a", "Overview / processes; show all contributors")
                 shortcut("p", "Pause / resume")

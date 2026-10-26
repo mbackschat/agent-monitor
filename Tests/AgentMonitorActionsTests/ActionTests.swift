@@ -158,3 +158,15 @@ func snapshotEligibilityUsesTheExecutionPrerequisites(
     #expect(draft.context.contains("CPU: unavailable"))
     #expect(draft.context.contains("Memory footprint: unavailable"))
 }
+
+@Test func oversizedSingleGraphemeCannotReachTheMessageTransport() async throws {
+    let provider = FakeMessaging()
+    let actions = makeActions({ _ in workload() }, codex: provider)
+    let draft = try await actions.prepareMessage(for: workload())
+    let text = "a" + String(repeating: "\u{0301}", count: 40_000)
+    #expect(text.count == 1)
+    await #expect(throws: ActionFailure.self) {
+        try await actions.send(draft, text: text, recipient: rootID)
+    }
+    #expect(provider.sent.withLock { $0.isEmpty })
+}

@@ -222,3 +222,43 @@ func selectedThresholdRejectsNegativeOrNonFiniteCPU(value: Double) {
     #expect(menu.items == items)
     #expect(model.report.snapshot == nil)
 }
+
+@Test @MainActor func unpinAllMenuClearsAbsentTargetsWithoutASelection() throws {
+    _ = NSApplication.shared
+    let model = MenuBarModel { _, _, _ in }
+    model.report.overview.enabled = false
+    model.report.receive(try menuBarFixture())
+    let row = try #require(model.report.rows.first)
+    model.report.togglePin(.process(row.process))
+    model.report.receive(try menuBarFixture(pids: []))
+    let controller = MenuBarOptionsController(model: model)
+    let menu = controller.makeMenu()
+    let item = try #require(menu.item(withTitle: "Unpin all"))
+    #expect(item.isEnabled)
+    menu.performActionForItem(at: menu.index(of: item))
+    #expect(!model.report.hasPins)
+    #expect(model.report.visibleRows.isEmpty)
+    controller.menuNeedsUpdate(menu)
+    #expect(menu.item(withTitle: "Unpin all")?.isEnabled == false)
+}
+
+@Test @MainActor func absentNativePinCanBeRemovedByRowOrGlobalShortcut() async throws {
+    let model = MenuBarModel { _, _, _ in }
+    model.open()
+    await model.waitForCollection()
+    model.report.overview.enabled = false
+    for shortcut in [false, true] {
+        model.report.receive(try menuBarFixture())
+        let id = LiveReportRowID.process(try #require(model.report.rows.first).process)
+        #expect(model.togglePin(id))
+        model.report.receive(try menuBarFixture(pids: []))
+        if shortcut {
+            #expect(model.handleShortcut("u", row: nil))
+        } else {
+            #expect(model.togglePin(id))
+        }
+        #expect(!model.report.hasPins)
+        #expect(model.report.visibleRows.isEmpty)
+    }
+    await model.stop()
+}

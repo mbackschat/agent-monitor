@@ -33,7 +33,7 @@ enum MenuBarOption: Equatable {
     case interval(Double)
     case historyMetric(HistoryMetric)
     case historyWindow(HistoryWindow)
-    case liveIcon, keyboardHelp, overview, allContributors
+    case liveIcon, keyboardHelp, overview, allContributors, unpinAll
 }
 
 @MainActor final class MenuBarOptionsController: NSObject, NSMenuDelegate {
@@ -120,6 +120,10 @@ enum MenuBarOption: Equatable {
             "Processes", .grouping(.none),
             checked: !model.report.overview.enabled && model.report.grouping == .none, to: menu)
         menu.addItem(.separator())
+        add("Unpin all", .unpinAll, checked: false, to: menu)
+        menu.items.last?.isEnabled =
+            model.report.hasPins && model.report.actionPanel == nil && !model.diagnosis.state.isVisible
+        menu.addItem(.separator())
         menu.addItem(.sectionHeader(title: "Sort by"))
         for sort in ReportSort.allCases {
             add(
@@ -187,6 +191,7 @@ enum MenuBarOption: Equatable {
     @objc private func choose(_ item: NSMenuItem) {
         guard let option = item.representedObject as? MenuBarOption else { return }
         switch option {
+        case .unpinAll: model.unpinAll()
         case .overview: model.report.overview.enabled = true
         case .allContributors:
             model.report.overview.enabled = true

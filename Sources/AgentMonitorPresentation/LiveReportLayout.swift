@@ -136,7 +136,7 @@ public enum LiveReportLayout {
         let groups = [
             [
                 "↑/↓ select", "←/→ fold", "g group", "c/m/n/o sort", "r reverse",
-                ". pin", diagnosisHint,
+                ". pin", "u unpin all", diagnosisHint,
             ],
             [frozen ? "p resume" : "p pause", "k terminate", "s message", "f focus"],
             ["1/2 CPU -/+10%", "3/4 GB -/+1", "</> interval"],
@@ -144,8 +144,8 @@ public enum LiveReportLayout {
         ]
         var lines: [String] = []
         var line = ""
-        func append(_ text: String, separator: String) {
-            let candidate = line.isEmpty ? text : line + separator + text
+        func append(_ text: String) {
+            let candidate = line.isEmpty ? text : line + " " + text
             if candidate.count > width {
                 lines.append(line)
                 line = text
@@ -154,9 +154,7 @@ public enum LiveReportLayout {
             }
         }
         for controls in groups {
-            for (index, control) in controls.enumerated() {
-                append(control, separator: index == 0 ? " | " : "  ")
-            }
+            for control in controls { append(control) }
         }
         lines.append(line)
         return lines.count <= height - headerHeight - 3

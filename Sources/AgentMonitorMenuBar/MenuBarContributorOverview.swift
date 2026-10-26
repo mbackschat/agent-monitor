@@ -24,6 +24,9 @@ struct MenuBarContributorOverview: View {
                 Text("CPU over \(overview.duration.formatted(.number.precision(.fractionLength(1)))) s")
                     .font(.caption2).foregroundStyle(.secondary)
             }
+            if let notice = overview.pinNotice {
+                Text(notice).font(.caption).foregroundStyle(.orange)
+            }
             MenuBarCoverageStatus(status: overview.coverageStatus)
             DisclosureGroup("Sampling coverage") {
                 if let summary = overview.samplingCoverage {

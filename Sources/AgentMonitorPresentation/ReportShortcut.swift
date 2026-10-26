@@ -4,6 +4,7 @@ public enum ReportShortcut: String, CaseIterable, Sendable {
     case allContributors = "a"
     case pause = "p"
     case pin = "."
+    case unpinAll = "u"
     case stable = "o"
     case cpu = "c"
     case memory = "m"
@@ -28,6 +29,7 @@ extension LiveReportState {
         case .allContributors: overview.showAll.toggle()
         case .pause: toggleFreeze()
         case .pin: toggleSelectedPin()
+        case .unpinAll: unpinAll()
         case .stable:
             overview.enabled = false
             sort(by: .stable)

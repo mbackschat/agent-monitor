@@ -25,9 +25,10 @@ public enum ContributorLayout {
             ReportLine($0, style: status.lineStyle)
         }
         header.insert(contentsOf: coverage, at: 2)
-        let filters =
+        var filters =
             state.thresholds.isUnfiltered
             ? [] : [ReportLine(ThresholdContext.text(state.thresholds), style: .muted)]
+        if let notice = overview.pinNotice { filters.append(ReportLine(notice, style: .warning)) }
         header += filters
         let heading = ReportLine(
             columns.row(
@@ -126,7 +127,7 @@ public enum ContributorLayout {
             state.diagnosis.isRunning ? DiagnosisViewState.cleanupHint : DiagnosisViewState.keyHint
         let pause = state.frozen ? "p resume" : "p pause"
         let controls = [
-            "↑/↓ select", "←/→ fold", "a show all", ". pin session", "Enter inspect",
+            "↑/↓ select", "←/→ fold", "a show all", ". pin session", "u unpin all", "Enter inspect",
             "c/m CPU/memory order", "i details", "PgUp/PgDn scroll", "v processes",
             diagnosis, pause, "q quit",
         ]

@@ -277,3 +277,40 @@ func focusOnAGroupWithoutOneRuntimeExplains(runtimes: [Int32?]) throws {
         MessageDraft(process: row, recipients: MessageRecipients(root: recipient, selected: recipient)))
     #expect(state.actionPanel?.draft?.sampledAt == Date(timeIntervalSince1970: 0))
 }
+
+@Test(arguments: [false, true])
+func composerBytesAreBoundedForSingleAndIncrementalGraphemes(incremental: Bool) throws {
+    var state = LiveReportState()
+    let row = try panelRow(42)
+    state.receive(panelSnapshot([row]))
+    _ = state.beginAction(.message)
+    let recipient = AgentRecipient(id: "root", label: "Root")
+    state.messagePrepared(
+        MessageDraft(process: row, recipients: MessageRecipients(root: recipient, selected: recipient)))
+    if incremental {
+        _ = state.actionInput(.text("a"))
+        for _ in 0..<20 { _ = state.actionInput(.text(String(repeating: "\u{0301}", count: 2048))) }
+    } else {
+        _ = state.actionInput(.text("a" + String(repeating: "\u{0301}", count: 40_000)))
+    }
+    let panel = try #require(state.actionPanel)
+    #expect(panel.text.utf8.count <= 64 * 1024)
+    if !incremental { #expect(panel.text.isEmpty) }
+    #expect(
+        LiveReportLayout.lines(state: state, width: 80, height: 16).contains { $0.text.contains("64 KiB") })
+    _ = state.actionInput(.backspace)
+    #expect(state.actionPanel?.text.isEmpty == true)
+}
+
+@Test func messageAdmissionPreservesUnicodeAndWholeGraphemesAtTheByteBoundary() {
+    let boundary = "é" + String(repeating: "\u{0301}", count: 32_767)
+    #expect(boundary.utf8.count == MessageDraft.maximumUTF8Bytes)
+    let admitted = MessageDraft.appending(boundary, to: "")
+    #expect(admitted.text == boundary && admitted.notice == nil)
+    let overflow = MessageDraft.appending("🙂", to: admitted.text)
+    #expect(overflow.text == boundary && overflow.notice != nil)
+    let ordinary = MessageDraft.appending("Hello 👍🏽\nGrüße\u{1b}", to: "")
+    #expect(ordinary.text == "Hello 👍🏽\nGrüße" && ordinary.notice == nil)
+    let characters = MessageDraft.appending(String(repeating: "🙂", count: 4001), to: "")
+    #expect(characters.text.count == 4000 && characters.notice != nil)
+}

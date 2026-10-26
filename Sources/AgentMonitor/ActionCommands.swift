@@ -166,7 +166,7 @@ struct MessageCommand: AsyncParsableCommand {
     @Option(help: "PID of the process whose session receives the message.")
     var pid: Int32
 
-    @Option(help: "Message text, 1-\(MessageDraft.maximumLength) characters.")
+    @Option(help: "Message text, 1-\(MessageDraft.maximumLength) characters and at most 64 KiB UTF-8.")
     var text: String
 
     @Option(help: "Codex recipient: root (default) or selected, the agent that launched the process.")

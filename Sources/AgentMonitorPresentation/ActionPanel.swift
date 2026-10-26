@@ -86,7 +86,8 @@ public struct ActionPanel: Equatable, Sendable {
     public var phase: Phase
     public var draft: MessageDraft?
     public var sampledAt: Date?
-    public var text = ""
+    public private(set) var text = ""
+    public private(set) var inputNotice: String?
     public var recipientIndex = 0
     public var offset = 0
     public var result: ActionResult?
@@ -97,17 +98,23 @@ public struct ActionPanel: Equatable, Sendable {
         return choices[recipientIndex]
     }
 
+    public mutating func replaceText(_ value: String) {
+        let admitted = MessageDraft.appending(value, to: "")
+        text = admitted.text
+        inputNotice = admitted.notice
+        offset = 0
+    }
+
     public mutating func input(_ input: ActionInput) -> ActionEffect? {
         switch input {
         case .text(let text) where phase == .compose:
-            let safe = text.unicodeScalars.filter {
-                !CharacterSet.controlCharacters.contains($0) || $0 == "\n"
-            }
+            let admitted = MessageDraft.appending(text, to: self.text)
+            self.text = admitted.text
+            inputNotice = admitted.notice
             offset = 0
-            self.text = String(
-                (self.text + String(String.UnicodeScalarView(safe))).prefix(MessageDraft.maximumLength))
         case .backspace where phase == .compose:
             if !text.isEmpty { text.removeLast() }
+            inputNotice = nil
         case .recipient where phase == .compose:
             if let choices = draft?.recipients.choices {
                 recipientIndex = (recipientIndex + 1) % choices.count
@@ -138,7 +145,8 @@ public struct ActionPanel: Equatable, Sendable {
 
     func lines(width: Int, height: Int) -> [ReportLine] {
         let (title, content, controls) = phaseContent()
-        let footer = Self.wrap([ReportLine(controls, style: .muted)], width: width)
+        let notices = phase == .compose ? inputNotice.map { [ReportLine($0, style: .warning)] } ?? [] : []
+        let footer = Self.wrap(notices + [ReportLine(controls, style: .muted)], width: width)
         let capacity = max(1, height - 1 - footer.count)
         let rows = Self.wrap(content, width: width)
         // Editing follows the insertion point; review starts at the target and is scrollable.

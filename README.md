@@ -28,7 +28,7 @@ This README describes the current source build, which can be ahead of the [lates
 - **Native menu bar app** — open a compact macOS panel for resource usage and session actions, with Pause/Resume and a separate **Diagnose CPU** investigation; three bold load bars keep collecting at the selected interval even while the panel is closed. Available from a source build.
 - **Finite CPU diagnosis** — start with **d** in the TUI or **Diagnose CPU** in the Mac app. Rank a new observation window by measured CPU-seconds, recover compatible counters across temporary read gaps, and retain contributors that leave before it ends, without changing live-table values. The Mac app can copy the completed report for further investigation.
 - **Compact history** — one strip for agent CPU, memory or heavy-process count, covering the last 10 minutes or one hour in both live views, updated with every collected report.
-- **Pinned inspection** — keep a process or session at the top while its values update, in both native and terminal views. Missing targets stay marked until unpinned.
+- **Pinned inspection** — keep a process or session at the top while its values update, in both native and terminal views. Missing targets stay marked and removable; `u` or Mac **View options → Unpin all** clears pins in both views.
 - **Memory burst context** — inspect the kernel footprint peak beside current memory; it survives freeing allocations but can reset on exec.
 - **Session grouping** — bring related observed processes together and see their combined resource usage.
 - **Adjustable filters** — change CPU and memory thresholds while the monitor runs.
@@ -68,7 +68,7 @@ The default **Main contributors** overview combines aligned CPU, memory and rece
 
 *Illustrative process view with the selected process pinned (`@`) and details open. The text comes from the real layout renderer using entirely synthetic data; terminal colors and window decoration are illustrative. Press `g` to switch between this view and session groups.*
 
-In the overview, use **↑ / ↓** to select, **← / →** to disclose details, **a** to show all session groups, **.** to pin a session, **c / m** to order by CPU or memory, including entries inside groups, **i** for details, **Enter** to inspect a current process without changing grouping, and **Page Up / Down** to scroll detail. **v** switches between overview and process inspection.
+In the overview, use **↑ / ↓** to select, **← / →** to disclose details, **a** to show all session groups, **.** to pin/unpin a session, **u** to unpin all views, **c / m** to order by CPU or memory, including entries inside groups, **i** for details, **Enter** to inspect a current process without changing grouping, and **Page Up / Down** to scroll detail. **v** switches between overview and process inspection.
 
 In the process view, use **↑ / ↓** to select, **← / →** to collapse/expand a session or process details, **Shift+← / Shift+→** to collapse/expand session groups at the current level, **g** to toggle grouping, **o** for Stable order, **h** to change the history metric, **t** for 10-minute/hour history, **< / >** to update less or more often, **.** to pin/unpin the selected row, **p** to pause/resume the view, **d** for a finite CPU diagnosis, and **q** to quit. The controls and current filters are shown in the terminal.
 

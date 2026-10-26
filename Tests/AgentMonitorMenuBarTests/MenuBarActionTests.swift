@@ -388,3 +388,18 @@ func menuBarFixture(
     #expect(actions.calls.withLock { $0.isEmpty })
     await model.stop()
 }
+
+@Test @MainActor func nativeComposerBoundsReplacementAndSavedDraft() async throws {
+    let actions = FakeActions()
+    let model = try await readyModel(actions)
+    let row = try #require(model.report.rows.first)
+    model.begin(.message, row: .process(row.process))
+    await model.waitForAction()
+    let text = "Safe " + "a" + String(repeating: "\u{0301}", count: 40_000)
+    model.setMessage(text)
+    #expect(model.report.actionPanel?.text == "Safe ")
+    #expect(model.report.actionPanel?.inputNotice?.contains("64 KiB") == true)
+    model.close()
+    #expect(model.savedMessage?.text == "Safe ")
+    await model.stop()
+}

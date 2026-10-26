@@ -140,6 +140,10 @@ public struct SessionActions: ProcessActions {
 
     @concurrent public func send(_ draft: MessageDraft, text: String, recipient: String) async throws {
         try Task.checkCancellation()
+        guard text.utf8.prefix(MessageDraft.maximumUTF8Bytes + 1).count <= MessageDraft.maximumUTF8Bytes
+        else {
+            throw ActionFailure("Message exceeds the 64 KiB UTF-8 limit.")
+        }
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             text.count <= MessageDraft.maximumLength,
             text.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) || $0 == "\n" })
