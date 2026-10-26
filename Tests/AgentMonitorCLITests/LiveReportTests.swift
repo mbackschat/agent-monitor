@@ -246,9 +246,9 @@ func keyboardHelpRetainsControlsWithinTheViewport(width: Int) {
     let lines = LiveReportLayout.lines(state: LiveReportState(), width: width, height: 24)
     let text = lines.map(\.text).joined(separator: "\n")
     for control in [
-        "↑/↓ select", "←/→ fold", "g group", "c/m/n/o sort", "r reverse", "Pg↑↓ scroll",
-        "i details", "-/+ size", "0 hide",
-        "9 max", "= restore", "q/Ctrl-C quit",
+        "↑/↓ select", "←/→ fold", "g group", "c/m/n/o sort", "r reverse", "Pg↑↓",
+        "Details: i", "-/+ size", "0 hide",
+        "9 max", "= restore", "| q/Ctrl-C quit",
     ] {
         #expect(text.contains(control))
     }

@@ -225,6 +225,41 @@ import Testing
         }
     }
 
+    @Test(arguments: [60, 85, 120, 160], [ReportGrouping.none, .session])
+    func processLeavesAdvertiseInspectionWithoutChildDisclosure(width: Int, grouping: ReportGrouping) throws {
+        var state = LiveReportState(grouping: grouping)
+        let report = snapshot()
+        state.receive(report)
+        for group in state.groups { state.setSessionDisclosure(expanded: true, from: .group(group.id)) }
+        let process = try #require(report.findings.first)
+        state.select(.process(process.process))
+        let lines = LiveReportLayout.lines(state: state, width: width, height: 30)
+        let selected = try #require(lines.first { $0.style == .selected })
+        #expect(selected.text.hasPrefix("> i "))
+        #expect(!selected.text.contains("▸"))
+        #expect(!selected.text.contains("▾"))
+        if width >= 85 {
+            let header = try #require(lines.first { $0.text.contains("CPU%") })
+            let heading = try #require(header.text.range(of: "CPU%"))
+            let value = try #require(selected.text.range(of: "90.00"))
+            #expect(
+                TerminalCells.width(String(header.text[..<heading.upperBound]))
+                    == TerminalCells.width(String(selected.text[..<value.upperBound])))
+        }
+        #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
+    }
+
+    @Test func sessionInspectorDoesNotTeachLeafExpansion() throws {
+        var state = LiveReportState(grouping: .session)
+        state.receive(snapshot())
+        state.select(.group(try #require(state.groups.first).id))
+        state.toggleDetails()
+        let text = LiveReportLayout.lines(state: state, width: 120, height: 40)
+            .map(\.text).joined(separator: "\n")
+        #expect(text.contains("i shows/hides details"))
+        #expect(!text.contains("→ opens its details"))
+    }
+
     @Test func processDirectoryLabelsDoNotBorrowRuntimeOrSiblingDirectories() {
         func row(_ pid: Int32, cwd: String?, shared: Bool = false) -> HeavyProcess {
             let identity = ProcessIdentity(pid: pid, startMicroseconds: 1)

@@ -78,11 +78,11 @@ Read-only review of `79c9255`; no fresh physical terminal testing. The main over
 | --- | --- |
 | FEEDBACK-02 | Resolved by the process-disclosure follow-up below: TUI arrows fold children and `i` independently toggles details in both views. Native process-row clicks retain their existing disclosure behavior. |
 | FEEDBACK-03 | Resolved by the hierarchy follow-up below: process group controls now lead the row at narrow and wide widths. |
-| FEEDBACK-04 | Overview distinguishes expandable rows and leaves; process rows lack an equivalent leading details affordance. |
+| FEEDBACK-04 | Resolved by the inspection-affordance follow-up below: process leaves show `i`, distinct from group disclosure arrows. |
 | FEEDBACK-05 | Resolved by the hierarchy follow-up below: column labels use `.muted`, and session rows retain `.heading`. |
 | FEEDBACK-06 | At the reviewed checkpoint, wide grouped children omitted CWD and native rows used group context. The follow-up below addresses this omission; it does not prove the retrospective screenshot cause. |
 | FEEDBACK-07 | Native menu help exists, but `?` is absent from [shared shortcuts](../../Sources/AgentMonitorPresentation/ReportShortcut.swift) and [terminal input](../../Sources/AgentMonitorTUI/TerminalReport.swift); the binding remains an idea. |
-| FEEDBACK-08 | Process footer still lists scroll/size controls without an explicit Details scope label. |
+| FEEDBACK-08 | Resolved by the inspection-affordance follow-up below: pane controls follow **Details:**, with unrelated controls outside that group. |
 | FEEDBACK-09 | The process footer now advertises `i details` and `0 hide`; the minimized divider uses `i/= show`. Physical discoverability remains part of the user smoke check. |
 | FEEDBACK-10 | Resolved by the inspection-controls follow-up below: the divider labels the requested size as `Details | pane N%`. |
 | FEEDBACK-11 | Selected/unselected pins still use `@`/`+`. This is a presentation concern; no shared pin-state defect was established. |
@@ -123,3 +123,10 @@ Page Up/Down always changed the overview offset, even while the process inspecto
 This closes FEEDBACK-10 and the source-level Page Up/Down part of FEEDBACK-13. The PTY verifies key decoding, reaching the end, scrolling back one line and returning to the start; it does not establish German-keyboard modified-bracket delivery. Contextual footer grouping, process-leaf affordances and pin symbols remain separate UX work.
 
 Validation on 2026-10-26: all 224 CLI/presentation, four PTY and five preview debug tests pass. Existing 80/100/120-column footer budgets remain unchanged: Page Up/Down is the compact primary hint, and brackets remain documented aliases. The updated synthetic preview was inspected in an isolated headless browser. Formatting, documentation and preview checks pass; no Core-suite rerun, optimized rebuild or live measurement was needed for this TUI-only change.
+
+
+### Inspection-affordance follow-up — 2026-10-26
+
+The process renderer had no leaf inspection marker and its session inspector still taught that Right opened process details, contradicting the child-only arrow behavior. The footer mixed pane controls with quit without labelling their scope. Failing layout guards reproduced the missing marker and scope plus the obsolete instruction. Process leaves now show `i`, expandable groups retain `▸`/`▾`, and the footer labels the contiguous pane controls **Details:**. Quit stays outside that group. Wide flat and grouped numeric columns use the same two-cell control space; narrow identity/resource pairs remain intact. The README's obsolete process-arrow instruction is corrected as well. No input routing, native behavior, measurement or attribution changes.
+
+Validation on 2026-10-26: all 226 CLI/presentation, four PTY and five preview debug tests pass. The first integration run caught a footer row added at 80 columns and a shifted 85-column layout breakpoint; both were corrected without weakening the existing geometry guards. The regenerated synthetic preview was visually checked in an isolated headless browser. Documentation and strict formatting checks pass. This closes FEEDBACK-04/08 at the source/rendering level; physical workflow checks remain open. No native performance trial or optimized rebuild was needed.

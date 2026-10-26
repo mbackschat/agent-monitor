@@ -140,7 +140,8 @@ public enum LiveReportLayout {
             ],
             [frozen ? "p resume" : "p pause", "k terminate", "s message", "f focus"],
             ["1/2 CPU -/+10%", "3/4 GB -/+1", "</> interval"],
-            ["i details", "Pg↑↓ scroll", "-/+ size", "0 hide", "9 max", "= restore", "q/Ctrl-C quit"],
+            ["Details: i", "Pg↑↓", "-/+ size", "0 hide", "9 max", "= restore"],
+            ["| q/Ctrl-C quit"],
         ]
         var lines: [String] = []
         var line = ""
@@ -195,13 +196,11 @@ public enum LiveReportLayout {
             state.rows.map { ($0.cpuPercent, $0.footprintBytes.map { Double($0) / 1e9 }) } + groupMetrics
         let table = ReportTable(metrics: metrics, processNames: state.rows.map(\.observedName))
         let narrow = width < 85
-        let hasDisclosureColumn = !narrow && !groupMetrics.isEmpty
-        let columns = table.columns(for: width - (hasDisclosureColumn ? 2 : 0))
+        let columns = table.columns(for: width, leadingInset: narrow ? 0 : 2)
         let heading =
             narrow
             ? table.directoryHeader(grouped: state.grouping == .session)
-            : (hasDisclosureColumn ? "  " : "")
-                + table.header(columns: columns, grouped: state.grouping == .session)
+            : "  " + table.header(columns: columns, grouped: state.grouping == .session)
         var lines = [ReportLine(heading, style: .muted)]
         let capacity = height - 1
         func rowHeight(_ row: LiveReportRow) -> Int {
@@ -241,7 +240,7 @@ public enum LiveReportLayout {
                     lines.append(
                         processLine(
                             row, state: state, table: table, columns: columns, directories: directories,
-                            width: width, hasDisclosureColumn: hasDisclosureColumn))
+                            width: width))
                 }
             case .unavailable(let pin):
                 lines.append(
@@ -289,7 +288,7 @@ public enum LiveReportLayout {
         let agent =
             "\(row.attribution.provider?.rawValue ?? "unknown")/\(sessionLabel(row, width: 8))"
         let title =
-            "\(marker) " + (row.isHistorical ? "[past] " : "") + "\(agent) · \(row.observedName)"
+            "\(marker) i " + (row.isHistorical ? "[past] " : "") + "\(agent) · \(row.observedName)"
         let style: ReportLine.Style =
             selected ? .selected : (state.isPinned(.process(row.process)) ? .heading : .heavy)
         let directory = directories.label(for: row)
@@ -332,14 +331,14 @@ public enum LiveReportLayout {
 
     private static func processPrefix(
         _ row: HeavyProcess, state: LiveReportState, table: ReportTable,
-        hasDisclosureColumn: Bool = false
+        showInspectionMarker: Bool = false
     ) -> String {
         let cpuThreshold = state.snapshot?.cpuThresholdPercent ?? state.thresholds.cpuPercent
         let memoryThreshold = state.snapshot?.memoryThresholdBytes ?? state.thresholds.memoryBytes
         return table.rowPrefix(
             marker: rowMarker(
                 selected: row.process == state.selected, pinned: state.isPinned(.process(row.process)))
-                + (hasDisclosureColumn ? "  " : ""),
+                + (showInspectionMarker ? " i" : ""),
             pid: String(row.process.pid),
             cpu: row.cpuPercent, memoryGB: row.footprintBytes.map { Double($0) / 1e9 },
             heavyCPU: row.cpuPercent.map { $0 > cpuThreshold } ?? false,
@@ -348,9 +347,9 @@ public enum LiveReportLayout {
 
     private static func processLine(
         _ row: HeavyProcess, state: LiveReportState, table: ReportTable, columns: ReportTable.Columns,
-        directories: ProcessDirectoryLabels, width: Int, hasDisclosureColumn: Bool
+        directories: ProcessDirectoryLabels, width: Int
     ) -> ReportLine {
-        let prefix = processPrefix(row, state: state, table: table, hasDisclosureColumn: hasDisclosureColumn)
+        let prefix = processPrefix(row, state: state, table: table, showInspectionMarker: true)
         let provider = row.attribution.provider?.rawValue ?? "unknown"
         let sessionWidth =
             switch columns {
@@ -446,7 +445,7 @@ public enum LiveReportLayout {
                     group.label,
                     "All observed members; ~ marks partial totals with missing measurements.",
                     "Launch origin does not prove current use of shared daemons.",
-                    "←/→ collapses/expands processes; ↑/↓ selects a process, then → opens its details.",
+                    "←/→ folds children · ↑/↓ selects · i shows/hides details.",
                 ], width: width)
         }
         guard let row = state.rows.first(where: { $0.process == state.expanded }) else { return [] }

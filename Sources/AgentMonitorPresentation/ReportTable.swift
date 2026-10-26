@@ -17,8 +17,8 @@ struct ReportTable {
         memoryWidth = max(5, metrics.map { Self.number($0.memoryGB).count }.max() ?? 0)
     }
 
-    func columns(for width: Int) -> Columns {
-        let prefixWidth = prefix(marker: " ", pid: "", cpu: "", memory: "").count
+    func columns(for width: Int, leadingInset: Int = 0) -> Columns {
+        let prefixWidth = prefix(marker: " ", pid: "", cpu: "", memory: "").count + leadingInset
         let minimumProcess = 18
         let minimumAgent = 21
         let minimumLocation = "TTY / PROJECT".count
