@@ -310,7 +310,7 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
         invocationName: "ugrep")
     let host = NSHostingView(
         rootView: MenuBarProcessLabel(
-            process: process, session: nil,
+            process: process, placement: .sessionChild,
             directory: ProcessDirectoryLabels([process]).label(for: process),
             cpuText: "75%", footprintText: "20 MB"
         ).padding(8).frame(width: 400)

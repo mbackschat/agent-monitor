@@ -212,20 +212,19 @@ private struct DisclosureChevronFixture: View {
 }
 
 @Test(arguments: [244.0, 280.0, 320.0, 376.0], [false, true])
-@MainActor func processSummaryFitsOneLine(width: Double, showsSession: Bool) throws {
+@MainActor func processSummaryKeepsCompactOwnershipLayout(width: Double, showsSession: Bool) throws {
     let snapshot = try menuBarFixture(
         name: "swift-frontend-with-a-long-process-name", project: "a-project-with-a-long-directory-name")
     let process = try #require(snapshot.findings.first)
-    let session = try #require(SessionGrouping.groups(snapshot.findings).first)
     _ = NSApplication.shared
     let host = NSHostingView(
         rootView: MenuBarProcessLabel(
-            process: process, session: showsSession ? session : nil,
+            process: process, placement: showsSession ? .standalone : .sessionChild,
             directory: ProcessDirectoryLabels(snapshot.findings).label(for: process), cpuText: "184.6%",
             footprintText: "1.4 GB"
         ).frame(width: width))
     host.layoutSubtreeIfNeeded()
-    #expect(host.fittingSize.height <= 20)
+    #expect(host.fittingSize.height <= (showsSession ? 40 : 20))
     #expect(abs(host.fittingSize.width - width) < 0.5)
 }
 

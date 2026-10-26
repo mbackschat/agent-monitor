@@ -191,7 +191,6 @@ struct MenuBarView: View {
         let projection = model.rowIndex.projection
         let pinned = projection.pinnedRows
         let unpinned = projection.unpinnedRows
-        let sessions = model.rowIndex.sessions
         return VStack(alignment: .leading, spacing: model.report.showsOverview ? 8 : 12) {
             if let saved = model.savedMessage {
                 VStack(alignment: .leading, spacing: 6) {
@@ -276,12 +275,12 @@ struct MenuBarView: View {
                         Label("Pinned", systemImage: "pin.fill").font(.caption.bold()).foregroundStyle(
                             .secondary)
                         LazyVStack(alignment: .leading, spacing: 2) {
-                            ForEach(pinned, id: \.id) { nativeRow($0, sessions: sessions) }
+                            ForEach(pinned, id: \.id) { nativeRow($0) }
                         }
                         if !unpinned.isEmpty { Divider() }
                     }
                     LazyVStack(alignment: .leading, spacing: 2) {
-                        ForEach(unpinned, id: \.id) { nativeRow($0, sessions: sessions) }
+                        ForEach(unpinned, id: \.id) { nativeRow($0) }
                     }
                 }
             }
@@ -312,17 +311,17 @@ struct MenuBarView: View {
         }
     }
 
-    @ViewBuilder private func nativeRow(_ row: LiveReportRow, sessions: [ProcessIdentity: SessionGroup])
+    @ViewBuilder private func nativeRow(_ row: LiveReportRow)
         -> some View
     {
         switch row {
         case .process(let process):
-            processRow(process, session: sessions[process.process])
+            processRow(process, placement: .standalone)
         case .group(let group):
             if !model.report.isPinned(row.id), group.canFlatten,
                 let process = model.rowIndex.projection.childrenByGroup[group.id]?.first
             {
-                processRow(process, session: group)
+                processRow(process, placement: .standalone)
             } else {
                 session(group)
             }
@@ -405,7 +404,7 @@ struct MenuBarView: View {
                 LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(model.rowIndex.projection.childrenByGroup[group.id] ?? [], id: \.process) {
                         process in
-                        processRow(process)
+                        processRow(process, placement: .sessionChild)
                     }
                 }
             }.padding(.top, 8)
@@ -424,7 +423,7 @@ struct MenuBarView: View {
         .contextMenu { rowCommands(.group(group.id)) }
     }
 
-    private func processRow(_ process: HeavyProcess, session: SessionGroup? = nil) -> some View {
+    private func processRow(_ process: HeavyProcess, placement: MenuBarProcessLabel.Placement) -> some View {
         DisclosureGroup(
             isExpanded: Binding(
                 get: { model.report.expanded == process.process && model.report.detailsMode != .minimized },
@@ -481,7 +480,7 @@ struct MenuBarView: View {
             .font(.caption).textSelection(.enabled).padding(.vertical, 6)
         } label: {
             MenuBarProcessLabel(
-                process: process, session: session,
+                process: process, placement: placement,
                 directory: model.rowIndex.directories.label(for: process),
                 cpuText: resource(process.cpuPercent, unit: "%"),
                 footprintText: resource(process.footprintBytes.map { Double($0) / 1e9 }, unit: " GB"))

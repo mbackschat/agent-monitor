@@ -126,7 +126,7 @@ import Vision
         command: nil, metadataStatus: original.metadataStatus, attribution: original.attribution)
     let host = NSHostingView(
         rootView: MenuBarProcessLabel(
-            process: process, session: nil,
+            process: process, placement: .sessionChild,
             directory: ProcessDirectoryLabels(snapshot.findings).label(for: process),
             cpuText: index == 0 ? "75%" : "25%", footprintText: index == 0 ? "20 MB" : "40 MB"
         ).frame(width: 280).padding(8).background(Color(nsColor: .windowBackgroundColor)))
@@ -142,6 +142,114 @@ import Vision
     #expect(text.contains(index == 0 ? "75%" : "25%"), "\(text)")
     #expect(text.replacingOccurrences(of: " ", with: "").contains(index == 0 ? "20mb" : "40mb"), "\(text)")
     #expect(host.fittingSize.height <= 36)
+}
+
+@Test(arguments: [ReportGrouping.none, .session], [false, true])
+@MainActor func nativeStandaloneRowsExposeOwnersWithoutOpeningDetails(grouping: ReportGrouping, pinned: Bool)
+    async throws
+{
+    _ = NSApplication.shared
+    let snapshot = try namedSessionSnapshot(directories: ["/work/api", "/tmp/web"])
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    model.report.overview.enabled = false
+    if model.report.grouping != grouping { model.report.toggleGrouping() }
+    if pinned { model.report.togglePin(.process(snapshot.findings[0].process)) }
+    #expect(model.report.expanded == nil)
+    #expect(model.visibleRowIDs.allSatisfy { if case .process = $0 { true } else { false } })
+    let host = NSHostingView(
+        rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: .aqua)
+    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.layoutSubtreeIfNeeded()
+    let output = ProcessInfo.processInfo.environment["MENUBAR_STANDALONE_PREVIEW_PATH"]
+        .map { URL(fileURLWithPath: $0).deletingPathExtension().path + "-\(grouping.rawValue)-\(pinned).png" }
+    let text = try processDirectoryRenderText(host, output: output)
+    for expected in ["claude", "abcdabcd", "12345678", "indexing and attribution", "java", "work", "tmp/web"]
+    {
+        #expect(text.contains(expected), "\(text)")
+    }
+    await model.stop()
+}
+
+private enum StandaloneEvidenceFixture: CaseIterable {
+    case unknown, runtime, ambiguous, shared
+
+    var label: String {
+        switch self {
+        case .unknown, .runtime: "unresolved"
+        case .ambiguous: "uncertain"
+        case .shared: "shared runtime"
+        }
+    }
+    var evidence: AttributionEvidence {
+        switch self {
+        case .unknown: .unknown
+        case .runtime: .runtimeOnly
+        case .ambiguous, .shared: .ambiguous
+        }
+    }
+}
+
+@Test(arguments: StandaloneEvidenceFixture.allCases)
+@MainActor private func standaloneRowsPreserveUnknownAndSharedOwnership(kind: StandaloneEvidenceFixture)
+    throws
+{
+    _ = NSApplication.shared
+    let identity = ProcessIdentity(pid: 42001, startMicroseconds: 1)
+    let process = HeavyProcess(
+        process: identity, executable: "/bin/node", name: "node", cpuPercent: 75,
+        footprintBytes: 20_000_000, cwd: "/work/api", command: nil, metadataStatus: .notObserved,
+        attribution: Attribution(
+            provider: kind == .unknown ? nil : .codex, evidence: kind.evidence, context: .unverified,
+            threadID: nil, rootSessionID: nil, runtime: kind == .shared ? identity : nil,
+            terminal: nil, runtimeDirectory: nil, candidateThreadIDs: ["candidate-a", "candidate-b"],
+            ancestry: []),
+        sessionName: "Do not claim this name")
+    let host = NSHostingView(
+        rootView: MenuBarProcessLabel(
+            process: process, placement: .standalone,
+            directory: ProcessDirectoryLabels([process]).label(for: process),
+            cpuText: "75%", footprintText: "20 MB"
+        ).frame(width: 280).padding(8).background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: .aqua)
+    host.layoutSubtreeIfNeeded()
+    host.frame.size = host.fittingSize
+    let text = try processDirectoryRenderText(host, output: nil)
+    #expect(text.contains(kind.label), "\(text)")
+    #expect(text.contains(kind == .unknown ? "unknown" : "codex"), "\(text)")
+    #expect(!text.contains("do not claim"))
+    #expect(!text.contains("candidate-a") && !text.contains("candidate-b"))
+    #expect(text.contains("node") && text.contains("75%"), "\(text)")
+}
+
+@Test @MainActor func standaloneHistoricalLabelChangesStayVisibleBesideTheOwner() throws {
+    _ = NSApplication.shared
+    let original = try #require(try namedSessionSnapshot().findings.first)
+    let process = HeavyProcess(
+        process: original.process, executable: original.executable, name: original.name,
+        cpuPercent: original.cpuPercent, footprintBytes: nil, cwd: original.cwd, command: nil,
+        metadataStatus: original.metadataStatus, attribution: original.attribution,
+        accounting: ProcessWindowAccounting(
+            cpuSeconds: 1, recoveredCPUSeconds: 0, pointCandidateCPUSeconds: 0.7,
+            uncertainCPUSeconds: 0.3, isHistorical: true, lastObservedAt: 1,
+            lastObservedFootprintBytes: 320_000_000, labelChangedInWindow: true),
+        sessionName: original.sessionName)
+    let host = NSHostingView(
+        rootView: MenuBarProcessLabel(
+            process: process, placement: .standalone,
+            directory: ProcessDirectoryLabels([process]).label(for: process),
+            cpuText: "90%", footprintText: "—"
+        ).frame(width: 280).padding(8).background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: .aqua)
+    host.layoutSubtreeIfNeeded()
+    host.frame.size = host.fittingSize
+    let text = try processDirectoryRenderText(host, output: nil)
+    for expected in ["claude", "abcdabcd", "changed", "past", "90%"] {
+        #expect(text.contains(expected), "\(text)")
+    }
+    #expect(!text.contains("0.32"))
 }
 
 @MainActor private func processDirectoryRenderText(_ host: NSView, output: String?) throws -> String {

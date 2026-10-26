@@ -7,7 +7,6 @@ final class MenuBarRowIndex {
     let projection: ReportProjection
     let processes: [ProcessIdentity: HeavyProcess]
     let directories: ProcessDirectoryLabels
-    let sessions: [ProcessIdentity: SessionGroup]
     let visibleIDs: [LiveReportRowID]
     let visible: Set<LiveReportRowID>
     let groupFocusTargets: [SessionGroupID: HeavyProcess]
@@ -18,10 +17,6 @@ final class MenuBarRowIndex {
         processes = Dictionary(
             uniqueKeysWithValues: (state.snapshot?.findings ?? []).map { ($0.process, $0) })
         directories = ProcessDirectoryLabels(state.snapshot?.findings ?? [])
-        sessions = Dictionary(
-            uniqueKeysWithValues: projection.groups.flatMap { group in
-                group.processes.map { ($0.process, group) }
-            })
         let pinned = Set(state.pins.map(\.id))
         visibleIDs = (projection.pinnedRows + projection.unpinnedRows).flatMap { row in
             switch row {
