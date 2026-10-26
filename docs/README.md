@@ -9,6 +9,7 @@ Users start with the [project README](../README.md). Each folder below has its o
 | [Usage](usage.md) | Controls, options, output formats and examples. |
 | [Architecture](architecture.md) | Accepted contracts, ownership boundaries and implemented behavior. |
 | [Development](development.md) | Build and check recipes, validation coverage and documentation maintenance. |
+| [SwiftTUI upstream follow-up](swifttui-upstream-follow-up.md) | Deferred GitHub issue preparation: findings, requested changes and reproduction requirements. |
 | [Releasing](releasing.md) | Publishing a version with `scripts/release.sh`; release notes live on GitHub Releases. |
 | [Research](research/README.md) | Dated observations, source evidence, inferences and open empirical questions. |
 | [Proposals](proposals/README.md) | Open designs with their review status. |
