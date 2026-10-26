@@ -11,5 +11,6 @@ The table is generated from each proposal's `Status:` line; do not edit it by ha
 | [Bounded diagnostic recordings](diagnostic-recording.md) | unapproved | 2026-10-23 |
 | [Container resource probes](container-resource-probes.md) | unapproved | 2026-10-24 |
 | [Proposed agent working model](agent-working-model.md) | unapproved | 2026-10-15 |
+| [Supplemental observations during inspection](inspection-observations.md) | unapproved | 2026-10-26 |
 | [Bounded, ordered terminal input](bounded-terminal-input.md) | on hold | 2026-10-26 |
 <!-- status-table:end -->
