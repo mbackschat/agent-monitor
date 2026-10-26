@@ -69,4 +69,45 @@ import Testing
             if let identity, let resources { #expect(resources == identity + 1) }
         }
     }
+    @Test(arguments: [0, 1], [false, true])
+    func minimumViewportKeepsSelectedResponsibilityBesideCoverage(selected: Int, filtered: Bool) throws {
+        var feed = OverviewFeed()
+        var workers = sessions.enumerated().map { index, session in
+            OverviewFeed.Worker(
+                session: session, executable: "java", pid: Int32(index + 1),
+                cpuPerSecond: index == 0 ? 0.9 : 0.8, memory: 320_000_000,
+                cwd: "/work/backend", sessionName: name)
+        }
+        workers.append(
+            OverviewFeed.Worker(
+                session: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", executable: "node", pid: 3,
+                cpuPerSecond: 0, memory: nil))
+        var state = LiveReportState()
+        state.receive(try feed.advance(workers))
+        state.receive(
+            try feed.advance(
+                workers, failures: [.permissionDenied, .identityMismatch, .lookupUnavailable],
+                overrun: true))
+        if filtered { state.setThresholds(Thresholds(cpuPercent: 25)) }
+        state.overview.select(.session(provider: "claude", session: sessions[selected], root: nil))
+        let lines = ContributorLayout.lines(state: state, width: 40, height: 8)
+        let identity = try #require(lines.firstIndex { $0.text.contains(sessions[selected].prefix(8)) })
+        #expect(identity + 1 < lines.count)
+        let resources = lines[min(identity + 1, lines.count - 1)].text
+        #expect(resources.contains(selected == 0 ? "90.0%" : "80.0%"))
+        #expect(resources.contains("320.0 MB"))
+        #expect(lines.contains { $0.style == .warning })
+        let text = lines.map(\.text).joined(separator: "\n")
+        #expect(text.contains("q quit"))
+        #expect(text.contains("p pause"))
+        let coverage = lines.filter { $0.style == .warning }.map(\.text).joined()
+        #expect(coverage.contains("Read failures") || coverage.contains("Coverage:"))
+        #expect(coverage.contains("overrun") || coverage.contains("3 warnings"))
+        if filtered {
+            #expect(text.contains(ThresholdContext.text(state.thresholds)))
+            #expect(text.contains("Resize for coverage details"))
+        }
+        #expect(lines.count <= 8)
+    }
+
 }

@@ -3,6 +3,7 @@ import Foundation
 public enum ContributorLayout {
     public static func lines(state: LiveReportState, width: Int, height: Int) -> [ReportLine] {
         let overview = state.overview
+        let rows = overview.visibleRows
         let columns = Columns(width: width)
         let prefix = state.frozen ? "PAUSED · p resume" : "Agent Monitor · p pause"
         let title = ReportLine(prefix + " | Main contributors | v processes", style: .title)
@@ -24,28 +25,37 @@ public enum ContributorLayout {
             ReportLine($0, style: status.lineStyle)
         }
         header.insert(contentsOf: coverage, at: 2)
-        if !state.thresholds.isUnfiltered {
-            header.append(ReportLine(ThresholdContext.text(state.thresholds), style: .muted))
-        }
+        let filters =
+            state.thresholds.isUnfiltered
+            ? [] : [ReportLine(ThresholdContext.text(state.thresholds), style: .muted)]
+        header += filters
         let heading = ReportLine(
             columns.row(
                 "GROUP / EXECUTABLE / PROCESS", cpu: "CPU", memory: "MEMORY", recent: "RECENT CPU",
                 now: "NOW"), style: .heading)
         header.append(heading)
-        let footer = footerLines(state: state, width: width, height: height, headerHeight: header.count)
-        for optional in [history, range, heading, totals, title] where header.count + footer.count > height {
+        // UX-01 requires identity and resources together even when coverage grows. Optional
+        // chrome yields first; coverage can collapse only into an explicit counted summary.
+        let minimumBody = rows.isEmpty ? 0 : 2
+        let fullFooter = footerLines(state: state, width: width, compact: false)
+        let fullHelpFits = coverage.count + filters.count + 2 + minimumBody + fullFooter.count <= height
+        let footer = fullHelpFits ? fullFooter : footerLines(state: state, width: width, compact: true)
+        let headerLimit = max(0, height - footer.count - minimumBody)
+        for optional in [history, range, heading] where header.count > headerLimit {
             if let index = header.firstIndex(of: optional) { header.remove(at: index) }
         }
-        if header.count + footer.count > height {
-            let capacity = max(0, height - footer.count)
-            header = Array(coverage.prefix(max(0, capacity - 1)))
-            if capacity > 0 {
-                header.append(ReportLine("Coverage continues · resize for details", style: status.lineStyle))
-            }
+        if header.count > headerLimit, coverage.count > 2 {
+            header = [title, totals] + compactCoverage(status) + filters
+        }
+        for optional in [totals, title] where header.count > headerLimit {
+            if let index = header.firstIndex(of: optional) { header.remove(at: index) }
+        }
+        if header.count > headerLimit {
+            header = Array((compactCoverage(status) + filters).prefix(headerLimit))
         }
         var content: [(ContributorID, ReportLine)] = []
         var sessionContinuations: Set<Int> = []
-        for row in overview.visibleRows {
+        for row in rows {
             let selected = row.id == overview.selection
             let folded = row.node.children.isEmpty ? "·" : (overview.open.contains(row.id) ? "▾" : "▸")
             let indent = String(repeating: "  ", count: row.depth)
@@ -96,8 +106,21 @@ public enum ContributorLayout {
         }
     }
 
+    private static func compactCoverage(_ status: CoverageStatus) -> [ReportLine] {
+        let warnings = status.notes.filter { $0.severity == .warning }.count
+        let notices = status.notes.count - warnings
+        let counts = [
+            warnings > 0 ? "\(warnings) \(warnings == 1 ? "warning" : "warnings")" : nil,
+            notices > 0 ? "\(notices) \(notices == 1 ? "notice" : "notices")" : nil,
+        ].compactMap { $0 }.joined(separator: " · ")
+        return [
+            ReportLine("Coverage: " + counts, style: status.lineStyle),
+            ReportLine("Resize for coverage details", style: status.lineStyle),
+        ]
+    }
+
     private static func footerLines(
-        state: LiveReportState, width: Int, height: Int, headerHeight: Int
+        state: LiveReportState, width: Int, compact: Bool
     ) -> [ReportLine] {
         let diagnosis =
             state.diagnosis.isRunning ? DiagnosisViewState.cleanupHint : DiagnosisViewState.keyHint
@@ -119,7 +142,7 @@ public enum ContributorLayout {
             }
         }
         if !line.isEmpty { lines.append(line) }
-        if lines.count > height - headerHeight - 1 {
+        if compact {
             lines =
                 state.diagnosis.isRunning
                 ? [diagnosis, "Resize for all keys | \(pause) | q quit"]

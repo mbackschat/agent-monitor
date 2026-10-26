@@ -27,9 +27,21 @@ import Testing
         let lines = LiveReportLayout.lines(state: state, width: width, height: 8)
         let text = lines.map(\.text).joined(separator: "\n")
         #expect(lines.count <= 8)
-        #expect(text.contains("Resize for all keys"))
+        #expect(text.contains("Resize for all keys") || text.contains("Enter inspect"))
         #expect(text.contains("p resume"))
         #expect(text.contains("q quit"))
         #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
     }
+    @Test func fullHelpFitsAfterOptionalHeaderRowsAreRemoved() throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        let lines = ContributorLayout.lines(state: state, width: 40, height: 11)
+        let text = lines.map(\.text).joined(separator: "\n")
+        #expect(text.contains("c/m CPU/memory order"))
+        #expect(text.contains("Enter inspect"))
+        #expect(!text.contains("Resize for all keys"))
+        #expect(lines.contains { $0.style == .selected })
+        #expect(lines.count <= 11)
+    }
+
 }

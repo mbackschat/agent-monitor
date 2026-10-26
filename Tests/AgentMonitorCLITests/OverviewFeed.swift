@@ -12,7 +12,7 @@ struct OverviewFeed {
         var executable: String
         var pid: Int32
         var cpuPerSecond: Double
-        var memory: UInt64 = 1_000_000
+        var memory: UInt64? = 1_000_000
         var cwd: String? = "/fixture"
         var sessionName: String? = nil
         var command: [String]? = nil
@@ -26,7 +26,9 @@ struct OverviewFeed {
     let store = RecentActivityStore()
 
     /// The first call only establishes the counter baseline; later calls each close one unit.
-    mutating func advance(_ workers: [Worker]) throws -> MonitoringSnapshot {
+    mutating func advance(
+        _ workers: [Worker], failures: [NativeCounterStatus] = [], overrun: Bool = false
+    ) throws -> MonitoringSnapshot {
         for worker in workers { cpu[worker.pid, default: 0] += worker.cpuPerSecond }
         let samples = workers.map { worker in
             ProcessSample(
@@ -34,7 +36,16 @@ struct OverviewFeed {
                 executable: "/bin/" + worker.executable, name: worker.executable, sampledAt: Double(tick),
                 cpuSeconds: cpu[worker.pid] ?? 0, footprintBytes: worker.memory)
         }
-        let scan = ledger.ingest(samples, listedAt: Double(tick))
+        let source = ProcessSnapshot(
+            samples: samples, enumeratedCount: samples.count + failures.count,
+            unreadableCount: failures.count, listedAt: Double(tick), scanSeconds: 0,
+            hostCounters: nil, logicalCPUCount: 8,
+            nativeOutcomes: failures.enumerated().map {
+                NativeCounterOutcome(
+                    pid: Int32(10_000 + $0.offset), identity: nil, operation: .bsdInfo,
+                    status: $0.element, failure: nil, observedAtTicks: 1)
+            })
+        let scan = ledger.ingest(samples, listedAt: Double(tick), source: source)
         defer {
             previous = scan
             tick += 1
@@ -54,12 +65,17 @@ struct OverviewFeed {
                         threadID: worker.session, rootSessionID: nil, runtime: nil, terminal: nil,
                         runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []),
                     sessionName: worker.sessionName)
-            }, runtimes: Set(zip(workers, samples).filter { $0.0.runtime }.map(\.1.identity)))
+            }, runtimes: Set(zip(workers, samples).filter { $0.0.runtime }.map(\.1.identity)),
+            timing: overrun
+                ? AcquisitionTiming(
+                    runID: scan.id.runID, scanSequence: scan.id.sequence,
+                    qualityOfService: .userInitiated, requestedPeriodSeconds: 0.1,
+                    achievedPeriodSeconds: 1, scanWorkSeconds: 0, resolutionDelaySeconds: 0) : nil)
         store.append(window.seal(scope: .agentsOnly), current: window.current, present: window.present)
-        return snapshot()
+        return snapshot(window: overrun ? window.summary : nil)
     }
 
-    private func snapshot() -> MonitoringSnapshot {
+    private func snapshot(window: ReportWindowSummary? = nil) -> MonitoringSnapshot {
         MonitoringSnapshot(
             cpuAccounting: CPUAccounting(
                 hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0, unmeasuredLifetimeCount: 0,
@@ -67,6 +83,7 @@ struct OverviewFeed {
             timestamp: Date(timeIntervalSince1970: Double(tick)), intervalSeconds: 0.1,
             cpuThresholdPercent: 0,
             memoryThresholdBytes: 0, sampledProcessCount: 0, unreadableProcessCount: 0, findings: [],
+            window: window,
             recentActivity: store.snapshot())
     }
 }
