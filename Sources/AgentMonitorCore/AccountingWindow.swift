@@ -118,6 +118,7 @@ struct AccountingWindow: Sendable {
     private struct Run: Sendable {
         let key: Key
         var memory: RecentWorkerRecord
+        var ticks: LifetimeObservationTicks
         var cpu: CPUContribution?
         var earliest: Double?
         var latest: Double?
@@ -170,7 +171,7 @@ struct AccountingWindow: Sendable {
         coverage.coalesce(start: baseline.listedAt ?? 0, end: final.endedAt ?? 0)
         publication = coverage
     }
-    private var collapsed: [CollapsedCategory: CollapsedContribution] = [:]
+    private var collapsed: [CollapsedCategory: CollapsedWindowRecord] = [:]
 
     init(baseline: CounterScan) {
         self.baseline = Self.endpoint(baseline)
@@ -232,11 +233,13 @@ struct AccountingWindow: Sendable {
                         key: key,
                         memory: RecentWorkerRecord(
                             category: category, row: row, scan: scan.id.sequence,
-                            time: observation.sample.sampledAt, evidenceAt: attributionTimes[id]))
+                            time: observation.sample.sampledAt, evidenceAt: attributionTimes[id]),
+                        ticks: LifetimeObservationTicks(observation.sample))
                     runs.append(run)
                     runPayload.add(Self.size(of: run))
                 }
             }
+            runs[index].ticks.merge(LifetimeObservationTicks(observation.sample))
             if let previous = observations[id] {
                 if !Self.sameRowCharge(previous.row, row) {
                     observationPayload.subtract(
@@ -295,6 +298,7 @@ struct AccountingWindow: Sendable {
         for incoming in other.runs {
             if let index = indices[incoming.key] {
                 runs[index].memory.merge(incoming.memory)
+                runs[index].ticks.merge(incoming.ticks)
                 if let value = incoming.cpu {
                     runs[index].cpu = runs[index].cpu.map { $0.adding(value) } ?? value
                 }
@@ -391,7 +395,7 @@ struct AccountingWindow: Sendable {
             },
             readCoverage: readCoverage, acquisitionCoverage: acquisitionCoverage,
             publicationCoverage: publicationCoverage,
-            collapsedContributions: Array(collapsed.values))
+            collapsedContributions: collapsed.values.map(\.resources))
     }
 
     private static func sameRowCharge(_ left: HeavyProcess, _ right: HeavyProcess) -> Bool {
@@ -474,7 +478,8 @@ struct AccountingWindow: Sendable {
         keep.formUnion(crossings.compactMap { observations[$0.key.category.process]?.run })
         keep.formUnion(observations.values.filter { $0.sequence == final.id.sequence }.map(\.run))
         let agentMembers = Set(runs.filter { $0.key.category.owner.isAgent }.map(\.key.category.process))
-        var batches: [CollapsedCategory: CollapsedContribution] = [:]
+        var batches: [CollapsedCategory: CollapsedWindowRecord] = [:]
+        var possiblyOverlapping: [CollapsedCategory: Set<ProcessIdentity>] = [:]
         var members: [CollapsedCategory: Set<ProcessIdentity>] = [:]
         var workers: [CollapsedCategory: Set<ProcessIdentity>] = [:]
         var retained: [Run] = []
@@ -490,13 +495,28 @@ struct AccountingWindow: Sendable {
             let value = CollapsedContribution(
                 category: key, memory: run.memory, cpu: run.cpu,
                 earliestEvidence: run.earliest, latestEvidence: run.latest, missingEvidence: run.missingTimes)
-            if batches[key] == nil { batches[key] = value } else { batches[key]?.merge(value) }
+            let batch = CollapsedWindowRecord(resources: value, latestObservationTicks: run.ticks.latest)
+            if batches[key] == nil { batches[key] = batch } else { batches[key]?.merge(batch) }
+            // A missed read can hide a still-running worker. Only birth after every earlier
+            // collapsed observation proves disjointness (architecture: Pressure disclosure).
+            if !run.ticks.wasBorn(after: collapsed[key]?.latestObservationTicks) {
+                possiblyOverlapping[key, default: []].insert(run.key.category.process)
+            }
             members[key, default: []].insert(run.key.category.process)
             if !run.key.category.isAgentRuntime { workers[key, default: []].insert(run.key.category.process) }
         }
         for (key, var value) in batches {
-            value.setCounts(processes: members[key]?.count ?? 0, workers: workers[key]?.count ?? 0)
-            if collapsed[key] == nil { collapsed[key] = value } else { collapsed[key]?.merge(value) }
+            let processes = members[key, default: []]
+            let workerIDs = workers[key, default: []]
+            value.resources.setCounts(processes: processes.count, workers: workerIDs.count)
+            if collapsed[key] == nil {
+                collapsed[key] = value
+            } else {
+                let overlap = possiblyOverlapping[key, default: []]
+                collapsed[key]?.merge(
+                    value, newProcesses: processes.subtracting(overlap).count,
+                    newWorkers: workerIDs.subtracting(overlap).count)
+            }
         }
         runs = retained
         indices = Dictionary(uniqueKeysWithValues: runs.enumerated().map { ($0.element.key, $0.offset) })
@@ -520,13 +540,13 @@ struct AccountingWindow: Sendable {
         if !fits(payloadSize), !collapsed.isEmpty {
             // Arbitrary session churn is also unbounded. Preserve resources and count bounds while
             // visibly releasing category names, separately for agent-associated and other work.
-            var remainder: [CollapsedCategory: CollapsedContribution] = [:]
+            var remainder: [CollapsedCategory: CollapsedWindowRecord] = [:]
             for value in collapsed.values {
                 let reduced = value.droppingCategoryDetail()
-                if remainder[reduced.category] == nil {
-                    remainder[reduced.category] = reduced
+                if remainder[reduced.resources.category] == nil {
+                    remainder[reduced.resources.category] = reduced
                 } else {
-                    remainder[reduced.category]?.merge(reduced)
+                    remainder[reduced.resources.category]?.merge(reduced)
                 }
             }
             collapsed = remainder
@@ -534,7 +554,7 @@ struct AccountingWindow: Sendable {
         return payloadSize
     }
 
-    var collapsedCPUSeconds: Double { collapsed.values.reduce(0) { $0 + $1.cpuSeconds } }
+    var collapsedCPUSeconds: Double { collapsed.values.reduce(0) { $0 + $1.resources.cpuSeconds } }
 
     func counters() throws -> CounterWindow {
         try CounterWindow(
@@ -574,7 +594,9 @@ struct AccountingWindow: Sendable {
                 RecentCrossing(contribution: $0.value, category: $0.key.category)
             }, excluded: excludedCount, coverage: readCoverage,
             acquisition: acquisitionCoverage, publication: publicationCoverage,
-            collapsed: collapsed.values.filter { scope == .allProcesses || $0.category.includedInAgentScope })
+            collapsed: collapsed.values.map(\.resources).filter {
+                scope == .allProcesses || $0.category.includedInAgentScope
+            })
     }
 
     func projection(scope: ProcessScope) throws -> (

@@ -14,7 +14,13 @@ public struct LifetimeCountRange: Equatable, Codable, Sendable {
     public var text: String { minimum == maximum ? "\(minimum)" : "\(minimum)–\(maximum)" }
 
     public mutating func union(_ other: Self) {
-        minimum = max(minimum, other.minimum)
+        union(other, disjointMinimum: 0)
+    }
+
+    /// Only a proven subset disjoint from every earlier member may raise the union floor.
+    mutating func union(_ other: Self, disjointMinimum: Int) {
+        precondition(disjointMinimum >= 0 && disjointMinimum <= other.minimum)
+        minimum = max(minimum + disjointMinimum, other.minimum)
         maximum += other.maximum
     }
 }
@@ -71,7 +77,7 @@ public struct CollapsedCategory: Hashable, Codable, Sendable {
 }
 
 /// Exact resource aggregates with explicitly reduced identity/category detail under delivery pressure.
-/// Count bounds combine by max/sum, never by assuming that absence proves a worker exited.
+/// Count bounds use max/sum unless monotonic birth evidence proves a disjoint incoming subset.
 public struct CollapsedContribution: Equatable, Codable, Sendable {
     public let category: CollapsedCategory
     public private(set) var cpuSeconds: Double
@@ -115,6 +121,10 @@ public struct CollapsedContribution: Equatable, Codable, Sendable {
     }
 
     public mutating func merge(_ other: Self) {
+        merge(other, newProcesses: 0, newWorkers: 0)
+    }
+
+    mutating func merge(_ other: Self, newProcesses: Int, newWorkers: Int) {
         precondition(category == other.category)
         cpuSeconds += other.cpuSeconds
         intervalCount += other.intervalCount
@@ -137,8 +147,8 @@ public struct CollapsedContribution: Equatable, Codable, Sendable {
             latestEvidenceObservedAt = max(latestEvidenceObservedAt ?? time, time)
         }
         missingEvidenceTimeCount += other.missingEvidenceTimeCount
-        processCount.union(other.processCount)
-        workerCount.union(other.workerCount)
+        processCount.union(other.processCount, disjointMinimum: newProcesses)
+        workerCount.union(other.workerCount, disjointMinimum: newWorkers)
     }
 
     func droppingCategoryDetail() -> Self {
