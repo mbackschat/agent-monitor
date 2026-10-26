@@ -41,6 +41,22 @@ def clean(root: Path, age_seconds: float, apply: bool) -> list[Path]:
     return candidates
 
 
+def stop(process: subprocess.Popen) -> None:
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        if process.poll() is not None:
+            return
+        try:
+            os.killpg(process.pid, sig)
+        except ProcessLookupError:
+            pass
+        try:
+            process.wait(timeout=5)
+            return
+        except subprocess.TimeoutExpired:
+            if sig == signal.SIGKILL:
+                raise
+
+
 def run(root: Path, command: list[str]) -> int:
     if root.is_symlink():
         raise ValueError('Scratch root must not be a symlink')
@@ -55,15 +71,12 @@ def run(root: Path, command: list[str]) -> int:
                 command, env=environment, start_new_session=True, pass_fds=(lock.fileno(),))
             try:
                 return process.wait()
-            except BaseException:
-                # Only the command's owned process group may outlive this scratch directory.
-                os.killpg(process.pid, signal.SIGTERM)
+            except BaseException as interrupted:
                 try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
-                    process.wait()
-                raise
+                    stop(process)
+                finally:
+                    # Cleanup EPERM must not mask the primary failure; see docs/research/cpu-accounting.md.
+                    raise interrupted
 
 
 def main() -> int:

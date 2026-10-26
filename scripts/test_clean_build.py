@@ -1,10 +1,12 @@
 import importlib.util
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import Mock, call, patch
 
 SPEC = importlib.util.spec_from_file_location('clean_build', Path(__file__).with_name('clean-build.py'))
 
@@ -22,6 +24,65 @@ class ScratchCleanupTests(unittest.TestCase):
             code = 'import os,pathlib,sys; pathlib.Path(os.environ["AGENT_MONITOR_SCRATCH"],"trace").write_text("data"); sys.exit(%d)' % status
             self.assertEqual(self.module.run(self.root, [sys.executable, '-c', code]), status)
             self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_interruption_survives_cleanup_failures(self):
+        for phase in ('terminate', 'kill', 'reap'):
+            with self.subTest(phase=phase):
+                interruption = KeyboardInterrupt('original interruption')
+                failure = PermissionError('cleanup denied')
+                timeout = subprocess.TimeoutExpired('owned command', 5)
+                waits = [interruption, timeout, failure]
+                signals = [None, None]
+                if phase == 'terminate':
+                    signals = [failure]
+                elif phase == 'kill':
+                    signals = [None, failure]
+                process = Mock(pid=123, **{'poll.return_value': None, 'wait.side_effect': waits})
+                with patch.object(self.module.subprocess, 'Popen', return_value=process), patch.object(
+                    self.module.os, 'killpg', side_effect=signals
+                ):
+                    with self.assertRaises(KeyboardInterrupt) as caught:
+                        self.module.run(self.root, ['fake-command'])
+                self.assertIs(caught.exception, interruption)
+                self.assertIs(caught.exception.__context__, failure)
+                self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_interruption_does_not_signal_an_already_finished_command(self):
+        interruption = KeyboardInterrupt()
+        process = Mock(pid=123, **{'poll.return_value': 0, 'wait.side_effect': interruption})
+        with patch.object(self.module.subprocess, 'Popen', return_value=process), patch.object(
+            self.module.os, 'killpg'
+        ) as send_signal:
+            with self.assertRaises(KeyboardInterrupt) as caught:
+                self.module.run(self.root, ['fake-command'])
+        self.assertIs(caught.exception, interruption)
+        send_signal.assert_not_called()
+
+    def test_group_disappearance_still_reaps_the_owned_command(self):
+        interruption = KeyboardInterrupt()
+        process = Mock(pid=123, **{'poll.return_value': None, 'wait.side_effect': [interruption, 0]})
+        with patch.object(self.module.subprocess, 'Popen', return_value=process), patch.object(
+            self.module.os, 'killpg', side_effect=ProcessLookupError()
+        ):
+            with self.assertRaises(KeyboardInterrupt) as caught:
+                self.module.run(self.root, ['fake-command'])
+        self.assertIs(caught.exception, interruption)
+        self.assertEqual(process.wait.call_args_list, [call(), call(timeout=5)])
+
+    def test_interrupted_cleanup_escalates_with_bounded_waits(self):
+        interruption = KeyboardInterrupt()
+        process = Mock(pid=123, **{
+            'poll.return_value': None,
+            'wait.side_effect': [interruption, subprocess.TimeoutExpired('owned command', 5), -9],
+        })
+        with patch.object(self.module.subprocess, 'Popen', return_value=process), patch.object(
+            self.module.os, 'killpg'
+        ) as send_signal:
+            with self.assertRaises(KeyboardInterrupt) as caught:
+                self.module.run(self.root, ['fake-command'])
+        self.assertIs(caught.exception, interruption)
+        self.assertEqual(send_signal.call_args_list, [call(123, signal.SIGTERM), call(123, signal.SIGKILL)])
+        self.assertEqual(process.wait.call_args_list, [call(), call(timeout=5), call(timeout=5)])
 
     def test_cleanup_only_removes_old_owned_unlocked_directories(self):
         import fcntl
