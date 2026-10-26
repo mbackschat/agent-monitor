@@ -41,14 +41,13 @@ func diagnosisScan(
         burst.startedAt = 12.1
         window.ingest(diagnosisScan([burst], at: 12.1, scan: 0.1, unreadable: 1))
         window.ingest(diagnosisScan([], at: 14, scan: 0.5))
-        #expect(window.rankedContributors.count == 13)
+        #expect(window.rankedContributors.count == 10)
         #expect(window.contributors.map(\.sample.identity.pid) == Array(1...10).map(Int32.init))
         #expect(window.omittedContributorCount == 3)
         #expect(window.cpuSeconds == 12.2)
         let returnedCPU = window.contributors.map(\.cpuSeconds).reduce(0, +)
-        let omittedCPU = window.rankedContributors.dropFirst(10).map(\.cpuSeconds).reduce(0, +)
+        let omittedCPU = 2.2
         #expect(returnedCPU == 10)
-        #expect(omittedCPU == 2.2)
         #expect(returnedCPU + omittedCPU == window.cpuSeconds)
         #expect(window.observedLifetimeCount == 13)
         #expect(window.unreadableObservationCount == 3)
@@ -60,7 +59,65 @@ func diagnosisScan(
         #expect(earlier.meanCPUPercent == 50)
         #expect(earlier.peakCPUPercent == 50)
         #expect(earlier.validIntervals == 1)
-        #expect(try #require(window.rankedContributors.last).meanCPUPercent > earlier.meanCPUPercent)
+    }
+
+    @Test(arguments: [0, 1, 4, 5, 6, 64])
+    func rankingKeepsTenWhileTotalsCoverTheFourScanLifetimeUnion(population: Int) throws {
+        var window = CPUDiagnosisWindow()
+        let baseline = (0..<population).map { index in
+            sample(Int32(100 + index), start: UInt64(index * 2 + 1), at: 10, cpu: 100)
+        }
+        window.ingest(diagnosisScan(baseline, at: 10, scan: 0))
+        let measured = baseline.enumerated().map { index, original in
+            sample(
+                original.identity.pid, start: original.identity.startMicroseconds,
+                at: 11, cpu: 100 + Double(index * 7 % 13) / 4)
+        }
+        window.ingest(diagnosisScan(measured, at: 11, scan: 0))
+        let replacements = baseline.enumerated().map { index, original in
+            var replacement = sample(
+                original.identity.pid, start: original.identity.startMicroseconds + 1,
+                at: 12, cpu: Double(index * 5 % 13) / 4)
+            replacement.startedAt = 11.5
+            return replacement
+        }
+        window.ingest(diagnosisScan(replacements, at: 12, scan: 0))
+        let final = replacements.enumerated().map { index, original in
+            sample(
+                original.identity.pid, start: original.identity.startMicroseconds,
+                at: 13, cpu: Double(index * 5 % 13 + index * 3 % 13) / 4)
+        }
+        window.ingest(diagnosisScan(final, at: 13, scan: 0))
+
+        var oracle: [(identity: ProcessIdentity, cpuSeconds: Double)] = []
+        for index in 0..<population {
+            oracle.append((baseline[index].identity, Double(index * 7 % 13) / 4))
+            oracle.append((final[index].identity, Double(index * 5 % 13 + index * 3 % 13) / 4))
+        }
+        oracle.sort {
+            if $0.cpuSeconds != $1.cpuSeconds { return $0.cpuSeconds > $1.cpuSeconds }
+            if $0.identity.pid != $1.identity.pid { return $0.identity.pid < $1.identity.pid }
+            return $0.identity.startMicroseconds < $1.identity.startMicroseconds
+        }
+        let expected = Array(oracle.prefix(10))
+        let ranked = window.rankedContributors
+        #expect(ranked.count == min(10, oracle.count))
+        #expect(ranked.map(\.sample.identity) == expected.map(\.identity))
+        #expect(ranked.map(\.cpuSeconds) == expected.map(\.cpuSeconds))
+        #expect(window.contributors.map(\.sample.identity) == expected.map(\.identity))
+        #expect(window.observedLifetimeCount == oracle.count)
+        #expect(window.measuredLifetimeCount == oracle.count)
+        #expect(window.omittedContributorCount == max(0, oracle.count - 10))
+        if oracle.isEmpty {
+            #expect(window.cpuSeconds == nil)
+            #expect(window.windowCPUPercent == nil)
+        } else {
+            let total = oracle.reduce(0) { $0 + $1.cpuSeconds }
+            #expect(window.cpuSeconds == total)
+            #expect(window.windowCPUPercent == 100 * total / 3)
+            let omitted = oracle.dropFirst(10).reduce(0) { $0 + $1.cpuSeconds }
+            #expect(try #require(window.cpuSeconds) == ranked.reduce(0) { $0 + $1.cpuSeconds } + omitted)
+        }
     }
 
     @Test func readGapsRecoverWithinDiagnosisButCounterResetsDoNot() {
