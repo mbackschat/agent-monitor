@@ -57,10 +57,23 @@ import Testing
         #expect(try await handoff.next() == nil)
     }
 
-    @Test func cancelledEmptyConsumerFinishes() async {
+    @Test func alreadyCancelledConsumerDoesNotInstallAWaiter() async {
+        let handoff = AcquisitionHandoff<Int>(limits: MonitoringPipelineLimits())
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try await handoff.next()
+        }
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(!handoff.hasWaitingConsumer)
+    }
+
+    @Test func cancellationReleasesASuspendedConsumer() async {
         let handoff = AcquisitionHandoff<Int>(limits: MonitoringPipelineLimits())
         let task = Task { try await handoff.next() }
+        #expect(await waitForCondition { handoff.hasWaitingConsumer })
         task.cancel()
+        #expect(await waitForCondition { !handoff.hasWaitingConsumer })
+        handoff.finish(throwing: CancellationError())
         await #expect(throws: CancellationError.self) { try await task.value }
     }
 }

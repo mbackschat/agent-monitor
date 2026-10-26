@@ -112,6 +112,7 @@ extension RecentActivityTests {
         var units: [RecentActivityUnit] = []
         var rawCPU: [(opening: UInt64, closing: UInt64, seconds: Double)] = []
         var rawMemory: [(scan: UInt64, key: String, bytes: UInt64)] = []
+        var rawKernelPeak: [(scan: UInt64, key: String, reading: RecentMemoryReading?)] = []
         for unitIndex in 0..<8 {
             var accumulator = AccountingWindow(baseline: baseline)
             for offset in 1...3 {
@@ -122,7 +123,7 @@ extension RecentActivityTests {
                         pid, executable: tick < 10 ? "/one/node" : "/two/java",
                         at: Double(tick) / 3, cpu: Double(tick) / 10)
                     value.footprintBytes = tick % 5 == 0 ? nil : UInt64((tick * 17) % 101)
-                    value.kernelPeakFootprintBytes = tick % 4 == 0 ? nil : UInt64(100 - tick)
+                    value.kernelPeakFootprintBytes = tick % 3 == 0 ? nil : UInt64(100 - tick)
                     values.append(value)
                 }
                 let scan = ledger.ingest(values, listedAt: Double(tick) / 3)
@@ -142,6 +143,15 @@ extension RecentActivityTests {
                     let key =
                         "\(row.process.pid)/\(row.attribution.threadID ?? "?")/\(row.executable)/\(runtime.contains(row.process))"
                     if let bytes = row.footprintBytes { rawMemory.append((scan.id.sequence, key, bytes)) }
+                    rawKernelPeak.append(
+                        (
+                            scan.id.sequence, key,
+                            row.kernelPeakFootprintBytes.map {
+                                RecentMemoryReading(
+                                    bytes: $0, scan: scan.id.sequence, observedAt: Double(tick) / 3,
+                                    evidence: row.attribution.evidence, evidenceObservedAt: nil)
+                            }
+                        ))
                 }
                 baseline = scan
             }
@@ -164,14 +174,26 @@ extension RecentActivityTests {
             for reading in rawMemory where reading.scan > opening {
                 expectedMemory[reading.key] = max(expectedMemory[reading.key] ?? 0, reading.bytes)
             }
+            var expectedKernelPeaks: [String: RecentMemoryReading] = [:]
+            var expectedUnavailable: [String: Bool] = [:]
+            for observation in rawKernelPeak where observation.scan > opening {
+                expectedUnavailable[observation.key] = observation.reading == nil
+                if let reading = observation.reading { expectedKernelPeaks[observation.key] = reading }
+            }
+            var actualKernelPeaks: [String: RecentMemoryReading] = [:]
+            var actualUnavailable: [String: Bool] = [:]
             var actual: [String: UInt64] = [:]
             for record in snapshot.units.flatMap(\.records) {
                 let category = record.category
                 let key =
                     "\(category.process.pid)/\(category.owner.sessionID ?? "?")/\(category.executable)/\(category.isAgentRuntime)"
                 if let bytes = record.maximumFootprint?.bytes { actual[key] = max(actual[key] ?? 0, bytes) }
+                actualKernelPeaks[key] = record.kernelPeak
+                actualUnavailable[key] = record.kernelPeakUnavailable
             }
             #expect(actual == expectedMemory)
+            #expect(actualKernelPeaks == expectedKernelPeaks)
+            #expect(actualUnavailable == expectedUnavailable)
         }
     }
 

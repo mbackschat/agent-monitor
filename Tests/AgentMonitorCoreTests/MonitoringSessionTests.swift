@@ -29,14 +29,17 @@ private final class SessionFixture: ProcessReading, AcquisitionClock, Sendable {
     let collected = Mutex<[MonitoringSnapshot]>([])
     let failCollection: Bool
     let cancelWait: Bool
+    let resources: [(cpu: Double, memory: UInt64)]?
     /// Runs inside the first wait, which then lasts until the session cancels it.
     let blockFirstWait: (@Sendable () -> Void)?
 
     init(
-        failCollection: Bool = false, cancelWait: Bool = false, blockFirstWait: (@Sendable () -> Void)? = nil
+        failCollection: Bool = false, cancelWait: Bool = false,
+        resources: [(cpu: Double, memory: UInt64)]? = nil, blockFirstWait: (@Sendable () -> Void)? = nil
     ) {
         self.failCollection = failCollection
         self.cancelWait = cancelWait
+        self.resources = resources
         self.blockFirstWait = blockFirstWait
     }
 
@@ -47,8 +50,9 @@ private final class SessionFixture: ProcessReading, AcquisitionClock, Sendable {
         }
         events.withLock { $0.append("scan") }
         if index > 0 && failCollection { throw SessionFixtureError.collection }
+        let resource = resources?[index] ?? (cpu: Double(index), memory: 1)
         return ProcessSnapshot(
-            samples: [sample(42, at: 1 + Double(index) * 2, cpu: Double(index), memory: 1)],
+            samples: [sample(42, at: 1 + Double(index) * 2, cpu: resource.cpu, memory: resource.memory)],
             enumeratedCount: 3, unreadableCount: 2, listedAt: 1 + Double(index) * 2, scanSeconds: 0,
             hostCounters: nil, logicalCPUCount: 8)
     }
@@ -110,7 +114,7 @@ private final class SessionFixture: ProcessReading, AcquisitionClock, Sendable {
     #expect(events.filter { $0 == "launch" }.count == 1)
     #expect(events.filter { $0 == "emit" }.count == 2)
     let snapshots = fixture.collected.withLock { $0 }
-    #expect(snapshots.count == 2)
+    #expect(snapshots.map { $0.cpuAccounting.acquisition?.scanSequence } == [1, 2])
     let first = try #require(snapshots.first)
     #expect(first.timestamp == Date(timeIntervalSince1970: 0))
     #expect(first.sampledProcessCount == 1)
@@ -333,17 +337,18 @@ private final class SummaryClock: AcquisitionClock, Sendable {
 }
 
 @Test func resourceTotalsRefreshOnEverySample() async throws {
-    let fixture = SessionFixture()
+    let fixture = SessionFixture(resources: [(0, 0), (1, 10), (4, 0), (4, 30)])
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(
-            thresholds: Thresholds(cpuPercent: 100, memoryBytes: 100),
+            thresholds: Thresholds(cpuPercent: 200, memoryBytes: 100),
             samples: 3, collectAgentLoad: true),
         reader: fixture, clock: SummaryClock())
     try await session.run { fixture.receive($0) }
     let snapshots = fixture.collected.withLock { $0 }
     #expect(snapshots.count == 3)
-    #expect(snapshots.allSatisfy { $0.agentLoad?.cpuPercent == 50 })
-    #expect(snapshots.allSatisfy { $0.agentLoad?.footprintBytes == 1 })
+    #expect(snapshots.map { $0.agentLoad?.cpuPercent } == [50, 150, 0])
+    #expect(snapshots.allSatisfy { $0.findings.isEmpty })
+    #expect(snapshots.map { $0.agentLoad?.footprintBytes } == [10, 0, 30])
 }
 
 @Test(arguments: [true, false])
@@ -382,22 +387,10 @@ func resourceTotalsDoNotWaitForMetadataRefresh(interval: Double) async throws {
             == stride(from: interval, through: Double(count) * interval, by: interval).map { $0 })
     #expect(snapshots.count == count)
     #expect(fixture.scans.withLock { $0 } == count + 1)
+    #expect(snapshots.allSatisfy { $0.observedFindings.first?.attribution.threadID == sessionA })
     let calls = fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count
     #expect(calls >= Int(Double(count - 1) * interval / max(1, interval)) + 1)
     #expect(calls <= Int(Double(count) * interval / max(1, interval)) + 1)
-}
-
-@Test(.timeLimit(.minutes(1))) func summaryAndAttributionRefreshTogether() async throws {
-    let fixture = SessionFixture()
-    let session = MonitoringSession(
-        configuration: try MonitoringConfiguration(samples: 16, collectAgentLoad: true),
-        reader: fixture, clock: SummaryClock(metadataReads: fixture.metadataRead))
-    try await session.run { fixture.receive($0) }
-    let snapshots = fixture.collected.withLock { $0 }
-    #expect(snapshots.filter { $0.agentLoad != nil }.count == 16)
-    #expect(snapshots.allSatisfy { $0.findings.first?.attribution.threadID == sessionA })
-    let calls = fixture.events.withLock { $0 }.filter { $0 == "metadata" }.count
-    #expect((16...17).contains(calls))
 }
 
 @Test func summaryCadenceRecoversAfterAWallClockRollback() async throws {

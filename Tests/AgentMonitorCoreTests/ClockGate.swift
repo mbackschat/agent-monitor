@@ -34,3 +34,13 @@ final class ClockGate: Sendable {
         }
     }
 }
+
+func waitForCondition(_ condition: @Sendable () async -> Bool) async -> Bool {
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while !Task.isCancelled {
+        if await condition() { return true }
+        if ContinuousClock.now >= deadline { return false }
+        do { try await Task.sleep(for: .milliseconds(1)) } catch { return false }
+    }
+    return false
+}

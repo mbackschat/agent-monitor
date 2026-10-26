@@ -152,6 +152,7 @@ actor MonitoringChannel<Element: Sendable> {
     }
 
     var isDrained: Bool { ended && head == queue.count }
+    var hasWaitingConsumer: Bool { waiter != nil }
 
     func next() async throws -> Element? {
         try Task.checkCancellation()

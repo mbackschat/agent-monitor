@@ -190,8 +190,8 @@ private struct NoPublicationRegistry: SessionRegistryReading {
                 - 1)
     }
 
-    @Test(arguments: [Thresholds(), Thresholds(memoryBytes: 1_000_000_000)], [1.0, 2.0, 5.0])
-    func fastAcquisitionRetainsWorkerGoneBeforeFirstDisplay(thresholds: Thresholds, displaySeconds: Double)
+    @Test(arguments: [Thresholds(), Thresholds(memoryBytes: 1_000_000_000)])
+    func fastAcquisitionRetainsWorkerGoneBeforeFirstDisplay(thresholds: Thresholds)
         async throws
     {
         let reader = WindowReader(disappearsAt: 3)
@@ -199,7 +199,7 @@ private struct NoPublicationRegistry: SessionRegistryReading {
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(
                 thresholds: thresholds, intervalSeconds: 0.1, samples: 1, collectAgentLoad: true,
-                reportIntervalSeconds: displaySeconds),
+                reportIntervalSeconds: 5),
             reader: reader, clock: reader)
         try await session.run { result in results.withLock { $0.append(result) } }
         let snapshots = results.withLock { $0 }

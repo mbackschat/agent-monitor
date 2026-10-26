@@ -49,10 +49,23 @@ import Testing
         #expect(try await channel.next() == nil)
     }
 
-    @Test func cancellingAnEmptyWaitDoesNotLeakAContinuation() async throws {
+    @Test func alreadyCancelledConsumerDoesNotInstallAWaiter() async {
+        let channel = MonitoringChannel<Int>(stage: .accounting, limits: MonitoringPipelineLimits())
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try await channel.next()
+        }
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(await !channel.hasWaitingConsumer)
+    }
+
+    @Test func cancellationReleasesASuspendedConsumer() async {
         let channel = MonitoringChannel<Int>(stage: .accounting, limits: MonitoringPipelineLimits())
         let task = Task { try await channel.next() }
+        #expect(await waitForCondition { await channel.hasWaitingConsumer })
         task.cancel()
+        #expect(await waitForCondition { await !channel.hasWaitingConsumer })
+        await channel.finish(throwing: CancellationError())
         await #expect(throws: CancellationError.self) { try await task.value }
     }
 

@@ -4,18 +4,20 @@ import Testing
 
 @testable import AgentMonitorCore
 
-@Test func providerWorkerObservesCancellationOutsideTheCooperativeExecutor() async throws {
+@Test(.timeLimit(.minutes(1)), arguments: [false, true])
+func providerWorkerObservesCancellationOutsideTheCooperativeExecutor(launchFails: Bool) async throws {
     let stopped = Mutex(false)
     let checks = Mutex(0)
     let started = AsyncStream<Void>.makeStream()
     let cancellationReady = DispatchSemaphore(value: 0)
     let worker = SerialBlockingWorker(name: "Provider cancellation fixture", initial: ())
     let registry = CommandSessionRegistryReader(
-        executable: URL(fileURLWithPath: "/usr/bin/python3"),
+        executable: URL(fileURLWithPath: launchFails ? "/dev/null/provider-fixture" : "/usr/bin/python3"),
         prefix: ["-c", "import time; time.sleep(30)"], timeout: 5)
     let query = SessionRegistryQuery(tool: "fixture", command: [], environment: [:])
     let task = Task {
-        try await worker.perform { _ in
+        defer { started.continuation.finish() }
+        return try await worker.perform { _ in
             try registry.output(
                 of: query,
                 checking: {
@@ -31,10 +33,16 @@ import Testing
                 })
         }
     }
-    for await _ in started.stream { break }
+    var iterator = started.stream.makeAsyncIterator()
+    let reachedCancellation = await iterator.next() != nil
     stopped.withLock { $0 = true }
     cancellationReady.signal()
-    await #expect(throws: CancellationError.self) { try await task.value }
+    let result = await task.result
     await worker.close()
-    started.continuation.finish()
+    #expect(reachedCancellation == !launchFails)
+    if launchFails {
+        #expect(throws: BoundedCommandFailure.self) { try result.get() }
+    } else {
+        #expect(throws: CancellationError.self) { try result.get() }
+    }
 }

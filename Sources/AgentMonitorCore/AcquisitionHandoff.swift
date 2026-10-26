@@ -72,6 +72,8 @@ final class AcquisitionHandoff<Element: Sendable>: Sendable {
 
     func cancel() { finish(throwing: CancellationError()) }
 
+    var hasWaitingConsumer: Bool { state.withLock { $0.waiter != nil } }
+
     func next() async throws -> Element? {
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in

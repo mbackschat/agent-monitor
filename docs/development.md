@@ -45,6 +45,8 @@ The [doctor](../scripts/doctor.sh) checks macOS, Swift, the active macOS SDK, Gi
 
 Retain tests for distinct invariants and independently checkable failure classes. Remove repetition only after identifying which existing oracle and boundary still cover it; retain cold/warm, pre/post-pressure and whole-range eviction cases where they differ. Expensive production-composition, differential, allocated-capacity and lease-lifetime guards are not interchangeable with small unit tests. Inject an owned PID when a native test only checks that PID, preserving a separate enumeration guard. Gate a performance acceptance test on an explicit metric; measurement-only opt-in probes remain diagnostic tools, with their provenance and retained research links. Do not delete them merely because they are not ordinary regression tests.
 
+Async progress guards must establish the blocked state before claiming independence: gate the next scan on consumer entry, or observe the internal waiter diagnostic before cancelling. Bound the readiness wait and release/join owned work on failure; an already buffered event or a task created immediately before cancellation does not establish concurrent progress or suspension.
+
 A new oracle should fail for a representative wrong result. The production stall fixture checks per-session CPU and memory maxima in addition to global conservation, so transferring work between sessions cannot pass merely because the total is unchanged. Its smaller injected budget forces compaction, and its duration crosses the rolling-history boundary; production-population capacity has separate guards.
 
 ## Validation coverage

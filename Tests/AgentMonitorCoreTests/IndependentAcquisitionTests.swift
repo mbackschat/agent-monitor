@@ -8,7 +8,12 @@ private final class IndependentReader: ProcessReading, AcquisitionClock, Session
     enum BlockingStage { case metadata, provider }
     let blockingStage: BlockingStage
     let providerCalls = Mutex(0)
-    init(blockingStage: BlockingStage = .metadata) { self.blockingStage = blockingStage }
+    let waitForConsumer: Bool
+    let consumerEntered = ClockGate()
+    init(blockingStage: BlockingStage = .metadata, waitForConsumer: Bool = false) {
+        self.blockingStage = blockingStage
+        self.waitForConsumer = waitForConsumer
+    }
     let scans = Mutex(0)
     let acquisitionThreads = Mutex<[String]>([])
     let resolutionThreads = Mutex<[String]>([])
@@ -73,6 +78,9 @@ private final class IndependentReader: ProcessReading, AcquisitionClock, Session
         if scans.withLock({ $0 }) == 1 {
             guard blockingStarted.wait(wake: wake) else { return }
         }
+        if waitForConsumer, scans.withLock({ $0 }) == 2 {
+            guard consumerEntered.wait(wake: wake) else { return }
+        }
         elapsed.withLock { $0 += seconds }
     }
     func monotonicNow() -> Double { elapsed.withLock { $0 } }
@@ -111,34 +119,47 @@ private final class IndependentReader: ProcessReading, AcquisitionClock, Session
         #expect(threads.isSubset(of: ["AgentMonitor metadata", "AgentMonitor providers"]))
     }
 
+    private enum ConsumerFailure: Error { case timedOut }
+
     @Test func waitingConsumerDoesNotHoldAcquisition() async throws {
-        let fixture = IndependentReader()
+        let fixture = IndependentReader(waitForConsumer: true)
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(samples: 3), reader: fixture, clock: fixture)
         let count = Mutex(0)
-        try await session.run { _ in
-            let first = count.withLock {
-                $0 += 1
-                return $0 == 1
-            }
-            if first {
-                let completed = await withTaskGroup(of: Bool.self) { group in
-                    group.addTask {
-                        for await scan in fixture.events.stream where scan == 3 { return true }
-                        return false
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                defer { fixture.events.continuation.finish() }
+                try await session.run { _ in
+                    let first = count.withLock {
+                        $0 += 1
+                        return $0 == 1
                     }
-                    group.addTask {
-                        try? await Task.sleep(for: .seconds(2))
-                        return false
+                    if first {
+                        #expect(fixture.scans.withLock { $0 } == 2)
+                        fixture.consumerEntered.signal()
+                        var completed = false
+                        for await scan in fixture.events.stream where scan == 3 {
+                            completed = true
+                            break
+                        }
+                        #expect(completed)
                     }
-                    defer { group.cancelAll() }
-                    return await group.next() ?? false
                 }
-                #expect(completed)
             }
+            group.addTask {
+                try await Task.sleep(for: .seconds(5))
+                throw ConsumerFailure.timedOut
+            }
+            defer {
+                group.cancelAll()
+                fixture.consumerEntered.signal()
+                fixture.events.continuation.finish()
+            }
+            try await group.next()
         }
         #expect(count.withLock { $0 } == 3)
     }
+
 }
 
 private final class CadenceFixture: ProcessReading, AcquisitionClock, Sendable {
