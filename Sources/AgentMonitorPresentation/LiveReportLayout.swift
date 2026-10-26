@@ -100,7 +100,8 @@ public enum LiveReportLayout {
                 + (state.snapshot?.window.map {
                     " · window " + ReportNumber.text($0.durationSeconds) + " s; point candidates"
                 } ?? ""), style: .muted)
-        let coverageStatus = state.snapshot.map(CoverageStatus.init(snapshot:)) ?? CoverageStatus(notes: [])
+        let coverageStatus = (state.snapshot.map(CoverageStatus.init(snapshot:)) ?? CoverageStatus(notes: []))
+            .addingInspection(state.snapshot?.window?.inspectionCoverage)
         // One coverage row is always reserved, so a gap appearing or clearing does not move the
         // panes; only an oversized status wraps. Both panes use the resulting height (architecture's TUI contract).
         let coverage = TerminalCells.wrapped(coverageStatus.text, to: width).map {

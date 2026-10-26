@@ -20,7 +20,7 @@ public enum ContributorLayout {
         var header = [
             title, totals, history, range,
         ]
-        let status = overview.coverageStatus
+        let status = overview.coverageStatus.addingInspection(overview.samplingCoverage?.inspection)
         let coverage = TerminalCells.wrapped(status.text, to: width).map {
             ReportLine($0, style: status.lineStyle)
         }

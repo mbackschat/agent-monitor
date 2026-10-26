@@ -17,22 +17,29 @@ public enum TerminalReport {
     public static func run(session: MonitoringSession, grouping: ReportGrouping = .none, color: Bool = true)
         async throws
     {
+        let inspection = session.inspectionObservations ? LiveInspection(active: true) : nil
         try await run(
             grouping: grouping, thresholds: session.initialThresholds, interval: session.initialInterval,
-            color: color
+            color: color, inspection: inspection
         ) { thresholds, interval, receive in
-            try await session.run(thresholds: thresholds, interval: interval, receive)
+            try await session.run(thresholds: thresholds, interval: interval, inspection: inspection, receive)
         }
     }
 
     public static func run(
         grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(), interval: Double = 1,
-        color: Bool = true,
+        color: Bool = true, inspection: LiveInspection? = nil,
         actions: any ProcessActions = SessionActions.local(),
         diagnosisSource: @escaping CPUDiagnosisSource = CPUDiagnosisSession.collectLocal,
         commandSource: @escaping CommandInspectionController.Source = NativeProcessReader.inspectCommand,
         source: @escaping SnapshotSource
     ) async throws {
+        defer {
+            inspection?.set(false)
+            if let coverage = inspection?.terminalCoverage, coverage.discardedReadings > 0 {
+                print("Between-scan reads | \(coverage.discardedReadings) unadmitted readings discarded")
+            }
+        }
         let identity = Identity(components: ["agent-monitor"])
         let liveInterval = LiveInterval(interval)
         let state = StateContainer(
@@ -59,7 +66,10 @@ public enum TerminalReport {
             stateContainer: state,
             focusTracker: FocusTracker(invalidationIdentities: [identity]),
             keyHandler: { key, _, state in
-                defer { commands.reconcile(with: state.state) }
+                defer {
+                    commands.reconcile(with: state.state)
+                    inspection?.set(!state.state.frozen)
+                }
                 if state.state.diagnosis.isVisible {
                     guard key.modifiers.isEmpty else { return .handled }
                     let size = host.surfaceSize
@@ -174,6 +184,7 @@ public enum TerminalReport {
         do {
             _ = try await runtime.run()
         } catch {
+            await outcome.collection.stop()
             commands.dismiss()
             await commands.wait()
             await diagnosis.stop()
@@ -181,6 +192,7 @@ public enum TerminalReport {
             await outcome.actionTask?.value
             throw error
         }
+        await outcome.collection.stop()
         await diagnosis.stop()
         commands.dismiss()
         await commands.wait()
@@ -217,6 +229,7 @@ public enum TerminalReport {
 @MainActor
 private final class TerminalOutcome {
     var error: (any Error)?
+    let collection = TerminalCollectionTask()
     var actionTask: Task<Void, Never>?
 
     func perform(_ effect: ActionEffect?, actions: any ProcessActions, state: StateContainer<LiveReportState>)
@@ -279,20 +292,29 @@ private struct TerminalReportView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .task {
-            do {
-                try await source({ await container.state.thresholds }, interval) {
-                    snapshot in
-                    _ = await MainActor.run {
-                        container.mutate { $0.receive(snapshot) }
-                        commands.reconcile(with: container.state)
+            guard
+                let task = outcome.collection.start({
+                    do {
+                        try await source({ await container.state.thresholds }, interval) {
+                            snapshot in
+                            _ = await MainActor.run {
+                                container.mutate { $0.receive(snapshot) }
+                                commands.reconcile(with: container.state)
+                            }
+                        }
+                    } catch is CancellationError {
+                        return
+                    } catch {
+                        outcome.error = error
                     }
-                }
-            } catch is CancellationError {
-                return
-            } catch {
-                outcome.error = error
+                    _ = requestTermination()
+                })
+            else { return }
+            await withTaskCancellationHandler {
+                await task.value
+            } onCancel: {
+                task.cancel()
             }
-            _ = requestTermination()
         }
     }
 

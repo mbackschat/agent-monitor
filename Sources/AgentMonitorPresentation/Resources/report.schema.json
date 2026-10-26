@@ -57,6 +57,9 @@
     "window": {
       "$ref": "#/$defs/reportWindow",
       "description": "Measured CPU uses unique contributions opening at or after baselineScan and closing in (baselineScan, finalScan], divided by endedAt-startedAt. Earlier openings are recovered CPU-seconds only. Monotonic times use the acquisition run clock. Point labels are frozen per contribution; no interval-supported ownership is asserted. Contributions cover row lifetimes in the requested scope; cpuAccounting.measuredUserPercent separately covers all sampled same-user lifetimes."
+    },
+    "inspectionCoverage": {
+      "$ref": "#/$defs/inspectionCoverage"
     }
   },
   "required": [
@@ -70,7 +73,8 @@
     "unreadableProcessCount",
     "findings",
     "cpuAccounting",
-    "observedFindings"
+    "observedFindings",
+    "inspectionCoverage"
   ],
   "$defs": {
     "processIdentity": {
@@ -567,6 +571,9 @@
         },
         "publicationCoverage": {
           "$ref": "#/$defs/publicationCoverage"
+        },
+        "inspectionCoverage": {
+          "$ref": "#/$defs/inspectionCoverage"
         }
       },
       "required": [
@@ -582,7 +589,8 @@
         "readCoverage",
         "acquisitionCoverage",
         "collapsedContributions",
-        "publicationCoverage"
+        "publicationCoverage",
+        "inspectionCoverage"
       ]
     },
     "readCoverage": {
@@ -919,6 +927,80 @@
         "maximumUnitSpanSeconds"
       ],
       "description": "Original closed units and units admitted to history. Only publication backlog coalesces units; ordinary display aggregation sums these fields without changing time resolution. Coalesced count counts original units involved in merges, not merge operations. Optional time endpoints enclose all coalesced units and may span intervening unmerged units; units are retained or evicted whole."
+    },
+    "inspectionCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Between-scan inspection attempts admitted only at complete censuses; disabled for ordinary text/JSONL collection. Counters sum and lateness maxima survive whole-unit merges.",
+      "required": [
+        "mode",
+        "opportunitiesTaken",
+        "opportunitiesSkipped",
+        "candidatesRead",
+        "candidatesFailed",
+        "candidatesLeftUnread",
+        "carriedObservations",
+        "supersededReadings",
+        "droppedReadings",
+        "discardedReadings",
+        "maximumCompleteScanLateness",
+        "enumerationFailures"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "disabled",
+            "enabled",
+            "mixed"
+          ]
+        },
+        "opportunitiesTaken": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "opportunitiesSkipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidatesRead": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidatesFailed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidatesLeftUnread": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "carriedObservations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "supersededReadings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "droppedReadings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "discardedReadings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximumCompleteScanLateness": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Seconds by which supplemental work was still in progress past the unchanged next complete-scan deadline."
+        },
+        "enumerationFailures": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
     }
   }
 }

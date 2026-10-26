@@ -87,9 +87,18 @@ public struct CounterExclusion: Equatable, Sendable {
     public let reason: CounterExclusionReason
 }
 
+public enum ObservationMembership: Sendable { case census, carried }
+
 public struct CounterObservation: Sendable {
     public let id: CounterObservationID
     public let sample: ProcessSample
+    public let membership: ObservationMembership
+
+    init(id: CounterObservationID, sample: ProcessSample, membership: ObservationMembership = .census) {
+        self.id = id
+        self.sample = sample
+        self.membership = membership
+    }
 }
 
 public struct CounterScan: Sendable {
@@ -155,7 +164,7 @@ struct CounterLedger: Sendable {
 
     mutating func ingest(
         _ samples: [ProcessSample], listedAt: Double?, scanSeconds: Double = 0,
-        source: ProcessSnapshot? = nil
+        source: ProcessSnapshot? = nil, carried: [ProcessSample] = []
     ) -> CounterScan {
         let scan = AcquisitionScanID(runID: runID, sequence: sequence)
         sequence += 1
@@ -164,9 +173,15 @@ struct CounterLedger: Sendable {
         var contributions: [CPUContribution] = []
         var exclusions: [CounterExclusion] = []
         var touched: [ProcessIdentity] = []
-        let observations = samples.map {
-            CounterObservation(id: CounterObservationID(scan: scan, process: $0.identity), sample: $0)
-        }
+        let observations =
+            samples.map {
+                CounterObservation(id: CounterObservationID(scan: scan, process: $0.identity), sample: $0)
+            }
+            + carried.map {
+                CounterObservation(
+                    id: CounterObservationID(scan: scan, process: $0.identity), sample: $0,
+                    membership: .carried)
+            }
         for observation in observations {
             let sample = observation.sample
             let previous = states[sample.identity]

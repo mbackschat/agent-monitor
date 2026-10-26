@@ -20,6 +20,19 @@ public struct CoverageStatus: Equatable, Sendable {
         }
     }
 
+    func addingInspection(_ coverage: InspectionCoverage?) -> Self {
+        guard let coverage, coverage.mostlySkipped else { return self }
+        return Self(
+            notes: notes + [
+                Note(
+                    "Between-scan reads skipped: \(coverage.opportunitiesSkipped)/\(coverage.opportunitiesTaken + coverage.opportunitiesSkipped)",
+                    .warning,
+                    help:
+                        "More than half of inspection opportunities were skipped; supplemental coverage is reduced."
+                )
+            ])
+    }
+
     public static let clearText = "No read failures or overruns"
     public let notes: [Note]
 

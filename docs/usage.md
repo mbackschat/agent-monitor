@@ -42,6 +42,9 @@ With at least one nonzero threshold, report display filters match strictly above
 
 ## Live terminal view
 
+`--tui --inspection-observations` opts into experimental between-scan discovery while the TUI is live and unpaused. Complete acquisition and the five-second display stay unchanged. Coverage details show a structured **Between-scan reads** row; a warning appears if more than half of opportunities were skipped. The feature is off by default, is unavailable in ordinary text/JSONL collection and has no Mac control yet. Coverage gains, overhead and skip rate have not been measured. It does not recover final-exit CPU or guarantee discovery of short workers; see the [inspection contract](architecture.md#supplemental-inspection-observations).
+
+
 ```sh
 agent-monitor --tui
 agent-monitor --tui --group session

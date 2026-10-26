@@ -144,16 +144,19 @@ public struct MonitoringConfiguration: Sendable {
     public let pipelineLimits: MonitoringPipelineLimits
     public let reportIntervalSeconds: Double?
     public let promptCaptureLimits: PromptCaptureLimits
+    public let inspectionObservations: Bool
 
     public init(
         thresholds: Thresholds = Thresholds(), intervalSeconds: Double = 1, samples: Int = 1,
         includeCommands: Bool = false, scope: ProcessScope = .agentsOnly, collectAgentLoad: Bool = false,
         pipelineLimits: MonitoringPipelineLimits = MonitoringPipelineLimits(),
-        promptCaptureLimits: PromptCaptureLimits = PromptCaptureLimits(), reportIntervalSeconds: Double? = nil
+        promptCaptureLimits: PromptCaptureLimits = PromptCaptureLimits(),
+        reportIntervalSeconds: Double? = nil,
+        inspectionObservations: Bool = false
     ) throws {
         guard intervalSeconds.isFinite, (0.1...60).contains(intervalSeconds), samples >= 0,
             thresholds.cpuPercent.isFinite, thresholds.cpuPercent >= 0, pipelineLimits.isValid,
-            promptCaptureLimits.isValid,
+            promptCaptureLimits.isValid, !inspectionObservations || reportIntervalSeconds != nil,
             reportIntervalSeconds.map({ $0.isFinite && (0.1...60).contains($0) }) ?? true
         else { throw MonitoringError.invalidConfiguration }
         self.thresholds = thresholds
@@ -165,6 +168,7 @@ public struct MonitoringConfiguration: Sendable {
         self.pipelineLimits = pipelineLimits
         self.promptCaptureLimits = promptCaptureLimits
         self.reportIntervalSeconds = reportIntervalSeconds
+        self.inspectionObservations = inspectionObservations
     }
 }
 
@@ -245,17 +249,18 @@ public struct MonitoringSession: Sendable {
     }
 
     public var initialThresholds: Thresholds { configuration.thresholds }
+    public var inspectionObservations: Bool { configuration.inspectionObservations }
     public var initialInterval: Double { configuration.intervalSeconds }
 
     /// Serial counter/accounting collection is independent of blocking enrichment and presentation.
     @concurrent public func run(
         thresholds currentThresholds: (@Sendable () async -> Thresholds)? = nil,
-        interval live: LiveInterval? = nil,
+        interval live: LiveInterval? = nil, inspection: LiveInspection? = nil,
         _ receive: @Sendable (MonitoringSnapshot) async throws -> Void
     ) async throws {
         try await IndependentMonitoringPipeline(
             configuration: configuration, reader: reader, clock: clock, registry: registry,
-            excluded: excluded, recentActivity: recentActivity, profile: profile
+            excluded: excluded, recentActivity: recentActivity, profile: profile, inspection: inspection
         ).run(thresholds: currentThresholds, interval: live, receive)
     }
 }

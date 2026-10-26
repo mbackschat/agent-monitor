@@ -96,6 +96,7 @@ public struct ReportWindowSummary: Equatable, Codable, Sendable {
     public private(set) var readCoverage = ReadCoverage()
     public private(set) var acquisitionCoverage = AcquisitionCoverage()
     public private(set) var publicationCoverage = PublicationCoverage()
+    public private(set) var inspectionCoverage = InspectionCoverage()
     public private(set) var collapsedContributions: [CollapsedContribution] = []
     public var identityDetailsComplete: Bool { collapsedContributions.isEmpty }
     public var durationSeconds: Double { max(0, endedAt - startedAt) }
@@ -114,6 +115,7 @@ struct AccountingWindow: Sendable {
         let time: Double
         let run: Int
         let evidenceAt: Double?
+        let atCensus: Bool
     }
     private struct Run: Sendable {
         let key: Key
@@ -160,10 +162,15 @@ struct AccountingWindow: Sendable {
     }
     private var readCoverage = ReadCoverage()
     private var acquisitionCoverage = AcquisitionCoverage()
+    private var inspection: InspectionCoverage?
     private var publication: PublicationCoverage?
 
     var publicationCoverage: PublicationCoverage {
         publication ?? PublicationCoverage(start: baseline.listedAt ?? 0, end: final.endedAt ?? 0)
+    }
+
+    mutating func appendInspectionCoverage(_ coverage: InspectionCoverage) {
+        if inspection == nil { inspection = coverage } else { inspection?.merge(coverage) }
     }
 
     mutating func coalescePublication() {
@@ -187,45 +194,59 @@ struct AccountingWindow: Sendable {
         }
         return CounterScan(
             observations: [], source: source, id: scan.id,
-            listedAt: scan.listedAt ?? scan.observations.map(\.sample.sampledAt).min(),
-            endedAt: scan.endedAt ?? scan.observations.map(\.sample.sampledAt).max(),
+            listedAt: scan.listedAt
+                ?? scan.observations.filter { $0.membership == .census }.map(\.sample.sampledAt).min(),
+            endedAt: scan.endedAt
+                ?? scan.observations.filter { $0.membership == .census }.map(\.sample.sampledAt).max(),
             contributions: [], exclusions: [], evictedBaselines: [])
     }
 
     mutating func append(
         _ scan: CounterScan, rows: [HeavyProcess], attributionTimes: [ProcessIdentity: Double] = [:],
-        runtimes: Set<ProcessIdentity> = [], timing: AcquisitionTiming? = nil
+        runtimes: Set<ProcessIdentity> = [], timing: AcquisitionTiming? = nil,
+        carried: [HeldInspectionObservation] = [],
+        inspectionCoverage: InspectionCoverage = InspectionCoverage()
     ) throws {
         guard scan.id.runID == baseline.id.runID, scan.id.sequence > final.id.sequence else {
             throw CounterWindowError.incompatibleContribution
         }
         let byID = Dictionary(rows.map { ($0.process, $0) }, uniquingKeysWith: { _, last in last })
         let roots = SessionCorroboration(rows)
+        let held = Dictionary(uniqueKeysWithValues: carried.map { ($0.sample.identity, $0) })
         for observation in scan.observations {
             let id = observation.id.process
-            guard let row = byID[id] else { continue }
+            let carriedRow = observation.membership == .carried ? held[id] : nil
+            guard let row = carriedRow?.row ?? byID[id] else { continue }
+            let evidenceAt =
+                observation.membership == .carried ? carriedRow?.evidenceAt : attributionTimes[id]
+            let runtime = carriedRow?.isAgentRuntime ?? runtimes.contains(id)
+            let root =
+                observation.membership == .carried
+                ? carriedRow?.corroboratedRoot : roots.root(for: row.attribution)
+            let atCensus = observation.membership == .census
             let index: Int
             if let previous = observations[id], previous.row.attribution == row.attribution,
                 runs[previous.run].key.category.executable == row.executable,
                 runs[previous.run].key.category.invocationName == row.invocationName,
                 runs[previous.run].key.category.cwd == row.cwd,
-                runs[previous.run].key.category.isAgentRuntime == runtimes.contains(id),
-                runs[previous.run].key.category.owner.rootSessionID == roots.root(for: row.attribution)
+                runs[previous.run].key.category.isAgentRuntime == runtime,
+                runs[previous.run].key.category.owner.rootSessionID == root
             {
                 index = previous.run
                 observeMemory(
                     index, row: row, scan: scan.id.sequence,
-                    time: observation.sample.sampledAt, evidenceAt: attributionTimes[id])
+                    time: observation.sample.sampledAt, evidenceAt: evidenceAt, atCensus: atCensus)
             } else {
                 let category = RecentWorkerCategory(
-                    process: id, owner: RecentSession(row, roots: roots), executable: row.executable,
-                    isAgentRuntime: runtimes.contains(id), cwd: row.cwd, invocationName: row.invocationName)
+                    process: id, owner: RecentSession(row, corroboratedRoot: root),
+                    executable: row.executable,
+                    isAgentRuntime: runtime, cwd: row.cwd, invocationName: row.invocationName)
                 let key = Key(category: category, attribution: row.attribution)
                 if let found = indices[key] {
                     index = found
                     observeMemory(
                         index, row: row, scan: scan.id.sequence,
-                        time: observation.sample.sampledAt, evidenceAt: attributionTimes[id])
+                        time: observation.sample.sampledAt, evidenceAt: evidenceAt, atCensus: atCensus)
                 } else {
                     index = runs.count
                     indices[key] = index
@@ -233,7 +254,7 @@ struct AccountingWindow: Sendable {
                         key: key,
                         memory: RecentWorkerRecord(
                             category: category, row: row, scan: scan.id.sequence,
-                            time: observation.sample.sampledAt, evidenceAt: attributionTimes[id]),
+                            time: observation.sample.sampledAt, evidenceAt: evidenceAt, atCensus: atCensus),
                         ticks: LifetimeObservationTicks(observation.sample))
                     runs.append(run)
                     runPayload.add(Self.size(of: run))
@@ -251,7 +272,7 @@ struct AccountingWindow: Sendable {
             }
             observations[id] = Observation(
                 row: row.usingAttribution(runs[index].key.attribution), sequence: scan.id.sequence,
-                time: observation.sample.sampledAt, run: index, evidenceAt: attributionTimes[id])
+                time: observation.sample.sampledAt, run: index, evidenceAt: evidenceAt, atCensus: atCensus)
         }
         for contribution in scan.contributions {
             guard let observation = observations[contribution.id.closing.process],
@@ -279,6 +300,7 @@ struct AccountingWindow: Sendable {
         excludedCount += scan.exclusions.count
         readCoverage.append(scan.source)
         acquisitionCoverage.append(timing)
+        appendInspectionCoverage(inspectionCoverage)
         evictions.formUnion(scan.evictedBaselines)
         final = Self.endpoint(scan)
     }
@@ -332,7 +354,8 @@ struct AccountingWindow: Sendable {
             observations[identity] = Observation(
                 row: observation.row.usingAttribution(runs[remapped[observation.run]].key.attribution),
                 sequence: observation.sequence, time: observation.time,
-                run: remapped[observation.run], evidenceAt: observation.evidenceAt)
+                run: remapped[observation.run], evidenceAt: observation.evidenceAt,
+                atCensus: observation.atCensus)
         }
         for (category, contribution) in other.collapsed {
             if collapsed[category] == nil {
@@ -344,6 +367,7 @@ struct AccountingWindow: Sendable {
         excludedCount += other.excludedCount
         readCoverage.merge(other.readCoverage)
         acquisitionCoverage.merge(other.acquisitionCoverage)
+        if let coverage = other.inspection { appendInspectionCoverage(coverage) }
         if let value = other.releasedExclusions {
             if releasedExclusions == nil {
                 releasedExclusions = value
@@ -394,7 +418,7 @@ struct AccountingWindow: Sendable {
                 count(evictions, released: releasedEvictions)
             },
             readCoverage: readCoverage, acquisitionCoverage: acquisitionCoverage,
-            publicationCoverage: publicationCoverage,
+            publicationCoverage: publicationCoverage, inspectionCoverage: inspection ?? InspectionCoverage(),
             collapsedContributions: collapsed.values.map(\.resources))
     }
 
@@ -422,7 +446,7 @@ struct AccountingWindow: Sendable {
     }
 
     private mutating func observeMemory(
-        _ index: Int, row: HeavyProcess, scan: UInt64, time: Double, evidenceAt: Double?
+        _ index: Int, row: HeavyProcess, scan: UInt64, time: Double, evidenceAt: Double?, atCensus: Bool
     ) {
         let changed =
             runs[index].memory.name.utf8.count != row.name.utf8.count
@@ -430,7 +454,7 @@ struct AccountingWindow: Sendable {
             || runs[index].memory.cwd?.utf8.count != row.cwd?.utf8.count
             || !Self.sameCommandCharge(runs[index].memory.command, row.command)
         let previous = changed ? runs[index].memory.payloadSize : nil
-        runs[index].memory.observe(row, scan: scan, time: time, evidenceAt: evidenceAt)
+        runs[index].memory.observe(row, scan: scan, time: time, evidenceAt: evidenceAt, atCensus: atCensus)
         if let previous {
             runPayload.subtract(previous)
             runPayload.add(runs[index].memory.payloadSize)
@@ -476,7 +500,8 @@ struct AccountingWindow: Sendable {
         // Crossing endpoints must survive: a wider enclosing window can still make their CPU eligible.
         var keep = Set(crossings.compactMap { indices[$0.key] })
         keep.formUnion(crossings.compactMap { observations[$0.key.category.process]?.run })
-        keep.formUnion(observations.values.filter { $0.sequence == final.id.sequence }.map(\.run))
+        keep.formUnion(
+            observations.values.filter { $0.atCensus && $0.sequence == final.id.sequence }.map(\.run))
         let agentMembers = Set(runs.filter { $0.key.category.owner.isAgent }.map(\.key.category.process))
         var batches: [CollapsedCategory: CollapsedWindowRecord] = [:]
         var possiblyOverlapping: [CollapsedCategory: Set<ProcessIdentity>] = [:]
@@ -524,7 +549,7 @@ struct AccountingWindow: Sendable {
             guard let index = remapped[observation.run] else { return nil }
             return Observation(
                 row: observation.row, sequence: observation.sequence, time: observation.time,
-                run: index, evidenceAt: observation.evidenceAt)
+                run: index, evidenceAt: observation.evidenceAt, atCensus: observation.atCensus)
         }
         let discardedExclusions = excludedLifetimes.subtracting(observations.keys)
         let discardedEvictions = evictions.subtracting(observations.keys)
@@ -563,14 +588,14 @@ struct AccountingWindow: Sendable {
     }
 
     var current: [RecentWorkerRecord] {
-        observations.values.filter { $0.sequence == final.id.sequence }.map {
+        observations.values.filter { $0.atCensus && $0.sequence == final.id.sequence }.map {
             RecentWorkerRecord(
                 category: runs[$0.run].key.category, row: $0.row,
                 scan: $0.sequence, time: $0.time, evidenceAt: $0.evidenceAt)
         }
     }
     var present: Set<ProcessIdentity> {
-        Set(observations.values.filter { $0.sequence == final.id.sequence }.map(\.row.process))
+        Set(observations.values.filter { $0.atCensus && $0.sequence == final.id.sequence }.map(\.row.process))
     }
 
     func seal(scope: ProcessScope) -> RecentActivityUnit {
@@ -594,6 +619,7 @@ struct AccountingWindow: Sendable {
                 RecentCrossing(contribution: $0.value, category: $0.key.category)
             }, excluded: excludedCount, coverage: readCoverage,
             acquisition: acquisitionCoverage, publication: publicationCoverage,
+            inspection: inspection ?? InspectionCoverage(),
             collapsed: collapsed.values.map(\.resources).filter {
                 scope == .allProcesses || $0.category.includedInAgentScope
             })
@@ -617,7 +643,7 @@ struct AccountingWindow: Sendable {
             unmeasuredLifetimeCountRange: window.unmeasuredLifetimeCountRange,
             evictedBaselineCountRange: window.evictedBaselineCountRange, readCoverage: window.readCoverage,
             acquisitionCoverage: window.acquisitionCoverage,
-            publicationCoverage: window.publicationCoverage,
+            publicationCoverage: window.publicationCoverage, inspectionCoverage: window.inspectionCoverage,
             collapsedContributions: window.collapsedContributions.filter {
                 scope == .allProcesses || $0.category.includedInAgentScope
             })

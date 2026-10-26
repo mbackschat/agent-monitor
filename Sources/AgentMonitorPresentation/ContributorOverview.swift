@@ -743,7 +743,8 @@ public struct ContributorOverview: Equatable, Sendable {
         }
         samplingCoverage = SamplingCoverageSummary(
             snapshot: snapshot, reads: readCoverage, observed: observedBounds,
-            recentDuration: recent.duration, retentionLimited: recent.retentionLimited)
+            recentDuration: recent.duration, retentionLimited: recent.retentionLimited,
+            inspection: recent.inspectionCoverage)
         coverageStatus = CoverageStatus(notes: notes)
         coverage =
             "Recent \(number(recent.duration)) s"

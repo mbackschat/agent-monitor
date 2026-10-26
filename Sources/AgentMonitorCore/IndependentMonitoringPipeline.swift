@@ -49,6 +49,8 @@ private struct AcquiredScan: Sendable {
     let finishedAt: Double
     let interval: Double
     let achievedPeriod: Double?
+    let carried: [HeldInspectionObservation]
+    let inspectionCoverage: InspectionCoverage
 }
 
 private struct AcquisitionState: Sendable {
@@ -57,6 +59,7 @@ private struct AcquisitionState: Sendable {
     var previousStart: Double?
     var promptCapture = PromptEvidenceCapture()
     var sequence: UInt64 = 0
+    var inspection: InspectionScheduler?
 }
 
 private struct ResolutionState: Sendable {
@@ -121,6 +124,7 @@ struct IndependentMonitoringPipeline: Sendable {
     let excluded: Set<Int32>
     var recentActivity: (any RecentActivityCollecting)? = nil
     var profile: PipelineProfile? = nil
+    var inspection: LiveInspection? = nil
 
     func run(
         thresholds currentThresholds: (@Sendable () async -> Thresholds)?, interval live: LiveInterval?,
@@ -131,7 +135,10 @@ struct IndependentMonitoringPipeline: Sendable {
         let enrichment = PipelineEnrichment(profile: profile)
         let acquisition = SerialBlockingWorker(
             name: "AgentMonitor acquisition",
-            initial: AcquisitionState(resolution: ResolutionState(monitor: Monitor(profile: profile))),
+            initial: AcquisitionState(
+                resolution: ResolutionState(monitor: Monitor(profile: profile)),
+                inspection: configuration.inspectionObservations && inspection != nil
+                    ? InspectionScheduler() : nil),
             profile: profile,
             role: .acquisition)
         let publication = SerialBlockingWorker<ResolvedScan?>(
@@ -286,6 +293,9 @@ struct IndependentMonitoringPipeline: Sendable {
         defer { enrichment.finish() }
         do {
             try await worker.perform(profileJob: false) { state in
+                inspection?.finish(InspectionCoverage())
+                if state.inspection != nil { inspection?.setWake(cancellation.wake) }
+                defer { inspection?.setWake(nil) }
                 let observation = live?.observe { cancellation.wake.signal() }
                 defer { if let observation { live?.removeObserver(observation) } }
                 do {
@@ -310,13 +320,18 @@ struct IndependentMonitoringPipeline: Sendable {
                             if report.reportDue { count += 1 }
                             if configuration.samples > 0, count >= configuration.samples { break }
                         }
+                        try inspectBetweenScans(
+                            &state, since: scan.startedAt, interval: interval, cancellation: cancellation)
                         interval = try waitSynchronously(
-                            clock, live: live, since: scan.startedAt, cancellation: cancellation)
+                            clock, live: live, since: scan.startedAt, state: &state,
+                            cancellation: cancellation)
                     }
                 } catch {
+                    discardInspection(&state)
                     units.finish(throwing: error, offering: drainPending(&state).flatMap(final))
                     throw error
                 }
+                discardInspection(&state)
                 if let pending = drainPending(&state), let window = pending.window {
                     try units.send(
                         pending, size: window.payloadSize, sequence: window.baseline.id.sequence + 1)
@@ -357,29 +372,74 @@ struct IndependentMonitoringPipeline: Sendable {
             unreadableCount: raw.unreadableCount,
             listedAt: raw.listedAt, scanSeconds: raw.scanSeconds, hostCounters: raw.hostCounters,
             logicalCPUCount: raw.logicalCPUCount, nativeOutcomes: raw.nativeOutcomes,
-            nativeTiming: raw.nativeTiming, promptEvidence: evidence)
+            nativeTiming: raw.nativeTiming, promptEvidence: evidence, listedPIDs: raw.listedPIDs)
         try cancellation.check()
+        let carried: [HeldInspectionObservation]
+        let inspectionCoverage: InspectionCoverage
+        if let inspection, state.inspection != nil {
+            carried = state.inspection!.admit(at: snapshot, inspection: inspection)
+            inspectionCoverage = state.inspection!.takeCoverage(inspection: inspection)
+            state.inspection!.prepare(census: snapshot, inspection: inspection)
+        } else {
+            carried = []
+            inspectionCoverage = InspectionCoverage()
+        }
         let counters = profile.measure(.counterAccounting) {
             state.ledger.ingest(
                 snapshot.samples, listedAt: snapshot.listedAt, scanSeconds: snapshot.scanSeconds,
-                source: snapshot)
+                source: snapshot, carried: carried.map(\.sample))
         }
         let period = state.previousStart.map { max(0, start - $0) }
         state.previousStart = start
         let scan = AcquiredScan(
             snapshot: snapshot, counters: counters, timestamp: clock.now(), startedAt: start,
-            finishedAt: clock.monotonicNow(), interval: interval, achievedPeriod: period)
+            finishedAt: clock.monotonicNow(), interval: interval, achievedPeriod: period,
+            carried: carried, inspectionCoverage: inspectionCoverage)
         let report = try resolve(
             scan, state: &state.resolution,
             enrichment: enrichment, cancellation: cancellation)
         return (startedAt: start, sequence: counters.id.sequence, report: report)
     }
 
+    private func discardInspection(_ state: inout AcquisitionState) {
+        guard state.inspection != nil, let inspection else { return }
+        let coverage = state.inspection!.finish(inspection)
+        state.resolution.window?.appendInspectionCoverage(coverage)
+    }
+
+    private func inspectBetweenScans(
+        _ state: inout AcquisitionState, since start: Double, interval: Double,
+        cancellation: PipelineCancellation
+    ) throws {
+        guard state.inspection != nil, let inspection, let reader = reader as? any InspectionReading,
+            inspection.value.active
+        else { return }
+        let slot = start + InspectionLimits.offset
+        let ready = clock.monotonicNow() <= slot
+        while ready, clock.monotonicNow() < slot {
+            try cancellation.check()
+            if !inspection.value.active { return }
+            try clock.wait(until: slot, wake: cancellation.wake)
+        }
+        try cancellation.check()
+        if ready {
+            try state.inspection!.observe(
+                reader: reader, monitor: state.resolution.monitor,
+                since: start, nextDeadline: start + interval, now: clock.monotonicNow,
+                cancelled: { (try? cancellation.check()) == nil }, inspection: inspection, excluding: excluded
+            )
+        } else {
+            state.inspection!.buffer.coverage.mode = .enabled
+            state.inspection!.buffer.coverage.opportunitiesSkipped += 1
+        }
+    }
+
     private func waitSynchronously(
         _ blocking: any AcquisitionClock, live: LiveInterval?, since start: Double,
-        cancellation: PipelineCancellation
+        state: inout AcquisitionState, cancellation: PipelineCancellation
     ) throws -> Double {
         while true {
+            if let inspection { state.inspection?.synchronize(inspection) }
             try cancellation.check()
             let interval = live?.seconds ?? configuration.intervalSeconds
             guard interval.isFinite, (0.1...60).contains(interval) else {
@@ -475,7 +535,8 @@ struct IndependentMonitoringPipeline: Sendable {
             guard var accumulated = state.window else { return nil }
             try accumulated.append(
                 scan.counters, rows: findings, attributionTimes: times,
-                runtimes: state.monitor.agentRuntimeIdentities, timing: timing)
+                runtimes: state.monitor.agentRuntimeIdentities, timing: timing,
+                carried: scan.carried, inspectionCoverage: scan.inspectionCoverage)
             let size = accumulated.compact(to: configuration.pipelineLimits)
             guard size.observations <= configuration.pipelineLimits.pendingObservations,
                 size.textBytes <= configuration.pipelineLimits.pendingTextBytes

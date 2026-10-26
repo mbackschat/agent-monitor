@@ -14,6 +14,7 @@ public struct JSONReport: Encodable {
     public let findings: [HeavyProcess]
     public let observedFindings: [HeavyProcess]
     public let window: ReportWindowSummary?
+    public let inspectionCoverage: InspectionCoverage
 
     public init(_ snapshot: MonitoringSnapshot) {
         cpuAccounting = CPUAccountingFields(snapshot.cpuAccounting)
@@ -26,6 +27,7 @@ public struct JSONReport: Encodable {
         findings = snapshot.findings
         observedFindings = snapshot.observedFindings
         window = snapshot.window
+        inspectionCoverage = snapshot.window?.inspectionCoverage ?? InspectionCoverage()
     }
 
     public static func encodeLine(_ snapshot: MonitoringSnapshot) throws -> Data {

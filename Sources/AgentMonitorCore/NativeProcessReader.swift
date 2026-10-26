@@ -13,12 +13,13 @@ public struct ProcessSnapshot: Sendable {
     public let nativeOutcomes: [NativeCounterOutcome]
     public let nativeTiming: NativeScanTiming?
     public let promptEvidence: [PromptEvidence]
+    public let listedPIDs: [Int32]?
 
     public init(
         samples: [ProcessSample], enumeratedCount: Int, unreadableCount: Int,
         listedAt: Double, scanSeconds: Double, hostCounters: HostCPUCounters?, logicalCPUCount: Int,
         nativeOutcomes: [NativeCounterOutcome] = [], nativeTiming: NativeScanTiming? = nil,
-        promptEvidence: [PromptEvidence] = []
+        promptEvidence: [PromptEvidence] = [], listedPIDs: [Int32]? = nil
     ) {
         self.samples = samples
         self.enumeratedCount = enumeratedCount
@@ -30,10 +31,11 @@ public struct ProcessSnapshot: Sendable {
         self.nativeOutcomes = nativeOutcomes
         self.nativeTiming = nativeTiming
         self.promptEvidence = promptEvidence
+        self.listedPIDs = listedPIDs
     }
 }
 
-public struct NativeProcessReader: DiagnosisReading {
+public struct NativeProcessReader: DiagnosisReading, InspectionReading {
     private var profile: PipelineProfile?
 
     package func profiling(_ profile: PipelineProfile) -> Self {
@@ -76,7 +78,7 @@ public struct NativeProcessReader: DiagnosisReading {
     }
 
     public func snapshot(excluding excluded: Set<Int32> = []) throws -> ProcessSnapshot {
-        try snapshot(processIDs: processIDs, excluding: excluded)
+        try snapshot(processIDs: { try processIDs() }, excluding: excluded)
     }
 
     func snapshot(processIDs: () throws -> [Int32], excluding excluded: Set<Int32> = []) throws
@@ -92,71 +94,10 @@ public struct NativeProcessReader: DiagnosisReading {
         var outcomes: [NativeCounterOutcome] = []
         var unreadable = 0
         for pid in pids where !excluded.contains(pid) {
-            let initial = counterAccess.bsdInfo(pid)
-            let initialTime = mach_absolute_time()
-            guard let info = initial.value else {
-                appendFailure(
-                    initial, pid: pid, identity: nil, operation: .bsdInfo, at: initialTime, to: &outcomes)
-                unreadable += 1
-                continue
-            }
-            guard info.pbi_uid == getuid() else {
-                outcomes.append(
-                    NativeCounterOutcome(
-                        pid: pid, identity: identity(info), operation: .bsdInfo, status: .outOfScopeUser,
-                        failure: nil, observedAtTicks: initialTime))
-                continue
-            }
-            let identity = identity(info)
-            let executable = counterAccess.executablePath(pid)
-            let executableTime = mach_absolute_time()
-            let resource = counterAccess.resources(pid)
-            let timestamp = mach_absolute_time()
-            let verification = counterAccess.bsdInfo(pid)
-            let verificationTime = mach_absolute_time()
-            let verified =
-                verification.value.map {
-                    self.identity($0) == identity && $0.pbi_uid == info.pbi_uid
-                } ?? false
-            appendFailure(
-                executable, pid: pid, identity: verified ? identity : nil, operation: .executablePath,
-                at: executableTime, to: &outcomes)
-            appendFailure(
-                resource, pid: pid, identity: verified ? identity : nil, operation: .resourceUsage,
-                at: timestamp, to: &outcomes)
-            guard let after = verification.value else {
-                appendFailure(
-                    verification, pid: pid, identity: nil, operation: .identityVerification,
-                    at: verificationTime, to: &outcomes)
-                unreadable += 1
-                continue
-            }
-            guard self.identity(after) == identity, after.pbi_uid == info.pbi_uid else {
-                outcomes.append(
-                    NativeCounterOutcome(
-                        pid: pid, identity: nil, operation: .identityVerification, status: .identityMismatch,
-                        failure: nil, observedAtTicks: verificationTime))
-                unreadable += 1
-                continue
-            }
-            let usage = resource.value
-            let rawCPU = usage.map {
-                NativeCPUCounters(
-                    user: $0.ri_user_time, system: $0.ri_system_time,
-                    numerator: numerator, denominator: denominator)
-            }
-            var sample = ProcessSample(
-                identity: identity, parentPID: Int32(bitPattern: info.pbi_ppid),
-                executable: executable.value ?? "",
-                name: cString(info.pbi_comm), sampledAt: seconds(timestamp), cpuSeconds: rawCPU?.seconds,
-                footprintBytes: usage?.ri_phys_footprint)
-            sample.rawCPU = rawCPU
-            sample.sampledAtTicks = timestamp
-            sample.startedAtTicks = usage?.ri_proc_start_abstime
-            sample.startedAt = sample.startedAtTicks.map(seconds)
-            sample.kernelPeakFootprintBytes = usage?.ri_lifetime_max_phys_footprint
-            sample.terminalDevice = info.e_tdev == 0 || info.e_tdev == UInt32.max ? nil : info.e_tdev
-            samples.append(sample)
+            let read = readProcess(pid)
+            outcomes += read.outcomes
+            unreadable += read.unreadable
+            if let sample = read.sample { samples.append(sample) }
         }
         let ended = mach_absolute_time()
         return ProcessSnapshot(
@@ -168,7 +109,107 @@ public struct NativeProcessReader: DiagnosisReading {
             nativeTiming: NativeScanTiming(
                 startedAbsolute: started, listingAbsolute: listing, listingContinuous: continuous,
                 listingWallTime: wallTime, endedAbsolute: ended, numerator: numerator,
-                denominator: denominator))
+                denominator: denominator), listedPIDs: pids)
+    }
+
+    private func readProcess(_ pid: Int32, allowance: InspectionAllowance? = nil)
+        -> (sample: ProcessSample?, outcomes: [NativeCounterOutcome], unreadable: Int)
+    {
+        var outcomes: [NativeCounterOutcome] = []
+        var unreadable = 0
+        guard allowance?.permitsOperation() != false else { return (nil, outcomes, unreadable) }
+        let initial = counterAccess.bsdInfo(pid)
+        let initialTime = mach_absolute_time()
+        guard let info = initial.value else {
+            appendFailure(
+                initial, pid: pid, identity: nil, operation: .bsdInfo, at: initialTime, to: &outcomes)
+            unreadable += 1
+            return (nil, outcomes, unreadable)
+        }
+        guard info.pbi_uid == getuid() else {
+            outcomes.append(
+                NativeCounterOutcome(
+                    pid: pid, identity: identity(info), operation: .bsdInfo, status: .outOfScopeUser,
+                    failure: nil, observedAtTicks: initialTime))
+            return (nil, outcomes, unreadable)
+        }
+        let identity = identity(info)
+        guard allowance?.permitsOperation() != false else { return (nil, outcomes, unreadable) }
+        let executable = counterAccess.executablePath(pid)
+        let executableTime = mach_absolute_time()
+        guard allowance?.permitsOperation() != false else { return (nil, outcomes, unreadable) }
+        let resource = counterAccess.resources(pid)
+        let timestamp = mach_absolute_time()
+        guard allowance?.permitsOperation() != false else { return (nil, outcomes, unreadable) }
+        let verification = counterAccess.bsdInfo(pid)
+        let verificationTime = mach_absolute_time()
+        let verified =
+            verification.value.map {
+                self.identity($0) == identity && $0.pbi_uid == info.pbi_uid
+            } ?? false
+        appendFailure(
+            executable, pid: pid, identity: verified ? identity : nil, operation: .executablePath,
+            at: executableTime, to: &outcomes)
+        appendFailure(
+            resource, pid: pid, identity: verified ? identity : nil, operation: .resourceUsage,
+            at: timestamp, to: &outcomes)
+        guard let after = verification.value else {
+            appendFailure(
+                verification, pid: pid, identity: nil, operation: .identityVerification,
+                at: verificationTime, to: &outcomes)
+            unreadable += 1
+            return (nil, outcomes, unreadable)
+        }
+        guard self.identity(after) == identity, after.pbi_uid == info.pbi_uid else {
+            outcomes.append(
+                NativeCounterOutcome(
+                    pid: pid, identity: nil, operation: .identityVerification, status: .identityMismatch,
+                    failure: nil, observedAtTicks: verificationTime,
+                    verifiedIdentity: after.pbi_uid == getuid() ? self.identity(after) : nil))
+            unreadable += 1
+            return (nil, outcomes, unreadable)
+        }
+        let usage = resource.value
+        let rawCPU = usage.map {
+            NativeCPUCounters(
+                user: $0.ri_user_time, system: $0.ri_system_time,
+                numerator: numerator, denominator: denominator)
+        }
+        var sample = ProcessSample(
+            identity: identity, parentPID: Int32(bitPattern: info.pbi_ppid),
+            executable: executable.value ?? "",
+            name: cString(info.pbi_comm), sampledAt: seconds(timestamp), cpuSeconds: rawCPU?.seconds,
+            footprintBytes: usage?.ri_phys_footprint)
+        sample.rawCPU = rawCPU
+        sample.sampledAtTicks = timestamp
+        sample.startedAtTicks = usage?.ri_proc_start_abstime
+        sample.startedAt = sample.startedAtTicks.map(seconds)
+        sample.kernelPeakFootprintBytes = usage?.ri_lifetime_max_phys_footprint
+        sample.terminalDevice = info.e_tdev == 0 || info.e_tdev == UInt32.max ? nil : info.e_tdev
+        return (sample, outcomes, unreadable)
+    }
+
+    func inspectionPIDs(allowance: InspectionAllowance) throws -> [Int32] {
+        try processIDs(allowance: allowance)
+    }
+
+    func inspectionRead(_ pid: Int32, allowance: InspectionAllowance) -> InspectionRead? {
+        guard let sample = readProcess(pid, allowance: allowance).sample, sample.cpuSeconds != nil else {
+            return nil
+        }
+        guard allowance.permitsOperation() else { return nil }
+        let parentInfo = counterAccess.bsdInfo(sample.parentPID).value
+        let parent = parentInfo.flatMap { $0.pbi_uid == getuid() ? identity($0) : nil }
+        // CWD is a mutable observation too. Keep it only inside a fresh identity/path bracket.
+        guard allowance.permitsOperation() else {
+            return InspectionRead(sample: sample, parent: parent, cwd: nil)
+        }
+        let cwd = counterAccess.workingDirectory(pid)
+        guard allowance.permitsOperation(), let after = counterAccess.bsdInfo(pid).value,
+            after.pbi_uid == getuid(), identity(after) == sample.identity,
+            allowance.permitsOperation(), counterAccess.executablePath(pid).value == sample.executable
+        else { return InspectionRead(sample: sample, parent: parent, cwd: nil) }
+        return InspectionRead(sample: sample, parent: parent, cwd: cwd)
     }
 
     private func appendFailure<Value>(
@@ -283,13 +324,15 @@ public struct NativeProcessReader: DiagnosisReading {
         ResourceMath.seconds(ticks: ticks, numerator: numerator, denominator: denominator)
     }
 
-    private func processIDs() throws -> [Int32] {
+    private func processIDs(allowance: InspectionAllowance? = nil) throws -> [Int32] {
+        guard allowance?.permitsOperation() != false else { throw NativeReadError.enumeration(EINTR) }
         let needed = proc_listpids(UInt32(PROC_UID_ONLY), getuid(), nil, 0)
         guard needed > 0 else { throw NativeReadError.enumeration(errno) }
         var capacity = Int(needed) / MemoryLayout<pid_t>.stride + 256
         for _ in 0..<3 {
             var pids = [pid_t](repeating: 0, count: capacity)
             let length = Int32(pids.count * MemoryLayout<pid_t>.stride)
+            guard allowance?.permitsOperation() != false else { throw NativeReadError.enumeration(EINTR) }
             let read = proc_listpids(UInt32(PROC_UID_ONLY), getuid(), &pids, length)
             guard read > 0 else { throw NativeReadError.enumeration(errno) }
             if read < length { return pids.prefix(Int(read) / MemoryLayout<pid_t>.stride).filter { $0 > 0 } }
@@ -338,11 +381,7 @@ public struct NativeProcessReader: DiagnosisReading {
     }
 
     private func currentDirectory(_ pid: Int32) -> String? {
-        var paths = proc_vnodepathinfo()
-        let size = Int32(MemoryLayout<proc_vnodepathinfo>.size)
-        guard proc_pidinfo(pid, PROC_PIDVNODEPATHINFO, 0, &paths, size) == size else { return nil }
-        let path = cString(paths.pvi_cdir.vip_path)
-        return path.isEmpty ? nil : path
+        counterAccess.workingDirectory(pid)
     }
 
     private static let argumentCapacity: Int? = {

@@ -625,6 +625,28 @@ public struct Monitor: Sendable {
         return finding(node, owner: resolve(identity).attribution)
     }
 
+    /// Freeze a one-node overlay against the preceding census. It never enters the live graph
+    /// or consumes enrichment; later census evidence cannot relabel this endpoint.
+    func inspectionObservation(
+        _ sample: ProcessSample, parent: ProcessIdentity?, cwd: String?,
+        roots: SessionCorroboration? = nil
+    ) -> HeldInspectionObservation {
+        var overlay = Node(
+            sample: sample, recognizedProviders: adapters.runtimeProviders(for: sample.executable))
+        if let parent, parent.pid == sample.parentPID, parent != sample.identity,
+            parent.startMicroseconds <= sample.identity.startMicroseconds, nodes[parent] != nil
+        {
+            overlay.parent = parent
+        }
+        overlay.metadata.cwd = cwd
+        let owner = resolveUncached(sample.identity, overlay: overlay).attribution
+        let row = finding(overlay, owner: owner)
+        let root = (roots ?? SessionCorroboration(findings())).root(for: owner)
+        return HeldInspectionObservation(
+            sample: sample, row: row, evidenceAt: attributionObservationTimes(for: [row])[sample.identity],
+            isAgentRuntime: !overlay.runtimeProviders.isEmpty, corroboratedRoot: root)
+    }
+
     private func finding(_ node: Node, owner: Attribution) -> HeavyProcess {
         let name = owner.runtime.flatMap { runtime -> String? in
             guard let provider = owner.provider, runtimes[provider]?.contains(runtime) == true,
@@ -685,11 +707,20 @@ public struct Monitor: Sendable {
         }
     }
 
+    private func node(_ identity: ProcessIdentity, overlay: Node?) -> Node? {
+        overlay?.sample.identity == identity ? overlay : nodes[identity]
+    }
+
     func chain(from identity: ProcessIdentity) -> [ProcessIdentity] {
+        chain(from: identity, overlay: nil)
+    }
+
+    private func chain(from identity: ProcessIdentity, overlay: Node?) -> [ProcessIdentity] {
         var path: [ProcessIdentity] = []
         var visited: Set<ProcessIdentity> = []
         var next: ProcessIdentity? = identity
-        while let current = next, let node = nodes[current], visited.insert(current).inserted {
+        while let current = next, let node = node(current, overlay: overlay), visited.insert(current).inserted
+        {
             path.append(current)
             next = node.parent
         }
@@ -718,8 +749,8 @@ public struct Monitor: Sendable {
         cachedResolution(identity) ?? resolveUncached(identity)
     }
 
-    private func resolveUncached(_ identity: ProcessIdentity) -> Resolution {
-        var walk = self.walk(from: identity)
+    private func resolveUncached(_ identity: ProcessIdentity, overlay: Node? = nil) -> Resolution {
+        var walk = self.walk(from: identity, overlay: overlay)
         let detached = walk.runtime == nil && walk.marker != nil
         if walk.runtime == nil, let marker = walk.marker, let owner = walk.markerOwner {
             walk.runtime = detachedRuntime(for: marker, owner: owner)
@@ -751,15 +782,15 @@ public struct Monitor: Sendable {
             detachedGeneration: detached ? detachedGeneration : nil)
     }
 
-    private func walk(from identity: ProcessIdentity) -> Walk {
+    private func walk(from identity: ProcessIdentity, overlay: Node? = nil) -> Walk {
         var walk = Walk()
-        let ancestors = chain(from: identity)
+        let ancestors = chain(from: identity, overlay: overlay)
         let nearestProviders =
-            ancestors.lazy.compactMap { self.nodes[$0] }
+            ancestors.lazy.compactMap { self.node($0, overlay: overlay) }
             .map(\.runtimeProviders).first { !$0.isEmpty } ?? []
         let nearest = nearestProviders.count == 1 ? nearestProviders.first : nil
         for key in ancestors {
-            guard let node = nodes[key] else { continue }
+            guard let node = node(key, overlay: overlay) else { continue }
             walk.path.append(key)
             let providers = node.runtimeProviders
             if !providers.isEmpty {

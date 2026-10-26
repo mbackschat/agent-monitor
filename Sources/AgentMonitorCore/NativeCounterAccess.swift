@@ -32,6 +32,21 @@ public struct NativeCounterOutcome: Sendable {
     public let status: NativeCounterStatus
     public let failure: NativeCounterFailure?
     public let observedAtTicks: UInt64
+    public let verifiedIdentity: ProcessIdentity?
+
+    public init(
+        pid: Int32, identity: ProcessIdentity?, operation: NativeCounterOperation,
+        status: NativeCounterStatus, failure: NativeCounterFailure?, observedAtTicks: UInt64,
+        verifiedIdentity: ProcessIdentity? = nil
+    ) {
+        self.pid = pid
+        self.identity = identity
+        self.operation = operation
+        self.status = status
+        self.failure = failure
+        self.observedAtTicks = observedAtTicks
+        self.verifiedIdentity = verifiedIdentity
+    }
 }
 
 /// Anchors are read in field order; they are not an atomic cross-clock sample.
@@ -61,9 +76,24 @@ protocol NativeCounterAccess: Sendable {
     func bsdInfo(_ pid: Int32) -> NativeCounterRead<proc_bsdinfo>
     func resources(_ pid: Int32) -> NativeCounterRead<rusage_info_v4>
     func executablePath(_ pid: Int32) -> NativeCounterRead<String>
+    func workingDirectory(_ pid: Int32) -> String?
+}
+
+extension NativeCounterAccess {
+    func workingDirectory(_ pid: Int32) -> String? { nil }
 }
 
 struct SystemNativeCounterAccess: NativeCounterAccess {
+    func workingDirectory(_ pid: Int32) -> String? {
+        var paths = proc_vnodepathinfo()
+        let size = Int32(MemoryLayout<proc_vnodepathinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDVNODEPATHINFO, 0, &paths, size) == size else { return nil }
+        let path = withUnsafeBytes(of: paths.pvi_cdir.vip_path) {
+            String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self)
+        }
+        return path.isEmpty ? nil : path
+    }
+
     func bsdInfo(_ pid: Int32) -> NativeCounterRead<proc_bsdinfo> {
         var info = proc_bsdinfo()
         let size = Int32(MemoryLayout<proc_bsdinfo>.size)

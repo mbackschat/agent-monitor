@@ -1,6 +1,6 @@
 # Supplemental observations during inspection
 
-Status: **unapproved**, 2026-10-26. Revised after the cold review of `309e129` and amended by the [local assessment](../research/cpu-accounting.md#local-feasibility-assessment--2026-10-26); user approval of implementation and separate authorization of native trials remain required.
+Status: **approved**, 2026-10-26. User approved the amended `9a9da33` contract for default-off Core/TUI implementation and deterministic guards only. Native trials, live measurements and Mac controls/coverage rows remain separately gated. The approved default-off slice is implemented under the [architecture contract](../architecture.md#supplemental-inspection-observations); this approval record remains while its native evaluation gate is open.
 
 ## Purpose and scope
 
@@ -63,4 +63,4 @@ Native benefit remains unmeasured. A separately authorized comparison should use
 
 Excluded: partial accounting batches, independent ledgers, separate census/accounting endpoints, “since census” UI, selected-process requests, candidate queues, background supplemental reads, ancestry walks beyond the checked parent, privileged/SPI backends, final-exit recovery claims, new full-command capture, slower baseline sampling and filter-based measurement. A 50 ms complete cadence during inspection would avoid held readings but roughly double acquisition cost against the 15% target; the [assessment](../research/cpu-accounting.md#local-feasibility-assessment--2026-10-26) records the basis.
 
-This discovery-only step does not directly shorten the exit tail of workers already observed at a complete scan. Moving resolution off acquisition is a competing hypothesis to evaluate from stage timings, not an authorized redesign. General transparent coverage, sustained performance, heap and physical UI acceptance remain open. User approval should authorize only this amended default-off deterministic implementation; native trials need a separate bounded request.
+This discovery-only step does not directly shorten the exit tail of workers already observed at a complete scan. Moving resolution off acquisition is a competing hypothesis to evaluate from stage timings, not an authorized redesign. General transparent coverage, sustained performance, heap and physical UI acceptance remain open. The approval covers only this amended default-off deterministic implementation; native trials need a separate bounded request.

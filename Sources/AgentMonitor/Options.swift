@@ -53,6 +53,12 @@ struct ReportOptions: ParsableArguments {
     )
     var tui = false
 
+    @Flag(
+        help:
+            "Experimental between-scan discovery while the TUI is live. Default: off; coverage benefit and cost are unmeasured. Requires --tui."
+    )
+    var inspectionObservations = false
+
     @Option(
         name: .customLong("group"),
         help:
@@ -79,10 +85,13 @@ struct ReportOptions: ParsableArguments {
 
     var isSpecified: Bool {
         requestedCPU != nil || requestedMemoryGB != nil || requestedInterval != nil || sampleLimit != nil
-            || requestedGroup != nil || tui || allProcesses || commands || noColor
+            || requestedGroup != nil || tui || inspectionObservations || allProcesses || commands || noColor
     }
 
     mutating func validate() throws {
+        guard !inspectionObservations || tui else {
+            throw ValidationError("--inspection-observations requires --tui")
+        }
         guard cpu.isFinite, cpu >= 0 else {
             throw ValidationError("--cpu requires a finite, nonnegative number")
         }
@@ -122,6 +131,7 @@ struct Options: ParsableArguments {
     var interval: Double { report.interval }
     var samples: Int { report.samples }
     var tui: Bool { report.tui }
+    var inspectionObservations: Bool { report.inspectionObservations }
     var group: GroupOption { report.group }
     var grouping: ReportGrouping { report.grouping }
     var allProcesses: Bool { report.allProcesses }

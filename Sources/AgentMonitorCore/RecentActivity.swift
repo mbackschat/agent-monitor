@@ -10,12 +10,16 @@ public struct RecentSession: Hashable, Sendable {
     public let resolution: Resolution
 
     init(_ row: HeavyProcess, roots: SessionCorroboration) {
+        self.init(row, corroboratedRoot: roots.root(for: row.attribution))
+    }
+
+    init(_ row: HeavyProcess, corroboratedRoot: String?) {
         let owner = row.attribution
         provider = owner.provider
         runtime = owner.runtime
         let exact = SessionCorroboration.isExact(owner) && owner.provider != nil && owner.threadID != nil
         sessionID = exact ? owner.threadID : nil
-        rootSessionID = exact ? roots.root(for: owner) : nil
+        rootSessionID = exact ? corroboratedRoot : nil
         candidates = owner.candidateThreadIDs.sorted()
         if exact {
             resolution = .candidate
@@ -78,6 +82,7 @@ public struct RecentWorkerRecord: Equatable, Sendable {
     public private(set) var firstObservedAt: Double
     public private(set) var lastObservedAt: Double
     public private(set) var lastScan: UInt64
+    public private(set) var atCensus = true
     public private(set) var latestFootprint: UInt64?
     public private(set) var maximumFootprint: RecentMemoryReading?
     public private(set) var kernelPeak: RecentMemoryReading?
@@ -91,7 +96,10 @@ public struct RecentWorkerRecord: Equatable, Sendable {
     public private(set) var latestEvidenceAt: Double?
     public private(set) var missingEvidenceTimes = 0
 
-    init(category: RecentWorkerCategory, row: HeavyProcess, scan: UInt64, time: Double, evidenceAt: Double?) {
+    init(
+        category: RecentWorkerCategory, row: HeavyProcess, scan: UInt64, time: Double, evidenceAt: Double?,
+        atCensus: Bool = true
+    ) {
         self.category = category
         name = row.name
         sessionName = row.sessionName
@@ -99,16 +107,20 @@ public struct RecentWorkerRecord: Equatable, Sendable {
         firstObservedAt = time
         lastObservedAt = time
         lastScan = scan
+        self.atCensus = atCensus
         latestFootprint = row.footprintBytes
-        observe(row, scan: scan, time: time, evidenceAt: evidenceAt)
+        observe(row, scan: scan, time: time, evidenceAt: evidenceAt, atCensus: atCensus)
     }
 
-    mutating func observe(_ row: HeavyProcess, scan: UInt64, time: Double, evidenceAt: Double?) {
+    mutating func observe(
+        _ row: HeavyProcess, scan: UInt64, time: Double, evidenceAt: Double?, atCensus: Bool = true
+    ) {
         name = row.name
         sessionName = row.sessionName
         command = row.command
         lastObservedAt = time
         lastScan = scan
+        self.atCensus = atCensus
         latestFootprint = row.footprintBytes
         func reading(_ bytes: UInt64) -> RecentMemoryReading {
             RecentMemoryReading(
@@ -147,6 +159,7 @@ public struct RecentWorkerRecord: Equatable, Sendable {
             command = other.command
             lastObservedAt = other.lastObservedAt
             lastScan = other.lastScan
+            atCensus = other.atCensus
             latestFootprint = other.latestFootprint
             kernelPeakUnavailable = other.kernelPeakUnavailable
         }
@@ -213,6 +226,7 @@ public final class RecentActivityUnit: Sendable {
     public let readCoverage: ReadCoverage
     public let acquisitionCoverage: AcquisitionCoverage
     public let publicationCoverage: PublicationCoverage
+    public let inspectionCoverage: InspectionCoverage
     public let collapsedContributions: [CollapsedContribution]
     let size: MonitoringPayloadSize
 
@@ -221,6 +235,7 @@ public final class RecentActivityUnit: Sendable {
         scope: ProcessScope, records: [RecentWorkerRecord], crossings: [RecentCrossing],
         excluded: Int, coverage: ReadCoverage = ReadCoverage(),
         acquisition: AcquisitionCoverage = AcquisitionCoverage(), publication: PublicationCoverage? = nil,
+        inspection: InspectionCoverage = InspectionCoverage(),
         collapsed: [CollapsedContribution] = []
     ) {
         self.runID = runID
@@ -251,6 +266,7 @@ public final class RecentActivityUnit: Sendable {
         readCoverage = coverage
         acquisitionCoverage = acquisition
         publicationCoverage = publication ?? PublicationCoverage(start: start, end: end)
+        inspectionCoverage = inspection
         collapsedContributions = collapsed
         var size = MonitoringPayloadSize(
             observations: 1 + crossings.count + coverage.retainedCount
@@ -286,6 +302,7 @@ extension RecentActivityUnit {
         var coverage = ReadCoverage()
         var acquisition = AcquisitionCoverage()
         var publication = PublicationCoverage()
+        var inspection: InspectionCoverage?
         var excluded = 0
         for unit in units {
             precondition(unit.runID == first.runID && unit.scope == first.scope)
@@ -307,6 +324,11 @@ extension RecentActivityUnit {
             coverage.merge(unit.readCoverage)
             acquisition.merge(unit.acquisitionCoverage)
             publication.merge(unit.publicationCoverage)
+            if inspection == nil {
+                inspection = unit.inspectionCoverage
+            } else {
+                inspection?.merge(unit.inspectionCoverage)
+            }
             excluded += unit.excludedObservationCount
         }
         var recovered: [RecentCrossing] = []
@@ -326,6 +348,7 @@ extension RecentActivityUnit {
                 start: first.startedAt, end: last.endedAt, scope: first.scope,
                 records: Array(records.values), crossings: recovered, excluded: excluded,
                 coverage: coverage, acquisition: acquisition, publication: publication,
+                inspection: inspection ?? InspectionCoverage(),
                 collapsed: Array(collapsed.values))
         ]
     }

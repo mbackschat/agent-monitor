@@ -62,6 +62,15 @@ public final class RecentActivitySnapshot: Equatable, Sendable {
     public static func == (lhs: RecentActivitySnapshot, rhs: RecentActivitySnapshot) -> Bool {
         lhs.id == rhs.id
     }
+    public var inspectionCoverage: InspectionCoverage {
+        guard let first = units.first else { return InspectionCoverage() }
+        return units.dropFirst().reduce(first.inspectionCoverage) { result, unit in
+            var combined = result
+            combined.merge(unit.inspectionCoverage)
+            return combined
+        }
+    }
+
     public var baselineScan: UInt64 { units.first?.baselineScan ?? finalScan }
     public var startedAt: Double { units.first?.startedAt ?? endedAt }
     public var duration: Double { max(0, endedAt - startedAt) }
@@ -194,10 +203,11 @@ public final class RecentActivityStore: RecentActivityCollecting {
             value.endedAt = unit.endedAt
             value.removeUnits { $0.startedAt < unit.endedAt - limits.seconds }
             value.appendUnit(unit)
-            value.current = (current ?? unit.records.filter { $0.lastScan == unit.finalScan }).filter {
-                unit.scope == .allProcesses || $0.category.owner.isAgent
-                    || value.membership[$0.category.process] != nil
-            }
+            value.current = (current ?? unit.records.filter { $0.atCensus && $0.lastScan == unit.finalScan })
+                .filter {
+                    unit.scope == .allProcesses || $0.category.owner.isAgent
+                        || value.membership[$0.category.process] != nil
+                }
             value.present = present ?? Set(value.current.map(\.category.process))
             value.currentAvailable = true
             evictUnitsToFit(&value)

@@ -8,6 +8,7 @@ public struct SamplingCoverageSummary: Equatable, Sendable {
         public let help: String
         public let warning: Bool
     }
+    public let inspection: InspectionCoverage
     public let metrics: [Metric]
     public let events: [Metric]
     public let duration: Double?
@@ -20,8 +21,9 @@ public struct SamplingCoverageSummary: Equatable, Sendable {
     public init(
         snapshot: MonitoringSnapshot, reads: ReadCoverage? = nil,
         observed: LifetimeCountRange? = nil, recentDuration: Double? = nil,
-        retentionLimited: Bool = false
+        retentionLimited: Bool = false, inspection: InspectionCoverage? = nil
     ) {
+        self.inspection = inspection ?? snapshot.window?.inspectionCoverage ?? InspectionCoverage()
         let coverage = reads ?? snapshot.window?.readCoverage ?? ReadCoverage()
         let timing = snapshot.window?.acquisitionCoverage
         let count =
@@ -112,11 +114,17 @@ public struct SamplingCoverageSummary: Equatable, Sendable {
         let columns = width >= 75 ? 3 : 2
         let cell = max(1, width / columns)
         let values = metrics + events
-        return stride(from: 0, to: values.count, by: columns).map { start in
+        let grid = stride(from: 0, to: values.count, by: columns).map { start in
             values.dropFirst(start).prefix(columns).map { metric in
                 TerminalCells.padded(
                     TerminalCells.abbreviated(metric.title + ": " + metric.value, to: cell - 1), to: cell)
             }.joined()
         }
+        guard inspection.mode != .disabled else { return grid }
+        let row =
+            "Between-scan reads | \(inspection.candidatesRead) read | \(inspection.carriedObservations) carried | \(inspection.opportunitiesSkipped)/\(inspection.opportunitiesTaken + inspection.opportunitiesSkipped) skipped"
+        let losses =
+            "Held | \(inspection.supersededReadings) superseded | \(inspection.droppedReadings) dropped | \(inspection.discardedReadings) discarded"
+        return grid + TerminalCells.wrapped(row, to: width) + TerminalCells.wrapped(losses, to: width)
     }
 }
