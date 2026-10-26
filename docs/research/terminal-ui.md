@@ -77,9 +77,9 @@ Read-only review of `79c9255`; no fresh physical terminal testing. The main over
 | ID | Source finding and remaining gap |
 | --- | --- |
 | FEEDBACK-02 | Resolved by the process-disclosure follow-up below: TUI arrows fold children and `i` independently toggles details in both views. Native process-row clicks retain their existing disclosure behavior. |
-| FEEDBACK-03 | Overview has leading symbols/indentation; [wide process grouping](../../Sources/AgentMonitorPresentation/LiveReportLayout.swift) still places disclosure after resource columns. |
+| FEEDBACK-03 | Resolved by the hierarchy follow-up below: process group controls now lead the row at narrow and wide widths. |
 | FEEDBACK-04 | Overview distinguishes expandable rows and leaves; process rows lack an equivalent leading details affordance. |
-| FEEDBACK-05 | Process column headers and unselected session rows share the `.heading` style. |
+| FEEDBACK-05 | Resolved by the hierarchy follow-up below: column labels use `.muted`, and session rows retain `.heading`. |
 | FEEDBACK-06 | At the reviewed checkpoint, wide grouped children omitted CWD and native rows used group context. The follow-up below addresses this omission; it does not prove the retrospective screenshot cause. |
 | FEEDBACK-07 | Native menu help exists, but `?` is absent from [shared shortcuts](../../Sources/AgentMonitorPresentation/ReportShortcut.swift) and [terminal input](../../Sources/AgentMonitorTUI/TerminalReport.swift); the binding remains an idea. |
 | FEEDBACK-08 | Process footer still lists scroll/size controls without an explicit Details scope label. |
@@ -102,3 +102,15 @@ The process TUI routed directional arrows through the native-compatible disclosu
 The process footer advertises `i details` and `0 hide`, and its minimized divider advertises `i/= show`. The README preview was regenerated and inspected in an isolated headless browser: columns and complete key hints fit the synthetic viewport. This resolves FEEDBACK-02 and the missing hide hint in FEEDBACK-09; it does not settle the remaining hierarchy, scope, split-percentage, pin-symbol or physical keyboard concerns. Measurement and attribution are unchanged.
 
 Validation on 2026-10-26: the changed production PTY journey and flat/grouped state guards pass, and all 712 debug tests passed after the separately documented [consumer-stall fixture correction](development-tools.md#consumer-stall-fixture-scheduling-correction--2026-10-26). Strict formatting, documentation links and generated-preview checks pass. No optimized rebuild, live provider access or native performance experiment was performed for this interaction change.
+
+
+### Process-hierarchy follow-up — 2026-10-26
+
+Wide process groups placed their `[+]`/`[-]` control after the CPU and memory columns, while narrow groups placed it first. Both used the same heading style as column labels. The renderer now uses the overview's `▸`/`▾` glyphs at the start of group rows and a reserved two-cell control column in wide tables. Numeric columns remain aligned for groups, child processes and pinned groups in flat mode; narrow identity/resource pairs remain intact. Column labels use the muted role, session rows use the heading role, and selected rows keep their existing role. No measurement, ordering, selection or disclosure-state semantics changed.
+
+A failing guard established the old layout at 60/85/120/160 columns in grouped and pinned-flat modes. The corrected guard checks leading controls, distinct header/session roles and CPU-column alignment; existing per-process directory, long-name, whole-block and PTY disclosure checks remain in force. This closes FEEDBACK-03/05's source defects, not the user's physical legibility or full workflow checks.
+
+
+The same review found a related flat-mode width defect: pinned group totals were omitted from the metrics used to size numeric columns. A synthetic group with 1,999.80% CPU and 199.98 GB needed more digits than its individual rows; the failing guard showed CPU shifted one cell and memory two cells. Column sizing now includes the groups actually represented in the row projection, independently of grouping mode. The guard retains exact resource values and compares numeric endpoints, rather than accepting clipped totals.
+
+Validation on 2026-10-26: all 224 CLI/presentation, four PTY and five preview debug tests pass. The generated README preview was checked in an isolated headless browser; muted headers remain legible and column spacing is unchanged in the flat example. Strict formatting, documentation and preview checks pass. This TUI-only rendering change required no Core-suite rerun, optimized build, native app interaction or workload measurement.

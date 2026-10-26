@@ -11,7 +11,8 @@ import Testing
     private let directories = ["/work/alpha/project", "/tmp/alpha/project"]
 
     private func snapshot(
-        missingReadings: Bool = false, historical: Bool = false, mixedDirectories: Bool = false
+        missingReadings: Bool = false, historical: Bool = false, mixedDirectories: Bool = false,
+        highReadings: Bool = false
     ) -> MonitoringSnapshot {
         let rows = (0..<4).map { index in
             let group = index / 2
@@ -20,8 +21,10 @@ import Testing
                 executable: index.isMultiple(of: 2) ? "/bin/java" : "/bin/rustc",
                 name: historical
                     ? "rust-analyzer-proc-macro-srv" : (index.isMultiple(of: 2) ? "java" : "rustc"),
-                cpuPercent: index.isMultiple(of: 2) ? (group == 0 ? 90 : 80) : (missingReadings ? nil : 0),
-                footprintBytes: index.isMultiple(of: 2) ? 320_000_000 : (missingReadings ? nil : 0),
+                cpuPercent: highReadings
+                    ? 999.9 : index.isMultiple(of: 2) ? (group == 0 ? 90 : 80) : (missingReadings ? nil : 0),
+                footprintBytes: highReadings
+                    ? 99_990_000_000 : index.isMultiple(of: 2) ? 320_000_000 : (missingReadings ? nil : 0),
                 cwd: directories[mixedDirectories ? index % 2 : group], command: nil,
                 metadataStatus: .markerRead,
                 attribution: Attribution(
@@ -170,7 +173,56 @@ import Testing
         #expect(selected.contains("rustc"))
         #expect(selected.contains("/tmp/alpha/project"))
         #expect(selected.contains("0.00"))
-        #expect(!lines.contains { $0.text.contains("[-]") })
+        #expect(!lines.contains { $0.text.contains("▾") })
+    }
+
+    @Test(arguments: [60, 85, 120, 160], [ReportGrouping.none, .session])
+    func groupControlsLeadRowsAndHeadersRemainDistinct(width: Int, grouping: ReportGrouping) throws {
+        var state = LiveReportState(grouping: grouping)
+        state.receive(snapshot())
+        let group = try #require(state.groups.first)
+        if grouping == .none { state.togglePin(.group(group.id)) }
+        state.select(.group(group.id))
+        var lines = LiveReportLayout.lines(state: state, width: width, height: 30)
+        let closed = try #require(lines.first { $0.text.contains("▸") })
+        #expect(closed.text.dropFirst(2).hasPrefix("▸ "))
+        state.setChildDisclosure(expanded: true)
+        state.select(.process(try #require(group.processes.first).process))
+        lines = LiveReportLayout.lines(state: state, width: width, height: 30)
+        let parent = try #require(lines.first { $0.text.contains("▾") })
+        #expect(parent.text.dropFirst(2).hasPrefix("▾ "))
+        #expect(parent.style == .heading)
+        let header = try #require(lines.first { $0.text.contains("CPU%") })
+        #expect(header.style == .muted)
+        if width >= 85 {
+            let child = try #require(lines.first { $0.style == .selected })
+            let parentCPU = try #require(parent.text.range(of: "90.00"))
+            let childCPU = try #require(child.text.range(of: "90.00"))
+            #expect(
+                parent.text.distance(from: parent.text.startIndex, to: parentCPU.lowerBound)
+                    == child.text.distance(from: child.text.startIndex, to: childCPU.lowerBound))
+        }
+        #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
+    }
+
+    @Test func pinnedGroupTotalsDetermineNumericColumnWidthsInFlatMode() throws {
+        var state = LiveReportState(grouping: .none)
+        state.receive(snapshot(highReadings: true))
+        let group = try #require(state.groups.first)
+        state.togglePin(.group(group.id))
+        state.select(.group(group.id))
+        state.setChildDisclosure(expanded: true)
+        state.select(.process(try #require(group.processes.first).process))
+        let lines = LiveReportLayout.lines(state: state, width: 120, height: 30)
+        let parent = try #require(lines.first { $0.text.contains("▾") }).text
+        let child = try #require(lines.first { $0.style == .selected }).text
+        for (total, individual) in [("1999.80", "999.90"), ("199.98", "99.99")] {
+            let parentValue = try #require(parent.range(of: total))
+            let childValue = try #require(child.range(of: individual))
+            #expect(
+                parent.distance(from: parent.startIndex, to: parentValue.upperBound)
+                    == child.distance(from: child.startIndex, to: childValue.upperBound))
+        }
     }
 
     @Test func processDirectoryLabelsDoNotBorrowRuntimeOrSiblingDirectories() {

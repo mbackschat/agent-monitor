@@ -39,7 +39,7 @@ The completed short-worker fixture confirms substantial loss despite timely poll
 
 ### Temporary feedback intake — 2026-10-17
 
-- [ ] **FEEDBACK-02…13 — Finish process-view usability and keyboard triage.** The [dated evidence and current source dispositions](docs/research/terminal-ui.md#feedback-triage--2026-10-26) preserve each ID and screenshot provenance. Remaining defects include hierarchy/row affordances, details scope/percentage, pin symbols and German-keyboard scrolling (FEEDBACK-13). Overview improvements do not close process-view defects. `?` help and alternative diagnosis bindings remain ideas, not approved implementation. Use the [TUI workflow check](docs/development.md#manual-tui-workflow-check).
+- [ ] **FEEDBACK-02…13 — Finish process-view usability and keyboard triage.** The [dated evidence and current source dispositions](docs/research/terminal-ui.md#feedback-triage--2026-10-26) preserve each ID and screenshot provenance. Remaining defects include process-leaf affordances, details scope/percentage, pin symbols and German-keyboard scrolling (FEEDBACK-13). Overview improvements do not close process-view defects. `?` help and alternative diagnosis bindings remain ideas, not approved implementation. Use the [TUI workflow check](docs/development.md#manual-tui-workflow-check).
 
 ### Execution and authorization boundaries
 

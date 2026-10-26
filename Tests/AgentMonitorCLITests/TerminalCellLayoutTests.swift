@@ -50,7 +50,7 @@ import Testing
         let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
         #expect(lines.allSatisfy { cells($0.text) <= width })
         if width < 85 {
-            let header = try #require(lines.first { $0.style == .heading && $0.text.contains("CWD") })
+            let header = try #require(lines.first { $0.style == .muted && $0.text.contains("CWD") })
             let column = try #require(header.text.range(of: "CWD"))
             let expected = cells(String(header.text[..<column.lowerBound]))
             let resourceRows = lines.enumerated().filter { $0.element.text.contains("/项目") }
