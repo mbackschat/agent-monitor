@@ -1,10 +1,10 @@
 import AgentMonitorActions
-import AgentMonitorCore
 import AgentMonitorPresentation
 import Foundation
 import Synchronization
 import Testing
 
+@testable import AgentMonitorCore
 @testable import AgentMonitorMenuBar
 
 private final class FakeActions: ProcessActions, Sendable {
@@ -47,18 +47,21 @@ func menuBarFixture(
     provider: String = "codex", sessionID: String = "11111111-1111-4111-8111-111111111111",
     sharedRuntime: Bool = false
 ) throws -> MonitoringSnapshot {
-    let rows = try pids.map { pid in
-        try JSONDecoder().decode(
-            HeavyProcess.self,
-            from: Data(
-                """
-                {"process":{"pid":\(pid),"startMicroseconds":1},"executable":"/fixture/\(name)",
-                "name":"\(name)","cpuPercent":\(cpu),"footprintBytes":\(memoryBytes),"cwd":"/projects/\(project)",
-                "metadataStatus":"markerRead","attribution":{"provider":"\(provider)","evidence":"\(sharedRuntime ? "ambiguous" : "marker")",
-                "context":"\(sharedRuntime ? "nonterminal" : "terminal")","threadID":\(sharedRuntime ? "null" : "\"\(sessionID)\""),
-                "runtime":{"pid":\(sharedRuntime ? pid : 41000),"startMicroseconds":1},"terminal":"ttys001",
-                "runtimeDirectory":"/projects/\(project)","candidateThreadIDs":\(sharedRuntime ? "[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\"]" : "[]"),"ancestry":[]}}
-                """.utf8))
+    let provider = try #require(AgentProvider(rawValue: provider))
+    let rows = pids.map { pid in
+        HeavyProcess(
+            process: ProcessIdentity(pid: pid, startMicroseconds: 1),
+            executable: "/fixture/" + name, name: name, cpuPercent: cpu, footprintBytes: memoryBytes,
+            cwd: "/projects/" + project, command: nil, metadataStatus: .markerRead,
+            attribution: Attribution(
+                provider: provider, evidence: sharedRuntime ? .ambiguous : .marker,
+                context: sharedRuntime ? .nonterminal : .terminal,
+                threadID: sharedRuntime ? nil : sessionID, rootSessionID: nil,
+                runtime: ProcessIdentity(pid: sharedRuntime ? pid : 41000, startMicroseconds: 1),
+                terminal: "ttys001", runtimeDirectory: "/projects/" + project,
+                candidateThreadIDs: sharedRuntime
+                    ? ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"]
+                    : [], ancestry: []))
     }
     return MonitoringSnapshot(
         cpuAccounting: CPUAccounting(

@@ -1,16 +1,17 @@
 import AgentMonitorActions
-import AgentMonitorCore
 import AgentMonitorPresentation
 import Foundation
 import Testing
 
+@testable import AgentMonitorCore
+
 @Test func actionSelectionIsFrozenAndTypingDoesNotTriggerCommands() throws {
     var state = LiveReportState()
-    let first = try panelRow(42)
-    state.receive(panelSnapshot([first, try panelRow(84)]))
+    let first = panelRow(42)
+    state.receive(panelSnapshot([first, panelRow(84)]))
     #expect(state.beginAction(.terminate) == nil)
     #expect(state.actionPanel?.process == first)
-    state.receive(panelSnapshot([try panelRow(84)]))
+    state.receive(panelSnapshot([panelRow(84)]))
     #expect(state.actionPanel?.process == first)
     #expect(state.actionInput(.text("qky")) == nil)
     #expect(state.actionPanel?.phase == .confirmTermination)
@@ -20,7 +21,7 @@ import Testing
 
 @Test func composerRequiresReviewAndExplicitConfirmation() throws {
     var state = LiveReportState()
-    let row = try panelRow(42)
+    let row = panelRow(42)
     state.receive(panelSnapshot([row]))
     #expect(state.beginAction(.message) == .prepare(row))
     let recipients = MessageRecipients(
@@ -41,7 +42,7 @@ import Testing
 @Test(arguments: [40, 60, 120, 200])
 func actionPanelsFitAndAllowFullMessageReview(width: Int) throws {
     var state = LiveReportState()
-    let row = try panelRow(42)
+    let row = panelRow(42)
     state.receive(panelSnapshot([row]))
     _ = state.beginAction(.message)
     let recipient = AgentRecipient(id: "root", label: "Root agent")
@@ -57,16 +58,17 @@ func actionPanelsFitAndAllowFullMessageReview(width: Int) throws {
     #expect(LiveReportLayout.lines(state: state, width: width, height: 12) != before)
 }
 
-private func panelRow(_ pid: Int32, provider: AgentProvider = .codex) throws -> HeavyProcess {
-    try JSONDecoder().decode(
-        HeavyProcess.self,
-        from: Data(
-            """
-            {"process":{"pid":\(pid),"startMicroseconds":1},"executable":"/fixture/worker","name":"worker",
-            "metadataStatus":"notObserved","attribution":{"provider":"\(provider.rawValue)","evidence":"marker",
-            "context":"terminal","threadID":"child","candidateThreadIDs":[],"ancestry":[]}}
-            """.utf8))
+private func panelRow(_ pid: Int32, provider: AgentProvider = .codex) -> HeavyProcess {
+    HeavyProcess(
+        process: ProcessIdentity(pid: pid, startMicroseconds: 1),
+        executable: "/fixture/worker", name: "worker", cpuPercent: nil, footprintBytes: nil,
+        cwd: nil, command: nil, metadataStatus: .notObserved,
+        attribution: Attribution(
+            provider: provider, evidence: .marker, context: .terminal, threadID: "child",
+            rootSessionID: nil, runtime: nil, terminal: nil, runtimeDirectory: nil,
+            candidateThreadIDs: [], ancestry: []))
 }
+
 private func panelSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
     MonitoringSnapshot(
         cpuAccounting: CPUAccounting(
@@ -79,7 +81,7 @@ private func panelSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
 
 @Test func messageReviewWrapsWideCharactersWithoutHidingText() throws {
     var state = LiveReportState()
-    let row = try panelRow(42)
+    let row = panelRow(42)
     state.receive(panelSnapshot([row]))
     _ = state.beginAction(.message)
     let recipient = AgentRecipient(id: "root", label: "Root agent")
@@ -96,7 +98,7 @@ private func panelSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
 @Test(arguments: ["é", "─", "→"])
 func messageReviewUsesRendererCellsForNarrowUnicode(glyph: String) throws {
     var state = LiveReportState()
-    let row = try panelRow(42)
+    let row = panelRow(42)
     state.receive(panelSnapshot([row]))
     _ = state.beginAction(.message)
     let recipient = AgentRecipient(id: "root", label: "Root agent")
@@ -119,7 +121,7 @@ func acceptanceWordingFollowsTheProviderTransport(provider: AgentProvider, note:
     throws
 {
     var state = LiveReportState()
-    let row = try panelRow(42, provider: provider)
+    let row = panelRow(42, provider: provider)
     state.receive(panelSnapshot([row]))
     _ = state.beginAction(.message)
     let recipient = AgentRecipient(id: "root", label: "Root agent")
@@ -132,7 +134,7 @@ func acceptanceWordingFollowsTheProviderTransport(provider: AgentProvider, note:
 
 @Test func focusStartsImmediatelyAndWaitsForTheResult() throws {
     var state = LiveReportState()
-    let row = try panelRow(42)
+    let row = panelRow(42)
     state.receive(panelSnapshot([row]))
     #expect(state.beginAction(.focus) == .focus(row))
     #expect(state.actionPanel?.phase == .focusing)
@@ -160,7 +162,7 @@ func focusWordingSeparatesExactAndAppOnlyResults(outcome: FocusOutcome, expected
 
 @Test func panelLinesCarryRolesForTitleNotesWarningsAndKeys() throws {
     var state = LiveReportState()
-    let row = try panelRow(42)
+    let row = panelRow(42)
     state.receive(panelSnapshot([row]))
     _ = state.beginAction(.message)
     let root = AgentRecipient(id: "root", label: "Root agent", unavailableReason: "Root is not loaded.")
@@ -184,7 +186,7 @@ func focusWordingSeparatesExactAndAppOnlyResults(outcome: FocusOutcome, expected
 ])
 func actionResultsAreColoredByOutcome(result: ActionResult, style: ReportLine.Style) throws {
     var state = LiveReportState()
-    state.receive(panelSnapshot([try panelRow(42)]))
+    state.receive(panelSnapshot([panelRow(42)]))
     _ = state.beginAction(.terminate)
     _ = state.actionInput(.confirm)
     state.actionFinished(result)
@@ -192,23 +194,22 @@ func actionResultsAreColoredByOutcome(result: ActionResult, style: ReportLine.St
     #expect(lines.contains { $0.style == style && result.text.contains($0.text) })
 }
 
-private func sessionRow(_ pid: Int32, runtime: Int32?) throws -> HeavyProcess {
-    let runtimeJSON = runtime.map { #","runtime":{"pid":\#($0),"startMicroseconds":1}"# } ?? ""
-    return try JSONDecoder().decode(
-        HeavyProcess.self,
-        from: Data(
-            """
-            {"process":{"pid":\(pid),"startMicroseconds":1},"executable":"/fixture/worker","name":"worker",
-            "metadataStatus":"markerRead","attribution":{"provider":"claude","evidence":"marker",
-            "context":"terminal","threadID":"11111111-1111-4111-8111-111111111111"\(runtimeJSON),
-            "candidateThreadIDs":[],"ancestry":[]}}
-            """.utf8))
+private func sessionRow(_ pid: Int32, runtime: Int32?) -> HeavyProcess {
+    HeavyProcess(
+        process: ProcessIdentity(pid: pid, startMicroseconds: 1),
+        executable: "/fixture/worker", name: "worker", cpuPercent: nil, footprintBytes: nil,
+        cwd: nil, command: nil, metadataStatus: .markerRead,
+        attribution: Attribution(
+            provider: .claude, evidence: .marker, context: .terminal,
+            threadID: "11111111-1111-4111-8111-111111111111", rootSessionID: nil,
+            runtime: runtime.map { ProcessIdentity(pid: $0, startMicroseconds: 1) },
+            terminal: nil, runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []))
 }
 
 // A launch group identifies one session, which is all focus needs; k and s keep requiring a process.
 @Test func focusOnACollapsedGroupTargetsItsOneRuntime() throws {
     var state = LiveReportState(grouping: .session)
-    let rows = [try sessionRow(42, runtime: nil), try sessionRow(43, runtime: 700)]
+    let rows = [sessionRow(42, runtime: nil), sessionRow(43, runtime: 700)]
     state.receive(panelSnapshot(rows))
     #expect(state.selectedGroup != nil)
     #expect(state.beginAction(.terminate) == nil)
@@ -222,7 +223,7 @@ func focusOnAGroupWithoutOneRuntimeExplains(runtimes: [Int32?]) throws {
     var state = LiveReportState(grouping: .session)
     state.receive(
         panelSnapshot(
-            try runtimes.enumerated().map { try sessionRow(Int32(42 + $0.offset), runtime: $0.element) }))
+            runtimes.enumerated().map { sessionRow(Int32(42 + $0.offset), runtime: $0.element) }))
     #expect(state.beginAction(.focus) == nil)
     #expect(state.actionPanel == nil)
     #expect(state.notice?.contains("runtime") == true)
@@ -230,7 +231,7 @@ func focusOnAGroupWithoutOneRuntimeExplains(runtimes: [Int32?]) throws {
 
 // The TUI panel and the CLI commands show the same target and result wording.
 @Test func actionWordingIsSharedByPanelAndCommands() throws {
-    let row = try panelRow(42)
+    let row = panelRow(42)
     #expect(
         ActionWording.target(row) == [
             "Process PID 42: worker", "Executable: /fixture/worker", "Attributed session: codex/child",
@@ -249,7 +250,7 @@ func focusOnAGroupWithoutOneRuntimeExplains(runtimes: [Int32?]) throws {
 @Test func messageLengthLimitHasOneSource() throws {
     #expect(MessageDraft.maximumLength == 4000)
     var state = LiveReportState()
-    let row = try panelRow(42)
+    let row = panelRow(42)
     state.receive(panelSnapshot([row]))
     _ = state.beginAction(.message)
     let recipient = AgentRecipient(id: "root", label: "Root agent")
@@ -261,7 +262,7 @@ func focusOnAGroupWithoutOneRuntimeExplains(runtimes: [Int32?]) throws {
 
 @Test func messageObservationRemainsTheSelectedSampleWhilePreparationReceivesNewReports() throws {
     var state = LiveReportState()
-    let row = try panelRow(42)
+    let row = panelRow(42)
     state.receive(panelSnapshot([row]))
     _ = state.beginAction(.message)
     state.receive(
@@ -281,7 +282,7 @@ func focusOnAGroupWithoutOneRuntimeExplains(runtimes: [Int32?]) throws {
 @Test(arguments: [false, true])
 func composerBytesAreBoundedForSingleAndIncrementalGraphemes(incremental: Bool) throws {
     var state = LiveReportState()
-    let row = try panelRow(42)
+    let row = panelRow(42)
     state.receive(panelSnapshot([row]))
     _ = state.beginAction(.message)
     let recipient = AgentRecipient(id: "root", label: "Root")

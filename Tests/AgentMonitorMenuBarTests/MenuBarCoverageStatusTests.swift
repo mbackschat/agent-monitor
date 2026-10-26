@@ -33,11 +33,15 @@ import Vision
     request.recognitionLevel = .accurate
     try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
     let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
-    for expected in ["Collapsed", "12", "40", "1182", "excluded"] {
-        #expect(text.contains(expected), "Missing \(expected) in rendered coverage: \(text)")
+    for pattern in [
+        #"Collapsed deta[il]l\s*[·.•]?\s*5[–-]60 s before"#,
+        #"Read fa[il]lures:\s*12 same-user PIDs"#,
+        #"40 overruns\s*[·.•]?\s*max gap 1182 ms"#,
+        #"7 memory unava[il]lable"#, #"3 excluded"#,
+    ] {
+        // Vision can confuse caption2's i/l glyphs; numeric values and their labels stay exact.
+        #expect(text.range(of: pattern, options: .regularExpression) != nil, "Missing \(pattern): \(text)")
     }
-    // Vision reads caption2's "il" as "ll" in the 2026-10-26 offscreen render.
-    #expect(text.range(of: "memory unava[il]lable", options: .regularExpression) != nil, "\(text)")
     if let path = ProcessInfo.processInfo.environment["MENUBAR_STATUS_PREVIEW_PATH"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: path))

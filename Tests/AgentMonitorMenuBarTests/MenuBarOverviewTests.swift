@@ -167,14 +167,16 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     var reads = ReadCoverage()
     reads.append(
         ProcessSnapshot(
-            samples: [], enumeratedCount: 28, unreadableCount: 28,
+            samples: [], enumeratedCount: 38, unreadableCount: 38,
             listedAt: 1, scanSeconds: 0, hostCounters: nil, logicalCPUCount: 8,
-            nativeOutcomes: (1...28).map { pid in
+            nativeOutcomes: (1...38).map { pid in
                 NativeCounterOutcome(
                     pid: Int32(pid), identity: nil, operation: .bsdInfo,
                     status: pid <= 23 ? .lookupUnavailable : .otherFailure, failure: nil, observedAtTicks: 1)
             }))
-    let summary = SamplingCoverageSummary(snapshot: snapshot, reads: reads, recentDuration: 47.5)
+    let summary = SamplingCoverageSummary(
+        snapshot: snapshot, reads: reads, observed: LifetimeCountRange(minimum: 126, maximum: 126),
+        recentDuration: 47.5)
     let host = NSHostingView(
         rootView: MenuBarCoverageSummary(summary: summary)
             .padding(12).frame(width: 400).background(Color(nsColor: .windowBackgroundColor)))
@@ -193,14 +195,31 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     let request = VNRecognizeTextRequest()
     request.recognitionLevel = .accurate
     try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
-    let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
-    #expect(text.contains("Observed"))
-    // Vision reads this caption2 "il" as "ll" (2026-10-25 render), so accept either glyph pair.
-    #expect(text.range(of: "Read fa(il|ll)ures", options: .regularExpression) != nil, "\(text)")
-    #expect(text.contains("Sampled"))
-    #expect(text.contains("Recent history"))
-    #expect(text.contains("Exited before read"))
-    #expect(text.contains("Other"))
+    let recognized = (request.results ?? []).compactMap { observation in
+        observation.topCandidates(1).first.map { (text: $0.string, bounds: observation.boundingBox) }
+    }
+    let text = recognized.map(\.text).joined(separator: " ")
+    for (title, value) in [
+        ("Observed", "126"), (#"Read fa[il]lures"#, "15"), ("Sampled", "23"),
+    ] {
+        let label = try #require(
+            recognized.first { $0.text.range(of: title, options: .regularExpression) != nil })
+        #expect(
+            recognized.contains {
+                $0.text == value && abs($0.bounds.minX - label.bounds.minX) < 0.04
+                    && $0.bounds.midY > label.bounds.midY
+                    && $0.bounds.midY - label.bounds.midY < label.bounds.height * 3
+            }, "Missing value \(value) above \(title): \(text)")
+    }
+    #expect(text.range(of: #"47[.,]5\s*/\s*60 s"#, options: .regularExpression) != nil)
+    for (title, value) in [("Exited before read", "23"), ("Other", "15")] {
+        let label = try #require(recognized.first { $0.text == title })
+        #expect(
+            recognized.contains {
+                $0.text == value && $0.bounds.minX > label.bounds.maxX
+                    && abs($0.bounds.midY - label.bounds.midY) < label.bounds.height / 2
+            }, "Missing value \(value) beside \(title): \(text)")
+    }
     #expect(!text.contains("Totals are independent"))
     #expect(!text.contains("Session CPU is"))
     if let path = ProcessInfo.processInfo.environment["MENUBAR_COVERAGE_PREVIEW_PATH"] {
