@@ -46,6 +46,10 @@ let package = Package(
             path: "Tools/Preview"),
         .testTarget(name: "PreviewTests", dependencies: ["monitor-preview"]),
         .executableTarget(
+            name: "monitor-workload-capture", dependencies: ["AgentMonitorCore"],
+            path: "Tools/WorkloadCapture", exclude: ["README.md"]),
+        .testTarget(name: "WorkloadCaptureTests", dependencies: ["monitor-workload-capture"]),
+        .executableTarget(
             name: "monitor-tui-fixture",
             dependencies: ["AgentMonitorCore", "AgentMonitorTUI", "AgentMonitorActions"],
             path: "Tests/Fixtures/TUIFixture"),

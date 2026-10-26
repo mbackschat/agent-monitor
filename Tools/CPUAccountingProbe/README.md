@@ -2,6 +2,8 @@
 
 These development-only probes support the [2026-10-23 CPU investigation](../../docs/research/cpu-accounting.md#controlled-exit-and-scheduler-probes--2026-10-23). They are not installed products or a monitoring backend. Retained results are in the [measurement dataset](../../docs/research/cpu-exit-probes-2026-10-23.json). Run from the repository root on macOS; run temporary measurements through [clean-build.py](../../scripts/clean-build.py) and analyze their output before its scratch directory is removed. Retention requires an explicit evidence decision; Git ignoring a file is not a retention policy.
 
+For immediate opt-in recording of the next representative workload, prepare the [workload recorder](../WorkloadCapture/README.md) in advance. It records production-reader observations with explicit time/size limits; it is not an exit-coverage oracle.
+
 | Probe | Purpose |
 | --- | --- |
 | [exec-identity.c](exec-identity.c) | Gate an owned child across same-binary exec with a changed synthetic environment and higher allocation; compare fresh/retained task-name-port audit tokens, native birth, image UUID, name and footprint peak. |
