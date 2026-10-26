@@ -140,7 +140,7 @@ public enum LiveReportLayout {
             ],
             [frozen ? "p resume" : "p pause", "k terminate", "s message", "f focus"],
             ["1/2 CPU -/+10%", "3/4 GB -/+1", "</> interval"],
-            ["[/] scroll", "-/+ size", "0 min", "9 max", "= restore", "q/Ctrl-C quit"],
+            ["i details", "[/] scroll", "-/+ size", "0 hide", "9 max", "= restore", "q/Ctrl-C quit"],
         ]
         var lines: [String] = []
         var line = ""
@@ -401,7 +401,7 @@ public enum LiveReportLayout {
         let offset = min(state.detailOffset, max(0, details.count - visible))
         let title: String
         switch state.detailsMode {
-        case .minimized: title = "Details min | →/= restore"
+        case .minimized: title = "Details min | i/= show"
         case .maximized: title = "Details max | launch origin"
         case .split: title = "Details \(state.detailsPercent)% | launch origin"
         }
@@ -415,7 +415,7 @@ public enum LiveReportLayout {
             if details.isEmpty {
                 lines.append(
                     ReportLine(
-                        state.selected == nil ? "No process selected." : "→ to show selected process.",
+                        state.selected == nil ? "No process selected." : "i to show selected process.",
                         style: .muted))
             } else {
                 lines += details.dropFirst(offset).prefix(visible).map { ReportLine($0) }

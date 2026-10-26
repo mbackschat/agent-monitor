@@ -53,11 +53,11 @@ agent-monitor --tui --group session
 | --- | --- |
 | `v` / `a` | Switch overview/process view / open recent and remainder sections |
 | Return | Inspect the selected current overview process in the action-capable process view |
-| `i` | Show/hide selected overview details without folding its children |
+| `i` | Show/hide selected details in either view without folding children |
 | Page Up / Page Down | Scroll expanded overview details |
 | **d** | Start a finite CPU diagnosis immediately; three one-second waits plus scans and up to three seconds per queried provider |
 | ↑ / ↓ | Select a row |
-| ← / → | Collapse/expand a session or close/open process details |
+| ← / → | Collapse/expand children; process leaves do not expand |
 | Shift+← / Shift+→ | Collapse/expand displayed session groups at the current level |
 | `g` | Toggle session grouping |
 | `k` | Review SIGTERM for the selected process |

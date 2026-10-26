@@ -76,14 +76,14 @@ Read-only review of `79c9255`; no fresh physical terminal testing. The main over
 
 | ID | Source finding and remaining gap |
 | --- | --- |
-| FEEDBACK-02 | Overview uses separate fold and `i` details; [process disclosure](../../Sources/AgentMonitorPresentation/LiveReportState.swift) still combines them. |
+| FEEDBACK-02 | Resolved by the process-disclosure follow-up below: TUI arrows fold children and `i` independently toggles details in both views. Native process-row clicks retain their existing disclosure behavior. |
 | FEEDBACK-03 | Overview has leading symbols/indentation; [wide process grouping](../../Sources/AgentMonitorPresentation/LiveReportLayout.swift) still places disclosure after resource columns. |
 | FEEDBACK-04 | Overview distinguishes expandable rows and leaves; process rows lack an equivalent leading details affordance. |
 | FEEDBACK-05 | Process column headers and unselected session rows share the `.heading` style. |
 | FEEDBACK-06 | At the reviewed checkpoint, wide grouped children omitted CWD and native rows used group context. The follow-up below addresses this omission; it does not prove the retrospective screenshot cause. |
 | FEEDBACK-07 | Native menu help exists, but `?` is absent from [shared shortcuts](../../Sources/AgentMonitorPresentation/ReportShortcut.swift) and [terminal input](../../Sources/AgentMonitorTUI/TerminalReport.swift); the binding remains an idea. |
 | FEEDBACK-08 | Process footer still lists scroll/size controls without an explicit Details scope label. |
-| FEEDBACK-09 | Overview `i` hides details; the process footer does not explicitly advertise hiding them. |
+| FEEDBACK-09 | The process footer now advertises `i details` and `0 hide`; the minimized divider uses `i/= show`. Physical discoverability remains part of the user smoke check. |
 | FEEDBACK-10 | Process split-pane heading still shows `Details N%`. |
 | FEEDBACK-11 | Selected/unselected pins still use `@`/`+`. This is a presentation concern; no shared pin-state defect was established. |
 | FEEDBACK-12 | Diagnosis implements Page Up/Down. Proposed Space/Shift+Space and endpoint jumps remain unapproved; `t` already has a browsing meaning. |
@@ -93,3 +93,12 @@ Read-only review of `79c9255`; no fresh physical terminal testing. The main over
 ### Process-directory follow-up — 2026-10-26
 
 The wide grouped TUI renderer substituted per-row evidence/context text for CWD, while the native process label showed no CWD outside details. Synthetic mixed-directory sessions reproduced both omissions: the new per-row TUI guards failed at 60/85/120/160 columns, and offscreen native OCR found neither child directory. The fix uses the shared population-level directory labels in both hosts, keeps CPU/memory on the same compact row and leaves full paths/evidence on demand. Matching suffixes remain distinguishable and absent CWD does not borrow sibling/runtime context. Independent review found that concatenation still lost CWD for long executables and session identity when a group heading scrolled away at 60 columns; both were reproduced with failing guards. Below 85 columns the fix keeps complete two-line identity/resource blocks; wider grouped rows reserve all three fields and abbreviate each explicitly. Row-scoped native OCR also caught middle truncation hiding a distinguishing leading directory component; native CWD now truncates at the tail. Offscreen inspection confirms the compact native layout; physical input and overall workflow acceptance remain user-owned. FEEDBACK-06's demonstrated omission is resolved, not the other process-view feedback.
+
+
+### Process-disclosure follow-up — 2026-10-26
+
+The process TUI routed directional arrows through the native-compatible disclosure operation, which opens a process inspector for leaf rows. The production PTY journey reproduced this coupling: repeated Right followed by an acknowledged sort opened the details pane without a details request. TUI arrows now request child disclosure only; `i` independently shows/hides process or session details, preserving the chosen pane ratio. Native row clicks still use their existing disclosure operation. Shared-state guards cover flat and grouped selections, group details without expansion, and leaf arrows with details both hidden and visible. The PTY journey opens and hides with `i`, retains bulk-group folding, and checks the explicit minimized state rather than treating an offscreen line as evidence of closure.
+
+The process footer advertises `i details` and `0 hide`, and its minimized divider advertises `i/= show`. The README preview was regenerated and inspected in an isolated headless browser: columns and complete key hints fit the synthetic viewport. This resolves FEEDBACK-02 and the missing hide hint in FEEDBACK-09; it does not settle the remaining hierarchy, scope, split-percentage, pin-symbol or physical keyboard concerns. Measurement and attribution are unchanged.
+
+Validation on 2026-10-26: the changed production PTY journey and flat/grouped state guards pass, and all 712 debug tests passed after the separately documented [consumer-stall fixture correction](development-tools.md#consumer-stall-fixture-scheduling-correction--2026-10-26). Strict formatting, documentation links and generated-preview checks pass. No optimized rebuild, live provider access or native performance experiment was performed for this interaction change.

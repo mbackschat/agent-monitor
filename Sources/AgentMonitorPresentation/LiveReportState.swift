@@ -369,6 +369,27 @@ public struct LiveReportState: Equatable, Sendable {
         notice = nil
     }
 
+    public mutating func setChildDisclosure(expanded: Bool) {
+        guard showsOverview || selectedGroup != nil else { return }
+        setDisclosure(expanded: expanded)
+    }
+
+    public mutating func toggleDetails() {
+        if showsOverview {
+            overview.toggleDetails()
+            return
+        }
+        guard selected != nil || selectedGroup != nil else { return }
+        returningDetails = nil
+        if detailsMode != .minimized, expanded == selected {
+            expanded = nil
+            minimizeDetails()
+        } else {
+            restoreDetails()
+        }
+        detailOffset = 0
+    }
+
     public mutating func setDisclosure(expanded: Bool) {
         if showsOverview {
             overview.disclose(expanded)
@@ -439,13 +460,7 @@ public struct LiveReportState: Equatable, Sendable {
             detailOffset = 0
             return
         }
-        if detailsMode != .minimized, expanded == selected {
-            expanded = nil
-            minimizeDetails()
-        } else {
-            restoreDetails()
-        }
-        detailOffset = 0
+        toggleDetails()
     }
 
     public mutating func toggleGrouping() {

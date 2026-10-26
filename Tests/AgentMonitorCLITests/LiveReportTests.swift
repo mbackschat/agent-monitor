@@ -247,7 +247,7 @@ func keyboardHelpRetainsControlsWithinTheViewport(width: Int) {
     let text = lines.map(\.text).joined(separator: "\n")
     for control in [
         "↑/↓ select", "←/→ fold", "g group", "c/m/n/o sort", "r reverse", "[/] scroll",
-        "-/+ size", "0 min",
+        "i details", "-/+ size", "0 hide",
         "9 max", "= restore", "q/Ctrl-C quit",
     ] {
         #expect(text.contains(control))
@@ -704,4 +704,32 @@ func diagnosisHintFitsNormalFooterBudget(dimensions: (Int, Int)) throws {
     #expect(ThresholdContext.text(Thresholds(cpuPercent: 25)) == "CPU > 25.00%")
     #expect(ThresholdContext.text(Thresholds(memoryBytes: 1_000_000_000)) == "footprint > 1.00 GB")
     #expect(ThresholdContext.text(.heavy) == "CPU > 25.00% OR footprint > 1.00 GB")
+}
+
+@Test(arguments: [ReportGrouping.none, .session])
+func processChildDisclosureNeverOpensOrHidesDetails(grouping: ReportGrouping) throws {
+    var state = LiveReportState(grouping: grouping)
+    let row = liveRow(42)
+    state.receive(liveSnapshot([row]))
+    if grouping == .session {
+        let group = try #require(state.selectedGroup)
+        state.toggleDetails()
+        #expect(state.detailsMode == .split && !state.openGroups.contains(group))
+        state.toggleDetails()
+        state.setChildDisclosure(expanded: true)
+        #expect(state.detailsMode == .minimized && state.openGroups.contains(group))
+    }
+    state.select(.process(row.process))
+    #expect(state.selected == row.process)
+    state.setChildDisclosure(expanded: true)
+    #expect(state.detailsMode == .minimized)
+    state.toggleDetails()
+    #expect(state.expanded == row.process && state.detailsMode == .split)
+    state.adjustDetails(by: 10)
+    state.setChildDisclosure(expanded: false)
+    #expect(state.expanded == row.process && state.detailsMode == .split)
+    state.toggleDetails()
+    #expect(state.expanded == nil && state.detailsMode == .minimized)
+    state.toggleDetails()
+    #expect(state.expanded == row.process && state.detailsPercent == 60)
 }

@@ -103,14 +103,14 @@ public enum AgentGuide {
             """
             agent-monitor --tui [--group session]
             Requires interactive stdin/stdout. Defaults: grouped contributor overview, five-second display, 100 ms requested acquisition period with visible overruns, unlimited reports. --interval controls acquisition; --samples limits reports.
-            ↑/↓ select; ←/→ collapse/expand session or process details.
+            ↑/↓ select; ←/→ collapse/expand children; process leaves do not expand.
             Shift+←/→ collapse/expand session groups at the current level; g toggles grouping.
             c/m order CPU/memory in the current view; n/o enter process PID/stable ordering; r reverses process numeric sorts.
             h cycles history CPU/memory/heavy count; t switches 10 minutes/one hour.
             1/2 lower/raise CPU by 10 percentage points; 3/4 lower/raise footprint by 1 GB.
             </> update less/more often: 0.1, 0.25, 0.5, 1, 2, 5, 10, 30 or 60 seconds.
             Main contributors is the default: v switches to the process view; a opens recent/remainder groups.
-            Arrows disclose session → executable → process; i toggles overview details; Page Up/Down scroll detail; Return inspects a current worker without changing grouping.
+            Arrows disclose session → executable → process; i shows/hides details in either view; Page Up/Down scroll detail; Return inspects a current worker without changing grouping.
             . pins the owning overview session (or selected process/session in process view); p pauses/resumes the view while sampling continues.
             x reads/hides arguments for the expanded current process; read time is live even while paused.
             [/] scroll details; -/+ shrink/grow details by 5 percentage points (10–90%).

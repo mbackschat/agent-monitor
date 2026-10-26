@@ -135,13 +135,13 @@ public enum TerminalReport {
                     }
                 case .return: state.mutate { $0.inspectOverviewProcess() }
                 case .character("i"):
-                    state.mutate { if $0.showsOverview { $0.overview.toggleDetails() } }
+                    state.mutate { $0.toggleDetails() }
                 case .pageUp: state.mutate { $0.overview.scroll(by: -5) }
                 case .pageDown: state.mutate { $0.overview.scroll(by: 5) }
                 case .arrowUp: state.mutate { $0.moveSelection(by: -1) }
                 case .arrowDown: state.mutate { $0.moveSelection(by: 1) }
-                case .arrowLeft: state.mutate { $0.setDisclosure(expanded: false) }
-                case .arrowRight: state.mutate { $0.setDisclosure(expanded: true) }
+                case .arrowLeft: state.mutate { $0.setChildDisclosure(expanded: false) }
+                case .arrowRight: state.mutate { $0.setChildDisclosure(expanded: true) }
                 case .character("-"): state.mutate { $0.adjustDetails(by: -5) }
                 case .character("+"): state.mutate { $0.adjustDetails(by: 5) }
                 case .character("0"): state.mutate { $0.minimizeDetails() }
