@@ -113,14 +113,8 @@ public enum ContributorLayout {
     }
 
     private static func compactCoverage(_ status: CoverageStatus) -> [ReportLine] {
-        let warnings = status.notes.filter { $0.severity == .warning }.count
-        let notices = status.notes.count - warnings
-        let counts = [
-            warnings > 0 ? "\(warnings) \(warnings == 1 ? "warning" : "warnings")" : nil,
-            notices > 0 ? "\(notices) \(notices == 1 ? "notice" : "notices")" : nil,
-        ].compactMap { $0 }.joined(separator: " · ")
         return [
-            ReportLine("Coverage: " + counts, style: status.lineStyle),
+            ReportLine(status.compactText, style: status.lineStyle),
             ReportLine("Resize for coverage details", style: status.lineStyle),
         ]
     }

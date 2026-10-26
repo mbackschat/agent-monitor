@@ -152,7 +152,7 @@ JSONL output has no action commands.
 
 ## Main contributors and recent activity
 
-On Mac, **Sampling coverage** holds the detailed metrics. Compact coverage cells beside the totals keep simultaneous read failures, overruns and retention pressure visible, with definitions in tooltips; processes that exited before their read are a neutral notice. TUI keeps explanations behind `i` details and preserves quit/resume controls at small sizes, with explicit resize hints when all controls or coverage cannot fit.
+On Mac, **Sampling coverage** holds the detailed metrics. Compact coverage cells beside the totals keep simultaneous read failures, overruns and retention pressure visible, with definitions in tooltips; processes that exited before their read are a neutral notice. TUI keeps explanations behind `i` details and preserves quit/resume controls at small sizes. When space is tight, both overview and process views reserve the selected identity/resource block and show counted coverage warnings with a resize hint. Maximizing details explicitly gives the space to the inspector instead.
 
 Mac and TUI default to **Main contributors**. Individually shown sessions are the union of the top five by combined group CPU (strictly above 25% of one core) and the top five by current memory (at least 100 MB). Hysteresis keeps small rank changes from constantly reshuffling the list. These relevance floors collapse rows; they do not remove measured work. A zero-CPU process can still matter through memory, and zero CPU does not mean it has stopped.
 

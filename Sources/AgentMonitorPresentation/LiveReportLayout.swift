@@ -31,37 +31,73 @@ public enum LiveReportLayout {
         }
         if let panel = state.actionPanel { return panel.lines(width: width, height: height) }
         if state.showsOverview { return ContributorLayout.lines(state: state, width: width, height: height) }
-        var lines = headerLines(state: state, width: width)
-        lines.append(historyLine(state: state, width: width))
-        let footer = helpLines(
-            width: width, height: height, headerHeight: lines.count, frozen: state.frozen,
-            diagnosisRunning: state.diagnosis.isRunning)
-        let available = max(0, height - lines.count - footer.count)
-        let detailHeight = detailHeight(state: state, available: available)
-        lines += processLines(state: state, width: width, height: available - detailHeight)
-        lines += detailsPane(state: state, width: width, height: detailHeight)
-        lines += footer.map { ReportLine($0, style: .muted) }
+        let layout = paneLayout(state: state, width: width, height: height)
+        var lines = layout.header
+        lines += processLines(state: state, width: width, height: layout.processHeight)
+        lines += detailsPane(state: state, width: width, height: layout.detailHeight)
+        lines += layout.footer.map { ReportLine($0, style: .muted) }
         return lines.map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
     }
 
     public static func maximumDetailOffset(state: LiveReportState, width: Int, height: Int) -> Int {
         guard width >= 40, height >= 8 else { return 0 }
-        let headerHeight = headerLines(state: state, width: width).count + 1
-        let available =
-            height - headerHeight
-            - helpLines(
-                width: width, height: height, headerHeight: headerHeight, frozen: state.frozen,
-                diagnosisRunning: state.diagnosis.isRunning
-            ).count
-        let visible = detailHeight(state: state, available: available) - 1
+        let visible = paneLayout(state: state, width: width, height: height).detailHeight - 1
         guard visible > 0 else { return 0 }
         return max(0, detailLines(state: state, width: width).count - visible)
+    }
+
+    private static func paneLayout(state: LiveReportState, width: Int, height: Int)
+        -> (header: [ReportLine], footer: [String], processHeight: Int, detailHeight: Int)
+    {
+        var header = headerLines(state: state, width: width) + [historyLine(state: state, width: width)]
+        let minimumProcess = state.detailsMode == .maximized ? 0 : (width < 85 ? 3 : 2)
+        let minimumBody = max(3, minimumProcess + 1)
+        var footer = helpLines(
+            width: width, height: height, headerHeight: header.count, frozen: state.frozen,
+            diagnosisRunning: state.diagnosis.isRunning)
+        if height - header.count - footer.count < minimumBody {
+            let coverage = (state.snapshot.map(CoverageStatus.init(snapshot:)) ?? CoverageStatus(notes: []))
+                .addingInspection(state.snapshot?.window?.inspectionCoverage)
+            // UX-01 puts the selected responsibility above optional chrome. Counts keep
+            // reduced coverage detail explicit; resizing restores the full notes.
+            let coverageText = coverage.compactText + (coverage.notes.isEmpty ? "" : " · resize")
+            header = [ReportLine(coverageText, style: coverage.lineStyle)]
+            if !state.thresholds.isUnfiltered || filtersPending(state) {
+                header.append(ReportLine(filterText(state), style: .muted))
+            }
+            if state.frozen {
+                let stamp = state.snapshot.map { " at " + clockTime($0.timestamp) } ?? ""
+                let resize = state.notice == nil ? "" : " · resize"
+                header.insert(ReportLine("PAUSED\(stamp) | p resume\(resize)", style: .title), at: 0)
+                if let notice = state.notice { footer[0] = notice }
+            } else if let notice = state.notice {
+                header.append(ReportLine(notice, style: .warning))
+            }
+            let limit = height - footer.count - max(3, minimumProcess)
+            if !state.frozen, state.notice == nil, header.count < limit {
+                header.insert(ReportLine("Agent Monitor", style: .title), at: 0)
+            }
+        }
+        let available = max(0, height - header.count - footer.count)
+        let details = detailHeight(state: state, available: available, minimumProcess: minimumProcess)
+        return (header, footer, available - details, details)
     }
 
     private static func historyLine(state: LiveReportState, width: Int) -> ReportLine {
         ReportLine(
             state.history.line(metric: state.historyMetric, window: state.historyWindow, width: width),
             style: .muted)
+    }
+
+    private static func filterText(_ state: LiveReportState) -> String {
+        ThresholdContext.text(state.thresholds) + (filtersPending(state) ? " (pending)" : "")
+    }
+
+    private static func filtersPending(_ state: LiveReportState) -> Bool {
+        state.snapshot.map {
+            $0.cpuThresholdPercent != state.thresholds.cpuPercent
+                || $0.memoryThresholdBytes != state.thresholds.memoryBytes
+        } ?? false
     }
 
     private static func headerLines(state: LiveReportState, width: Int) -> [ReportLine] {
@@ -87,14 +123,7 @@ public enum LiveReportLayout {
         } else {
             status = "Sampling baseline…"
         }
-        let pending =
-            state.snapshot.map {
-                $0.cpuThresholdPercent != state.thresholds.cpuPercent
-                    || $0.memoryThresholdBytes != state.thresholds.memoryBytes
-            } ?? false
-        let filters =
-            ThresholdContext.text(state.thresholds)
-            + (pending ? " (pending)" : "")
+        let filters = filterText(state)
         let context = ReportLine(
             CPUContext.text(state.snapshot?.cpuAccounting)
                 + (state.snapshot?.window.map {
@@ -173,7 +202,7 @@ public enum LiveReportLayout {
         TerminalCells.abbreviated(TextReport.safe(text), to: width)
     }
 
-    private static func detailHeight(state: LiveReportState, available: Int) -> Int {
+    private static func detailHeight(state: LiveReportState, available: Int, minimumProcess: Int) -> Int {
         let height: Int
         switch state.detailsMode {
         case .minimized: height = 1
@@ -182,8 +211,7 @@ public enum LiveReportLayout {
             let requested = Int((Double(available) * Double(state.detailsPercent) / 100).rounded())
             height = min(available - 1, max(2, requested))
         }
-        // The smallest supported viewport can leave no pane rows below the fixed chrome.
-        return max(0, min(available, height))
+        return max(0, min(available - minimumProcess, height))
     }
 
     private static func processLines(state: LiveReportState, width: Int, height: Int) -> [ReportLine] {

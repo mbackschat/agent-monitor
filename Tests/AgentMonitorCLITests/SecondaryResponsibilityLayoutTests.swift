@@ -1,8 +1,8 @@
-import AgentMonitorPresentation
 import Foundation
 import Testing
 
 @testable import AgentMonitorCore
+@testable import AgentMonitorPresentation
 
 @Suite struct SecondaryResponsibilityLayoutTests {
     private let sessions = [
@@ -10,9 +10,66 @@ import Testing
     ]
     private let directories = ["/work/alpha/project", "/tmp/alpha/project"]
 
+    @Test func compactPausedNoticeKeepsItsExplanationAndSelectedProcess() {
+        var state = LiveReportState()
+        state.receive(snapshot())
+        state.overview.enabled = false
+        state.toggleFreeze()
+        state.setActionNotice("Pin limit reached: remove a pin first.")
+        let lines = LiveReportLayout.lines(state: state, width: 40, height: 8)
+        #expect(lines[0].text.hasPrefix("PAUSED at "))
+        #expect(lines.contains { $0.text == "Pin limit reached: remove a pin first." })
+        #expect(lines.filter { $0.style == .selected }.count == 2)
+        #expect(lines.last?.text.contains("q/Ctrl-C quit") == true)
+        #expect(lines.count <= 8)
+    }
+
+    @Test(arguments: [40, 80, 120], [(false, false), (true, false), (false, true), (true, true)])
+    func minimumProcessViewportKeepsSelectedResponsibilityWithCoverage(
+        width: Int, mode: (grouped: Bool, paused: Bool)
+    ) throws {
+        var feed = OverviewFeed()
+        let workers = sessions.enumerated().map { index, session in
+            OverviewFeed.Worker(
+                session: session, executable: "java", pid: Int32(index + 1),
+                cpuPerSecond: index == 0 ? 0.9 : 0.8, memory: 320_000_000,
+                cwd: directories[index])
+        }
+        var state = LiveReportState(grouping: mode.grouped ? .session : .none)
+        _ = try feed.advance(workers)
+        let coverage = try feed.advance(
+            workers, failures: [.permissionDenied, .identityMismatch, .lookupUnavailable], overrun: true)
+        state.receive(snapshot(coverage: coverage.window))
+        state.overview.enabled = false
+        if mode.grouped {
+            state.select(.group(.session(provider: "claude", id: sessions[1])))
+        } else {
+            state.select(.process(ProcessIdentity(pid: 3, startMicroseconds: 1)))
+        }
+        if mode.paused {
+            state.setThresholds(Thresholds(cpuPercent: 25))
+            state.toggleFreeze()
+        }
+        #expect(state.visibleRows.contains { $0.id == state.selection })
+        let lines = LiveReportLayout.lines(state: state, width: width, height: 8)
+        let selected = lines.filter { $0.style == .selected }.map(\.text).joined(separator: " ")
+        #expect(selected.contains(sessions[1].prefix(8)))
+        #expect(selected.contains("80.00"))
+        #expect(selected.contains("0.32"))
+        #expect(selected.contains("tmp"))
+        #expect(lines.contains { $0.style == .warning })
+        #expect(lines.map(\.text).joined().contains("q/Ctrl-C quit"))
+        if mode.paused {
+            #expect(lines[0].text.hasPrefix("PAUSED at "))
+            #expect(lines.contains { $0.text.contains("CPU > 25.00%") })
+        }
+        #expect(lines.count <= 8)
+        #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
+    }
+
     private func snapshot(
         missingReadings: Bool = false, historical: Bool = false, mixedDirectories: Bool = false,
-        readings: (cpu: Double, memory: UInt64)? = nil
+        readings: (cpu: Double, memory: UInt64)? = nil, coverage: ReportWindowSummary? = nil
     ) -> MonitoringSnapshot {
         let rows = (0..<4).map { index in
             let group = index / 2
@@ -43,7 +100,7 @@ import Testing
                 unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
             timestamp: Date(timeIntervalSince1970: 1), intervalSeconds: 0.1,
             cpuThresholdPercent: 0, memoryThresholdBytes: 0, sampledProcessCount: 4,
-            unreadableProcessCount: 0, findings: rows)
+            unreadableProcessCount: 0, findings: rows, window: coverage)
     }
 
     @Test func groupHeadingsDisambiguateDirectoriesAcrossThePopulation() {

@@ -36,7 +36,7 @@ This README describes the current source build, which can be ahead of the [lates
 - **Jump to the session's terminal** — bring the terminal running the agent to the front, selecting its tab in Terminal.app.
 - **Stop a runaway process** — review and send SIGTERM to one process only.
 - **Actions from scripts** — the same actions as `kill`, `message`, and `focus` commands, with confirmation or `--yes`.
-- **Responsive layout** — use narrow or wide terminals, resize the details pane, and copy text with normal terminal selection.
+- **Responsive layout** — keep the selected contributor and its resources together in small terminals, resize the details pane, and copy text with normal terminal selection.
 - **Scriptable output** — print a colored report or stream JSONL schema version 1 to other tools.
 - **Explicit uncertainty** — unknown or ambiguous sessions stay visible instead of being guessed.
 
