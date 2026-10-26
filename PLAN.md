@@ -39,7 +39,7 @@ The completed short-worker fixture confirms substantial loss despite timely poll
 
 ### Temporary feedback intake — 2026-10-17
 
-- [ ] **FEEDBACK-02…13 — Finish process-view usability and keyboard triage.** The [dated evidence and current source dispositions](docs/research/terminal-ui.md#feedback-triage--2026-10-26) preserve each ID and screenshot provenance. Remaining feedback concerns pin symbols and physical German-keyboard scrolling (FEEDBACK-13). Overview improvements do not close process-view defects. `?` help and alternative diagnosis bindings remain ideas, not approved implementation. Use the [TUI workflow check](docs/development.md#manual-tui-workflow-check).
+- [ ] **FEEDBACK-13 — Verify physical German-keyboard scrolling.** Page Up/Down and bracket aliases pass source/PTY guards; modified-key delivery needs the actual terminal and keyboard. Use the [TUI workflow check](docs/development.md#manual-tui-workflow-check). The [dated triage](docs/research/terminal-ui.md#feedback-triage--2026-10-26) owns the other feedback dispositions; their source corrections do not replace UX-01’s physical workflow checks.
 
 ### Execution and authorization boundaries
 
@@ -52,4 +52,4 @@ The completed short-worker fixture confirms substantial loss despite timely poll
 
 ### Existing scope decisions
 
-Optional app icons, a sortable provider column/provider filter, and author credit in `--help` remain separate ideas. Distribution, new platforms/providers, background services, notifications, external plugins and broader terminal/container attribution require separate scope decisions; the [working-model proposal](docs/proposals/agent-working-model.md) is not adopted. Current capabilities belong in [architecture](docs/architecture.md), not a completed-feature log here.
+Optional app icons, a sortable provider column/provider filter, author credit in `--help`, `?` help and alternative diagnosis bindings remain separate ideas. Distribution, new platforms/providers, background services, notifications, external plugins and broader terminal/container attribution require separate scope decisions; the [working-model proposal](docs/proposals/agent-working-model.md) is not adopted. Current capabilities belong in [architecture](docs/architecture.md), not a completed-feature log here.

@@ -85,7 +85,7 @@ Read-only review of `79c9255`; no fresh physical terminal testing. The main over
 | FEEDBACK-08 | Resolved by the inspection-affordance follow-up below: pane controls follow **Details:**, with unrelated controls outside that group. |
 | FEEDBACK-09 | The process footer now advertises `i details` and `0 hide`; the minimized divider uses `i/= show`. Physical discoverability remains part of the user smoke check. |
 | FEEDBACK-10 | Resolved by the inspection-controls follow-up below: the divider labels the requested size as `Details | pane N%`. |
-| FEEDBACK-11 | Selected/unselected pins still use `@`/`+`. This is a presentation concern; no shared pin-state defect was established. |
+| FEEDBACK-11 | Resolved by the pin-indicator follow-up below: selection stays `>` and the adjacent `★` independently marks pinning in both TUI views. |
 | FEEDBACK-12 | Diagnosis implements Page Up/Down. Proposed Space/Shift+Space and endpoint jumps remain unapproved; `t` already has a browsing meaning. |
 | FEEDBACK-13 | Page Up/Down now route to the visible inspector, verified through the PTY. Modified bracket input and actual German-keyboard event delivery remain unverified; no physical-layout fix is claimed. |
 
@@ -130,3 +130,12 @@ Validation on 2026-10-26: all 224 CLI/presentation, four PTY and five preview de
 The process renderer had no leaf inspection marker and its session inspector still taught that Right opened process details, contradicting the child-only arrow behavior. The footer mixed pane controls with quit without labelling their scope. Failing layout guards reproduced the missing marker and scope plus the obsolete instruction. Process leaves now show `i`, expandable groups retain `▸`/`▾`, and the footer labels the contiguous pane controls **Details:**. Quit stays outside that group. Wide flat and grouped numeric columns use the same two-cell control space; narrow identity/resource pairs remain intact. The README's obsolete process-arrow instruction is corrected as well. No input routing, native behavior, measurement or attribution changes.
 
 Validation on 2026-10-26: all 226 CLI/presentation, four PTY and five preview debug tests pass. The first integration run caught a footer row added at 80 columns and a shifted 85-column layout breakpoint; both were corrected without weakening the existing geometry guards. The regenerated synthetic preview was visually checked in an isolated headless browser. Documentation and strict formatting checks pass. This closes FEEDBACK-04/08 at the source/rendering level; physical workflow checks remain open. No native performance trial or optimized rebuild was needed.
+
+
+### Pin-indicator follow-up — 2026-10-26
+
+The overview and process table independently replaced the selection marker with `@` for selected pins and `+` for other pins. Their renderers now share separate indicators: `>` for selection and `★` for pinning. This remains explicit without color and for missing-target placeholders. Wide process rows reuse the existing control spacing; narrow identity/resource pairs retain their geometry, with pinning on the identity line and selection on both. Overview rows reserve one extra cell for the separate pin indicator. Native SF Symbols and all pin lifecycle, limits and removal behavior are unchanged.
+
+Failing renderer guards cover selected/unselected process and session pins, narrow grouped identity/resource pairs, disappearance and removal of a missing process pin. The production PTY journey now requires the combined `>★` indicator after pinning and an ordinary selected row after unpinning rather than searching for `@` anywhere in the screen. This resolves FEEDBACK-11's source presentation issue; physical legibility remains part of UX-01.
+
+Validation on 2026-10-26: all 228 CLI/presentation, four PTY and five preview debug tests pass. The regenerated synthetic preview was visually inspected; resource columns and footer geometry remain unchanged. Strict formatting, documentation links and preview drift checks pass. No optimized rebuild, Core-suite rerun, native interaction or workload experiment was performed for this TUI-only presentation change.

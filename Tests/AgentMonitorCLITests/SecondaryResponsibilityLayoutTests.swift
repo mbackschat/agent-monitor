@@ -96,8 +96,8 @@ import Testing
             #expect(resources.text.contains("~"))
             #expect(resources.style == line.style)
             if line.style == .selected {
-                #expect(line.text.hasPrefix("@"))
-                #expect(resources.text.hasPrefix("@"))
+                #expect(line.text.hasPrefix(">★▸ "))
+                #expect(resources.text.hasPrefix("> "))
             }
         }
         #expect(lines.filter { $0.style == .selected }.count == 2)

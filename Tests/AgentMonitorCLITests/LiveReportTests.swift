@@ -550,6 +550,26 @@ func pausedStatusAndResumeKeyRemainVisible(width: Int) {
     #expect(state.pins.isEmpty)
 }
 
+@Test(arguments: [60, 85, 120])
+func pinIndicatorsPreserveSelectionThroughDisappearance(width: Int) throws {
+    var state = LiveReportState()
+    let pinned = liveRow(42)
+    let other = liveRow(84)
+    state.receive(liveSnapshot([pinned, other]))
+    state.togglePin(.process(pinned.process))
+    func lines() -> [ReportLine] { LiveReportLayout.lines(state: state, width: width, height: 24) }
+    #expect(try #require(lines().first { $0.style == .selected }).text.hasPrefix(">★i "))
+    state.select(.process(other.process))
+    #expect(try #require(lines().first { $0.style == .selected }).text.hasPrefix("> i "))
+    #expect(lines().contains { $0.text.hasPrefix(" ★i ") })
+    state.receive(liveSnapshot([other]))
+    #expect(lines().contains { $0.text.hasPrefix(" ★ Not in current results") })
+    state.select(.process(pinned.process))
+    #expect(try #require(lines().first { $0.style == .selected }).text.hasPrefix(">★ Not in current results"))
+    state.togglePin(.process(pinned.process))
+    #expect(!lines().contains { $0.text.contains("★") })
+}
+
 @Test func stableOrderRetainsSurvivorsAppendsArrivalsAndTreatsPIDReuseAsNew() {
     var state = LiveReportState()
     #expect(state.sortKey == .stable)

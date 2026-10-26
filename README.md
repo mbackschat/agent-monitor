@@ -66,7 +66,7 @@ The default **Main contributors** overview combines aligned CPU, memory and rece
 
 ![Agent Monitor terminal UI showing five synthetic processes, CPU and memory usage, Codex and Claude sessions, and details for the selected process](docs/assets/tui-preview.svg)
 
-*Illustrative process view with the selected process pinned (`@`) and details open. The text comes from the real layout renderer using entirely synthetic data; terminal colors and window decoration are illustrative. Press `g` to switch between this view and session groups.*
+*Illustrative process view with the selected process pinned (`>★`) and details open. The text comes from the real layout renderer using entirely synthetic data; terminal colors and window decoration are illustrative. Press `g` to switch between this view and session groups.*
 
 In the overview, use **↑ / ↓** to select, **← / →** to disclose children, **a** to show all session groups, **.** to pin/unpin a session, **u** to unpin all views, **c / m** to order by CPU or memory, including entries inside groups, **i** for details, **Enter** to inspect a current process without changing grouping, and **Page Up / Down** to scroll detail. **v** switches between overview and process inspection. In both views, folding reveals children and **i** shows or hides details; arrows on process leaves do not open details.
 

@@ -2,6 +2,22 @@ import AgentMonitorPresentation
 import Testing
 
 @Suite struct ContributorLayoutTests {
+    @Test(arguments: [40, 80, 120])
+    func overviewPinsDoNotReplaceTheSelectionMarker(width: Int) throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        let pinned = try #require(state.overview.main.first)
+        state.overview.select(pinned)
+        state.overview.togglePin()
+        var lines = ContributorLayout.lines(state: state, width: width, height: 40)
+        #expect(try #require(lines.first { $0.style == .selected }).text.hasPrefix(">★▸ "))
+        state.overview.select(.section(.remainder))
+        lines = ContributorLayout.lines(state: state, width: width, height: 40)
+        #expect(try #require(lines.first { $0.style == .selected }).text.hasPrefix("> ▸ "))
+        #expect(lines.contains { $0.text.hasPrefix(" ★▸ ") })
+        #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
+    }
+
     @Test(arguments: [40, 60, 80, 120])
     func footerShowsCompleteControlsOrAdvertisesReducedHelp(width: Int) throws {
         var state = LiveReportState()

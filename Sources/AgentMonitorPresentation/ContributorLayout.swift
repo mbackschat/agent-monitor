@@ -61,7 +61,7 @@ public enum ContributorLayout {
             let folded = row.node.children.isEmpty ? "·" : (overview.open.contains(row.id) ? "▾" : "▸")
             let indent = String(repeating: "  ", count: row.depth)
             let pinned = overview.pinned.contains(row.id)
-            let marker = pinned ? (selected ? "@" : "+") : (selected ? ">" : " ")
+            let marker = TerminalRowMarker.text(selected: selected, pinned: pinned)
             let prefix = "\(marker)\(indent)\(folded) "
             let stats = row.node.stats
             let cpuBar = columns.bar(overview.cpuMeterFraction(stats))

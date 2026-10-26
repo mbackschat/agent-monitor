@@ -243,9 +243,10 @@ public enum LiveReportLayout {
                             width: width))
                 }
             case .unavailable(let pin):
+                let marker = TerminalRowMarker.text(selected: selected, pinned: true)
                 lines.append(
                     ReportLine(
-                        "\(selected ? "@" : "+") Not in current results · \(pin.label)",
+                        "\(marker) Not in current results · \(pin.label)",
                         style: selected ? .selected : .muted))
             }
         }
@@ -263,11 +264,11 @@ public enum LiveReportLayout {
     private static func narrowGroupLines(
         _ group: SessionGroup, selected: Bool, state: LiveReportState, table: ReportTable, width: Int
     ) -> [ReportLine] {
-        let marker = rowMarker(selected: selected, pinned: state.isPinned(.group(group.id)))
+        let marker = TerminalRowMarker.text(selected: selected, pinned: state.isPinned(.group(group.id)))
         let disclosure = state.openGroups.contains(group.id) ? "▾" : "▸"
         let identity = group.sessionID.map { String($0.prefix(8)) } ?? group.sessionDescription
         let title =
-            "\(marker) \(disclosure) \(group.provider?.rawValue ?? "unknown")/\(identity)"
+            "\(marker)\(disclosure) \(group.provider?.rawValue ?? "unknown")/\(identity)"
             + (group.isRoot ? " root" : "")
             + (group.sessionName.map { " · " + $0 } ?? "")
         let style: ReportLine.Style = selected ? .selected : .heading
@@ -284,11 +285,11 @@ public enum LiveReportLayout {
         _ row: HeavyProcess, selected: Bool, state: LiveReportState, table: ReportTable,
         directories: ProcessDirectoryLabels, width: Int
     ) -> [ReportLine] {
-        let marker = rowMarker(selected: selected, pinned: state.isPinned(.process(row.process)))
+        let marker = TerminalRowMarker.text(selected: selected, pinned: state.isPinned(.process(row.process)))
         let agent =
             "\(row.attribution.provider?.rawValue ?? "unknown")/\(sessionLabel(row, width: 8))"
         let title =
-            "\(marker) i " + (row.isHistorical ? "[past] " : "") + "\(agent) · \(row.observedName)"
+            "\(marker)i " + (row.isHistorical ? "[past] " : "") + "\(agent) · \(row.observedName)"
         let style: ReportLine.Style =
             selected ? .selected : (state.isPinned(.process(row.process)) ? .heading : .heavy)
         let directory = directories.label(for: row)
@@ -300,22 +301,16 @@ public enum LiveReportLayout {
         ]
     }
 
-    private static func rowMarker(selected: Bool, pinned: Bool) -> String {
-        switch (selected, pinned) {
-        case (true, true): "@"
-        case (false, true): "+"
-        case (true, false): ">"
-        case (false, false): " "
-        }
-    }
-
     private static func groupPrefix(
         _ group: SessionGroup, selected: Bool, state: LiveReportState, table: ReportTable,
         disclosure: String? = nil
     ) -> String {
-        table.rowPrefix(
-            marker: rowMarker(selected: selected, pinned: state.isPinned(.group(group.id)))
-                + (disclosure.map { " " + $0 } ?? ""),
+        let marker =
+            disclosure.map {
+                TerminalRowMarker.text(selected: selected, pinned: state.isPinned(.group(group.id))) + $0
+            } ?? TerminalRowMarker.selection(selected)
+        return table.rowPrefix(
+            marker: marker,
             pid: String(group.observedCount), cpu: group.cpuTotal,
             memoryGB: group.memoryGBTotal, partialCPU: group.cpuPartial, partialMemory: group.memoryPartial)
     }
@@ -335,10 +330,13 @@ public enum LiveReportLayout {
     ) -> String {
         let cpuThreshold = state.snapshot?.cpuThresholdPercent ?? state.thresholds.cpuPercent
         let memoryThreshold = state.snapshot?.memoryThresholdBytes ?? state.thresholds.memoryBytes
+        let selected = row.process == state.selected
+        let marker =
+            showInspectionMarker
+            ? TerminalRowMarker.text(selected: selected, pinned: state.isPinned(.process(row.process))) + "i"
+            : TerminalRowMarker.selection(selected)
         return table.rowPrefix(
-            marker: rowMarker(
-                selected: row.process == state.selected, pinned: state.isPinned(.process(row.process)))
-                + (showInspectionMarker ? " i" : ""),
+            marker: marker,
             pid: String(row.process.pid),
             cpu: row.cpuPercent, memoryGB: row.footprintBytes.map { Double($0) / 1e9 },
             heavyCPU: row.cpuPercent.map { $0 > cpuThreshold } ?? false,
