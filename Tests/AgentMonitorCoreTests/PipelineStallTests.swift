@@ -18,6 +18,7 @@ private final class ChurningPipeline: ProcessReading, AcquisitionClock, SessionR
     }
     let state = Mutex(State())
     let consumerEntered = ClockGate()
+    let unitPublished = ClockGate()
     let collectionFinished = AsyncStream<Void>.makeStream()
     let finalTick: Int
     init(stallSeconds: Int) { finalTick = stallSeconds * 10 + 11 }
@@ -74,10 +75,28 @@ private final class ChurningPipeline: ProcessReading, AcquisitionClock, SessionR
         if state.withLock({ $0.tick == 11 }) {
             guard consumerEntered.wait(wake: wake) else { return }
         }
+        let tick = state.withLock { $0.tick }
+        if tick > 1, (tick - 1).isMultiple(of: 10) {
+            guard unitPublished.wait(wake: wake) else { return }
+        }
         state.withLock { $0.time += seconds }
     }
     func monotonicNow() -> Double { state.withLock { $0.time } }
     func now() -> Date { Date(timeIntervalSince1970: monotonicNow()) }
+}
+
+private final class AcknowledgedHistory: RecentActivityCollecting, Sendable {
+    let store = RecentActivityStore()
+    let published: ClockGate
+
+    init(published: ClockGate) { self.published = published }
+
+    func append(_ unit: RecentActivityUnit, current: [RecentWorkerRecord]?, present: Set<ProcessIdentity>?) {
+        store.append(unit, current: current, present: present)
+        published.signal()
+    }
+
+    func snapshot() -> RecentActivitySnapshot? { store.snapshot() }
 }
 
 @Test(.timeLimit(.minutes(2)))
@@ -85,16 +104,20 @@ func productionConsumerStallPreservesChurningAccountingAndHistory() async throws
     // Thirteen workers fit prompt capture; every interval has known ownership without enrichment races.
     // Eighty seconds crosses history eviction; the smaller budget forces delivery compaction.
     let fixture = ChurningPipeline(stallSeconds: 80)
-    let history = RecentActivityStore()
+    // Only delivery is stalled here; DisplayCadenceTests separately blocks publication.
+    // Acknowledgements keep instantaneous virtual scans from exhausting the unrelated ingress ring.
+    let history = AcknowledgedHistory(published: fixture.unitPublished)
+    let profile = PipelineProfile()
     let limits = MonitoringPipelineLimits(pendingObservations: 1_000)
-    let session = MonitoringSession(
+    let pipeline = IndependentMonitoringPipeline(
         configuration: try MonitoringConfiguration(
             intervalSeconds: 0.1, samples: 0,
             scope: .allProcesses, collectAgentLoad: true, pipelineLimits: limits, reportIntervalSeconds: 5),
-        reader: fixture, clock: fixture, registry: fixture, recentActivity: history)
+        reader: fixture, clock: fixture, registry: fixture, excluded: [], recentActivity: history,
+        profile: profile)
     let reports = Mutex<[MonitoringSnapshot]>([])
-    await #expect(throws: CompletedStall.self) {
-        try await session.run { snapshot in
+    try await #require(throws: CompletedStall.self) {
+        try await pipeline.run(thresholds: nil, interval: nil) { snapshot in
             let first = reports.withLock { values in
                 values.append(snapshot)
                 return values.count == 1
@@ -105,6 +128,8 @@ func productionConsumerStallPreservesChurningAccountingAndHistory() async throws
             }
         }
     }
+    #expect(fixture.state.withLock { $0.tick } == fixture.finalTick + 1)
+    #expect(try #require(profile.snapshot().handoff).maximumQueuedUnits <= 1)
     let windows = reports.withLock { $0.compactMap(\.window) }
     #expect(windows.last?.finalScan == UInt64(fixture.finalTick))
     let cpu = windows.reduce(0) { sum, window in
@@ -148,7 +173,7 @@ func productionConsumerStallPreservesChurningAccountingAndHistory() async throws
         }
     }
     #expect(sessionMemory == fixture.state.withLock { $0.sessionMemory })
-    #expect(history.diagnostics.chargedRecords <= 65_536)
+    #expect(history.store.diagnostics.chargedRecords <= 65_536)
     let last = try #require(reports.withLock { $0.last })
     #expect(last.recentActivity?.currentContextAvailable == true)
     #expect(try #require(last.recentActivity).baselineScan > 0)

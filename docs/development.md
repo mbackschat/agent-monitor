@@ -47,7 +47,7 @@ Retain tests for distinct invariants and independently checkable failure classes
 
 Async progress guards must establish the blocked state before claiming independence: gate the next scan on consumer entry, or observe the internal waiter diagnostic before cancelling. Bound the readiness wait and release/join owned work on failure; an already buffered event or a task created immediately before cancellation does not establish concurrent progress or suspension.
 
-A new oracle should fail for a representative wrong result. The production stall fixture checks per-session CPU and memory maxima in addition to global conservation, so transferring work between sessions cannot pass merely because the total is unchanged. Its smaller injected budget forces compaction, and its duration crosses the rolling-history boundary; production-population capacity has separate guards.
+A new oracle should fail for a representative wrong result. The production stall fixture checks per-session CPU and memory maxima in addition to global conservation, so transferring work between sessions cannot pass merely because the total is unchanged. Its smaller injected budget forces compaction, and its duration crosses the rolling-history boundary; production-population capacity has separate guards. The virtual clock acknowledges each published history unit so this fixture stalls delivery only, using the production pipeline and store. Separate blocked-publication and handoff-budget tests cover ingress pressure; do not let an instantaneous test clock accidentally combine those scenarios.
 
 ## Validation coverage
 
