@@ -1,6 +1,6 @@
 # On-demand workload observations
 
-This development-only recorder is ready to start when a representative build appears. It uses the production `NativeProcessReader` at a nominal 100 ms cadence, recording readable current-user processes without thresholds or provider queries. It does not run a workload, read arguments/environment/transcripts, resolve sessions, or change normal monitoring. The [accounting research](../../docs/research/cpu-accounting.md#on-demand-workload-recorder--2026-10-26) explains its evidence limits; the [development guide](../../docs/development.md#on-demand-workload-recording) owns validation and retention.
+This development-only recorder is ready to start when a representative build appears. It uses the production `NativeProcessReader` at a nominal 100 ms cadence, recording readable current-user processes without thresholds or provider queries. It does not run a workload, read arguments/environment/transcripts, resolve sessions, or change normal monitoring. Interpretation limits are [below](#interpret-the-file); the [development guide](../../docs/development.md#on-demand-workload-recording) owns validation and retention.
 
 ## Prepare before the workload
 
@@ -19,13 +19,13 @@ If the default build stalls in `clang-stat-cache`, diagnose and stop that owned 
 .build/release/monitor-workload-capture /tmp/agent-monitor-workload.jsonl
 ```
 
-Startup requires no compilation after preparation. The output must not exist; choose a fresh path for each capture. Defaults are 60 seconds and 32 MiB. Optional positional arguments select seconds and maximum MiB, capped at 300 seconds and 128 MiB:
+Startup requires no compilation after preparation. The output must not exist; choose a fresh path for each capture. Defaults are 60 seconds and 256 MiB. Optional positional arguments select seconds and maximum MiB, capped at 300 seconds and 1,024 MiB. The first limit stops capture; the disk allowance is not a duration guarantee for every process population:
 
 ```sh
-.build/release/monitor-workload-capture /tmp/agent-monitor-workload-2.jsonl 120 64
+.build/release/monitor-workload-capture /tmp/agent-monitor-workload-2.jsonl 120 512
 ```
 
-Ctrl-C or SIGTERM requests a cancellation footer. The duration bounds admission of new scans; an in-flight native read or filesystem operation can delay shutdown. Slow scans skip missed schedule slots instead of attempting a catch-up burst. Disk space is bounded by rejecting a complete encoded scan when it cannot fit, with room reserved for a footer. This is not a heap bound: a native snapshot and its encoded representation scale with process population. Writing is synchronous and its cost can increase observed gaps; this tool is not a collector performance benchmark.
+Ctrl-C or SIGTERM requests a cancellation footer. After flushing the file, the command prints the actual duration, requested duration, scan count and stop reason to stderr. Normal duration completion exits with status 0; an early file-limit stop exits with status 2, cancellation with 130, and failures with 1. An early file-limit stop preserves the capture; retry with a fresh path and a larger explicit allowance if needed. The duration bounds admission of new scans; an in-flight native read or filesystem operation can delay shutdown. Slow scans skip missed schedule slots instead of attempting a catch-up burst. Disk space is bounded by rejecting a complete encoded scan when it cannot fit, with room reserved for a footer. This is not a heap bound: a native snapshot and its encoded representation scale with process population. Writing is synchronous and its cost can increase observed gaps; this tool is not a collector performance benchmark.
 
 ## Interpret the file
 

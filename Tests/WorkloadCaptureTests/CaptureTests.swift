@@ -6,6 +6,39 @@ import Testing
 @testable import monitor_workload_capture
 
 @Suite struct WorkloadCaptureTests {
+    @Test(arguments: [0.0, 12_345.67])
+    func defaultBudgetKeepsAFullMinuteOfPopulationSizedScans(origin: Double) throws {
+        let samples = (0..<1000).map { index in
+            ProcessSample(
+                identity: ProcessIdentity(pid: Int32(index + 1), startMicroseconds: 1), parentPID: 0,
+                executable: "/fixture/node-\(index)", name: "node", sampledAt: 0,
+                cpuSeconds: 0.25, footprintBytes: 4096)
+        }
+        var time = origin
+        var starts: [Double] = []
+        var lastRecord = Data()
+        var bytes = 0
+        try Capture.run(
+            options: CaptureOptions(), now: { time }, sleep: { time += $0 }, cpu: { 0 },
+            cancelled: { false },
+            read: {
+                starts.append(time)
+                return ProcessSnapshot(
+                    samples: samples, enumeratedCount: samples.count, unreadableCount: 0,
+                    listedAt: time, scanSeconds: 0, hostCounters: nil, logicalCPUCount: 8)
+            },
+            write: {
+                bytes += $0.count
+                lastRecord = $0
+            })
+        let last = try #require(JSONSerialization.jsonObject(with: lastRecord) as? [String: Any])
+        #expect(last["reason"] as? String == "duration")
+        #expect(last["scanCount"] as? Int == 600)
+        #expect(time == origin + 60)
+        #expect(zip(starts, starts.dropFirst()).allSatisfy { $0 < $1 })
+        #expect(bytes > 32 * 1024 * 1024)
+    }
+
     func snapshot(at time: Double, birth: UInt64 = 1, cpu: Double? = 0.2) -> ProcessSnapshot {
         var sample = ProcessSample(
             identity: ProcessIdentity(pid: 42, startMicroseconds: birth), parentPID: 10,
@@ -128,9 +161,25 @@ import Testing
         #expect(throws: (any Error).self) { try CaptureOptions(seconds: seconds) }
     }
 
-    @Test(arguments: [-1, 0, 8191, 128 * 1024 * 1024 + 1])
+    @Test(arguments: [-1, 0, 8191, CaptureOptions.maximumMiB * 1024 * 1024 + 1])
     func rejectsInvalidSizeLimit(bytes: Int) {
         #expect(throws: (any Error).self) { try CaptureOptions(maximumBytes: bytes) }
+    }
+
+    @Test(arguments: [Capture.StopReason.duration, .sizeLimit, .cancelled, .readerFailure])
+    func completionDistinguishesEarlyStops(reason: Capture.StopReason) {
+        let result = Capture.Footer(
+            reason: reason, scanCount: 125, elapsedSeconds: 12.5, processCPUSeconds: 0.5,
+            bytesBeforeFooter: 32 * 1024 * 1024, maximumListingGapSeconds: 0.1, maximumScanSeconds: 0.01)
+        #expect(result.statusLine(requestedSeconds: 60).contains("12.5 / 60.0 seconds"))
+        switch reason {
+        case .duration: #expect(result.exitStatus == 0)
+        case .sizeLimit:
+            #expect(result.exitStatus == 2)
+            #expect(result.statusLine(requestedSeconds: 60).contains("file limit"))
+        case .cancelled: #expect(result.exitStatus == 130)
+        case .readerFailure: #expect(result.exitStatus == 1)
+        }
     }
 
     @Test func writerFailureStopsBeforeReading() {
