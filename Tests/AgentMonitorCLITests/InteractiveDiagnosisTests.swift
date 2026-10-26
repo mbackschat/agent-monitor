@@ -103,10 +103,12 @@ import Testing
             #expect(first.allSatisfy { TerminalCells.width($0.text) <= width })
             state.scrollDiagnosis(by: 10_000, width: width, height: 12)
             #expect(LiveReportLayout.lines(state: state, width: width, height: 12) != first)
-            let small = LiveReportLayout.lines(state: state, width: 30, height: 5).map(\.text).joined()
-            #expect(small.contains("Resize"))
-            #expect(small.contains("Esc back") && small.contains("x cancel"))
         }
+        var smallState = LiveReportState()
+        smallState.diagnosis = controller.state
+        let small = LiveReportLayout.lines(state: smallState, width: 30, height: 5).map(\.text).joined()
+        #expect(small.contains("Resize"))
+        #expect(small.contains("Esc back") && small.contains("x cancel"))
     }
 
     @Test func controllerPublicationDoesNotOverwriteViewportScroll() async {
@@ -174,9 +176,28 @@ import Testing
         let controller = CPUDiagnosisController(source: { try await gate.run() })
         #expect(controller.start())
         await gate.waitUntilStarted()
-        controller.dismiss()
+        var stopped = false
+        var shutdown: Task<Void, Never>?
+        await withCheckedContinuation { hidden in
+            controller.onChange = { state in
+                if state.phase == .hidden {
+                    controller.onChange = nil
+                    hidden.resume()
+                }
+            }
+            shutdown = Task {
+                await controller.stop()
+                stopped = true
+            }
+        }
+        #expect(controller.state.phase == .hidden)
+        #expect(controller.state.isRunning)
+        #expect(!stopped)
+        #expect(!controller.start())
         await gate.release(diagnosisPresentationFixture())
-        await controller.stop()
+        await shutdown?.value
+        #expect(stopped)
+        #expect(await gate.wasCancelled)
         #expect(!controller.state.isRunning)
         #expect(controller.state.phase == .hidden)
     }
@@ -185,12 +206,15 @@ import Testing
 private actor DiagnosisGate {
     private var continuation: CheckedContinuation<CPUDiagnosis, any Error>?
     private var started: CheckedContinuation<Void, Never>?
+    private(set) var wasCancelled = false
     func run() async throws -> CPUDiagnosis {
-        try await withCheckedThrowingContinuation { continuation in
+        let result: CPUDiagnosis = try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
             started?.resume()
             started = nil
         }
+        wasCancelled = Task.isCancelled
+        return result
     }
     func waitUntilStarted() async {
         if continuation != nil { return }

@@ -77,6 +77,7 @@ func diagnosisPresentationFixture(
             .appendingPathComponent("Fixtures/Diagnosis/example.json")
         let example = try #require(
             JSONSerialization.jsonObject(with: Data(contentsOf: path)) as? [String: Any])
+        #expect(Set(object.keys) == Set(example.keys))
         for key in example.keys where key != "startedAt" && key != "endedAt" {
             #expect(
                 NSDictionary(dictionary: [key: try #require(object[key])])
@@ -84,6 +85,9 @@ func diagnosisPresentationFixture(
         }
         let date = ISO8601DateFormatter()
         date.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        #expect(
+            date.date(from: try #require(object["startedAt"] as? String))
+                == diagnosisPresentationFixture().startedAt)
         #expect(
             date.date(from: try #require(object["endedAt"] as? String))
                 == diagnosisPresentationFixture().endedAt)
@@ -103,11 +107,22 @@ func diagnosisPresentationFixture(
     @Test func availableEvidenceRetainsExactIdentitiesAndCandidateIDs() throws {
         let value = diagnosisPresentationFixture(available: true)
         let data = try JSONDiagnosis.encode(value)
-        let json = String(decoding: data, as: UTF8.self)
-        #expect(json.contains(String(UInt64.max)))
-        #expect(json.contains("11111111-1111-4111-8111-111111111111"))
-        #expect(json.contains("22222222-2222-4222-8222-222222222222"))
-        #expect(json.contains("\"footprint\":{\"bytes\":123"))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let contributors = try #require(object["contributors"] as? [[String: Any]])
+        let first = try #require(contributors.first)
+        let identityData = try JSONSerialization.data(withJSONObject: #require(first["process"]))
+        let identity = try JSONDecoder().decode(ProcessIdentity.self, from: identityData)
+        #expect(identity == ProcessIdentity(pid: 42001, startMicroseconds: UInt64.max))
+        let association = try #require(first["attribution"] as? [String: Any])
+        #expect(association["status"] as? String == "available")
+        let owner = try #require(association["value"] as? [String: Any])
+        #expect(
+            owner["candidateThreadIDs"] as? [String] == [
+                "11111111-1111-4111-8111-111111111111",
+                "22222222-2222-4222-8222-222222222222",
+            ])
+        let footprint = try #require(first["footprint"] as? [String: Any])
+        #expect(footprint["bytes"] as? UInt64 == 123)
         #expect(DiagnosisText.render(value).contains("Candidate alternatives"))
     }
 

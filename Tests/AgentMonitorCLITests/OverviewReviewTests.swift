@@ -30,6 +30,7 @@ import Testing
     @Test func releasedCategoriesRetainWorkerRoleAndSampledMaximum() throws {
         let snapshot = try reviewSnapshot(cpu: [90, 20], memory: [123, 456], collapse: true)
         let values = try #require(snapshot.window).collapsedContributions
+        try #require(!values.isEmpty)
         #expect(values.allSatisfy { $0.category.isAgentRuntime == false })
         var overview = ContributorOverview()
         overview.receive(snapshot)
@@ -176,13 +177,31 @@ import Testing
         #expect(titles == ["node · /one/project", "node · /two/project"])
     }
 
-    @Test func resetCannotInventARecentMainListDeparture() throws {
-        var state = LiveReportState()
-        let first = try reviewSnapshot(cpu: [30], memory: [1])
-        state.receive(first)
-        state.overview.resetInspection()
-        #expect(state.overview.main.isEmpty)
+    @Test(arguments: [false, true])
+    func resetCannotInventARecentMainListDeparture(alreadyQuiet: Bool) throws {
+        var feed = OverviewFeed()
+        var worker = OverviewFeed.Worker(
+            session: "A", executable: "node", pid: 1, cpuPerSecond: 0.3, memory: 1)
+        _ = try feed.advance([worker])
+        var overview = ContributorOverview()
+        let first = try feed.advance([worker])
+        overview.receive(first)
+        let id = ContributorID.session(provider: "claude", session: "A", root: nil)
+        #expect(overview.main == [id])
+        worker.cpuPerSecond = 0
+        if alreadyQuiet {
+            overview.receive(try feed.advance([worker]))
+            #expect(overview.nodes[.section(.recent)]?.children.contains(id) == true)
+        }
+        overview.resetInspection()
+        let reopened = try feed.advance([worker])
+        #expect(reopened.recentActivity?.runID == first.recentActivity?.runID)
+        overview.receive(reopened)
+        #expect(overview.main.isEmpty)
+        #expect(overview.nodes[.section(.recent)]?.children.contains(id) == false)
+        #expect(overview.nodes[.section(.remainder)]?.children.contains(id) == true)
     }
+
 }
 
 private func session(_ id: Int) -> ContributorID {

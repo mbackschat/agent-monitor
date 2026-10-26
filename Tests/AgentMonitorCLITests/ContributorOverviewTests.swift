@@ -87,7 +87,7 @@ func overviewFixture(
 }
 
 extension ContributorOverviewTests {
-    @Test func pinsImmediatelyConserveSectionsAndPauseSurvivesResetButNotANewRun() throws {
+    @Test func pinsConserveSectionsWhileResetAndNewRunsEndPause() throws {
         let snapshot = try overviewFixture()
         var state = LiveReportState()
         state.receive(snapshot)
@@ -98,14 +98,17 @@ extension ContributorOverviewTests {
         #expect(sections.reduce(0) { $0 + $1.recentCPU } == state.overview.totals.recentCPU)
         #expect(state.overview.visibleRows.filter { $0.id == recent }.count == 1)
         state.toggleFreeze()
+        #expect(state.frozen)
         let held = state.overview
         state.resetCollection()
+        #expect(!state.frozen)
         #expect(state.overview.runID == held.runID)
         #expect(state.overview.selection == nil)
         #expect(state.overview.open.isEmpty)
         #expect(state.overview.nodes.isEmpty)
         state.receive(snapshot)
         state.toggleFreeze()
+        #expect(state.frozen)
         state.receive(try overviewFixture())
         #expect(!state.frozen)
         #expect(state.overview.runID != held.runID)
@@ -160,9 +163,10 @@ extension ContributorOverviewTests {
                 accumulator.seal(scope: .agentsOnly), current: accumulator.current,
                 present: accumulator.present)
         }
-        let base = try overviewFixture()
         let snapshot = MonitoringSnapshot(
-            cpuAccounting: base.cpuAccounting, timestamp: base.timestamp,
+            cpuAccounting: CPUAccounting(
+                hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0, unmeasuredLifetimeCount: 0,
+                previousScanSeconds: nil), timestamp: Date(timeIntervalSince1970: 0),
             intervalSeconds: 0.1, cpuThresholdPercent: 0, memoryThresholdBytes: 0,
             sampledProcessCount: 1, unreadableProcessCount: 0, findings: [], recentActivity: store.snapshot())
         var overview = ContributorOverview()
@@ -225,10 +229,12 @@ extension ContributorOverviewTests {
                             terminal: nil, runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []))
                 })
             store.append(accumulator.seal(scope: .agentsOnly))
-            let base = try overviewFixture()
             overview.receive(
                 MonitoringSnapshot(
-                    cpuAccounting: base.cpuAccounting, timestamp: base.timestamp, intervalSeconds: 0.1,
+                    cpuAccounting: CPUAccounting(
+                        hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
+                        unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
+                    timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 0.1,
                     cpuThresholdPercent: 0, memoryThresholdBytes: 0, sampledProcessCount: 6,
                     unreadableProcessCount: 0, findings: [], recentActivity: store.snapshot()))
             let expected = index == 2 ? [1, 2, 3, 4, 6] : [1, 2, 3, 4, 5]
