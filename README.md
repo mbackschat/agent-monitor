@@ -62,7 +62,7 @@ The **TUI (terminal user interface)** is a live resource overview that uses your
 agent-monitor --tui
 ```
 
-The default **Main contributors** overview combines aligned CPU, memory and recent CPU columns with fixed-scale resource meters on wide terminals. Expand sessions into executable groups and individual workers. **Recent contributors** retains observed short-lived work; **More processes** accounts for the quieter population. Press **v** for the process view shown below, or **g** for session grouping there. The layout adapts to terminal width and the footer shows the available keys.
+The default **Main contributors** overview combines aligned CPU, memory and recent CPU columns with fixed-scale resource meters on wide terminals. Expand sessions into executable groups and individual workers. **Recent contributors** retains observed short-lived work; **More processes** accounts for the quieter population. Press **v** for the process view shown below, or **g** for session grouping there. The layout adapts to terminal width and the footer shows the available keys. Narrow process inspection keeps agent/session identity above its CPU, memory and working directory.
 
 ![Agent Monitor terminal UI showing five synthetic processes, CPU and memory usage, Codex and Claude sessions, and details for the selected process](docs/assets/tui-preview.svg)
 

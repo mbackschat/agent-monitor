@@ -35,14 +35,11 @@ public struct SessionGroup: Equatable, Sendable {
     public var minimumPID: Int32 { contributingProcesses.map(\.pid).min() ?? 0 }
     public var project: String {
         if isSharedRuntime { return "Shared runtime" }
-        return WorkloadDirectory.summary(workloadDirectories)
+        return directorySummary
     }
 
-    public var workloadDirectories: Set<String?> {
-        let workloads = processes.filter { $0.process != $0.attribution.runtime }
-        let members = workloads.isEmpty ? processes : workloads
-        return Set(members.map(\.cwd))
-    }
+    public let workloadDirectories: Set<String?>
+    fileprivate let directorySummary: String
 
     public var sessionName: String? {
         let names = Set(processes.filter { $0.attribution.threadID == sessionID }.compactMap(\.sessionName))
@@ -143,6 +140,12 @@ public enum SessionGrouping {
                 cpu[key, default: 0] += 100 * record.cpuSeconds / window.durationSeconds
             }
         }
+        let directories = members.mapValues { processes in
+            let workloads = processes.filter { $0.process != $0.attribution.runtime }
+            return Set((workloads.isEmpty ? processes : workloads).map(\.cwd))
+        }
+        let labels = WorkloadDirectory.compactLabels(
+            for: Set(directories.values.flatMap { $0.compactMap { $0 } }))
         return order.map { key in
             let session: String?
             switch key {
@@ -154,7 +157,9 @@ public enum SessionGrouping {
                 isRoot: rootGroups.contains(key), processes: members[key] ?? [],
                 contributingProcesses: contributors[key] ?? [],
                 labelChangedInWindow: changedGroups.contains(key),
-                windowCPU: cpu[key], hasWindow: window != nil)
+                windowCPU: cpu[key], hasWindow: window != nil,
+                workloadDirectories: directories[key] ?? [],
+                directorySummary: WorkloadDirectory.summary(directories[key] ?? [], labels: labels))
         }
     }
 

@@ -194,19 +194,53 @@ public enum LiveReportLayout {
             + (state.grouping == .session ? state.groups.map { ($0.cpuTotal, $0.memoryGBTotal) } : [])
         let table = ReportTable(metrics: metrics, processNames: state.rows.map(\.observedName))
         let columns = table.columns(for: width)
-        var lines = [
-            ReportLine(table.header(columns: columns, grouped: state.grouping == .session), style: .heading)
-        ]
+        let narrow = width < 60
+        let heading =
+            narrow
+            ? table.directoryHeader(grouped: state.grouping == .session)
+            : table.header(columns: columns, grouped: state.grouping == .session)
+        var lines = [ReportLine(heading, style: .heading)]
         let capacity = height - 1
+        func rowHeight(_ row: LiveReportRow) -> Int {
+            if case .unavailable = row { return 1 }
+            return narrow ? 2 : 1
+        }
         let selectedIndex = rows.firstIndex { $0.id == state.selection } ?? 0
-        let start = max(0, min(selectedIndex - capacity + 1, rows.count - capacity))
-        for entry in rows.dropFirst(start).prefix(capacity) {
+        var start = selectedIndex
+        var occupied = rows.isEmpty ? 0 : rowHeight(rows[selectedIndex])
+        while start > 0 && occupied + rowHeight(rows[start - 1]) <= capacity {
+            start -= 1
+            occupied += rowHeight(rows[start])
+        }
+        let directories =
+            narrow
+            ? WorkloadDirectory.compactLabels(
+                for: Set(state.rows.compactMap { $0.isSharedRuntime ? nil : $0.cwd }))
+            : [:]
+        for entry in rows.dropFirst(start) {
+            guard lines.count + rowHeight(entry) <= height else {
+                if lines.count == 1 && capacity > 0 {
+                    lines.append(ReportLine("Resize for identity and resources", style: .muted))
+                }
+                break
+            }
             let selected = entry.id == state.selection
             switch entry {
             case .group(let group):
-                lines.append(groupLine(group, selected: selected, state: state, table: table))
+                if narrow {
+                    lines += narrowGroupLines(
+                        group, selected: selected, state: state, table: table, width: width)
+                } else {
+                    lines.append(groupLine(group, selected: selected, state: state, table: table))
+                }
             case .process(let row):
-                lines.append(processLine(row, state: state, table: table, columns: columns))
+                if narrow {
+                    lines += narrowProcessLines(
+                        row, selected: selected, state: state, table: table, directories: directories,
+                        width: width)
+                } else {
+                    lines.append(processLine(row, state: state, table: table, columns: columns))
+                }
             case .unavailable(let pin):
                 lines.append(
                     ReportLine(
@@ -225,6 +259,50 @@ public enum LiveReportLayout {
         return padded(lines, to: height)
     }
 
+    private static func narrowGroupLines(
+        _ group: SessionGroup, selected: Bool, state: LiveReportState, table: ReportTable, width: Int
+    ) -> [ReportLine] {
+        let marker = rowMarker(selected: selected, pinned: state.isPinned(.group(group.id)))
+        let disclosure = state.openGroups.contains(group.id) ? "[-]" : "[+]"
+        let identity = group.sessionID.map { String($0.prefix(8)) } ?? group.sessionDescription
+        let title =
+            "\(marker) \(disclosure) \(group.provider?.rawValue ?? "unknown")/\(identity)"
+            + (group.isRoot ? " root" : "")
+            + (group.sessionName.map { " · " + $0 } ?? "")
+        let style: ReportLine.Style = selected ? .selected : .heading
+        let prefix = groupPrefix(group, selected: selected, state: state, table: table)
+        return [
+            ReportLine(abbreviated(title, width: width), style: style),
+            ReportLine(
+                prefix + abbreviated(group.project, width: width - TerminalCells.width(prefix)),
+                style: style),
+        ]
+    }
+
+    private static func narrowProcessLines(
+        _ row: HeavyProcess, selected: Bool, state: LiveReportState, table: ReportTable,
+        directories: [String: String], width: Int
+    ) -> [ReportLine] {
+        let marker = rowMarker(selected: selected, pinned: state.isPinned(.process(row.process)))
+        let agent =
+            "\(row.attribution.provider?.rawValue ?? "unknown")/\(sessionLabel(row, width: 8))"
+        let title =
+            "\(marker) " + (row.isHistorical ? "[past] " : "") + "\(agent) · \(row.observedName)"
+        let style: ReportLine.Style =
+            selected ? .selected : (state.isPinned(.process(row.process)) ? .heading : .heavy)
+        let directory =
+            row.isSharedRuntime
+            ? "Shared runtime"
+            : row.cwd.map { directories[$0] ?? WorkloadDirectory.compact($0) }
+                ?? "CWD unavailable"
+        let prefix = processPrefix(row, state: state, table: table)
+        return [
+            ReportLine(abbreviated(title, width: width), style: style),
+            ReportLine(
+                prefix + abbreviated(directory, width: width - TerminalCells.width(prefix)), style: style),
+        ]
+    }
+
     private static func rowMarker(selected: Bool, pinned: Bool) -> String {
         switch (selected, pinned) {
         case (true, true): "@"
@@ -234,29 +312,41 @@ public enum LiveReportLayout {
         }
     }
 
-    private static func groupLine(
+    private static func groupPrefix(
         _ group: SessionGroup, selected: Bool, state: LiveReportState, table: ReportTable
-    ) -> ReportLine {
-        let prefix = table.rowPrefix(
+    ) -> String {
+        table.rowPrefix(
             marker: rowMarker(selected: selected, pinned: state.isPinned(.group(group.id))),
             pid: String(group.observedCount), cpu: group.cpuTotal,
             memoryGB: group.memoryGBTotal, partialCPU: group.cpuPartial, partialMemory: group.memoryPartial)
+    }
+
+    private static func groupLine(
+        _ group: SessionGroup, selected: Bool, state: LiveReportState, table: ReportTable
+    ) -> ReportLine {
+        let prefix = groupPrefix(group, selected: selected, state: state, table: table)
         let disclosure = state.openGroups.contains(group.id) ? "[-]" : "[+]"
         return ReportLine(prefix + "\(disclosure) \(group.label)", style: selected ? .selected : .heading)
     }
 
-    private static func processLine(
-        _ row: HeavyProcess, state: LiveReportState, table: ReportTable, columns: ReportTable.Columns
-    ) -> ReportLine {
+    private static func processPrefix(
+        _ row: HeavyProcess, state: LiveReportState, table: ReportTable
+    ) -> String {
         let cpuThreshold = state.snapshot?.cpuThresholdPercent ?? state.thresholds.cpuPercent
         let memoryThreshold = state.snapshot?.memoryThresholdBytes ?? state.thresholds.memoryBytes
-        let prefix = table.rowPrefix(
+        return table.rowPrefix(
             marker: rowMarker(
                 selected: row.process == state.selected, pinned: state.isPinned(.process(row.process))),
             pid: String(row.process.pid),
             cpu: row.cpuPercent, memoryGB: row.footprintBytes.map { Double($0) / 1e9 },
             heavyCPU: row.cpuPercent.map { $0 > cpuThreshold } ?? false,
             heavyMemory: row.footprintBytes.map { $0 > memoryThreshold } ?? false)
+    }
+
+    private static func processLine(
+        _ row: HeavyProcess, state: LiveReportState, table: ReportTable, columns: ReportTable.Columns
+    ) -> ReportLine {
+        let prefix = processPrefix(row, state: state, table: table)
         let provider = row.attribution.provider?.rawValue ?? "unknown"
         let sessionWidth =
             switch columns {

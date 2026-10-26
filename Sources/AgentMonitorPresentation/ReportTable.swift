@@ -50,6 +50,10 @@ struct ReportTable {
         return prefix(marker: " ", pid: grouped ? "PID/#" : "PID", cpu: "CPU%", memory: "GB") + description
     }
 
+    func directoryHeader(grouped: Bool) -> String {
+        prefix(marker: " ", pid: grouped ? "PID/#" : "PID", cpu: "CPU%", memory: "GB") + "CWD"
+    }
+
     func rowPrefix(
         marker: String, pid: String, cpu: Double?, memoryGB: Double?,
         heavyCPU: Bool = false, heavyMemory: Bool = false,
