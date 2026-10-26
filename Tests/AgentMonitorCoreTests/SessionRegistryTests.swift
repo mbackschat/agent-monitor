@@ -36,17 +36,19 @@ private func claudeSession() -> (Monitor, runtime: ProcessSample, shell: Process
 }
 
 @Test func claudeListingParsesRuntimeSessionsWithoutTrustingUnknownEntries() throws {
+    let session = "abcdefab-cdef-4abc-8def-abcdefabcdef"
     let adapters = AttributionAdapters.builtIn
     let sessions = try adapters.runtimeSessions(
         .claude,
         fromRegistry: try listing([
-            entry(pid: 10), entry(pid: 11, status: "future-status"), entry(pid: 12, session: "not-a-uuid"),
+            entry(pid: 10, session: session), entry(pid: 11, session: session, status: "future-status"),
+            entry(pid: 12, session: "not-a-uuid"),
             ["sessionId": sessionA, "status": "idle"],
         ]))
     #expect(
         sessions == [
-            RuntimeSession(runtimePID: 10, sessionID: sessionB, active: true),
-            RuntimeSession(runtimePID: 11, sessionID: sessionB, active: false),
+            RuntimeSession(runtimePID: 10, sessionID: session, active: true),
+            RuntimeSession(runtimePID: 11, sessionID: session, active: false),
             RuntimeSession(runtimePID: 12, sessionID: nil, active: true),
         ])
     #expect(throws: (any Error).self) { try adapters.runtimeSessions(.claude, fromRegistry: Data("no".utf8)) }
@@ -197,7 +199,7 @@ private final class FakeRegistry: SessionRegistryReading, AcquisitionClock, Proc
         evidence.withLock { $0.append(snapshot.findings.first?.attribution.evidence) }
     }
     #expect(fake.calls.withLock { $0 } == 1)
-    #expect(evidence.withLock { $0 }.allSatisfy { $0 == .runtimeOnly })
+    #expect(evidence.withLock { $0 } == [.runtimeOnly, .runtimeOnly, .runtimeOnly])
 }
 
 private enum RegistryTestCompletion: Error { case exactSession }

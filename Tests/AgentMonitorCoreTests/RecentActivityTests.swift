@@ -23,6 +23,10 @@ import Testing
         #expect(
             unit.records.first { $0.category.owner.sessionID == sessionA }?.maximumFootprint?.bytes
                 == 10_000_000)
+        for owner in [nil, Optional(sessionA)] {
+            let record = try #require(unit.records.first { $0.category.owner.sessionID == owner })
+            #expect(abs(record.cpuSeconds - 0.05) < 1e-9)
+        }
         #expect(unit.crossings.isEmpty)
     }
 
@@ -51,19 +55,42 @@ import Testing
         #expect(narrow.snapshot()?.recoveredCPUSeconds == 0.4)
     }
 
-    @Test func scopeAndRunChangesCannotCarryOldHistoryOrMemory() throws {
+    enum Reset: CaseIterable { case run, scope }
+
+    @Test(arguments: Reset.allCases)
+    func scopeAndRunChangesCannotCarryOldHistoryOrMemory(reset: Reset) throws {
         let store = RecentActivityStore()
-        for index in 0..<2 {
-            var ledger = CounterLedger()
-            let start = ledger.ingest([sample(42, at: 0, cpu: 0)], listedAt: 0)
-            var activity = AccountingWindow(baseline: start)
-            let value = sample(42, at: 1, cpu: Double(index + 1))
-            try activity.append(
-                ledger.ingest([value], listedAt: 1), rows: [recentRow(value, session: sessionA)])
-            store.append(activity.seal(scope: .agentsOnly))
-            #expect(store.snapshot()?.units.count == 1)
-            #expect(store.snapshot()?.cpuSeconds == Double(index + 1))
+        var ledger = CounterLedger()
+        var baseline = ledger.ingest([sample(42, at: 0, cpu: 0)], listedAt: 0)
+        let old = sample(42, at: 1, cpu: 1, memory: 100)
+        var first = AccountingWindow(baseline: baseline)
+        baseline = ledger.ingest([old], listedAt: 1)
+        try first.append(baseline, rows: [recentRow(old, session: sessionA)])
+        store.append(first.seal(scope: .agentsOnly), current: first.current, present: first.present)
+        #expect(store.snapshot()?.cpuSeconds == 1)
+        #expect(store.snapshot()?.current.map(\.latestFootprint) == [100])
+
+        if reset == .run {
+            ledger = CounterLedger()
+            _ = ledger.ingest([], listedAt: 0)
+            baseline = ledger.ingest([], listedAt: 1)
         }
+        let scope: ProcessScope = reset == .scope ? .allProcesses : .agentsOnly
+        var current = sample(43, at: 2, cpu: 2, memory: 200)
+        current.startedAt = 1.5
+        var second = AccountingWindow(baseline: baseline)
+        try second.append(
+            ledger.ingest([current], listedAt: 2), rows: [recentRow(current, session: sessionB)])
+        store.append(second.seal(scope: scope), current: second.current, present: second.present)
+        let result = try #require(store.snapshot())
+        #expect(result.runID == ledger.runID)
+        #expect(result.scope == scope)
+        #expect(result.units.count == 1)
+        #expect(result.cpuSeconds == 2)
+        #expect(result.units.flatMap(\.records).map { $0.category.process } == [current.identity])
+        #expect(result.current.map { $0.category.process } == [current.identity])
+        #expect(result.current.map(\.latestFootprint) == [200])
+        #expect(result.present == [current.identity])
     }
 }
 

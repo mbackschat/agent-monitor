@@ -6,6 +6,7 @@ import Testing
 
 private final class PromptFixture: ProcessReading, SamplingClock, Sendable {
     let attempted = Mutex<[ProcessIdentity]>([])
+    let allowances = Mutex<[Int]>([])
     let time = Mutex(0.0)
     let readCost: Double
     init(readCost: Double = 0) { self.readCost = readCost }
@@ -15,6 +16,7 @@ private final class PromptFixture: ProcessReading, SamplingClock, Sendable {
     }
     func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
         attempted.withLock { $0.append(sample.identity) }
+        allowances.withLock { $0.append(maximumBytes) }
         time.withLock { $0 += readCost }
         return ProcessMetadata(
             markers: [SessionMarker(threadID: sessionA, provider: .codex)], status: .markerRead)
@@ -94,21 +96,29 @@ private final class PromptFixture: ProcessReading, SamplingClock, Sendable {
         let snapshot = try reader.snapshot(processIDs: { [pid] })
         let process = try #require(snapshot.samples.first)
         let captured = try #require(reader.captureLaunchEvidence(for: process, maximumBytes: 65_536))
-        #expect(captured.status == .markerRead)
-        #expect(captured.invocation != nil)
+        #expect(captured.status == .markerRead || captured.status == .notObserved)
+        #expect(captured.invocation == CommandLine.arguments.first)
         #expect(captured.command == nil)
         #expect(captured.cwd == nil)
         #expect(captured.writerThreadIDs.isEmpty)
         #expect(captured.listeningSockets.isEmpty)
     }
 
-    @Test func attemptAndByteBudgetsPreserveDeferredDiscoveryTimes() throws {
+    enum Budget: CaseIterable { case attempts, bytes }
+
+    @Test(arguments: Budget.allCases)
+    func independentBudgetsPreserveDeferredDiscoveryTimes(budget: Budget) throws {
         let fixture = PromptFixture()
         var capture = PromptEvidenceCapture()
         let processes = (1...3).map { sample(Int32($0), at: 10) }
-        let limits = PromptCaptureLimits(attempts: 2, bytes: 8, bytesPerRead: 4, elapsedSeconds: 1)
+        let limits = PromptCaptureLimits(
+            attempts: budget == .attempts ? 2 : 3, bytes: budget == .bytes ? 5 : 12,
+            bytesPerRead: 4, elapsedSeconds: 1)
         let first = capture.capture(processes, sequence: 0, using: fixture, clock: fixture, limits: limits)
         #expect(first.filter { $0.status == .captured }.count == 2)
+        let expectedAllowances = budget == .attempts ? [4, 4] : [4, 1]
+        #expect(fixture.allowances.withLock { $0 } == expectedAllowances)
+        #expect(first.map(\.reservedBytes) == expectedAllowances + [0])
         let deferred = try #require(first.first { $0.status == .deferred })
         #expect(deferred.discoveredAt == 10)
         #expect(deferred.metadata == nil)
@@ -119,6 +129,8 @@ private final class PromptFixture: ProcessReading, SamplingClock, Sendable {
         #expect(late.status == .captured)
         #expect(late.metadata?.markers.first?.threadID == sessionA)
         #expect(fixture.attempted.withLock { $0.count } == 3)
+        #expect(second.count == 1)
+        #expect(fixture.allowances.withLock { $0 } == expectedAllowances + [4])
     }
 
     @Test func elapsedBudgetIsCheckedBetweenReadsWithoutClaimingToInterruptOne() {

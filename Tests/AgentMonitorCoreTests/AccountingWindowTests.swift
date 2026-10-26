@@ -51,8 +51,10 @@ import Testing
         var monitor = Monitor()
         let baseline = ledger.ingest([sample(42, at: 0, cpu: 0)], listedAt: 0)
         var window = AccountingWindow(baseline: baseline)
-        for (time, cpu, session) in [(0.5, Optional(0.1), sessionA), (1.0, nil, sessionB)] {
-            let scan = diagnosisScan([sample(42, at: time, cpu: cpu)], at: time)
+        for (time, cpu, session, memory) in [
+            (0.5, Optional(0.1), sessionA, UInt64(100)), (1.0, nil, sessionB, UInt64(200)),
+        ] {
+            let scan = diagnosisScan([sample(42, at: time, cpu: cpu, memory: memory)], at: time)
             let counters = ledger.ingest(scan.samples, listedAt: time)
             monitor.ingest(scan, accounting: counters)
             monitor.enrich(
@@ -61,6 +63,7 @@ import Testing
             try window.append(counters, rows: monitor.findings(scope: .allProcesses))
         }
         let row = try #require(try window.findings(scope: .agentsOnly).first)
+        #expect(row.footprintBytes == 200)
         #expect(row.attribution.threadID == sessionB)
         #expect(row.attribution.evidence == .marker)
         #expect(row.accounting?.labelChangedInWindow == true)

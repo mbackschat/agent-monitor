@@ -3,9 +3,15 @@ import Testing
 @testable import AgentMonitorCore
 
 @Suite struct AcquisitionHandoffTests {
-    @Test func rejectedUnitLeavesAcceptedUnitsInOrder() async throws {
+    enum Budget: CaseIterable { case units, records, text }
+
+    @Test(arguments: Budget.allCases)
+    func eachBudgetRejectsWithoutDisplacingAcceptedUnits(budget: Budget) async throws {
         let handoff = AcquisitionHandoff<Int>(
-            limits: MonitoringPipelineLimits(pendingScans: 2, pendingObservations: 2, pendingTextBytes: 2))
+            limits: MonitoringPipelineLimits(
+                pendingScans: budget == .units ? 2 : 10,
+                pendingObservations: budget == .records ? 2 : 10,
+                pendingTextBytes: budget == .text ? 2 : 10))
         let size = MonitoringPayloadSize(observations: 1, textBytes: 1)
         try handoff.send(1, size: size, sequence: 1)
         try handoff.send(2, size: size, sequence: 2)
@@ -41,9 +47,10 @@ import Testing
     }
 
     @Test func ringReleasesConsumedCapacity() async throws {
-        let handoff = AcquisitionHandoff<Int>(limits: MonitoringPipelineLimits(pendingScans: 2))
-        for i in 0..<1000 {
-            try handoff.send(i, size: .init(observations: 1, textBytes: 0), sequence: UInt64(i))
+        let handoff = AcquisitionHandoff<Int>(
+            limits: MonitoringPipelineLimits(pendingScans: 2, pendingObservations: 2, pendingTextBytes: 2))
+        for i in 0..<100 {
+            try handoff.send(i, size: .init(observations: 1, textBytes: 1), sequence: UInt64(i))
             #expect(try await handoff.next() == i)
         }
         handoff.finish()

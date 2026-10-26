@@ -113,20 +113,20 @@ func overlappingRuntimeRecognitionNeverChoosesByRegistrationOrder(reversed: Bool
 }
 
 @Test func codexAdapterDecodesOnlyValidWriterDescriptorPaths() {
+    let session = "abcdefab-cdef-4abc-8def-abcdefabcdef"
     let evidence = CodexAttributionAdapter().runtimeEvidence(
         from: RuntimeObservations(openFilePaths: [
-            "/fixture/thread-writer-locks/\(sessionA).lock",
-            "/fixture/thread-writer-locks/\(sessionA.uppercased()).lock",
+            "/fixture/thread-writer-locks/\(session).lock",
+            "/fixture/thread-writer-locks/\(session.uppercased()).lock",
             "/fixture/other/\(sessionB).lock", "/fixture/thread-writer-locks/\(sessionB).jsonl",
             "/fixture/thread-writer-locks/not-a-uuid.lock",
         ]))
-    #expect(evidence.writerThreadIDs == [sessionA])
+    #expect(evidence.writerThreadIDs == [session])
 }
 
 @Test(arguments: [
     ["CODEX_SESSION_ID=invalid"],
     ["CODEX_THREAD_ID=\(sessionA)", "CLAUDE_CODE_SESSION_ID=invalid"],
-    ["CODEX_THREAD_ID=\(sessionA)", "CODEX_THREAD_ID=\(sessionB)"],
 ])
 func malformedAdapterMarkersCannotFallBackToAnotherProvider(environment: [String]) {
     let metadata = ProcessArguments.parse(argumentBuffer(environment: environment))

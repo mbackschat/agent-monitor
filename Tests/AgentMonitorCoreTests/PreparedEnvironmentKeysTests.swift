@@ -57,6 +57,7 @@ private struct EnvironmentDeclarationAdapter: AgentAttributionAdapter {
 
     @Test(arguments: [false, true])
     func overlappingDeclarationsKeepTheirUnionAndEachAdaptersExactInputs(includeCommand: Bool) throws {
+        let session = "abcdefab-cdef-4abc-8def-abcdefabcdef"
         let codex = EnvironmentDeclarationReads()
         let claude = EnvironmentDeclarationReads()
         let adapters = try AttributionAdapters([
@@ -71,7 +72,7 @@ private struct EnvironmentDeclarationAdapter: AgentAttributionAdapter {
             argumentBuffer(
                 arguments: ["worker", ""],
                 environment: [
-                    "SHARED_SESSION=\(sessionA)", "SHARED_SESSION=\(sessionA.uppercased())",
+                    "SHARED_SESSION=\(session)", "SHARED_SESSION=\(session.uppercased())",
                     "CODEX_ONLY=\(sessionB)", "CLAUDE_ONLY=declared-extra", "SHARED_SESSION_EXTRA=invalid",
                     "PRIVATE_TOKEN=never-retained", "CLAUDE_CODE_MESSAGING_TOKEN=never-retained",
                 ]), includeCommand: includeCommand, adapters: adapters)
@@ -80,7 +81,7 @@ private struct EnvironmentDeclarationAdapter: AgentAttributionAdapter {
         #expect(
             result.markers == [
                 SessionMarker(threadID: sessionB, provider: .codex),
-                SessionMarker(threadID: sessionA, provider: .claude),
+                SessionMarker(threadID: session, provider: .claude),
             ])
         #expect(codex.receivedKeys.withLock { $0 } == [["SHARED_SESSION", "CODEX_ONLY"]])
         #expect(claude.receivedKeys.withLock { $0 } == [["SHARED_SESSION", "CLAUDE_ONLY"]])

@@ -29,16 +29,19 @@ import Testing
     #expect(result.status == .truncated)
     #expect(result.markers.isEmpty)
     #expect(result.invocation == nil)
-    #expect(reads <= 1)
+    #expect(reads == 1)
 }
 
-@Test func exactCapacityArgumentReadUsesVerifiedFallback() {
+@Test func smallBudgetExactSizeReadQueriesBeforeAndAfter() {
     let bytes = argumentBuffer(environment: ["CODEX_THREAD_ID=\(sessionA)"])
+    var calls: [Bool] = []
     let result = NativeProcessArguments.read(maximumBytes: bytes.count) { buffer in
+        calls.append(buffer != nil)
         guard let buffer else { return bytes.count }
         bytes.withUnsafeBytes { buffer.copyMemory(from: $0) }
         return bytes.count
     }
+    #expect(calls == [false, true, false])
     #expect(result.status == .markerRead)
     #expect(result.markers == [SessionMarker(threadID: sessionA, provider: .codex)])
 }
