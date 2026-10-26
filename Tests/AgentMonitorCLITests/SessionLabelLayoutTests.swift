@@ -40,6 +40,36 @@ import Testing
         #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
     }
 
+    @Test(arguments: [40, 80, 120], [8, 40])
+    func longExecutableKeepsDirectoryAndResourcesInOneBlock(width: Int, height: Int) throws {
+        var feed = OverviewFeed()
+        let workers = ["/work/api", "/tmp/web"].enumerated().map { index, cwd in
+            OverviewFeed.Worker(
+                session: sessions[0], executable: "rust-analyzer-proc-macro-srv", pid: Int32(index + 1),
+                cpuPerSecond: index == 0 ? 0.9 : 0.8, memory: 320_000_000, cwd: cwd)
+        }
+        var state = LiveReportState()
+        state.receive(try feed.advance(workers))
+        state.receive(try feed.advance(workers))
+        state.overview.toggle(try #require(state.overview.main.first))
+        let families = state.overview.visibleRows.filter {
+            if case .executable = $0.id { true } else { false }
+        }
+        #expect(families.count == 2)
+        for family in families {
+            state.overview.select(family.id)
+            let lines = ContributorLayout.lines(state: state, width: width, height: height)
+            let selected = lines.filter { $0.style == .selected }.map(\.text).joined(separator: "\n")
+            let directory = try #require(family.node.inspectionFields.first { $0.label == "Directory" }).value
+            #expect(selected.contains("rust-analyzer-proc-macro-srv"), "\(selected)")
+            #expect(selected.contains(directory), "\(selected)")
+            #expect(selected.contains(directory == "/work/api" ? "90.0%" : "80.0%"), "\(selected)")
+            #expect(selected.contains("320.0 MB"), "\(selected)")
+            #expect(lines.count <= height)
+            #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
+        }
+    }
+
     @Test func clippedDirectoryLabelsRetainExplicitFullPathInspection() throws {
         let directories = [
             "/workspace-client-common-common-common-alpha/shared/project",

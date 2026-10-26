@@ -59,7 +59,7 @@ import Vision
         host.layoutSubtreeIfNeeded()
         switch node.label {
         case .session: #expect(host.fittingSize.height <= 44)
-        case .text: #expect(host.fittingSize.height <= 22)
+        case .text, .workload: #expect(host.fittingSize.height <= 22)
         }
         #expect(host.fittingSize.width == 376)
     }
@@ -329,7 +329,8 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
         invocationName: "ugrep")
     let host = NSHostingView(
         rootView: MenuBarProcessLabel(
-            process: process, placement: .sessionChild,
+            process: process,
+            placement: .sessionChild(try #require(SessionGrouping.groups([process]).first).id),
             directory: ProcessDirectoryLabels([process]).label(for: process),
             cpuText: "75%", footprintText: "20 MB"
         ).padding(8).frame(width: 400)

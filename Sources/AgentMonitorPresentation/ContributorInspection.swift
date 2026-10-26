@@ -4,12 +4,15 @@ import Foundation
 public enum ContributorLabel: Equatable, Sendable {
     case text(String)
     case session(identity: String, name: String?, directory: String?)
+    case workload(name: String, directory: String?)
 
     public var title: String {
         switch self {
         case .text(let text): text
         case .session(let identity, let name, let directory):
             ([identity] + [name, directory].compactMap { $0 }).joined(separator: " · ")
+        case .workload(let name, let directory):
+            ([name] + [directory].compactMap { $0 }).joined(separator: " · ")
         }
     }
 }

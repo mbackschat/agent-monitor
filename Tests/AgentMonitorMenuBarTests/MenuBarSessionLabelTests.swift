@@ -126,7 +126,8 @@ import Vision
         command: nil, metadataStatus: original.metadataStatus, attribution: original.attribution)
     let host = NSHostingView(
         rootView: MenuBarProcessLabel(
-            process: process, placement: .sessionChild,
+            process: process,
+            placement: .sessionChild(.session(provider: "claude", id: process.attribution.threadID ?? "")),
             directory: ProcessDirectoryLabels(snapshot.findings).label(for: process),
             cpuText: index == 0 ? "75%" : "25%", footprintText: index == 0 ? "20 MB" : "40 MB"
         ).frame(width: 280).padding(8).background(Color(nsColor: .windowBackgroundColor)))
@@ -272,6 +273,65 @@ private enum StandaloneEvidenceFixture: CaseIterable {
         .joined(separator: " ").lowercased()
 }
 
+@Test @MainActor func nativeOverviewLongExecutablesKeepDistinctDirectoriesVisible() throws {
+    _ = NSApplication.shared
+    var overview = ContributorOverview()
+    overview.receive(
+        try namedSessionSnapshot(
+            workersPerSession: 2, directories: ["/work/app", "/tmp/web"], directoriesByWorker: true,
+            executableName: "rust-analyzer-proc-macro-srv"))
+    let session = try #require(overview.main.first)
+    overview.toggle(session)
+    let families = overview.visibleRows.filter {
+        if case .executable = $0.id { true } else { false }
+    }
+    #expect(families.count == 2)
+    for (index, row) in families.enumerated() {
+        let host = NSHostingView(
+            rootView: MenuBarContributorSummary(node: row.node, overview: overview, expanded: false)
+                .frame(width: 352).padding(8).background(Color(nsColor: .windowBackgroundColor)))
+        host.appearance = NSAppearance(named: .aqua)
+        host.layoutSubtreeIfNeeded()
+        host.frame.size = host.fittingSize
+        let text = try processDirectoryRenderText(
+            host,
+            output: ProcessInfo.processInfo.environment["MENUBAR_WORKLOAD_PREVIEW_PATH"].map {
+                $0 + "-\(index).png"
+            })
+        let cwd = try #require(row.node.inspectionFields.first { $0.label == "Directory" }).value
+        #expect(text.contains(cwd == "/work/app" ? "work/app" : "tmp/web"), "\(text)")
+        #expect(text.contains("rust"), "\(text)")
+        #expect(text.contains("45"), "\(text)")
+        #expect(host.fittingSize.height <= 44)
+    }
+}
+
+@Test @MainActor func nativeRootGroupKeepsChildThreadIdentitiesVisible() async throws {
+    _ = NSApplication.shared
+    let sessions = ["abcdabcd-root", "12345678-child", "fedcfedc-child"]
+    let snapshot = try namedSessionSnapshot(
+        directories: ["/work/api", "/work/api", "/work/api"], sessionIDs: sessions,
+        rootSessionID: sessions[0])
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    model.report.overview.enabled = false
+    let group = try #require(model.report.groups.first)
+    #expect(model.report.groups.count == 1)
+    #expect(group.processes.count == 3)
+    model.report.select(.group(group.id))
+    model.report.setDisclosure(expanded: true)
+    let host = NSHostingView(
+        rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: .aqua)
+    host.frame = NSRect(x: 0, y: 0, width: 420, height: 700)
+    host.layoutSubtreeIfNeeded()
+    let text = try processDirectoryRenderText(
+        host, output: ProcessInfo.processInfo.environment["MENUBAR_ROOT_PREVIEW_PATH"])
+    for id in sessions { #expect(text.contains(id.prefix(8)), "\(text)") }
+    await model.stop()
+}
+
 private func namedSessionOverview() throws -> ContributorOverview {
     var overview = ContributorOverview()
     overview.receive(try namedSessionSnapshot())
@@ -280,18 +340,20 @@ private func namedSessionOverview() throws -> ContributorOverview {
 
 private func namedSessionSnapshot(
     workersPerSession: Int = 1, directories: [String] = ["/work/alpha/project", "/tmp/alpha/project"],
-    directoriesByWorker: Bool = false
+    directoriesByWorker: Bool = false, executableName: String = "java",
+    sessionIDs: [String]? = nil, rootSessionID: String? = nil
 ) throws -> MonitoringSnapshot {
-    let sessions = [
-        "abcdabcd-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "12345678-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-    ]
+    let sessions =
+        sessionIDs ?? [
+            "abcdabcd-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "12345678-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        ]
     func samples(_ time: Double) -> [ProcessSample] {
         sessions.indices.flatMap { index in
             (0..<workersPerSession).map { worker in
                 ProcessSample(
                     identity: ProcessIdentity(
                         pid: Int32(index * workersPerSession + worker + 1), startMicroseconds: 1),
-                    parentPID: 0, executable: "/bin/java", name: "java", sampledAt: time,
+                    parentPID: 0, executable: "/bin/" + executableName, name: executableName, sampledAt: time,
                     cpuSeconds: time * (index == 0 ? 0.9 : 0.8) / Double(workersPerSession),
                     footprintBytes: 320_000_000)
             }
@@ -309,8 +371,9 @@ private func namedSessionSnapshot(
             cwd: directories[directoriesByWorker ? index % workersPerSession : session], command: nil,
             metadataStatus: .markerRead,
             attribution: Attribution(
-                provider: .claude, evidence: .marker, context: .unverified,
-                threadID: sessions[session], rootSessionID: nil, runtime: nil, terminal: nil,
+                provider: .claude, evidence: .marker, context: rootSessionID == nil ? .unverified : .terminal,
+                threadID: sessions[session], rootSessionID: rootSessionID,
+                runtime: rootSessionID == nil ? nil : values.first?.identity, terminal: nil,
                 runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []),
             sessionName: "Build indexing and attribution for the shared application workspace")
     }

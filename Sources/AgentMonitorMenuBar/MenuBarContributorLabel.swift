@@ -1,7 +1,7 @@
 import AgentMonitorPresentation
 import SwiftUI
 
-struct MenuBarSessionLabel<Resources: View>: View {
+struct MenuBarContributorLabel<Resources: View>: View {
     let label: ContributorLabel
     let resources: Resources
 
@@ -18,6 +18,18 @@ struct MenuBarSessionLabel<Resources: View>: View {
             ViewThatFits(in: .horizontal) {
                 singleRow(naturalTitle: true)
                 sessionRows(identity: identity, name: name, directory: directory)
+            }
+        case .workload(let name, let directory):
+            HStack(spacing: 6) {
+                Text(TextReport.safe(name)).font(.subheadline.weight(.medium))
+                    .lineLimit(1).truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if let directory {
+                    Text(TextReport.safe(directory)).font(.caption)
+                        .lineLimit(1).truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                resources
             }
         }
     }

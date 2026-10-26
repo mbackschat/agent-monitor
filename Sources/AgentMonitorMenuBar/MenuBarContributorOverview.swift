@@ -144,10 +144,10 @@ struct MenuBarContributorSummary: View {
         switch node.label {
         case .text:
             singleRow()
-        case .session:
+        case .session, .workload:
             HStack(alignment: .top, spacing: 6) {
                 indicator.frame(height: 16)
-                MenuBarSessionLabel(label: node.label) { resourceColumns }
+                MenuBarContributorLabel(label: node.label) { resourceColumns }
             }
         }
     }

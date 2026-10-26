@@ -404,12 +404,12 @@ struct MenuBarView: View {
                 LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(model.rowIndex.projection.childrenByGroup[group.id] ?? [], id: \.process) {
                         process in
-                        processRow(process, placement: .sessionChild)
+                        processRow(process, placement: .sessionChild(group.id))
                     }
                 }
             }.padding(.top, 8)
         } label: {
-            MenuBarSessionLabel(label: group.headingLabel) {
+            MenuBarContributorLabel(label: group.headingLabel) {
                 Text(resource(group.cpuTotal, unit: "%", partial: group.cpuPartial))
                     .monospacedDigit().frame(width: 48, alignment: .trailing)
                 Text(resource(group.memoryGBTotal, unit: " GB", partial: group.memoryPartial))

@@ -619,13 +619,12 @@ public struct ContributorOverview: Equatable, Sendable {
                 let workers = nodes[id]?.stats.processes.count ?? 0
                 // A single directory is already shown on the owning session row.
                 let directoryOnOwner = owner.map { (projects[$0]?.count ?? 0) <= 1 } ?? false
-                nodes[id]?.label = .text(
-                    name + (workers > 1 ? " ×\(workers)" : "")
-                        + (runtimeContributors.contains(id) || directoryOnOwner
-                            ? ""
-                            : " · "
-                                + (cwd.map { directoryLabels[$0] ?? WorkloadDirectory.compact($0) }
-                                    ?? "CWD unavailable"))
+                nodes[id]?.label = .workload(
+                    name: name + (workers > 1 ? " ×\(workers)" : ""),
+                    directory: runtimeContributors.contains(id) || directoryOnOwner
+                        ? nil
+                        : (cwd.map { directoryLabels[$0] ?? WorkloadDirectory.compact($0) }
+                            ?? "CWD unavailable")
                 )
                 var labels: [InspectionField] = []
                 if case .session(let provider, let session, _) = owner {

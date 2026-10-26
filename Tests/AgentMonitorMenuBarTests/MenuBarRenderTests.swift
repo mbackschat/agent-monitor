@@ -219,7 +219,9 @@ private struct DisclosureChevronFixture: View {
     _ = NSApplication.shared
     let host = NSHostingView(
         rootView: MenuBarProcessLabel(
-            process: process, placement: showsSession ? .standalone : .sessionChild,
+            process: process,
+            placement: showsSession
+                ? .standalone : .sessionChild(try #require(SessionGrouping.groups([process]).first).id),
             directory: ProcessDirectoryLabels(snapshot.findings).label(for: process), cpuText: "184.6%",
             footprintText: "1.4 GB"
         ).frame(width: width))

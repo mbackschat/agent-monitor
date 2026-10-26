@@ -4,7 +4,8 @@ import SwiftUI
 
 struct MenuBarProcessLabel: View {
     enum Placement {
-        case standalone, sessionChild
+        case standalone
+        case sessionChild(SessionGroupID)
     }
 
     let process: HeavyProcess
@@ -15,7 +16,7 @@ struct MenuBarProcessLabel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            if placement == .standalone {
+            if showsOwner {
                 HStack(spacing: 6) {
                     Text(ownerLabel).fixedSize()
                     if exactSession, let name = process.sessionName {
@@ -40,6 +41,20 @@ struct MenuBarProcessLabel: View {
                 + (exactSession
                     ? " · \(process.attribution.threadID ?? "") · \(process.sessionName ?? "")" : "")
                 + (process.isHistorical ? ". No longer observed; measured CPU remains in this window." : ""))
+    }
+
+    private var showsOwner: Bool {
+        switch placement {
+        case .standalone: true
+        case .sessionChild(let parent):
+            if exactSession, let provider = process.attribution.provider,
+                let session = process.attribution.threadID
+            {
+                parent != .session(provider: provider.rawValue, id: session)
+            } else {
+                true
+            }
+        }
     }
 
     private var exactSession: Bool {

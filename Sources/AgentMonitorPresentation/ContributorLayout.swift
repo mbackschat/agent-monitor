@@ -55,7 +55,7 @@ public enum ContributorLayout {
             header = Array((compactCoverage(status) + filters).prefix(headerLimit))
         }
         var content: [(ContributorID, ReportLine)] = []
-        var sessionContinuations: Set<Int> = []
+        var continuations: Set<Int> = []
         for row in rows {
             let selected = row.id == overview.selection
             let folded = row.node.children.isEmpty ? "·" : (overview.open.contains(row.id) ? "▾" : "▸")
@@ -72,7 +72,7 @@ public enum ContributorLayout {
                 memory: stats.memoryText + memoryBar, recent: stats.recentCPUText,
                 now: stats.currentAvailable ? String(stats.current.count) : "—")
             for (index, line) in rowLines.enumerated() {
-                if index == 1 { sessionContinuations.insert(content.count) }
+                if index == 1 { continuations.insert(content.count) }
                 content.append((row.id, ReportLine(line, style: selected ? .selected : .normal)))
             }
             if selected, overview.detailsVisible {
@@ -93,13 +93,18 @@ public enum ContributorLayout {
         let selected = content.firstIndex { $0.0 == overview.selection } ?? 0
         var offset = min(
             max(0, selected + overview.detailOffset - available / 2), max(0, content.count - available))
-        if sessionContinuations.contains(offset) { offset += 1 }
+        if overview.detailOffset == 0, available >= 2, continuations.contains(selected + 1),
+            selected + 2 > offset + available
+        {
+            offset = selected + 2 - available
+        }
+        if continuations.contains(offset) { offset += 1 }
         var end = min(content.count, offset + available)
-        let clippedSession = end > offset && sessionContinuations.contains(end)
-        if clippedSession { end -= 1 }
+        let clippedBlock = end > offset && continuations.contains(end)
+        if clippedBlock { end -= 1 }
         var body = content[offset..<end].map(\.1)
-        if clippedSession {
-            body.append(ReportLine(body.isEmpty ? "Resize for complete session rows" : "", style: .muted))
+        if clippedBlock {
+            body.append(ReportLine(body.isEmpty ? "Resize for complete contributor rows" : "", style: .muted))
         }
         let result = header + body + footer
         return Array(result.prefix(height)).map {
@@ -176,15 +181,26 @@ public enum ContributorLayout {
             now: String
         ) -> [String] {
             let title = TextReport.safe(label.title)
-            guard case .session(let identity, let listedName, let directory) = label,
-                TerminalCells.width(prefix + title) > name
-            else { return [row(prefix + title, cpu: cpu, memory: memory, recent: recent, now: now)] }
-            var heading = prefix + TextReport.safe(identity)
-            if let listedName, !listedName.isEmpty {
-                let available = width - TerminalCells.width(heading) - 3
-                if available > 0 {
-                    heading += " · " + TerminalCells.abbreviated(TextReport.safe(listedName), to: available)
+            let single = row(prefix + title, cpu: cpu, memory: memory, recent: recent, now: now)
+            guard TerminalCells.width(prefix + title) > name else { return [single] }
+            let heading: String
+            let directory: String?
+            switch label {
+            case .text: return [single]
+            case .workload(let executable, let cwd):
+                guard cwd != nil else { return [single] }
+                heading = TerminalCells.abbreviated(prefix + TextReport.safe(executable), to: width)
+                directory = cwd
+            case .session(let identity, let listedName, let cwd):
+                var text = prefix + TextReport.safe(identity)
+                if let listedName, !listedName.isEmpty {
+                    let available = width - TerminalCells.width(text) - 3
+                    if available > 0 {
+                        text += " · " + TerminalCells.abbreviated(TextReport.safe(listedName), to: available)
+                    }
                 }
+                heading = text
+                directory = cwd
             }
             let continuation =
                 String(repeating: " ", count: TerminalCells.width(prefix))
