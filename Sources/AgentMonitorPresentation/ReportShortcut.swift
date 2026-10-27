@@ -23,7 +23,7 @@ public enum ReportShortcut: String, CaseIterable, Sendable {
 
 extension LiveReportState {
     public mutating func apply(_ shortcut: ReportShortcut) {
-        guard actionPanel == nil else { return }
+        guard actionPanel == nil, referencePage == nil else { return }
         switch shortcut {
         case .overview: overview.enabled.toggle()
         case .allContributors: overview.showAll.toggle()

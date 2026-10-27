@@ -43,6 +43,5 @@ PY
 codesign --force --sign - "$app"
 echo "$app"
 if [[ "$mode" == run ]]; then
-    # Provider transports use /usr/bin/env; Finder's PATH need not contain the user's CLIs.
-    open --env "PATH=$PATH" "$app"
+    open "$app"
 fi

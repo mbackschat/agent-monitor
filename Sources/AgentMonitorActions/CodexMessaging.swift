@@ -2,13 +2,13 @@ import AgentMonitorCore
 import Foundation
 
 public struct CodexMessaging: AgentMessaging {
-    private let executable: URL
+    private let executable: URL?
     private let prefix: [String]
     private let timeout: TimeInterval
 
     public init() {
-        executable = URL(fileURLWithPath: "/usr/bin/env")
-        prefix = ["codex"]
+        executable = nil
+        prefix = []
         timeout = 10
     }
 
@@ -21,9 +21,7 @@ public struct CodexMessaging: AgentMessaging {
     public func recipients(for target: MessageTarget) throws -> MessageRecipients {
         let thread = target.session
         guard UUID(uuidString: thread) != nil else { throw ActionFailure("Invalid session identifier.") }
-        let process = try BoundedCommand(
-            executable: executable,
-            arguments: prefix + ["app-server", "proxy"], timeout: timeout, tool: "Codex")
+        let process = try command(["app-server", "proxy"])
         defer { process.close() }
         let socket = try ProxyWebSocket(process)
         _ = try socket.request(
@@ -61,12 +59,9 @@ public struct CodexMessaging: AgentMessaging {
         // Both proxy and unix:// address the default local control socket; never let
         // configured remote routing send a message to a server we did not inspect.
         // https://learn.chatgpt.com/docs/cli/reference#codex-queue
-        let process = try BoundedCommand(
-            executable: executable,
-            arguments: prefix + [
-                "queue", "--remote", "unix://", "--thread", recipient, "--message", message,
-            ],
-            timeout: timeout, tool: "Codex")
+        let process = try command([
+            "queue", "--remote", "unix://", "--thread", recipient, "--message", message,
+        ])
         defer { process.close() }
         do {
             try process.finish()
@@ -75,6 +70,14 @@ public struct CodexMessaging: AgentMessaging {
                 "Queue acceptance could not be confirmed. Check Codex before retrying; the message may have been accepted."
             )
         }
+    }
+
+    private func command(_ arguments: [String]) throws -> BoundedCommand {
+        guard let executable else {
+            throw ActionFailure(ProviderRuntimeAvailability.messagingUnavailableReason)
+        }
+        return try BoundedCommand(
+            executable: executable, arguments: prefix + arguments, timeout: timeout, tool: "Codex")
     }
 
     private func read(_ id: String, using process: ProxyWebSocket) throws -> (root: String, available: Bool) {

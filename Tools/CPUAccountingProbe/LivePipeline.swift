@@ -77,6 +77,9 @@ import Synchronization
             + Double(usage.ru_utime.tv_usec + usage.ru_stime.tv_usec) / 1e6
     }
     static func main() async throws {
+        guard !CommandLine.arguments.contains("--providers") else {
+            throw BoundedCommandFailure(ProviderRuntimeAvailability.sessionListingUnavailableReason)
+        }
         let environment = ProcessInfo.processInfo.environment
         guard let commit = environment["AGENT_MONITOR_PROFILE_COMMIT"], commit.count == 40,
             commit.allSatisfy({ $0.isHexDigit }), environment["AGENT_MONITOR_PROFILE_NO_BUILDS"] == "1"
@@ -87,7 +90,7 @@ import Synchronization
         let profile = PipelineProfile()
         let reader = try TimedNativeReader(profile: profile)
         let history = RecentActivityStore()
-        let providers = ProfileListings(enabled: CommandLine.arguments.contains("--providers"))
+        let registry = OfflineSessionRegistryReader()
         let cpuStart = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
         let childCPUStart = childCPUSeconds()
         let session = MonitoringSession(
@@ -95,7 +98,7 @@ import Synchronization
                 intervalSeconds: 0.1,
                 samples: CommandLine.arguments.dropFirst().first.flatMap(Int.init) ?? 121,
                 collectAgentLoad: true, reportIntervalSeconds: 5),
-            reader: reader, clock: ContinuousSamplingClock(), registry: providers,
+            reader: reader, clock: ContinuousSamplingClock(), registry: registry,
             excluding: [getpid()], recentActivity: history
         ).profiling(profile)
         var failure: String?
@@ -137,13 +140,14 @@ import Synchronization
         let childCPU = childCPUStart.flatMap { baseline in childCPUSeconds().map { $0 - baseline } }
         let native = reader.periods.withLock { $0 }
         let state = reports.withLock { $0 }
+        let measuredProfile = profile.snapshot()
         let result = Result(
             provenance: Provenance(
-                commit: commit, providersEnabled: providers.enabled, noConcurrentBuilds: true),
+                commit: commit, providersEnabled: registry.isAvailable, noConcurrentBuilds: true),
             startedAt: date, elapsedSeconds: elapsed, collectorCPUSeconds: cpu,
             reapedHelperCPUSeconds: childCPU,
             collectorAndHelperPercentOfOneCore: childCPU.map { 100 * (cpu + $0) / elapsed },
-            failure: failure, profiling: profile.snapshot(), cadence: Distribution(native.values),
+            failure: failure, profiling: measuredProfile, cadence: Distribution(native.values),
             processCountRange: [native.minimumPopulation ?? 0, native.maximumPopulation],
             hostBusyPercentWeightedMean: state.hostDuration > 0
                 ? state.hostWeighted / state.hostDuration : nil,
@@ -152,7 +156,7 @@ import Synchronization
             maximumHistoryChargedRecords: state.historyRecords,
             maximumHistoryChargedTextBytes: state.historyText, historyCapacityEvictions: state.evictions,
             historyDiscontinuities: state.discontinuities, retentionLimitedWindows: state.limited,
-            providerCalls: providers.calls.withLock { $0 }, coverage: state.windows)
+            providerCalls: measuredProfile.stages["providerRequest"]?.count ?? 0, coverage: state.windows)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -161,20 +165,6 @@ import Synchronization
         try FileHandle.standardOutput.write(contentsOf: data)
     }
     enum ProfileError: Error { case missingProvenance }
-}
-
-private final class ProfileListings: SessionRegistryReading, Sendable {
-    let enabled: Bool
-    let calls = Mutex(0)
-    init(enabled: Bool) { self.enabled = enabled }
-    func output(of query: SessionRegistryQuery) throws -> Data { try output(of: query, checking: {}) }
-    func output(of query: SessionRegistryQuery, checking: @escaping @Sendable () throws -> Void) throws
-        -> Data
-    {
-        guard enabled else { return Data("[]".utf8) }
-        calls.withLock { $0 += 1 }
-        return try CommandSessionRegistryReader().output(of: query, checking: checking)
-    }
 }
 
 private final class TimedNativeReader: ProcessReading, Sendable {

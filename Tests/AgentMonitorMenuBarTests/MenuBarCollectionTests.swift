@@ -6,6 +6,31 @@ import Testing
 @testable import AgentMonitorMenuBar
 
 @Test(.timeLimit(.minutes(1)))
+func nativeDefaultCollectionPreservesResourcesWithoutProviderListings() async throws {
+    let fixture = NativeCollectionFixture()
+    let source = MenuBarCollection.source(reader: { fixture }, clock: fixture, excluding: [])
+    let reports = AsyncStream<MonitoringSnapshot>.makeStream()
+    let collection = Task {
+        defer { reports.continuation.finish() }
+        try await source({ .heavy }, LiveInterval(1)) { snapshot in
+            reports.continuation.yield(snapshot)
+        }
+    }
+    fixture.ticks.advance()
+    var iterator = reports.stream.makeAsyncIterator()
+    let first = await iterator.next()
+    collection.cancel()
+    _ = await collection.result
+
+    let snapshot = try #require(first)
+    #expect(snapshot.findings.count == 2)
+    #expect(snapshot.findings.allSatisfy { $0.cpuPercent == 100 })
+    #expect(snapshot.findings.allSatisfy { $0.attribution.evidence == .runtimeOnly })
+    #expect(snapshot.findings.allSatisfy { $0.attribution.threadID == nil && $0.sessionName == nil })
+    #expect(fixture.listings.withLock { $0 } == 0)
+}
+
+@Test(.timeLimit(.minutes(1)))
 @MainActor func nativeCollectionResolvesAndRefreshesSessionsWhilePanelIsClosed() async throws {
     let fixture = NativeCollectionFixture()
     let source = MenuBarCollection.source(

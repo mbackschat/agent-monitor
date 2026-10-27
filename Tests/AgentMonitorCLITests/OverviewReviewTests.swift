@@ -161,7 +161,7 @@ import Testing
             return Array(lines.prefix { $0.style != .heading })
         }
         let clean = try header(unreadable: 0)
-        #expect(clean.contains(ReportLine(CoverageStatus.clearText, style: .muted)))
+        #expect(clean.contains(ReportLine("", style: .muted)))
         #expect(clean.count == (try header(unreadable: 1)).count)
     }
 

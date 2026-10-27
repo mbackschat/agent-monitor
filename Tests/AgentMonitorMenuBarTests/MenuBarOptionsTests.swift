@@ -177,7 +177,7 @@ import Testing
     let controller = MenuBarOptionsController(model: model)
     let button = controller.makeButton()
     let menu = try #require(button.menu)
-    for title in ["Processes", "Footprint", "Ascending", "Keyboard shortcuts"] {
+    for title in ["Processes", "Footprint", "Ascending", "Help & glossary"] {
         let item = try #require(menu.item(withTitle: title))
         menu.performActionForItem(at: menu.index(of: item))
         controller.menuNeedsUpdate(menu)

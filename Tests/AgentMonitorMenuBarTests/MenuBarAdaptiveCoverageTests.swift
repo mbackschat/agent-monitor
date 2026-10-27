@@ -48,8 +48,7 @@ import Vision
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: path))
     }
-    let request = VNRecognizeTextRequest()
-    request.recognitionLevel = .accurate
+    let request = try nativeTextRecognitionRequest()
     let image = try #require(bitmap.cgImage)
     do {
         try VNImageRequestHandler(cgImage: image).perform([request])

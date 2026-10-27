@@ -14,7 +14,7 @@ import Testing
         }
     }
 
-    @Test(arguments: [false, true]) func jsonAlwaysDeclaresModeAndOnlyTerminalDetailsShowEnabledRow(
+    @Test(arguments: [false, true]) func jsonDeclaresModeAndPassiveDiagnosticsShowsEnabledInspection(
         enabled: Bool
     ) throws {
         var coverage = InspectionCoverage()
@@ -39,14 +39,19 @@ import Testing
         }
         let encoded = try #require(json["inspectionCoverage"] as? [String: Any])
         #expect(encoded["mode"] as? String == (enabled ? "enabled" : "disabled"))
-        let summary = SamplingCoverageSummary(snapshot: snapshot)
-        #expect(summary.terminalLines(width: 80).joined().contains("Between-scan reads") == enabled)
-        #expect(!summary.metrics.contains { $0.title == "Between-scan reads" })
-        #expect(!summary.events.contains { $0.title == "Between-scan reads" })
         var state = LiveReportState()
         state.receive(snapshot)
         state.overview.enabled = false
         let rendered = LiveReportLayout.lines(state: state, width: 120, height: 24).map(\.text).joined()
         #expect(rendered.contains("Between-scan reads skipped") == enabled)
+        state.showReference(.diagnostics)
+        let content = ReportReferenceLayout.content(state: state, page: .diagnostics).map(\.text).joined(
+            separator: "\n")
+        #expect(content.contains("Between-scan reads · enabled") == enabled)
+        if enabled {
+            #expect(content.contains("Opportunities: 2 taken · 3 skipped"))
+            #expect(content.contains("Enumeration failures: 0"))
+            #expect(content.contains("Candidates: 0 read · 0 failed · 0 left unread"))
+        }
     }
 }

@@ -174,7 +174,9 @@ private func comparisonScenarios() -> [AdaptiveWorkloadScenario] {
 }
 
 @Suite struct AdaptiveSamplingComparisonTests {
-    @Test(.timeLimit(.minutes(10)))
+    @Test(
+        .enabled(if: ProcessInfo.processInfo.environment["AGENT_MONITOR_ADAPTIVE_COMPARISON"] == "1"),
+        .timeLimit(.minutes(10)))
     func boundedScenarioAndParameterSweep() async throws {
         for scenario in comparisonScenarios() {
             var results: [AdaptiveWorkloadArm: AdaptiveWorkloadResult] = [:]

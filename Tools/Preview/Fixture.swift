@@ -3,7 +3,7 @@ import AgentMonitorPresentation
 import Foundation
 
 extension Preview {
-    static func state() throws -> LiveReportState {
+    static func state(grouped: Bool = false) throws -> LiveReportState {
         let rows = try [
             row(
                 pid: 42001, name: "swift-frontend", cpu: 184.6, memory: 1_420_000_000, provider: "codex",
@@ -48,6 +48,15 @@ extension Preview {
         state.select(.process(rows[0].process))
         state.toggleDisclosure()
         state.toggleSelectedPin()
+        if grouped {
+            state.unpinAll()
+            state.toggleGrouping()
+            for group in state.groups {
+                state.select(.group(group.id))
+                state.setChildDisclosure(expanded: true)
+            }
+            state.select(.process(rows[0].process))
+        }
         return state
     }
 

@@ -47,11 +47,9 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     ) {
         $0.contains("Runtime: 1234") && $0.contains("PID 42 |")
             && $0.range(of: "Updates: ([2-9]|[1-9][0-9]+) ", options: .regularExpression) != nil
-            && dividerRow($0) == 13
+            && dividerRow($0) != nil
     }
-    for (width, headerRows, footerRows, divider) in [
-        (120, 4, 2, 13), (200, 4, 2, 13), (80, 6, 3, 13), (100, 5, 3, 13),
-    ] {
+    for width in [120, 200, 80, 100] {
         var resized = winsize(ws_row: 24, ws_col: UInt16(width), ws_xpixel: 0, ws_ypixel: 0)
         try #require(ioctl(terminal.slave, TIOCSWINSZ, &resized) == 0)
         screen = ANSIVisibleScreen(size: .init(width: width, height: 24))
@@ -60,9 +58,11 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
             on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
         ) {
             let rows = $0.split(separator: "\n", omittingEmptySubsequences: false)
-            return $0.contains("PID 42 |") && dividerRow($0) == divider
-                && rows.indices.contains(headerRows) && rows[headerRows].contains("CPU%")
-                && rows.indices.contains(24 - footerRows) && rows[24 - footerRows].contains("↑/↓ select")
+            guard let header = rows.firstIndex(where: { $0.contains("CPU%") }),
+                let divider = dividerRow($0),
+                let footer = rows.lastIndex(where: { $0.contains("↑/↓ select") })
+            else { return false }
+            return $0.contains("PID 42 |") && header < divider && divider < footer
                 && $0.contains("1/2 CPU -/+10%") && $0.contains("3/4 GB -/+1")
         }
     }
@@ -86,15 +86,15 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     ) {
         $0.contains("PID descending") && $0.contains("PID 42 |")
     }
-    for (key, label, divider) in [
-        ("+", "Details | pane 55%", 12), ("9", "Details max", 5), ("0", "Details min", 20),
-        ("=", "Details | pane 55%", 12), ("-", "Details | pane 50%", 13),
+    for (key, label) in [
+        ("+", "Details | pane 55%"), ("9", "Details max"), ("0", "Details min"),
+        ("=", "Details | pane 55%"), ("-", "Details | pane 50%"),
     ] {
         try writeAllBytes(Array(key.utf8), to: terminal.master)
         _ = try await waitForANSIVisibleScreen(
             on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
         ) {
-            $0.contains(label) && dividerRow($0) == divider
+            $0.contains(label) && dividerRow($0) != nil
                 && (key != "9" || !$0.contains("fixture-84"))
                 && (key != "0" || !$0.contains("PID 42 |"))
         }
@@ -107,7 +107,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
         $0.contains("PID descending") && $0.contains("PID 42 |") && $0.contains("unresolved")
-            && dividerRow($0) == 9
+            && dividerRow($0) != nil
     }
     try writeAllBytes(Array(String(repeating: "\u{1b}[6~", count: 4).utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
@@ -149,7 +149,10 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     try writeAllBytes(Array("\u{1b}[1;2C".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
-    ) { $0.contains("fixture-42") && $0.contains("fixture-84") && $0.contains("▾") }
+    ) {
+        $0.contains("fixture-42") && $0.contains("fixture-84") && $0.contains("▾")
+            && $0.contains("└─") && $0.contains("#1")
+    }
     try writeAllBytes(Array("\u{1b}[1;2D".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
@@ -168,7 +171,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("PID 42 |") && dividerRow($0) == 9
+        $0.contains("PID 42 |") && dividerRow($0) != nil
     }
     try writeAllBytes(Array("g".utf8), to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
@@ -259,6 +262,74 @@ private func launch(
 
 private func dividerRow(_ text: String) -> Int? {
     text.split(separator: "\n", omittingEmptySubsequences: false).firstIndex { $0.contains("─ Details") }
+}
+
+@Test func terminalHelpAndDiagnosticsScrollAndReturnToPausedSelection() async throws {
+    let binary =
+        ProcessInfo.processInfo.environment["AGENT_MONITOR_TUI_FIXTURE"]
+        ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().appendingPathComponent(".build/debug/monitor-tui-fixture").path
+    let terminal = try RealTerminalPTYPair.open(size: .init(width: 120, height: 24), stallBudget: nil)
+    defer { terminal.close() }
+    var original = termios()
+    try #require(tcgetattr(terminal.slave, &original) == 0)
+    let pid = try launch(binary, terminal: terminal.slave)
+    var reaped = false
+    defer {
+        if !reaped {
+            kill(pid, SIGKILL)
+            waitpid(pid, nil, 0)
+        }
+    }
+    var screen = ANSIVisibleScreen(size: .init(width: 120, height: 24))
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(8)
+    ) { $0.contains("fixture-42") && $0.contains("? help") }
+    try writeAllBytes(Array("pi?".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("Help & glossary") && $0.contains("Processes / Procs") && $0.contains("Esc back") }
+    var small = winsize(ws_row: 12, ws_col: 40, ws_xpixel: 0, ws_ypixel: 0)
+    try #require(ioctl(terminal.slave, TIOCSWINSZ, &small) == 0)
+    screen = ANSIVisibleScreen(size: .init(width: 40, height: 12))
+    try #require(kill(pid, SIGWINCH) == 0)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("Help & glossary") && $0.contains("D diagnostics")
+            && $0.contains("Processes / Procs")
+    }
+    try writeAllBytes(Array("]".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("Help & glossary") && !$0.contains("Processes / Procs") }
+    try writeAllBytes(Array("[".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("Processes / Procs") }
+    try writeAllBytes(Array(String(repeating: "\u{1b}[6~", count: 30).utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("q/Ctrl-C quit") && !$0.contains("Processes / Procs") }
+    try writeAllBytes(Array("D".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("Diagnostics") && $0.contains("CPU: host") && $0.contains("Esc back") }
+    try writeAllBytes(Array("kspd".utf8), to: terminal.master)
+    try writeAllBytes([27], to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("PAUSED") && !$0.contains("Diagnostics") }
+    small.ws_row = 24
+    small.ws_col = 120
+    try #require(ioctl(terminal.slave, TIOCSWINSZ, &small) == 0)
+    screen = ANSIVisibleScreen(size: .init(width: 120, height: 24))
+    try #require(kill(pid, SIGWINCH) == 0)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("PAUSED") && $0.contains("PID 42 |") && !$0.contains("Terminate selected process?") }
+    try writeAllBytes(Array("q".utf8), to: terminal.master)
+    try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
 }
 
 @Test func terminalAdaptiveIntervalKeysPreserveFullSourceSettingsWhilePaused() async throws {

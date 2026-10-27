@@ -117,21 +117,12 @@ func unverifiableRecipientsAreRejected(row: HeavyProcess) async {
 }
 
 @Test(arguments: [
-    (workload(), true, true),
-    (workload(thread: nil), false, true),
-    (workload(thread: "invalid"), false, true),
-    (workload(runtime: nil), false, false),
-    (workload(context: .nonterminal), true, false),
-    (workload(context: .unverified), false, false),
-    (workload(evidence: .ambiguous), false, true),
-    (workload(evidence: .runtimeOnly), false, true),
-    // A listed session has no marker-carried inbox, so messaging stays closed.
-    (workload(evidence: .sessionRegistry), false, true),
+    (workload(), true),
+    (workload(runtime: nil), false),
+    (workload(context: .nonterminal), false),
+    (workload(context: .unverified), false),
 ])
-func snapshotEligibilityUsesTheExecutionPrerequisites(
-    process: HeavyProcess, message: Bool, focus: Bool
-) {
-    #expect(SessionActions.canMessage(process) == message)
+func snapshotFocusEligibilityUsesTheExecutionPrerequisites(process: HeavyProcess, focus: Bool) {
     #expect(SessionActions.canFocusTerminal(process) == focus)
 }
 

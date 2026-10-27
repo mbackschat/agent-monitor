@@ -20,11 +20,13 @@ final class DiagnosisFixture: DiagnosisReading, SamplingClock, SessionRegistryRe
     let failingScan: Int?
     let registryOutput: Data?
     let cancellation: CancellationPoint?
+    let isAvailable: Bool
 
     init(
         _ snapshots: [ProcessSnapshot], metadata: [ProcessIdentity: DiagnosisObservation] = [:],
         missing: Set<ProcessIdentity> = [], failingScan: Int? = nil,
-        registryOutput: Data? = Data("[]".utf8), cancellation: CancellationPoint? = nil
+        registryOutput: Data? = Data("[]".utf8), cancellation: CancellationPoint? = nil,
+        registryAvailable: Bool = true
     ) {
         self.snapshots = snapshots
         self.metadata = metadata
@@ -32,6 +34,7 @@ final class DiagnosisFixture: DiagnosisReading, SamplingClock, SessionRegistryRe
         self.failingScan = failingScan
         self.registryOutput = registryOutput
         self.cancellation = cancellation
+        isAvailable = registryAvailable
     }
 
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
@@ -64,6 +67,48 @@ final class DiagnosisFixture: DiagnosisReading, SamplingClock, SessionRegistryRe
 }
 
 @Suite struct CPUDiagnosisSessionTests {
+    @Test(arguments: [false, true])
+    func offlineDiagnosisPreservesNativeEvidenceWithoutAttemptingAListing(injectUnavailableRegistry: Bool)
+        async throws
+    {
+        let values = scans { index in
+            [
+                sample(10, executable: runtimePath, at: 10 + Double(index) * 2, cpu: Double(index)),
+                sample(20, parent: 10, at: 10 + Double(index) * 2, cpu: Double(index)),
+            ]
+        }
+        let worker = values[3].samples[1].identity
+        let fake = DiagnosisFixture(
+            values,
+            metadata: [
+                worker: .observed(
+                    ProcessMetadata(
+                        markers: [SessionMarker(threadID: sessionA, provider: .claude)], status: .markerRead))
+            ],
+            registryAvailable: false)
+        let session: CPUDiagnosisSession
+        if injectUnavailableRegistry {
+            session = CPUDiagnosisSession(reader: fake, clock: fake, registry: fake)
+        } else {
+            session = CPUDiagnosisSession(reader: fake, clock: fake)
+        }
+        let result = try await session.run()
+        #expect(result.contributors.count == 2)
+        #expect(result.contributors.allSatisfy { $0.cpuSeconds == 3 })
+        #expect(result.providerLookups.isEmpty)
+        #expect(!result.diagnostics.contains(.providerLookupFailed))
+        #expect(fake.state.withLock { $0.lookups } == 0)
+        for contributor in result.contributors {
+            guard case .available(_, let attribution) = contributor.attribution else {
+                Issue.record("Expected native attribution evidence")
+                continue
+            }
+            #expect(attribution.provider == .claude)
+            #expect(attribution.evidence == (contributor.sample.identity == worker ? .marker : .runtimeOnly))
+            #expect(attribution.threadID == (contributor.sample.identity == worker ? sessionA : nil))
+        }
+    }
+
     @Test func helpersRetainExactLifetimesWithoutAnObservedMonitorOrExtraEnrichment() async throws {
         let fake = DiagnosisFixture(
             (0...3).map { index in

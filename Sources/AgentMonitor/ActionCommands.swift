@@ -156,12 +156,8 @@ struct KillCommand: AsyncParsableCommand {
 struct MessageCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "message",
-        abstract: "Message the Codex or Claude Code session of a process after reviewing it.",
-        discussion: """
-            The selected PID and process name are prepended. Exit status: 0 accepted (delivery and \
-            action not confirmed), 1 nothing was sent, 2 the message may have been accepted; check \
-            the session before retrying.
-            """)
+        abstract: "Unavailable: provider messaging cannot be guaranteed offline.",
+        discussion: "No provider helper is started and no message is sent. Exit status: 1.")
 
     @Option(help: "PID of the process whose session receives the message.")
     var pid: Int32

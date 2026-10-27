@@ -35,8 +35,6 @@ final class MenuBarModel {
     private(set) var isOpen = false
     private(set) var error: String?
     private(set) var lastActionResult: ActionResult?
-    private(set) var savedMessage: SavedMessage?
-    private(set) var messageCopyStatus: String?
     private(set) var diagnosisCopyStatus: String?
     private(set) var liveIcon = true
     private(set) var isPerformingAction = false
@@ -151,20 +149,9 @@ final class MenuBarModel {
     }
 
     func close() {
+        showsKeyboardHelp = false
         commands.dismiss()
         diagnosis.dismiss()
-        if let panel = report.actionPanel {
-            switch panel.phase {
-            case .compose, .review:
-                if !panel.text.isEmpty {
-                    savedMessage = SavedMessage(
-                        process: panel.process, sampledAt: panel.sampledAt,
-                        text: panel.text, recipientID: panel.recipient?.id)
-                }
-            default: break
-            }
-        }
-        messageCopyStatus = nil
         isOpen = false
         liveInterval.setPanelVisible(false)
         generation = UUID()
@@ -260,17 +247,13 @@ final class MenuBarModel {
             switch kind {
             case .terminate: return true
             case .focus: return SessionActions.canFocusTerminal(process)
-            case .message: return savedMessage == nil && SessionActions.canMessage(process)
+            case .message: return SessionActions.canMessage(process)
             }
         }
     }
 
     func begin(_ kind: ProcessActionKind, row: LiveReportRowID) {
         guard isOpen, !isPerformingAction, !diagnosis.state.isVisible, report.actionPanel == nil else {
-            return
-        }
-        if case .message = kind, let savedMessage {
-            if row == .process(savedMessage.process.process) { resumeMessage() }
             return
         }
         guard canBegin(kind, row: row) else { return }
@@ -331,40 +314,9 @@ final class MenuBarModel {
         return next
     }
 
-    func resumeMessage() {
-        guard isOpen, !isPerformingAction, !diagnosis.state.isVisible, report.actionPanel == nil,
-            let savedMessage
-        else { return }
-        perform(report.beginMessage(for: savedMessage.process, sampledAt: savedMessage.sampledAt))
-    }
-
-    func discardMessage() {
-        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil else { return }
-        savedMessage = nil
-    }
-
     func input(_ input: ActionInput) {
         guard isOpen else { return }
-        messageCopyStatus = nil
         perform(report.actionInput(input))
-    }
-
-    func setMessage(_ text: String) {
-        guard report.actionPanel?.phase == .compose else { return }
-        messageCopyStatus = nil
-        report.actionPanel?.replaceText(text)
-    }
-
-    @discardableResult
-    func copyMessage(using write: @MainActor (String) -> Bool = MenuBarClipboard.copy) -> Bool {
-        guard isOpen, let panel = report.actionPanel, let draft = panel.draft else { return false }
-        switch panel.phase {
-        case .compose, .review:
-            let copied = write(draft.message(panel.text))
-            messageCopyStatus = copied ? "Copied" : "Copy failed"
-            return copied
-        default: return false
-        }
     }
 
     private func perform(_ effect: ActionEffect?) {
@@ -378,37 +330,16 @@ final class MenuBarModel {
             }
             lastActionResult = nil
             do {
-                try Task.checkCancellation()
                 let result: ActionResult
                 switch effect {
-                case .prepare(let process):
-                    let draft = try await actions.prepareMessage(for: process)
-                    try Task.checkCancellation()
-                    guard isOpen, generation == token else { return }
-                    if let saved = savedMessage {
-                        guard saved.process == process,
-                            let index = draft.recipients.choices.firstIndex(where: {
-                                $0.id == saved.recipientID && $0.unavailableReason == nil
-                            })
-                        else {
-                            throw ActionFailure(
-                                "The original recipient is unavailable. Your draft is still saved.")
-                        }
-                        report.messagePrepared(draft)
-                        report.actionPanel?.replaceText(saved.text)
-                        report.actionPanel?.recipientIndex = index
-                        savedMessage = nil
-                        return
-                    }
-                    report.messagePrepared(draft)
-                    return
+                case .prepare, .send:
+                    throw ActionFailure(ProviderRuntimeAvailability.messagingUnavailableReason)
                 case .terminate(let process):
+                    try Task.checkCancellation()
                     try await actions.terminate(process)
                     result = .accepted(ActionWording.terminationAccepted(pid: process.process.pid))
-                case .send(let draft, let text, let recipient):
-                    try await actions.send(draft, text: text, recipient: recipient)
-                    result = .accepted(MessageWording.accepted(draft, recipient: recipient))
                 case .focus(let process):
+                    try Task.checkCancellation()
                     result = .accepted(FocusWording.result(try await actions.focusTerminal(of: process)))
                 }
                 finish(result, generation: token)

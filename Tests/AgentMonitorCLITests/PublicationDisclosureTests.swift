@@ -40,7 +40,13 @@ import Testing
     #expect(state.overview.coverageStatus.text.contains("Recent: 2 units coalesced"))
     #expect(state.overview.coverage.contains("coalesced range"))
     state.overview.enabled = false
-    #expect(LiveReportLayout.lines(state: state, width: 120, height: 24).contains { $0.text == disclosure })
+    let live = LiveReportLayout.lines(state: state, width: 120, height: 24)
+    #expect(live.contains { $0.text.contains("D diagnostics") })
+    state.showReference(.diagnostics)
+    let details = ReportReferenceLayout.content(state: state, page: .diagnostics).map(\.text).joined(
+        separator: "\n")
+    #expect(details.contains(disclosure))
+    #expect(details.contains("coalesced range"))
 }
 
 @Test(arguments: [60, 100, 140])
@@ -75,13 +81,17 @@ func processHeadersExposeReadGapsAndOverruns(width: Int) throws {
     state.overview.enabled = false
     let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
     let warnings = lines.prefix(10).filter { $0.style == .warning }.map(\.text).joined(separator: " ")
-    #expect(warnings.contains("Exited before read: 2"))
-    #expect(warnings.contains("1 overrun · max gap"))
+    #expect(warnings.contains("D diagnostics"))
+    state.showReference(.diagnostics)
+    let details = ReportReferenceLayout.content(state: state, page: .diagnostics).map(\.text).joined(
+        separator: "\n")
+    #expect(details.contains("Exited before read: 2"))
+    #expect(details.contains("1 overrun · max gap"))
     let textWarnings = TextReport.lines(snapshot).filter { $0.style == .warning }.map(\.text)
     #expect(textWarnings.contains { $0.contains("1 overrun · max gap") })
 }
 
-@Test func coverageSummaryUsesMetricsInsteadOfDiagnosticParagraphs() throws {
+@Test func passiveDiagnosticsRetainsCollectionCountsAndWarnings() throws {
     let snapshot = MonitoringSnapshot(
         cpuAccounting: CPUAccounting(
             hostBusyPercent: nil, logicalCPUCount: 8,
@@ -89,13 +99,14 @@ func processHeadersExposeReadGapsAndOverruns(width: Int) throws {
         timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 0.1,
         cpuThresholdPercent: 0, memoryThresholdBytes: 0,
         sampledProcessCount: 653, unreadableProcessCount: 9, findings: [])
-    let summary = SamplingCoverageSummary(snapshot: snapshot)
+    var state = LiveReportState()
+    state.receive(snapshot)
+    state.showReference(.diagnostics)
+    let summary = try #require(state.displaySamplingCoverage)
     #expect(summary.metrics.first { $0.id == "sampled" }?.value == "653")
     #expect(summary.metrics.first { $0.id == "failed" }?.value == "9")
     #expect(summary.metrics.first { $0.id == "failed" }?.warning == true)
-    let lines = summary.terminalLines(width: 80)
-    #expect(lines.count <= 4)
-    #expect(lines.allSatisfy { TerminalCells.width($0) <= 80 })
-    #expect(!lines.joined().contains("Totals are independent"))
-    #expect(!lines.joined().contains("Session CPU is"))
+    let content = ReportReferenceLayout.content(state: state, page: .diagnostics)
+    #expect(content.contains { $0.text == "Sampled: 653" })
+    #expect(content.contains { $0.text == "Read gaps: 9" && $0.style == .warning })
 }

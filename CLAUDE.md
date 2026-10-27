@@ -24,7 +24,7 @@ Diagnostic recording defaults off. Normal monitoring retains bounded working sta
 
 ## Start and scope
 
-Read [PLAN.md](PLAN.md) when resuming; it owns unfinished work and scope decisions. Process termination, Codex/Claude messaging and adapter-based terminal focus are shipped capabilities, not permission to act on live workloads. Proposals do not authorize implementation. Read-only search and review subagents are allowed; the tier-based delegation of the [working-model proposal](docs/proposals/agent-working-model.md) is not adopted. Keep unrelated product expansion outside the current task.
+Read [PLAN.md](PLAN.md) when resuming; it owns unfinished work and scope decisions. Process termination and adapter-based terminal focus are shipped capabilities, not permission to act on live workloads. Proposals do not authorize implementation. Read-only search and review subagents are allowed; the tier-based delegation of the [working-model proposal](docs/proposals/agent-working-model.md) is not adopted. Keep unrelated product expansion outside the current task.
 
 Before changing a subsystem, read its relevant contract below; do not reread unrelated guides or material already current in this session. If code bypasses its documented ownership, make the smallest authorized extraction before extending it. Surface a material scope conflict rather than building on the bypass. Keep implementation, architecture status and contributor guidance aligned in the same commit.
 
@@ -34,7 +34,7 @@ Do not fork or vendor-patch SwiftTUI; preserve the user's [dependency decision](
 
 ## Ownership and essential invariants
 
-Agent Monitor must not initiate Internet connections, directly or through helpers it launches. A local-looking provider command or a flag disabling nonessential traffic is not an offline guarantee. Do not add or approve a helper path without establishing how Internet access is prevented; surface unavailable attribution/actions instead of silently violating this requirement. This runtime rule applies to Mac, TUI and CLI; it does not prohibit development-time documentation lookup or dependency installation. [NET-01](PLAN.md#open-follow-ups) tracks the existing provider-helper gap; the rule is not a claim of implemented enforcement.
+Agent Monitor must not initiate Internet connections, directly or through helpers it launches. A local-looking provider command or a flag disabling nonessential traffic is not an offline guarantee. Do not add or approve a helper path without establishing how Internet access is prevented; surface unavailable attribution/actions instead of silently violating this requirement. This runtime rule applies to Mac, TUI and CLI; it does not prohibit development-time documentation lookup or dependency installation. The [offline runtime contract](docs/architecture.md#offline-runtime) defines the fail-closed provider paths and unavailable capabilities.
 
 | Target under `Sources/` | Owns |
 | --- | --- |

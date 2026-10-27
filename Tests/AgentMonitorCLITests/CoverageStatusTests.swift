@@ -5,7 +5,10 @@ import Testing
 @testable import AgentMonitorCore
 
 @Suite struct CoverageStatusTests {
-    private func snapshot(_ statuses: [NativeCounterStatus] = [], achievedPeriod: Double = 0.1) throws
+    private func snapshot(
+        _ statuses: [NativeCounterStatus] = [], achievedPeriod: Double = 0.1,
+        unmeasured: Int = 0, unmeasuredRange: LifetimeCountRange? = nil
+    ) throws
         -> MonitoringSnapshot
     {
         var ledger = CounterLedger()
@@ -29,7 +32,8 @@ import Testing
         return MonitoringSnapshot(
             cpuAccounting: CPUAccounting(
                 hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
-                unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
+                unmeasuredLifetimeCount: unmeasured, previousScanSeconds: nil,
+                unmeasuredLifetimeCountRange: unmeasuredRange),
             timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 0.1, cpuThresholdPercent: 0,
             memoryThresholdBytes: 0, sampledProcessCount: 0, unreadableProcessCount: statuses.count,
             findings: [], window: window.summary)
@@ -55,6 +59,27 @@ import Testing
         #expect(status.severity == .warning)
     }
 
+    @Test(arguments: [false, true])
+    func missingCPUCountsRemainVisibleWithCollectionWideScope(ranged: Bool) throws {
+        let report = try snapshot(
+            unmeasured: ranged ? 0 : 3,
+            unmeasuredRange: ranged ? LifetimeCountRange(minimum: 2, maximum: 5) : nil)
+        let status = CoverageStatus(snapshot: report)
+        let warning = try #require(status.notes.first)
+        #expect(warning.severity == .warning)
+        #expect(warning.text.contains(ranged ? "2–5" : "3"))
+        #expect(warning.help.contains("same-user"))
+        #expect(warning.help.contains("agent"))
+        var state = LiveReportState()
+        state.receive(report)
+        let live = LiveReportLayout.lines(state: state, width: 40, height: 8)
+        #expect(live.contains { $0.style == .warning && $0.text.contains("D diagnostics") })
+        state.showReference(.diagnostics)
+        let details = ReportReferenceLayout.content(state: state, page: .diagnostics)
+        #expect(details.contains { $0.text == warning.text && $0.style == .warning })
+        #expect(details.contains { $0.text == warning.help })
+    }
+
     /// A gap appearing or clearing must not move the rows under the user's selection.
     @Test(arguments: [60, 100, 140])
     func processHeaderReservesOneCoverageRow(width: Int) throws {
@@ -67,8 +92,10 @@ import Testing
         }
         let clean = header(try snapshot())
         let exited = header(try snapshot([.lookupUnavailable]))
-        #expect(clean.contains(ReportLine(CoverageStatus.clearText, style: .muted)))
-        #expect(exited.contains(ReportLine("Exited before read: 1 same-user PID", style: .normal)))
+        #expect(clean.contains(ReportLine("", style: .muted)))
+        #expect(
+            exited.contains(ReportLine("Exited before read: 1 same-user PID · D diagnostics", style: .normal))
+        )
         #expect(clean.count == exited.count)
         let text = TextReport.lines(try snapshot([.lookupUnavailable]))
         #expect(text.contains(ReportLine("Exited before read: 1 same-user PID", style: .normal)))

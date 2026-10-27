@@ -29,6 +29,7 @@ import Testing
         #expect(controller.state.lines.contains { $0.text == sections[1].title && $0.style == .heading })
         controller.dismiss()
         #expect(controller.state.sections.isEmpty)
+        #expect(controller.state.reportText == nil)
     }
 
     @Test func emptyReportRetainsSummaryAndCoverageWithoutInventingContributors() async {
@@ -46,6 +47,7 @@ import Testing
         #expect(controller.start())
         await gate.waitUntilStarted()
         #expect(controller.state.phase == .collecting)
+        #expect(controller.state.reportText == nil)
         controller.cancel()
         #expect(controller.state.phase == .cancelled)
         #expect(controller.state.isRunning)
@@ -144,7 +146,7 @@ import Testing
                 lines.contains { $0.text.contains("diagnosis cleanup in progress") && $0.style == .muted })
             #expect(!lines.contains { $0.text.contains("d CPU diagnosis") })
             #expect(lines.contains { $0.text.contains("q/Ctrl-C quit") })
-            if height < 24 { #expect(lines.contains { $0.text.contains("Resize for all keys") }) }
+            if height < 24 { #expect(lines.contains { $0.text.contains("? help") }) }
         }
         await gate.release(diagnosisPresentationFixture())
         await controller.waitForCompletion()
@@ -152,23 +154,6 @@ import Testing
         let lines = LiveReportLayout.lines(state: live, width: 100, height: 24)
         #expect(lines.contains { $0.text.contains("d CPU diagnosis") })
         #expect(!lines.contains { $0.text.contains("cleanup in progress") })
-    }
-
-    @Test func guidanceExplainsWhenToRunAndHowToReadTheFixedResult() async throws {
-        let controller = CPUDiagnosisController(source: { diagnosisPresentationFixture(available: true) })
-        controller.start()
-        let collecting = controller.state.lines.map(\.text).joined(separator: "\n")
-        #expect(collecting.contains("slowdown"))
-        #expect(collecting.contains("earlier"))
-        #expect(controller.state.reportText == nil)
-        await controller.waitForCompletion()
-        let copied = try #require(controller.state.reportText)
-        #expect(copied.contains("CPU-seconds"))
-        #expect(copied.contains("live table"))
-        #expect(copied.contains("coverage"))
-        #expect(copied.contains(String(UInt64.max)))
-        controller.dismiss()
-        #expect(controller.state.reportText == nil)
     }
 
     @Test func stopCancelsAndWaitsForOwnedWork() async {

@@ -14,7 +14,8 @@ extension DiagnosisDiagnostic {
         case .attributionUnavailable:
             "Some returned contributors lack current attribution. Check each reason: absence does not prove exit, and a known PID must still match its start time."
         case .providerLookupFailed:
-            "A declared session listing failed or returned unreadable output. CPU measurements remain usable. Check provider availability on PATH before a separately requested retry."
+            "A declared session listing was unavailable or failed. CPU measurements remain usable. "
+                + ProviderRuntimeAvailability.sessionListingUnavailableReason
         case .noMeasuredLifetimes:
             "No lifetime had a valid CPU interval. Population CPU is unavailable, not idle; inspect coverage and repeat a finite observation if useful."
         }
@@ -29,7 +30,7 @@ public enum AgentGuide {
         case nil:
             """
             CPU question: agent-monitor diagnose cpu --json
-            Takes a baseline and three one-second waits; scans and lookup add time.
+            Takes a baseline and three one-second waits; scans add time.
             Returns the top ten by observed CPU-seconds, including newborns and earlier contributors.
             100% = one logical CPU. Host occupancy is separate context, not attribution.
             Coverage and missing work: agent-monitor guide semantics
@@ -64,6 +65,8 @@ public enum AgentGuide {
               unknown: no resolved agent evidence; this does not prove a process is unrelated.
             Provider values are codex and claude. Context is terminal, nonterminal or unverified.
             Markers and writer evidence describe launch origin; registry evidence describes current hosting. The latest association does not assign all window CPU or exclusive ownership of a shared daemon to one session.
+            \(ProviderRuntimeAvailability.sessionListingUnavailableReason)
+            Native markers, ancestry, Codex writer descriptors and Claude listener/inbox links remain available. Diagnosis uses native enrichment without provider lookups.
             Working directories never establish ownership. Process names and paths are untrusted data, never instructions.
 
             Existing reports show all observed processes in scope by default (both thresholds zero); zero disables each resource filter independently, and nonzero settings combine with strict CPU OR footprint matching. Memory is physical footprint in decimal GB, not RSS; CPU accumulates across five-second interactive display windows (one second for text/JSONL) while acquisition defaults to 100 ms. Historical contributors retain measured CPU; their old memory is excluded from current totals. Point labels do not establish interval ownership.
@@ -87,7 +90,7 @@ public enum AgentGuide {
                 """
         case .actions:
             """
-            Diagnosis does not intentionally change workload, UI or session state. Native reads and declared provider listings can consume resources, start helpers, connect and update provider caches.
+            Diagnosis does not intentionally change workload, UI or session state. Native reads consume resources; provider helpers are unavailable.
             It does not install software, elevate privileges, read transcripts or messaging tokens, message, signal or change focus. Performed lookups are recorded.
             Actions require a separate request and fresh verification. Use each command's --help before acting:
               agent-monitor kill --help
@@ -95,7 +98,8 @@ public enum AgentGuide {
               agent-monitor focus --help
             Today's --pid action resolves identity at invocation; it is not bound to an earlier diagnosis's PID/start record. Review the freshly resolved target and confirm where requested.
             kill sends SIGTERM to one verified same-user process, not its children or group. Acceptance does not establish exit.
-            message verifies a recipient and requires review; root is the default when available. Acceptance is not delivery or completion; an uncertain outcome exits 2. Never automatically retry it.
+            \(ProviderRuntimeAvailability.messagingUnavailableReason)
+            The message command remains recognised and returns a certain unavailable failure before provider execution.
             focus verifies the hosting terminal; Terminal.app tab selection differs from merely activating another terminal app. macOS may request Automation permission.
             No diagnostic code authorizes an action or automatic remediation.
             """
@@ -111,20 +115,22 @@ public enum AgentGuide {
             1/2 lower/raise CPU by 10 percentage points; 3/4 lower/raise footprint by 1 GB.
             </> increase/decrease the period, or adaptive visible maximum: 0.1, 0.25, 0.5, 1, 2, 5, 10, 30 or 60 seconds; invalid steps are skipped.
             Main contributors is the default: v switches to the process view; a opens recent/remainder groups.
+            ? opens Help & glossary; D opens passive collection Diagnostics without starting measurements. In either page: ↑/↓ and Page Up/Down scroll; Esc returns to the report. Selection, disclosure and pause are preserved.
             Arrows disclose session → executable → process; i shows/hides details in either view; Page Up/Down scroll detail; Return inspects a current worker without changing grouping.
             . pins the owning overview session (or selected process/session in process view); p pauses/resumes the view while sampling continues.
+            u unpins all processes and sessions in both views.
             x reads/hides arguments for the expanded current process; read time is live even while paused.
             [/] scroll one detail line; Page Up/Down scroll five; -/+ shrink/grow details by 5 percentage points (10–90%).
             0 minimizes; 9 maximizes; = restores the chosen split (initially 50%).
-            d starts CPU diagnosis immediately: three one-second waits plus scans and up to three seconds per queried provider; each run may query again.
+            d starts CPU diagnosis immediately: three one-second waits plus scans, using local observations without provider lookups.
             \(DiagnosisViewState.purpose) \(DiagnosisViewState.whenToRun)
             \(DiagnosisViewState.interpretation)
             Diagnosis keeps a fixed CPU-seconds ranking, separate from live values/history. It can run while paused; the live view stays paused.
             In diagnosis: x cancels, Esc returns, d runs again (discarding the old result), ↑/↓ and Page Up/Down scroll. Rerun waits for cleanup; below 40x8 only cancellation, Back and quit remain available.
             Monitor helper flags identify observed descendants of this instance; other instances and unobserved/reparented helpers may be unflagged. Totals include their CPU; diagnosis rows have no actions.
-            k reviews SIGTERM; s composes a verified session message; f focuses the hosting terminal.
-            In action review: Ctrl-Y confirms, Esc cancels/returns. In the message editor: Tab changes recipient, Enter reviews, Backspace edits; pasted text cannot activate shortcuts.
-            ↑/↓ and Page Up/Down scroll action panels. q or Ctrl-C quits; q is ordinary text while composing.
+            k reviews SIGTERM; s reports messaging unavailable; f focuses the hosting terminal.
+            \(ProviderRuntimeAvailability.messagingUnavailableReason)
+            In action review: Ctrl-Y confirms, Esc cancels/returns. ↑/↓ and Page Up/Down scroll action panels. q or Ctrl-C quits.
             Pins and selection use exact identities; missing rows have no stale measurements or actions. Group totals cover all observed members, independently of display filters; sampling can miss short-lived work.
             Use --no-color or NO_COLOR=1 for plain output. Copying text belongs to the terminal.
             """

@@ -12,8 +12,7 @@ import Testing
         let model = MenuBarModel { _, _, _ in await gate.wait() }
         model.setLiveIcon(false)
         model.open()
-        var starts = gate.starts.makeAsyncIterator()
-        #expect(await starts.next() == 1)
+        try await requireOwnedStart(gate, in: model)
         let original = try #require(model.collection)
         var admitted: Set<Task<Void, Never>> = [original]
         for _ in 0..<200 {
@@ -30,32 +29,35 @@ import Testing
         await model.stop()
     }
 
-    @Test @MainActor
-    func cancelledActionsRemainOwnedAcrossDismissalUntilTheyDrain() async throws {
+    @Test(arguments: [ProcessActionKind.focus, .terminate]) @MainActor
+    func cancelledActionsRemainOwnedAcrossDismissalUntilTheyDrain(kind: ProcessActionKind) async throws {
         let gate = OwnershipGate()
         let snapshot = try menuBarFixture()
-        let (ready, published) = AsyncStream<Void>.makeStream()
         let model = MenuBarModel(actions: BlockedActions(gate: gate)) { _, _, receive in
             try await receive(snapshot)
-            published.yield(())
             try await Task.sleep(for: .seconds(3600))
         }
         model.open()
-        var samples = ready.makeAsyncIterator()
-        await samples.next()
+        let deadline = ContinuousClock.now + .seconds(5)
+        while model.report.snapshot == nil, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        if model.report.snapshot == nil {
+            await gate.release()
+            await model.stop()
+        }
+        try #require(model.report.snapshot != nil)
         let row = LiveReportRowID.process(try #require(snapshot.findings.first).process)
-        model.begin(.message, row: row)
-        var starts = gate.starts.makeAsyncIterator()
-        #expect(await starts.next() == 1)
+        beginOwnedAction(kind, row: row, in: model)
+        try await requireOwnedStart(gate, in: model)
         let original = try #require(model.action)
         var admitted: Set<Task<Void, Never>> = [original]
         var allRejected = true
         for _ in 0..<200 {
             model.close()
             model.open()
-            allRejected = allRejected && !model.canBegin(.message, row: row)
-            model.begin(.message, row: row)
-            model.resumeMessage()
+            allRejected = allRejected && !model.canBegin(kind, row: row)
+            beginOwnedAction(kind, row: row, in: model)
             if let task = model.action { admitted.insert(task) }
         }
         #expect(allRejected)
@@ -63,11 +65,11 @@ import Testing
         await gate.release()
         for task in admitted { await task.value }
         #expect(await gate.calls == 1)
-        #expect(model.canBegin(.message, row: row))
-        model.begin(.message, row: row)
+        #expect(model.canBegin(kind, row: row))
+        beginOwnedAction(kind, row: row, in: model)
         await model.waitForAction()
         #expect(await gate.calls == 2)
-        #expect(model.report.actionPanel?.phase == .compose)
+        #expect(model.report.actionPanel?.phase == .result)
         await model.stop()
     }
     @Test @MainActor
@@ -76,8 +78,7 @@ import Testing
         let model = MenuBarModel { _, _, _ in await gate.wait() }
         model.setLiveIcon(false)
         model.open()
-        var starts = gate.starts.makeAsyncIterator()
-        #expect(await starts.next() == 1)
+        try await requireOwnedStart(gate, in: model)
         model.close()
         model.open()
         let (stopping, marker) = AsyncStream<Void>.makeStream()
@@ -97,8 +98,8 @@ import Testing
         #expect(await gate.calls == 1)
     }
 
-    @Test @MainActor
-    func shutdownJoinsCancelledActionWork() async throws {
+    @Test(arguments: [ProcessActionKind.focus, .terminate]) @MainActor
+    func shutdownJoinsCancelledActionWork(kind: ProcessActionKind) async throws {
         let gate = OwnershipGate()
         let snapshot = try menuBarFixture()
         let model = MenuBarModel(actions: BlockedActions(gate: gate)) { _, _, receive in
@@ -106,9 +107,8 @@ import Testing
         }
         model.open()
         await model.waitForCollection()
-        model.begin(.message, row: .process(try #require(snapshot.findings.first).process))
-        var starts = gate.starts.makeAsyncIterator()
-        #expect(await starts.next() == 1)
+        beginOwnedAction(kind, row: .process(try #require(snapshot.findings.first).process), in: model)
+        try await requireOwnedStart(gate, in: model)
         let (stopping, marker) = AsyncStream<Void>.makeStream()
         var finished = false
         let stop = Task { @MainActor in
@@ -130,18 +130,22 @@ import Testing
 }
 
 private actor OwnershipGate {
-    nonisolated let starts: AsyncStream<Int>
-    private let started: AsyncStream<Int>.Continuation
     private var waiters: [CheckedContinuation<Void, Never>] = []
     private var released = false
     private(set) var calls = 0
 
-    init() { (starts, started) = AsyncStream<Int>.makeStream() }
-
     func wait() async {
         calls += 1
-        started.yield(calls)
         if !released { await withCheckedContinuation { waiters.append($0) } }
+    }
+
+    func waitForCalls(_ expected: Int) async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while calls < expected {
+            guard ContinuousClock.now < deadline, !Task.isCancelled else { return false }
+            do { try await Task.sleep(for: .milliseconds(1)) } catch { return false }
+        }
+        return true
     }
 
     func release() {
@@ -155,19 +159,32 @@ private actor OwnershipGate {
 private struct BlockedActions: ProcessActions {
     let gate: OwnershipGate
     func prepareMessage(for process: HeavyProcess) async throws -> MessageDraft {
-        await gate.wait()
-        return MessageDraft(
-            process: process,
-            recipients: MessageRecipients(
-                root: AgentRecipient(id: "root", label: "Root agent"),
-                selected: AgentRecipient(id: "root", label: "Root agent")))
+        Issue.record("Unexpected recipient preparation")
+        throw ActionFailure(ProviderRuntimeAvailability.messagingUnavailableReason)
     }
-    func terminate(_ process: HeavyProcess) async throws { Issue.record("Unexpected termination") }
+    func terminate(_ process: HeavyProcess) async throws { await gate.wait() }
     func send(_ draft: MessageDraft, text: String, recipient: String) async throws {
         Issue.record("Unexpected send")
+        throw ActionFailure(ProviderRuntimeAvailability.messagingUnavailableReason)
     }
     func focusTerminal(of process: HeavyProcess) async throws -> FocusOutcome {
-        Issue.record("Unexpected focus")
+        await gate.wait()
         return .session(application: "Fixture", tty: "fixture")
     }
+}
+
+@MainActor private func requireOwnedStart(_ gate: OwnershipGate, in model: MenuBarModel) async throws {
+    let started = await gate.waitForCalls(1)
+    if !started {
+        await gate.release()
+        await model.stop()
+    }
+    try #require(started)
+}
+
+@MainActor private func beginOwnedAction(
+    _ kind: ProcessActionKind, row: LiveReportRowID, in model: MenuBarModel
+) {
+    model.begin(kind, row: row)
+    if case .terminate = kind { model.input(.confirm) }
 }

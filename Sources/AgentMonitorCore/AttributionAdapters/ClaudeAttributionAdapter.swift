@@ -51,8 +51,9 @@ struct ClaudeAttributionAdapter: AgentAttributionAdapter {
     func isSharedRuntime(_ attribution: Attribution) -> Bool { false }
 
     /// `claude agents --json` is the documented way to read live session state from outside
-    /// Claude Code (https://code.claude.com/docs/en/agent-view). Nonessential traffic is disabled
-    /// because some listings otherwise opened HTTPS connections; see
+    /// Claude Code (https://code.claude.com/docs/en/agent-view). Production cannot execute this
+    /// query under the no-Internet runtime contract; the declaration and parser remain available
+    /// for disposable fixtures. See docs/architecture.md#offline-runtime and
     /// docs/research/claude-runtime-attribution.md.
     let sessionRegistry: SessionRegistryQuery? = SessionRegistryQuery(
         tool: "Claude Code", command: ["claude", "agents", "--json"],

@@ -6,7 +6,7 @@ enum MenuBarCollection {
     static func source(
         reader: @escaping @Sendable () throws -> any ProcessReading = { try NativeProcessReader() },
         clock: any AcquisitionClock = ContinuousSamplingClock(),
-        registry: any SessionRegistryReading = CommandSessionRegistryReader(),
+        registry: any SessionRegistryReading = OfflineSessionRegistryReader(),
         excluding: Set<Int32> = [ProcessInfo.processInfo.processIdentifier]
     ) -> MenuBarSource {
         let history = RecentActivityStore()

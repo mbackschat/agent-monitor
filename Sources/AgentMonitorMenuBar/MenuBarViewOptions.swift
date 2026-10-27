@@ -180,7 +180,7 @@ enum MenuBarOption: Equatable {
         add("Live menu bar icon", .liveIcon, checked: model.liveIcon, to: menu)
         addSamplingOptions(to: menu)
         menu.addItem(.separator())
-        add("Keyboard shortcuts", .keyboardHelp, checked: model.showsKeyboardHelp, to: menu)
+        add("Help & glossary", .keyboardHelp, checked: model.showsKeyboardHelp, to: menu)
     }
 
     private func addSamplingOptions(to menu: NSMenu) {

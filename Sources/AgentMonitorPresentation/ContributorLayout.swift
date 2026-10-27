@@ -15,15 +15,13 @@ public enum ContributorLayout {
             style: .muted)
         let range = ReportLine(
             "Recent " + overview.sourceDurationLabel
-                + " · CPU over \(String(format: "%.1f", overview.duration)) s · point candidates",
+                + " · CPU window \(String(format: "%.1f", overview.duration)) s",
             style: .muted)
         var header = [
             title, totals, history, range,
         ]
-        let status = overview.coverageStatus.addingInspection(overview.samplingCoverage?.inspection)
-        let coverage = TerminalCells.wrapped(status.text, to: width).map {
-            ReportLine($0, style: status.lineStyle)
-        }
+        let status = state.displayCoverageStatus
+        let coverage = [ReportLine(status.terminalSummary(width: width), style: status.lineStyle)]
         header.insert(contentsOf: coverage, at: 2)
         var filters =
             state.thresholds.isUnfiltered
@@ -33,10 +31,10 @@ public enum ContributorLayout {
         let heading = ReportLine(
             columns.row(
                 "GROUP / EXECUTABLE / PROCESS", cpu: "CPU", memory: "MEMORY", recent: "RECENT CPU",
-                now: "NOW"), style: .heading)
+                now: "PROCS"), style: .heading)
         header.append(heading)
         // UX-01 requires identity and resources together even when coverage grows. Optional
-        // chrome yields first; coverage can collapse only into an explicit counted summary.
+        // chrome yields first; Diagnostics retains the full coverage details.
         let minimumBody = rows.isEmpty ? 0 : 2
         let fullFooter = footerLines(state: state, width: width, compact: false)
         let fullHelpFits = coverage.count + filters.count + 2 + minimumBody + fullFooter.count <= height
@@ -45,14 +43,11 @@ public enum ContributorLayout {
         for optional in [history, range, heading] where header.count > headerLimit {
             if let index = header.firstIndex(of: optional) { header.remove(at: index) }
         }
-        if header.count > headerLimit, coverage.count > 2 {
-            header = [title, totals] + compactCoverage(status) + filters
-        }
         for optional in [totals, title] where header.count > headerLimit {
             if let index = header.firstIndex(of: optional) { header.remove(at: index) }
         }
         if header.count > headerLimit {
-            header = Array((compactCoverage(status) + filters).prefix(headerLimit))
+            header = Array((coverage + filters).prefix(headerLimit))
         }
         var content: [(ContributorID, ReportLine)] = []
         var continuations: Set<Int> = []
@@ -79,11 +74,7 @@ public enum ContributorLayout {
                 let fields =
                     row.node.inspectionFields.filter { $0.kind == .context }
                     + row.node.populationFields + row.node.inspectionFields.filter { $0.kind == .evidence }
-                let details =
-                    InspectionField.terminalLines(fields, width: max(10, width - indent.count - 2))
-                    + (row.id == .section(.uncertain)
-                        ? (overview.samplingCoverage?.terminalLines(width: max(10, width - indent.count - 2))
-                            ?? []) : [])
+                let details = InspectionField.terminalLines(fields, width: max(10, width - indent.count - 2))
                 for line in details {
                     content.append((row.id, ReportLine(indent + "  " + line, style: .muted)))
                 }
@@ -112,13 +103,6 @@ public enum ContributorLayout {
         }
     }
 
-    private static func compactCoverage(_ status: CoverageStatus) -> [ReportLine] {
-        return [
-            ReportLine(status.compactText, style: status.lineStyle),
-            ReportLine("Resize for coverage details", style: status.lineStyle),
-        ]
-    }
-
     private static func footerLines(
         state: LiveReportState, width: Int, compact: Bool
     ) -> [ReportLine] {
@@ -126,9 +110,9 @@ public enum ContributorLayout {
             state.diagnosis.isRunning ? DiagnosisViewState.cleanupHint : DiagnosisViewState.keyHint
         let pause = state.frozen ? "p resume" : "p pause"
         let controls = [
-            "↑/↓ select", "←/→ fold", "a show all", ". pin session", "u unpin all", "Enter inspect",
+            "↑/↓ select", "←/→ fold", "a show all", ". pin session", "Enter inspect",
             "c/m CPU/memory order", "i details", "PgUp/PgDn scroll", "v processes",
-            diagnosis, pause, "q quit",
+            diagnosis, "? help", pause, "q quit",
         ]
         var lines: [String] = []
         var line = ""
@@ -145,8 +129,8 @@ public enum ContributorLayout {
         if compact {
             lines =
                 state.diagnosis.isRunning
-                ? [diagnosis, "Resize for all keys | \(pause) | q quit"]
-                : ["\(diagnosis) | Resize for all keys", "\(pause) | q quit"]
+                ? [diagnosis, "? help | \(pause) | q quit"]
+                : ["? help | \(diagnosis)", "\(pause) | q quit"]
         }
         return lines.map { ReportLine($0, style: .muted) }
     }
@@ -166,7 +150,7 @@ public enum ContributorLayout {
             cpu = graphical ? 13 : (width < 60 ? 6 : 7)
             memory = graphical ? 15 : (width < 60 ? 8 : 9)
             recent = width >= 80 ? 10 : 7
-            now = width >= 80 ? 5 : (width < 60 ? 0 : 3)
+            now = width < 60 ? 0 : 5
             name = max(1, width - cpu - memory - recent - now - (now == 0 ? 3 : 4))
         }
 

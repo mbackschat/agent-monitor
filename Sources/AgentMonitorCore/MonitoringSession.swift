@@ -41,12 +41,15 @@ public struct ContinuousSamplingClock: SamplingClock {
 
 /// Runs a harness's declared session listing; injected so tests never start a provider CLI.
 package protocol SessionRegistryReading: Sendable {
+    var isAvailable: Bool { get }
     func output(of query: SessionRegistryQuery) throws -> Data
     func output(of query: SessionRegistryQuery, checking: @escaping @Sendable () throws -> Void) throws
         -> Data
 }
 
 extension SessionRegistryReading {
+    package var isAvailable: Bool { true }
+
     package func output(of query: SessionRegistryQuery, checking: @escaping @Sendable () throws -> Void)
         throws -> Data
     {
@@ -57,16 +60,26 @@ extension SessionRegistryReading {
     }
 }
 
+package struct OfflineSessionRegistryReader: SessionRegistryReading {
+    package init() {}
+
+    package var isAvailable: Bool { false }
+
+    package func output(of query: SessionRegistryQuery) throws -> Data {
+        throw BoundedCommandFailure(ProviderRuntimeAvailability.sessionListingUnavailableReason)
+    }
+}
+
 package struct CommandSessionRegistryReader: SessionRegistryReading {
     private let executable: URL
     private let prefix: [String]
     private let timeout: TimeInterval
 
-    /// Sampling uses a short timeout: a listing that cannot finish leaves runtimes unresolved for
-    /// that sample. `executable` and `prefix` let tests substitute a fake CLI.
+    /// Explicit executable injection is reserved for disposable fixtures. Production uses
+    /// OfflineSessionRegistryReader because CLI startup has no offline guarantee
+    /// (docs/architecture.md#offline-runtime).
     package init(
-        executable: URL = URL(fileURLWithPath: "/usr/bin/env"), prefix: [String] = [],
-        timeout: TimeInterval = 3
+        executable: URL, prefix: [String] = [], timeout: TimeInterval = 3
     ) {
         self.executable = executable
         self.prefix = prefix
@@ -228,7 +241,7 @@ public struct MonitoringSession: Sendable {
     ) {
         self.init(
             configuration: configuration, reader: reader, clock: clock,
-            registry: CommandSessionRegistryReader(),
+            registry: OfflineSessionRegistryReader(),
             excluding: excluding, recentActivity: recentActivity)
     }
 

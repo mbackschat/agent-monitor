@@ -313,7 +313,7 @@ private struct DisclosureChevronFixture: View {
     await model.stop()
 }
 
-@Test @MainActor func keyboardHelpFitsInsideTheFixedPanelAndSurvivesDismissal() async throws {
+@Test @MainActor func nativeHelpFitsItsOwnPageAndDismissesWithThePanel() async throws {
     let model = MenuBarModel { _, _, _ in }
     model.showsKeyboardHelp = true
     _ = NSApplication.shared
@@ -322,12 +322,11 @@ private struct DisclosureChevronFixture: View {
     host.layoutSubtreeIfNeeded()
     #expect(host.fittingSize == NSSize(width: 420, height: 560))
     let help = NSHostingView(
-        rootView: MenuBarKeyboardHelp { model.showsKeyboardHelp = false }
+        rootView: MenuBarReferenceContent(model: model, page: .glossary) { model.showsKeyboardHelp = false }
             .background(Color(nsColor: .windowBackgroundColor)))
-    help.frame.size.width = 388
+    help.frame.size = NSSize(width: 400, height: 480)
     help.layoutSubtreeIfNeeded()
-    #expect(help.fittingSize.height < 400)
-    #expect(help.fittingSize.width <= 388)
+    #expect(help.fittingSize == NSSize(width: 400, height: 480))
     if let path = ProcessInfo.processInfo.environment["MENUBAR_HELP_PREVIEW_PATH"] {
         help.frame.size.height = help.fittingSize.height
         help.layoutSubtreeIfNeeded()
@@ -337,7 +336,7 @@ private struct DisclosureChevronFixture: View {
             to: URL(fileURLWithPath: path))
     }
     model.close()
-    #expect(model.showsKeyboardHelp)
+    #expect(!model.showsKeyboardHelp)
     await model.stop()
 }
 
@@ -415,39 +414,6 @@ private struct DisclosureChevronFixture: View {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: base + "-\(metric.rawValue)-\(dark ? "dark" : "light").png"))
     }
-}
-
-@Test(
-    .enabled(if: ProcessInfo.processInfo.environment["MENUBAR_MESSAGE_PREVIEW_PATH"] != nil),
-    arguments: [false, true], [false, true])
-@MainActor func messageContextAndCopyRenderInsideFixedPanel(dark: Bool, review: Bool) async throws {
-    let output = try #require(ProcessInfo.processInfo.environment["MENUBAR_MESSAGE_PREVIEW_PATH"])
-    let snapshot = try menuBarFixture()
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
-    model.open()
-    await model.waitForCollection()
-    let process = try #require(snapshot.findings.first)
-    _ = model.report.beginMessage(for: process, sampledAt: snapshot.timestamp)
-    model.report.messagePrepared(
-        MessageDraft(
-            process: process,
-            recipients: MessageRecipients(
-                root: AgentRecipient(id: "synthetic-root", label: "Root agent"),
-                selected: AgentRecipient(id: "synthetic-root", label: "Root agent"))))
-    model.setMessage("Please inspect this workload and explain its resource use.")
-    if review { model.input(.review) }
-    _ = NSApplication.shared
-    let host = NSHostingView(
-        rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
-    host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
-    host.layoutSubtreeIfNeeded()
-    #expect(host.fittingSize == NSSize(width: 420, height: 560))
-    let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-    host.cacheDisplay(in: host.bounds, to: bitmap)
-    try #require(bitmap.representation(using: .png, properties: [:])).write(
-        to: URL(fileURLWithPath: output + "-\(dark ? "dark" : "light")-\(review ? "review" : "compose").png"))
-    await model.stop()
 }
 
 @Test @MainActor func nativePopoverAllowsAppKitDetachment() {

@@ -16,6 +16,42 @@ public enum IntervalAdjustment: Sendable { case faster, slower }
 public struct LiveReportState: Equatable, Sendable {
     public static let displayIntervalSeconds = 5.0
 
+    public private(set) var referencePage: ReportReferencePage?
+    public private(set) var referenceOffset = 0
+
+    public mutating func showReference(_ page: ReportReferencePage) {
+        guard actionPanel == nil, !diagnosis.isVisible else { return }
+        referencePage = page
+        referenceOffset = 0
+    }
+
+    public mutating func dismissReference() {
+        referencePage = nil
+        referenceOffset = 0
+    }
+
+    public mutating func scrollReference(by delta: Int, width: Int, height: Int) {
+        let maximum = ReportReferenceLayout.maximumOffset(state: self, width: width, height: height)
+        let offset = min(referenceOffset, maximum)
+        referenceOffset =
+            delta > 0
+            ? offset + min(delta, maximum - offset)
+            : max(0, offset + max(delta, -offset))
+    }
+
+    public var displayCoverageStatus: CoverageStatus {
+        if showsOverview {
+            return overview.coverageStatus.addingInspection(overview.samplingCoverage?.inspection)
+        }
+        return (snapshot.map(CoverageStatus.init(snapshot:)) ?? CoverageStatus(notes: []))
+            .addingInspection(snapshot?.window?.inspectionCoverage)
+    }
+
+    public var displaySamplingCoverage: SamplingCoverageSummary? {
+        if showsOverview { return overview.samplingCoverage }
+        return snapshot.map { SamplingCoverageSummary(snapshot: $0) }
+    }
+
     public var diagnosis = DiagnosisViewState() {
         didSet {
             if diagnosis.phase != oldValue.phase { diagnosisOffset = 0 }
@@ -182,7 +218,10 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public var visibleRows: [LiveReportRow] {
-        let projection = projection
+        visibleRows(in: projection)
+    }
+
+    func visibleRows(in projection: ReportProjection) -> [LiveReportRow] {
         return (projection.pinnedRows + projection.unpinnedRows).flatMap { row in
             switch row {
             case .group(let group):

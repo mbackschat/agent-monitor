@@ -21,6 +21,9 @@ public enum LiveReportLayout {
         if state.diagnosis.isVisible {
             return state.diagnosis.terminalLines(width: width, height: height, offset: state.diagnosisOffset)
         }
+        if state.referencePage != nil {
+            return ReportReferenceLayout.lines(state: state, width: width, height: height)
+        }
         if width < 40 || height < 8 {
             return Array(
                 [
@@ -56,11 +59,10 @@ public enum LiveReportLayout {
             width: width, height: height, headerHeight: header.count, frozen: state.frozen,
             diagnosisRunning: state.diagnosis.isRunning)
         if height - header.count - footer.count < minimumBody {
-            let coverage = (state.snapshot.map(CoverageStatus.init(snapshot:)) ?? CoverageStatus(notes: []))
-                .addingInspection(state.snapshot?.window?.inspectionCoverage)
+            let coverage = state.displayCoverageStatus
             // UX-01 puts the selected responsibility above optional chrome. Counts keep
-            // reduced coverage detail explicit; resizing restores the full notes.
-            let coverageText = coverage.compactText + (coverage.notes.isEmpty ? "" : " · resize")
+            // reduced coverage detail explicit; Diagnostics retains the full notes.
+            let coverageText = coverage.terminalSummary(width: width)
             header = [ReportLine(coverageText, style: coverage.lineStyle)]
             if !state.thresholds.isUnfiltered || filtersPending(state) {
                 header.append(ReportLine(filterText(state), style: .muted))
@@ -124,37 +126,30 @@ public enum LiveReportLayout {
             status = "Sampling baseline…"
         }
         let filters = filterText(state)
-        let context = ReportLine(
-            CPUContext.text(state.snapshot?.cpuAccounting)
-                + (state.snapshot?.window.map {
-                    " · window " + ReportNumber.text($0.durationSeconds) + " s; point candidates"
-                } ?? ""), style: .muted)
-        let coverageStatus = (state.snapshot.map(CoverageStatus.init(snapshot:)) ?? CoverageStatus(notes: []))
-            .addingInspection(state.snapshot?.window?.inspectionCoverage)
-        // One coverage row is always reserved, so a gap appearing or clearing does not move the
-        // panes; only an oversized status wraps. Both panes use the resulting height (architecture's TUI contract).
-        let coverage = TerminalCells.wrapped(coverageStatus.text, to: width).map {
-            ReportLine($0, style: coverageStatus.lineStyle)
-        }
+        let coverageStatus = state.displayCoverageStatus
+        // The on-demand diagnostics contract (docs/architecture.md) keeps a reserved status row
+        // so a coverage warning does not move the selected contributor.
+        let coverage = [
+            ReportLine(coverageStatus.terminalSummary(width: width), style: coverageStatus.lineStyle)
+        ]
 
         switch width {
         case 120...:
             return [
                 ReportLine(
                     title + " | " + abbreviated(status, width: width - title.count - filters.count - 6)
-                        + " | " + filters, style: .title),
-                context,
+                        + " | " + filters, style: .title)
             ] + coverage
         case 85..<120:
             return [
                 ReportLine(
                     title + " | " + abbreviated(status, width: width - title.count - 3), style: .title),
-                ReportLine(filters, style: .muted), context,
+                ReportLine(filters, style: .muted),
             ] + coverage
         default:
             return [
                 ReportLine(title, style: .title), ReportLine(status, style: .title),
-                ReportLine(filters, style: .muted), context,
+                ReportLine(filters, style: .muted),
             ] + coverage
         }
     }
@@ -166,12 +161,12 @@ public enum LiveReportLayout {
         let groups = [
             [
                 "↑/↓ select", "←/→ fold", "g group", "c/m/n/o sort", "r reverse",
-                ". pin", "u unpin all", diagnosisHint,
+                ". pin", diagnosisHint,
             ],
-            [frozen ? "p resume" : "p pause", "k terminate", "s message", "f focus"],
+            [frozen ? "p resume" : "p pause", "k terminate", "f focus"],
             ["1/2 CPU -/+10%", "3/4 GB -/+1", "</> interval"],
             ["Details: i", "Pg↑↓", "-/+ size", "0 hide", "9 max", "= restore"],
-            ["| q/Ctrl-C quit"],
+            ["? help", "| q/Ctrl-C quit"],
         ]
         var lines: [String] = []
         var line = ""
@@ -191,9 +186,9 @@ public enum LiveReportLayout {
         return lines.count <= height - headerHeight - 3
             ? lines
             : [
-                diagnosisRunning ? diagnosisHint : "\(diagnosisHint) | Resize for all keys",
+                diagnosisRunning ? diagnosisHint : "? help | \(diagnosisHint)",
                 diagnosisRunning
-                    ? "Resize for all keys | q/Ctrl-C quit"
+                    ? "? help | q/Ctrl-C quit"
                     : (frozen ? "p resume | q/Ctrl-C quit" : "p pause | q/Ctrl-C quit"),
             ]
     }
@@ -216,20 +211,33 @@ public enum LiveReportLayout {
 
     private static func processLines(state: LiveReportState, width: Int, height: Int) -> [ReportLine] {
         guard height > 0 else { return [] }
-        let rows = state.visibleRows
+        let projection = state.projection
+        let rows = state.visibleRows(in: projection)
+        let branches = childBranches(rows: rows, projection: projection, expanded: state.openGroups)
+        let identifiers = rows.compactMap { row -> String? in
+            switch row {
+            case .group(let group): "#\(group.observedCount)"
+            case .process(let process): String(process.process.pid)
+            case .unavailable: nil
+            }
+        }
         let groupMetrics = rows.compactMap { row -> (Double?, Double?)? in
             guard case .group(let group) = row else { return nil }
             return (group.cpuTotal, group.memoryGBTotal)
         }
         let metrics =
             state.rows.map { ($0.cpuPercent, $0.footprintBytes.map { Double($0) / 1e9 }) } + groupMetrics
-        let table = ReportTable(metrics: metrics, processNames: state.rows.map(processName))
+        let table = ReportTable(
+            metrics: metrics,
+            processNames: state.rows.map { (branches[$0.process] ?? "") + processName($0) },
+            identifiers: identifiers)
         let narrow = width < 85
+        let hasGroups = rows.contains { if case .group = $0 { true } else { false } }
         let columns = table.columns(for: width, leadingInset: narrow ? 0 : 2)
         let heading =
             narrow
-            ? table.directoryHeader(grouped: state.grouping == .session)
-            : "  " + table.header(columns: columns, grouped: state.grouping == .session)
+            ? table.directoryHeader(grouped: state.grouping == .session || hasGroups)
+            : "  " + table.header(columns: columns, grouped: state.grouping == .session, hasGroups: hasGroups)
         var lines = [ReportLine(heading, style: .muted)]
         let capacity = height - 1
         func rowHeight(_ row: LiveReportRow) -> Int {
@@ -264,12 +272,12 @@ public enum LiveReportLayout {
                 if narrow {
                     lines += narrowProcessLines(
                         row, selected: selected, state: state, table: table, directories: directories,
-                        width: width)
+                        branch: branches[row.process], width: width)
                 } else {
                     lines.append(
                         processLine(
                             row, state: state, table: table, columns: columns, directories: directories,
-                            width: width))
+                            branch: branches[row.process], width: width))
                 }
             case .unavailable(let pin):
                 let marker = TerminalRowMarker.text(selected: selected, pinned: true)
@@ -290,6 +298,19 @@ public enum LiveReportLayout {
         return padded(lines, to: height)
     }
 
+    private static func childBranches(
+        rows: [LiveReportRow], projection: ReportProjection, expanded: Set<SessionGroupID>
+    ) -> [ProcessIdentity: String] {
+        var branches: [ProcessIdentity: String] = [:]
+        for case .group(let group) in rows where expanded.contains(group.id) {
+            let children = projection.childrenByGroup[group.id] ?? []
+            for (index, child) in children.enumerated() {
+                branches[child.process] = index == children.count - 1 ? "└─ " : "├─ "
+            }
+        }
+        return branches
+    }
+
     private static func narrowGroupLines(
         _ group: SessionGroup, selected: Bool, state: LiveReportState, table: ReportTable, width: Int
     ) -> [ReportLine] {
@@ -298,6 +319,7 @@ public enum LiveReportLayout {
         let identity = group.sessionID.map { String($0.prefix(8)) } ?? group.sessionDescription
         let title =
             "\(marker)\(disclosure) \(group.provider?.rawValue ?? "unknown")/\(identity)"
+            + " · \(group.observedCount) \(group.observedCount == 1 ? "process" : "processes")"
             + (group.isRoot ? " root" : "")
             + (group.sessionName.map { " · " + $0 } ?? "")
         let style: ReportLine.Style = selected ? .selected : .heading
@@ -312,13 +334,14 @@ public enum LiveReportLayout {
 
     private static func narrowProcessLines(
         _ row: HeavyProcess, selected: Bool, state: LiveReportState, table: ReportTable,
-        directories: ProcessDirectoryLabels, width: Int
+        directories: ProcessDirectoryLabels, branch: String?, width: Int
     ) -> [ReportLine] {
         let marker = TerminalRowMarker.text(selected: selected, pinned: state.isPinned(.process(row.process)))
         let agent =
             "\(row.attribution.provider?.rawValue ?? "unknown")/\(sessionLabel(row, width: 8))"
         let title =
-            "\(marker)i " + (row.isHistorical ? "[past] " : "") + "\(agent) · \(row.observedName)"
+            marker + (branch ?? "") + "i " + (row.isHistorical ? "[past] " : "")
+            + "\(agent) · \(row.observedName)"
         let style: ReportLine.Style =
             selected ? .selected : (state.isPinned(.process(row.process)) ? .heading : .heavy)
         let directory = directories.label(for: row)
@@ -340,7 +363,7 @@ public enum LiveReportLayout {
             } ?? TerminalRowMarker.selection(selected)
         return table.rowPrefix(
             marker: marker,
-            pid: String(group.observedCount), cpu: group.cpuTotal,
+            pid: "#\(group.observedCount)", cpu: group.cpuTotal,
             memoryGB: group.memoryGBTotal, partialCPU: group.cpuPartial, partialMemory: group.memoryPartial)
     }
 
@@ -374,24 +397,21 @@ public enum LiveReportLayout {
 
     private static func processLine(
         _ row: HeavyProcess, state: LiveReportState, table: ReportTable, columns: ReportTable.Columns,
-        directories: ProcessDirectoryLabels, width: Int
+        directories: ProcessDirectoryLabels, branch: String?, width: Int
     ) -> ReportLine {
         let prefix = processPrefix(row, state: state, table: table, showInspectionMarker: true)
         let provider = row.attribution.provider?.rawValue ?? "unknown"
         let sessionWidth = max(8, columns.agent - provider.count - 1)
         let agent = "\(provider)/\(sessionLabel(row, width: state.grouping == .session ? 8 : sessionWidth))"
-        let historical = row.isHistorical ? "[past] " : ""
         let description: String
         switch state.grouping {
         case .session:
-            description =
-                historical
-                + groupedProcessDescription(
-                    row, agent: agent, directory: directories.label(for: row),
-                    width: width - TerminalCells.width(prefix + historical))
+            description = groupedProcessDescription(
+                row, agent: agent, directory: directories.label(for: row), branch: branch,
+                width: width - TerminalCells.width(prefix))
         case .none:
             description = flatDescription(
-                row, agent: agent, directory: directories.label(for: row), columns: columns)
+                row, agent: agent, directory: directories.label(for: row), branch: branch, columns: columns)
         }
         return ReportLine(
             prefix + description,
@@ -400,15 +420,16 @@ public enum LiveReportLayout {
     }
 
     private static func groupedProcessDescription(
-        _ row: HeavyProcess, agent: String, directory: String, width: Int
+        _ row: HeavyProcess, agent: String, directory: String, branch: String?, width: Int
     ) -> String {
         // A scrolled-away group header cannot supply ownership: reserve all three fields
         // before clipping individual text (product contract: information that belongs together).
         let agentWidth = min(TerminalCells.width(TextReport.safe(agent)), max(16, width / 3))
-        let workloadWidth = max(0, width - agentWidth - 8)
+        let guide = branch ?? ""
+        let workloadWidth = max(0, width - agentWidth - TerminalCells.width(guide) - 6)
         let processWidth = min(
-            TerminalCells.width(TextReport.safe(row.observedName)), max(8, workloadWidth / 2))
-        return "  " + abbreviated(row.observedName, width: processWidth)
+            TerminalCells.width(TextReport.safe(processName(row))), max(8, workloadWidth / 2))
+        return guide + abbreviated(processName(row), width: processWidth)
             + " · " + abbreviated(directory, width: max(0, workloadWidth - processWidth))
             + " · " + abbreviated(agent, width: agentWidth)
     }
@@ -418,9 +439,10 @@ public enum LiveReportLayout {
     }
 
     private static func flatDescription(
-        _ row: HeavyProcess, agent: String, directory: String, columns: ReportTable.Columns
+        _ row: HeavyProcess, agent: String, directory: String, branch: String?, columns: ReportTable.Columns
     ) -> String {
-        ReportTable.pad(abbreviated(processName(row), width: columns.process), to: columns.process) + " "
+        ReportTable.pad(
+            abbreviated((branch ?? "") + processName(row), width: columns.process), to: columns.process) + " "
             + ReportTable.pad(abbreviated(agent, width: columns.agent), to: columns.agent) + " "
             + abbreviated(directory, width: columns.directory)
     }

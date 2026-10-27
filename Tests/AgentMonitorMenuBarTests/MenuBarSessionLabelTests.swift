@@ -9,18 +9,22 @@ import Vision
 @testable import AgentMonitorMenuBar
 
 @Test(arguments: [false, true])
-@MainActor func compactNativeSessionLabelsKeepMatchingNamesAndDistinctIdentitiesVisible(dark: Bool) throws {
+@MainActor func compactNativeSessionLabelsKeepMatchingNamesAndDistinctIdentitiesVisible(dark: Bool)
+    async throws
+{
     _ = NSApplication.shared
     let overview = try namedSessionOverview()
     for (index, id) in overview.main.enumerated() {
         let node = try #require(overview.nodes[id])
         let host = NSHostingView(
-            rootView: MenuBarContributorSummary(node: node, overview: overview, expanded: false)
-                .frame(width: 376)
+            rootView: MenuBarContributorTableLabel(label: node.label)
+                .frame(width: 180)
                 .background(Color(nsColor: .windowBackgroundColor)))
         host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         host.layoutSubtreeIfNeeded()
         host.frame.size = host.fittingSize
+        let window = await mountOffscreenNativePreview(host)
+        defer { window.close() }
         let bitmap = try #require(
             NSBitmapImageRep(
                 bitmapDataPlanes: nil, pixelsWide: Int(host.bounds.width * 2),
@@ -29,8 +33,7 @@ import Vision
                 colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
         bitmap.size = host.bounds.size
         host.cacheDisplay(in: host.bounds, to: bitmap)
-        let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
+        let request = try nativeTextRecognitionRequest()
         try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
         let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
             .joined(separator: " ").lowercased()
@@ -63,7 +66,8 @@ import Vision
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
     host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
-    host.layoutSubtreeIfNeeded()
+    let window = await mountOffscreenNativePreview(host)
+    defer { window.close() }
     let bitmap = try #require(
         NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: 840, pixelsHigh: 1120, bitsPerSample: 8,
@@ -71,16 +75,15 @@ import Vision
             bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let request = VNRecognizeTextRequest()
-    request.recognitionLevel = .accurate
+    let request = try nativeTextRecognitionRequest()
     try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
     let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
         .joined(separator: " ").lowercased()
     #expect(text.contains("abcdabcd"), "\(text)")
     #expect(text.contains("12345678"), "\(text)")
     #expect(text.contains("build indexing"), "\(text)")
-    #expect(text.contains("work/backend"), "\(text)")
-    #expect(text.contains("tmp/web"), "\(text)")
+    #expect(text.contains("backend"), "\(text)")
+    #expect(text.contains("web"), "\(text)")
     if let output = ProcessInfo.processInfo.environment["MENUBAR_PROCESS_SESSION_LABEL_PREVIEW_PATH"] {
         let path = dark ? URL(fileURLWithPath: output).deletingPathExtension().path + "-dark.png" : output
         try #require(bitmap.representation(using: .png, properties: [:])).write(
@@ -105,7 +108,8 @@ import Vision
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
     host.frame = NSRect(x: 0, y: 0, width: 420, height: 700)
-    host.layoutSubtreeIfNeeded()
+    let window = await mountOffscreenNativePreview(host)
+    defer { window.close() }
     let text = try processDirectoryRenderText(
         host, output: ProcessInfo.processInfo.environment["MENUBAR_PROCESS_DIRECTORY_PREVIEW_PATH"])
     #expect(text.contains("work/api"), "\(text)")
@@ -163,7 +167,8 @@ import Vision
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
     host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
-    host.layoutSubtreeIfNeeded()
+    let window = await mountOffscreenNativePreview(host)
+    defer { window.close() }
     let output = ProcessInfo.processInfo.environment["MENUBAR_STANDALONE_PREVIEW_PATH"]
         .map { URL(fileURLWithPath: $0).deletingPathExtension().path + "-\(grouping.rawValue)-\(pinned).png" }
     let text = try processDirectoryRenderText(host, output: output)
@@ -262,8 +267,7 @@ private enum StandaloneEvidenceFixture: CaseIterable {
             bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let request = VNRecognizeTextRequest()
-    request.recognitionLevel = .accurate
+    let request = try nativeTextRecognitionRequest()
     try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
     if let output {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
@@ -288,8 +292,8 @@ private enum StandaloneEvidenceFixture: CaseIterable {
     #expect(families.count == 2)
     for (index, row) in families.enumerated() {
         let host = NSHostingView(
-            rootView: MenuBarContributorSummary(node: row.node, overview: overview, expanded: false)
-                .frame(width: 352).padding(8).background(Color(nsColor: .windowBackgroundColor)))
+            rootView: MenuBarContributorTableLabel(label: row.node.label)
+                .frame(width: 150).padding(8).background(Color(nsColor: .windowBackgroundColor)))
         host.appearance = NSAppearance(named: .aqua)
         host.layoutSubtreeIfNeeded()
         host.frame.size = host.fittingSize
@@ -301,7 +305,6 @@ private enum StandaloneEvidenceFixture: CaseIterable {
         let cwd = try #require(row.node.inspectionFields.first { $0.label == "Directory" }).value
         #expect(text.contains(cwd == "/work/app" ? "work/app" : "tmp/web"), "\(text)")
         #expect(text.contains("rust"), "\(text)")
-        #expect(text.contains("45"), "\(text)")
         #expect(host.fittingSize.height <= 44)
     }
 }

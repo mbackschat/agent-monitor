@@ -56,7 +56,7 @@ import Testing
     model.report.toggleDisclosure()
     let row = LiveReportRowID.process(sample.findings[0].process)
     #expect(model.canBegin(.terminate, row: row))
-    #expect(model.canBegin(.message, row: row))
+    #expect(!model.canBegin(.message, row: row))
     #expect(model.canBegin(.focus, row: row))
     model.begin(.terminate, row: row)
     #expect(model.report.actionPanel?.phase == .confirmTermination)

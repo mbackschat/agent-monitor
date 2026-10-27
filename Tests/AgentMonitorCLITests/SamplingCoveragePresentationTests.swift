@@ -23,8 +23,14 @@ import Testing
         #expect(metrics["sampling-override-recovery"]?.value == "1 × / 0.50 s")
         #expect(metrics["sampling-override-recovery"]?.help.contains("currently active") == true)
         #expect(metrics["sampling-changes"]?.value == "2")
-        let lines = summary.terminalLines(width: 100)
-        #expect(lines.allSatisfy { TerminalCells.width($0) <= 100 })
+        var state = LiveReportState()
+        state.receive(snapshot)
+        state.showReference(.diagnostics)
+        let content = ReportReferenceLayout.content(state: state, page: .diagnostics).map(\.text).joined(
+            separator: "\n")
+        #expect(content.contains("Requested / base: 100.00 / 300.00 ms"))
+        #expect(content.contains("Recovery: 1 × / 0.50 s"))
+        #expect(content.contains("12.50 s of enclosing support"))
     }
 
     @Test func baselineWithoutRateSupportShowsUnavailableRatherThanMeasuredZero() throws {

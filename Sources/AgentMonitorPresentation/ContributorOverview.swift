@@ -252,12 +252,16 @@ public struct ContributorOverview: Equatable, Sendable {
             guard let node = nodes[id] else { return }
             if node.process != nil && !node.stats.filtered.isEmpty { return }
             rows.append(ContributorRow(node: node, depth: depth))
-            if open.contains(id) || (showAll && (id == .section(.remainder) || id == .section(.recent))) {
+            if isExpanded(id) {
                 for child in node.children where !pinned.contains(child) { visit(child, depth: depth + 1) }
             }
         }
         for id in topLevel { visit(id, depth: 0) }
         return rows
+    }
+
+    public func isExpanded(_ id: ContributorID) -> Bool {
+        open.contains(id) || (showAll && (id == .section(.remainder) || id == .section(.recent)))
     }
 
     public mutating func resetInspection() {
@@ -300,8 +304,21 @@ public struct ContributorOverview: Equatable, Sendable {
     }
     public mutating func disclose(_ expanded: Bool) {
         guard let selection else { return }
+        setDisclosure(expanded: expanded, for: selection)
+    }
+    public mutating func setDisclosure(expanded: Bool, for id: ContributorID) {
+        guard let node = nodes[id], !node.children.isEmpty,
+            visibleRows.contains(where: { $0.id == id })
+        else { return }
         detailOffset = 0
-        if expanded { open.insert(selection) } else { open.remove(selection) }
+        if !expanded, showAll, id == .section(.recent) || id == .section(.remainder) {
+            open.formUnion([.section(.recent), .section(.remainder)])
+            showAll = false
+        }
+        if expanded { open.insert(id) } else { open.remove(id) }
+        if let selection, !visibleRows.contains(where: { $0.id == selection }) {
+            select(id)
+        }
     }
     @discardableResult public mutating func togglePin() -> Bool {
         func session(_ id: ContributorID) -> ContributorID? {

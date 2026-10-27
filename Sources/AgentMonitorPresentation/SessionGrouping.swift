@@ -84,7 +84,7 @@ public struct SessionGroup: Equatable, Sendable {
         let partial = cpuPartial || memoryPartial ? " | partial totals" : ""
         let changed = labelChangedInWindow ? " | Label changed in window" : ""
         return
-            "\(provider?.rawValue ?? "unknown")/\(session)\(kind)\(listedName) | \(observedCount) observed | \(project)\(partial)\(evidence)\(changed)"
+            "\(provider?.rawValue ?? "unknown")/\(session)\(kind)\(listedName) | \(observedCount) \(observedCount == 1 ? "process" : "processes") | \(project)\(partial)\(evidence)\(changed)"
     }
 
     private func sum(_ values: [Double?]) -> Double? {

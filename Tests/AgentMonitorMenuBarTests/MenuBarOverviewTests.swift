@@ -26,13 +26,22 @@ import Vision
     #expect(model.report.showsOverview)
     #expect(model.report.overview.main.count == 2)
     #expect(model.report.overview.nodes[.section(.recent)]?.stats.noLongerObserved.count == 1)
-    if let first = model.report.overview.main.first { model.report.overview.toggle(first) }
+    if let first = model.report.overview.main.first {
+        model.report.overview.setDisclosure(expanded: true, for: first)
+        if let child = model.report.overview.nodes[first]?.children.first {
+            model.report.overview.setDisclosure(expanded: true, for: child)
+        }
+    }
     _ = NSApplication.shared
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
     host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
-    host.layoutSubtreeIfNeeded()
+    let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    defer { window.close() }
+    window.contentView = host
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
     let bitmap = try #require(
         NSBitmapImageRep(
             bitmapDataPlanes: nil,
@@ -44,33 +53,8 @@ import Vision
     let path = dark ? URL(fileURLWithPath: output).deletingPathExtension().path + "-dark.png" : output
     try #require(bitmap.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: path))
     #expect(host.bounds.height == 560)
+    window.contentView = nil
     await model.stop()
-}
-
-@Test @MainActor func contributorSummaryUsesExtraHeightOnlyForSessionContext() throws {
-    var overview = ContributorOverview()
-    overview.receive(try nativeOverviewFixture())
-    _ = NSApplication.shared
-    for node in overview.nodes.values {
-        let host = NSHostingView(
-            rootView:
-                MenuBarContributorSummary(node: node, overview: overview, expanded: false)
-                .frame(width: 376))
-        host.layoutSubtreeIfNeeded()
-        switch node.label {
-        case .session: #expect(host.fittingSize.height <= 44)
-        case .text, .workload: #expect(host.fittingSize.height <= 22)
-        }
-        #expect(host.fittingSize.width == 376)
-    }
-}
-
-@Test @MainActor func collapsedSamplingDisclosureFitsACompactRow() throws {
-    _ = NSApplication.shared
-    let host = NSHostingView(
-        rootView: MenuBarSamplingCoverage(snapshot: try nativeOverviewFixture()).frame(width: 376))
-    host.layoutSubtreeIfNeeded()
-    #expect(host.fittingSize.height <= 22)
 }
 
 func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
@@ -106,12 +90,25 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
                     terminal: nil, runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []))
         }
     }
+    func source(_ samples: [ProcessSample], at time: Double) -> ProcessSnapshot {
+        let failures = (0..<unreadable).map { index in
+            NativeCounterOutcome(
+                pid: Int32(43000 + index), identity: nil, operation: .bsdInfo,
+                status: .permissionDenied, failure: nil, observedAtTicks: UInt64(time * 1e9))
+        }
+        return ProcessSnapshot(
+            samples: samples, enumeratedCount: samples.count + unreadable, unreadableCount: unreadable,
+            listedAt: time, scanSeconds: 0, hostCounters: nil, logicalCPUCount: 8,
+            nativeOutcomes: failures,
+            listedPIDs: samples.map(\.identity.pid) + failures.map(\.pid))
+    }
     let store = RecentActivityStore()
-    var baseline = ledger.ingest(values(0), listedAt: 0)
+    let initial = values(0)
+    var baseline = ledger.ingest(initial, listedAt: 0, source: source(initial, at: 0))
     var window = AccountingWindow(baseline: baseline)
     for tick in 1...2 {
         let samples = values(tick)
-        let scan = ledger.ingest(samples, listedAt: Double(tick))
+        let scan = ledger.ingest(samples, listedAt: Double(tick), source: source(samples, at: Double(tick)))
         let findings = rows(samples)
         var activity = AccountingWindow(baseline: baseline)
         try activity.append(scan, rows: findings)
@@ -132,7 +129,7 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
         window: projection.summary, recentActivity: store.snapshot())
 }
 
-@Test @MainActor func processReadGapsAreVisibleWithoutOpeningCoverage() async throws {
+@Test @MainActor func processReadGapsExposeAnActionableCoverageWarning() async throws {
     let snapshot = try nativeOverviewFixture(unreadable: 3)
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
@@ -143,7 +140,8 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
     host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
-    host.layoutSubtreeIfNeeded()
+    let window = await mountOffscreenNativePreview(host)
+    defer { window.close() }
     let bitmap = try #require(
         NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: 840, pixelsHigh: 1120,
@@ -151,13 +149,13 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let request = VNRecognizeTextRequest()
-    request.recognitionLevel = .accurate
+    let request = try nativeTextRecognitionRequest()
     try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
     let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
         .joined(separator: " ")
-    #expect(text.contains("Read gaps:"))
-    #expect(text.contains("3 same-user"))
+    #expect(text.contains("Coverage: 1 warning"))
+    #expect(text.contains("Details"))
+    #expect(model.report.displayCoverageStatus.notes.contains { $0.text.contains("3 same-user") })
     await model.stop()
 }
 
@@ -192,8 +190,7 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let request = VNRecognizeTextRequest()
-    request.recognitionLevel = .accurate
+    let request = try nativeTextRecognitionRequest()
     try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
     let recognized = (request.results ?? []).compactMap { observation in
         observation.topCandidates(1).first.map { (text: $0.string, bounds: observation.boundingBox) }
@@ -249,8 +246,7 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let request = VNRecognizeTextRequest()
-    request.recognitionLevel = .accurate
+    let request = try nativeTextRecognitionRequest()
     try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
     let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
     #expect(text.contains("read on demand"), "\(text)")
@@ -259,7 +255,7 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     #expect(text.contains("Hide"), "\(text)")
 }
 
-@Test @MainActor func contributorInfoIsSeparateFromFoldingAndGuardsHiddenArrowSelection() async throws {
+@Test @MainActor func contributorInfoIsSeparateFromFolding() async throws {
     let snapshot = try nativeOverviewFixture()
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
@@ -269,7 +265,6 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     #expect(!model.report.overview.detailsVisible)
     #expect(model.handleShortcut("i", row: nil))
     #expect(model.report.overview.detailsVisible)
-    #expect(!model.handleOverviewArrow(.downArrow, focus: .contributor(id)))
     #expect(model.report.overview.selection == id)
     #expect(model.handleShortcut("i", row: nil))
     #expect(!model.report.overview.detailsVisible)
@@ -301,8 +296,7 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let request = VNRecognizeTextRequest()
-    request.recognitionLevel = .accurate
+    let request = try nativeTextRecognitionRequest()
     try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
     let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
     #expect(text.contains("Agent"), "\(text)")
@@ -340,30 +334,9 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     host.frame.size = host.fittingSize
     let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let request = VNRecognizeTextRequest()
-    request.recognitionLevel = .accurate
+    let request = try nativeTextRecognitionRequest()
     try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
     let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
     #expect(text.contains("ugrep"), "\(text)")
     #expect(!text.contains("2.1.299"), "\(text)")
-}
-
-@Test @MainActor func contributorShortcutsUseFocusedRowInsteadOfStaleSelection() async throws {
-    let snapshot = try nativeOverviewFixture()
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
-    model.open()
-    await model.waitForCollection()
-    let first = try #require(model.report.overview.main.first)
-    let second = try #require(model.report.overview.main.last)
-    try #require(first != second)
-    model.report.overview.select(first)
-    #expect(model.handleShortcut("i", row: nil, focus: .contributor(second)))
-    #expect(model.report.overview.selection == second)
-    #expect(model.report.overview.detailsVisible)
-    #expect(model.handleShortcut("i", row: nil, focus: .contributor(second)))
-    #expect(!model.report.overview.detailsVisible)
-    #expect(model.handleShortcut(".", row: nil, focus: .contributor(first)))
-    #expect(model.report.overview.pinned.contains(first))
-    #expect(!model.report.overview.pinned.contains(second))
-    await model.stop()
 }

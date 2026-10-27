@@ -22,7 +22,7 @@ private let context = CPUAccounting(
     #expect(CPUContext.text(idle) == "CPU: host 0% of 800% · your measured processes 0% (0 without data)")
 }
 
-@Test func textAndTUIHeadersUseTheSameCPUContext() {
+@Test func textAndPassiveDiagnosticsRetainFullCPUContext() {
     let snapshot = MonitoringSnapshot(
         cpuAccounting: context, timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1,
         cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
@@ -30,8 +30,9 @@ private let context = CPUAccounting(
     #expect(TextReport.render(snapshot).contains(CPUContext.text(context)))
     var state = LiveReportState()
     state.receive(snapshot)
-    let lines = LiveReportLayout.lines(state: state, width: 120, height: 20)
-    #expect(lines.prefix(3).contains { $0.text == CPUContext.text(context) })
+    state.showReference(.diagnostics)
+    let content = ReportReferenceLayout.content(state: state, page: .diagnostics)
+    #expect(content.contains { $0.text == CPUContext.text(context) })
 }
 
 @Test func cpuContextDistinguishesAchievedAcquisitionFromResolverDelay() {

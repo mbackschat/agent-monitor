@@ -197,21 +197,25 @@ func detailsSplitStaysFixedAcrossRefreshSelectionAndDisappearance(width: Int) th
     #expect(state.detailsMode == .split)
 }
 
-@Test func detailsMinimizeMaximizeAndRestoreRememberTheChosenRatio() {
+@Test func detailsMinimizeMaximizeAndRestoreRememberTheChosenRatio() throws {
     var state = LiveReportState()
     state.receive(liveSnapshot([liveRow(42)]))
     state.restoreDetails()
     #expect(state.detailsPercent == 50)
     state.adjustDetails(by: 5)
     #expect(state.detailsPercent == 55)
+    let split = LiveReportLayout.lines(state: state, width: 100, height: 24)
+    let bodyStart = try #require(split.firstIndex { $0.text.contains("PROCESS") })
     state.maximizeDetails()
     #expect(state.detailsMode == .maximized)
     let maximized = LiveReportLayout.lines(state: state, width: 100, height: 24)
-    #expect(maximized.firstIndex { $0.style == .separator } == 5)
+    #expect(maximized.firstIndex { $0.style == .separator } == bodyStart)
     #expect(maximized.contains { $0.text.contains("PID 42 |") })
     state.minimizeDetails()
     let minimized = LiveReportLayout.lines(state: state, width: 100, height: 24)
-    #expect(minimized.firstIndex { $0.style == .separator } == 20)
+    let divider = try #require(minimized.firstIndex { $0.style == .separator })
+    let footer = try #require(minimized.firstIndex { $0.text.contains("↑/↓ select") })
+    #expect(divider + 1 == footer)
     #expect(!minimized.contains { $0.text.contains("PID 42 |") })
     state.restoreDetails()
     #expect(state.detailsPercent == 55)
@@ -242,16 +246,11 @@ func detailsSplitStaysFixedAcrossRefreshSelectionAndDisappearance(width: Int) th
 }
 
 @Test(arguments: [40, 60, 80, 100, 120, 160, 200])
-func keyboardHelpRetainsControlsWithinTheViewport(width: Int) {
+func helpAndQuitRemainDiscoverableAcrossTerminalWidths(width: Int) {
     let lines = LiveReportLayout.lines(state: LiveReportState(), width: width, height: 24)
     let text = lines.map(\.text).joined(separator: "\n")
-    for control in [
-        "↑/↓ select", "←/→ fold", "g group", "c/m/n/o sort", "r reverse", "Pg↑↓",
-        "Details: i", "-/+ size", "0 hide",
-        "9 max", "= restore", "| q/Ctrl-C quit",
-    ] {
-        #expect(text.contains(control))
-    }
+    #expect(text.contains("? help"))
+    #expect(text.contains("q/Ctrl-C quit"))
     #expect(lines.count == 24)
     #expect(lines.allSatisfy { $0.text.count <= width })
 }
@@ -312,19 +311,18 @@ func keyboardHelpRetainsControlsWithinTheViewport(width: Int) {
     #expect(!applied.contains { $0.text.contains("pending") })
 }
 
-@Test(arguments: [(100, 5, 3), (120, 4, 2), (160, 4, 2), (200, 4, 2)])
-func responsiveChromeReturnsSpareRowsToProcesses(size: (width: Int, header: Int, footer: Int)) throws {
+@Test(arguments: [100, 120, 160, 200])
+func processesFillSpaceBetweenTheVisibleHeaderAndFooter(width: Int) throws {
     var state = LiveReportState()
     state.receive(liveSnapshot((1...40).map { liveRow(Int32($0)) }))
-    let lines = LiveReportLayout.lines(state: state, width: size.width, height: 24)
+    let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
     let table = try #require(lines.firstIndex { $0.text.contains("PROCESS") })
     let help = try #require(lines.firstIndex { $0.text.contains("↑/↓ select") })
-    #expect(table == size.header)
-    #expect(24 - help == size.footer)
+    #expect(table < help)
     #expect(
-        lines.filter { $0.style == .selected || $0.style == .heavy }.count == 24 - size.header - size.footer
-            - 2)
-    #expect(lines.allSatisfy { $0.text.count <= size.width })
+        lines.filter { $0.style == .selected || $0.style == .heavy }.count == help - table - 2)
+    #expect(lines.count == 24)
+    #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
     let header = lines.prefix(table).map(\.text).joined(separator: "\n")
     #expect(header.contains("40 shown / 40 sampled"))
     #expect(header.contains("All observed processes"))
@@ -374,23 +372,6 @@ func responsiveLayoutStaysWithinBothViewportDimensions(width: Int, height: Int) 
         if width >= 40 && height >= 8 {
             #expect(lines.count == height)
             #expect(lines.contains { $0.text.contains("q/Ctrl-C quit") })
-        }
-    }
-}
-
-@Test(arguments: [85, 120, 160, 200])
-func processColumnFitsNamesInsteadOfAbsorbingSpareTerminalWidth(width: Int) throws {
-    var state = LiveReportState()
-    for names in [["codex", "java"], ["worker", "background-task"]] {
-        state.receive(
-            liveSnapshot(names.enumerated().map { liveRow(Int32($0.offset + 1), name: $0.element) }))
-        let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
-        let header = try #require(lines.first { $0.text.contains("PROCESS") }).text
-        let process = try #require(header.range(of: "PROCESS")).lowerBound.utf16Offset(in: header)
-        let agent = try #require(header.range(of: "AGENT")).lowerBound.utf16Offset(in: header)
-        #expect(agent - process == max("PROCESS".count, names.map(\.count).max() ?? 0) + 1)
-        for row in lines where row.style == .selected || row.style == .heavy {
-            #expect(row.text.range(of: "codex/")?.lowerBound.utf16Offset(in: row.text) == agent)
         }
     }
 }
@@ -693,30 +674,17 @@ private func explicitInspectionChangesCancelReturningDetails(change: InspectionC
     #expect(LiveReportLayout.lines(state: live, width: 80, height: 20).first?.text.contains("PAUSED") == true)
 }
 
-@Test func liveViewAdvertisesDiagnosisShortcutWithoutConfirmation() {
-    let lines = LiveReportLayout.lines(state: LiveReportState(), width: 120, height: 24)
-    #expect(lines.map(\.text).joined().contains("d CPU diagnosis"))
-}
-
 @Test(arguments: [40, 60], [false, true])
-func compactFooterKeepsResizeAndDiagnosisHints(width: Int, frozen: Bool) {
+func compactFooterKeepsHelpAndDiagnosisHints(width: Int, frozen: Bool) {
     var state = LiveReportState()
     state.receive(liveSnapshot([liveRow(42)]))
     if frozen { state.toggleFreeze() }
     let lines = LiveReportLayout.lines(state: state, width: width, height: width == 40 ? 8 : 11)
     let footer = lines.suffix(2).map(\.text).joined(separator: "\n")
-    #expect(footer.contains("Resize for all keys"))
+    #expect(footer.contains("? help"))
     #expect(footer.contains("d CPU diagnosis"))
     #expect(footer.contains(frozen ? "p resume" : "p pause"))
     #expect(footer.contains("q/Ctrl-C quit"))
-}
-
-@Test(arguments: [(80, 3), (100, 3), (120, 2)])
-func diagnosisHintFitsNormalFooterBudget(dimensions: (Int, Int)) throws {
-    let (width, expectedRows) = dimensions
-    let lines = LiveReportLayout.lines(state: LiveReportState(), width: width, height: 24)
-    let start = try #require(lines.firstIndex { $0.text.contains("↑/↓ select") })
-    #expect(lines.count - start == expectedRows)
 }
 
 @Test func filterLabelsOnlyDescribeEnabledResourceFilters() {

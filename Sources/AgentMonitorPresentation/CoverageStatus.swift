@@ -2,9 +2,9 @@ import AgentMonitorCore
 
 /// The one-row coverage status shared by the overview and process views of every host.
 ///
-/// Hosts always reserve the row, showing ``clearText`` when nothing is noted, so a gap appearing
-/// or clearing does not move the rows under the user's selection. Warnings mark measurements the
-/// monitor tried and failed to take; notices mark expected polling limits and reduced resolution.
+/// Interactive hosts reserve an empty row when nothing is noted, so a gap appearing or clearing
+/// does not move the rows under selection. Warnings mark missing measurements or coverage risks;
+/// notices mark expected polling limits and reduced resolution.
 public struct CoverageStatus: Equatable, Sendable {
     public enum Severity: Equatable, Sendable { case warning, notice }
 
@@ -58,6 +58,20 @@ public struct CoverageStatus: Equatable, Sendable {
         } else if let count = snapshot.window?.readCoverage.unidentifiedFailureObservations, count > 0 {
             notes.append(Self.unidentified(count))
         }
+        let unmeasured =
+            snapshot.cpuAccounting.unmeasuredLifetimeCountRange
+            ?? LifetimeCountRange(
+                minimum: snapshot.cpuAccounting.unmeasuredLifetimeCount,
+                maximum: snapshot.cpuAccounting.unmeasuredLifetimeCount)
+        if unmeasured.maximum > 0 {
+            notes.append(
+                Note(
+                    "CPU unavailable: \(unmeasured.text) \(unmeasured.maximum == 1 ? "lifetime" : "lifetimes")",
+                    .warning,
+                    help:
+                        "Observed same-user process lifetimes in the display window without a usable CPU interval, before agent scope and display filters. This collection-wide count does not assign missing work to an agent. Missing CPU is not zero."
+                ))
+        }
         if let window = snapshot.window {
             notes += [Self.overruns(window.acquisitionCoverage)].compactMap { $0 }
             if let pressure = AccountingContext.pressure(window) {
@@ -77,6 +91,29 @@ public struct CoverageStatus: Equatable, Sendable {
         notes.contains { $0.severity == .warning } ? .warning : notes.isEmpty ? nil : .notice
     }
     public var text: String { notes.isEmpty ? Self.clearText : notes.map(\.text).joined(separator: " · ") }
+    public var summaryText: String {
+        guard !notes.isEmpty else { return Self.clearText }
+        let warnings = notes.filter { $0.severity == .warning }.count
+        let notices = notes.count - warnings
+        let counts = [
+            warnings > 0 ? "\(warnings) \(warnings == 1 ? "warning" : "warnings")" : nil,
+            notices > 0 ? "\(notices) \(notices == 1 ? "notice" : "notices")" : nil,
+        ].compactMap { $0 }.joined(separator: ", ")
+        return "Coverage: " + counts
+    }
+
+    public func terminalSummary(width: Int) -> String {
+        guard !notes.isEmpty else { return "" }
+        let action = " · D diagnostics"
+        let first = notes[0].text + (notes.count > 1 ? " · +\(notes.count - 1)" : "")
+        if TerminalCells.width(first + action) <= width { return first + action }
+        let warnings = notes.filter { $0.severity == .warning }.count
+        let compact =
+            warnings > 0
+            ? "Coverage: \(warnings) \(warnings == 1 ? "warning" : "warnings")"
+            : "Coverage: \(notes.count) \(notes.count == 1 ? "notice" : "notices")"
+        return compact + action
+    }
     public var help: String {
         notes.isEmpty ? SamplingCoverageSummary.interpretation : notes.map(\.help).joined(separator: "\n")
     }

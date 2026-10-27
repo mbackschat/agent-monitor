@@ -105,6 +105,38 @@ public enum TerminalReport {
                     }
                     return .handled
                 }
+                if state.state.referencePage != nil {
+                    guard key.modifiers.isEmpty || key.modifiers == .shift else { return .handled }
+                    let size = host.surfaceSize
+                    switch key.key {
+                    case .character("q"): return .exit(.userExit(key))
+                    case .escape: state.mutate { $0.dismissReference() }
+                    case .character("?"): state.mutate { $0.showReference(.glossary) }
+                    case .character("D"): state.mutate { $0.showReference(.diagnostics) }
+                    case .arrowUp, .arrowDown, .pageUp, .pageDown, .character("["), .character("]"):
+                        let delta: Int
+                        switch key.key {
+                        case .arrowUp, .character("["): delta = -1
+                        case .arrowDown, .character("]"): delta = 1
+                        case .pageUp: delta = -max(1, size.height - 3)
+                        default: delta = max(1, size.height - 3)
+                        }
+                        state.mutate { $0.scrollReference(by: delta, width: size.width, height: size.height) }
+                    default: break
+                    }
+                    return .handled
+                }
+                if key.modifiers.isEmpty || key.modifiers == .shift {
+                    switch key.key {
+                    case .character("?"):
+                        state.mutate { $0.showReference(.glossary) }
+                        return .handled
+                    case .character("D"):
+                        state.mutate { $0.showReference(.diagnostics) }
+                        return .handled
+                    default: break
+                    }
+                }
                 if key.modifiers == .shift {
                     let expanded: Bool
                     switch key.key {

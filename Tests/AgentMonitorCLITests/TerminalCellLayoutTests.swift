@@ -21,7 +21,7 @@ import Testing
 
     @Test(arguments: [
         "", "ASCII", "编译器", "ＡＢＣ", "e\u{301}", "\u{301}", "👍🏽", "👩‍💻", "🇩🇪", "1️⃣",
-        "©", "©️", "©︎", "─…←", "\u{200D}", "\u{20000}",
+        "©", "©️", "©︎", "─…←", "├─", "└─", "\u{200D}", "\u{20000}",
     ]) func widthsMatchPinnedRenderer(text: String) {
         #expect(TerminalCells.width(text) == cells(text))
     }
@@ -81,6 +81,21 @@ import Testing
         let lines = LiveReportLayout.lines(state: state, width: 40, height: 60)
         #expect(lines.allSatisfy { cells($0.text) <= 40 })
         #expect(lines.map(\.text).joined().contains("/" + String(repeating: "编译", count: 35)))
+    }
+
+    @Test func groupCountsAndPIDsKeepHeadersAlignedWhenIdentifiersGrow() throws {
+        let table = ReportTable(
+            metrics: [(80, 2), (40, 1)], processNames: ["worker"], identifiers: ["#1000000", "42"])
+        let header = "  " + table.header(columns: table.columns(for: 120, leadingInset: 2), grouped: true)
+        let parent = table.rowPrefix(marker: "  ▾", pid: "#1000000", cpu: 80, memoryGB: 2)
+        let child = table.rowPrefix(marker: "> i", pid: "42", cpu: 40, memoryGB: 1)
+        for (heading, total, individual) in [("CPU%", "80.00", "40.00"), ("GB", "2.00", "1.00")] {
+            let headerEnd = try #require(header.range(of: heading)).upperBound
+            let parentEnd = try #require(parent.range(of: total)).upperBound
+            let childEnd = try #require(child.range(of: individual)).upperBound
+            #expect(cells(String(header[..<headerEnd])) == cells(String(parent[..<parentEnd])))
+            #expect(cells(String(parent[..<parentEnd])) == cells(String(child[..<childEnd])))
+        }
     }
 
     private func cells(_ value: String) -> Int { layoutText(for: value, width: nil).size.width }

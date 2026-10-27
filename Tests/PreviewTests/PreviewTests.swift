@@ -43,8 +43,7 @@ func previewPositionsTerminalCellsWithoutStretchingGlyphs(text: String) {
 
 @Test(arguments: [60, 85, 120, 160], [false, true])
 func previewFixtureUsesProductionLayoutAcrossWidths(width: Int, grouped: Bool) throws {
-    var state = try Preview.state()
-    if grouped { state.toggleGrouping() }
+    let state = try Preview.state(grouped: grouped)
     let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
     #expect(lines.count == 24)
     #expect(lines.allSatisfy { $0.text.count <= width })
@@ -53,4 +52,9 @@ func previewFixtureUsesProductionLayoutAcrossWidths(width: Int, grouped: Bool) t
     let svg = Preview.svg(lines: lines, width: width, height: 24)
     #expect(svg.contains("SYNTHETIC DATA"))
     #expect(!svg.contains("/Users/"))
+    if grouped, let directory = ProcessInfo.processInfo.environment["TUI_GROUPED_PREVIEW_DIRECTORY"] {
+        try svg.write(
+            to: URL(fileURLWithPath: directory).appendingPathComponent("grouped-\(width).svg"),
+            atomically: true, encoding: .utf8)
+    }
 }

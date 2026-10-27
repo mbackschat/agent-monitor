@@ -153,7 +153,7 @@ func sessionTotalsIncludeProcessesHiddenByDisplayFilters(showBusy: Bool) throws 
     #expect(state.selectedGroup == selected)
     let lines = LiveReportLayout.lines(state: state, width: 120, height: 24)
     #expect(lines.contains { $0.text.contains("all observed totals") })
-    #expect(lines.contains { $0.text.contains("80.00") && $0.text.contains("2 observed") })
+    #expect(lines.contains { $0.text.contains("80.00") && $0.text.contains("2 processes") })
 }
 
 @Test func reusedPIDDoesNotInheritAnUnresolvedGroupsExpansion() throws {

@@ -175,10 +175,8 @@ public struct SessionActions: ProcessActions {
         return try focus.focus(runtime: Self.focusRuntime(for: process))
     }
 
-    /// Snapshot eligibility only; execution still verifies the live process and recipient.
-    public static func canMessage(_ process: HeavyProcess) -> Bool {
-        (try? validateMessaging(process)) != nil
-    }
+    /// Provider transports remain unavailable under docs/architecture.md#offline-runtime.
+    public static func canMessage(_ process: HeavyProcess) -> Bool { false }
 
     /// Snapshot eligibility only; the focus adapter still verifies the runtime.
     public static func canFocusTerminal(_ process: HeavyProcess) -> Bool {

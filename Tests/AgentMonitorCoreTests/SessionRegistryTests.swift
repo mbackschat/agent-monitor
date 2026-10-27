@@ -119,12 +119,17 @@ private final class FakeRegistry: SessionRegistryReading, AcquisitionClock, Proc
     let fail: Bool
     let identityCurrent: Bool
     let runtimes: [Int32]
+    let isAvailable: Bool
 
-    init(fail: Bool = false, runtimes: [Int32] = [10], identityCurrent: Bool = true, marked: Bool = false) {
+    init(
+        fail: Bool = false, runtimes: [Int32] = [10], identityCurrent: Bool = true, marked: Bool = false,
+        available: Bool = true
+    ) {
         self.fail = fail
         self.marked = marked
         self.identityCurrent = identityCurrent
         self.runtimes = runtimes
+        isAvailable = available
     }
 
     func output(of query: SessionRegistryQuery) throws -> Data {
@@ -161,7 +166,7 @@ private final class FakeRegistry: SessionRegistryReading, AcquisitionClock, Proc
     func wait(until deadline: Double, wake: AcquisitionWake) throws {
         let seconds = max(0, deadline - monotonicNow())
         if monotonicNow() == 0 {
-            if !marked { guard listingStarted.wait(wake: wake) else { return } }
+            if !marked && isAvailable { guard listingStarted.wait(wake: wake) else { return } }
         } else {
             // These integration tests advance after inspecting each report. Backlog has its own
             // ungated fixtures; an instant clock must not race the asynchronous consumer here.
@@ -175,18 +180,35 @@ private final class FakeRegistry: SessionRegistryReading, AcquisitionClock, Proc
     func now() -> Date { Date(timeIntervalSince1970: 0) }
 }
 
-@Test func sessionListingCadenceIsIndependentOfAccountingScans() {
-    var cadence = SessionRegistryCadence()
-    let first = Set([ProcessIdentity(pid: 10, startMicroseconds: 1)])
-    let decisions = (0...60).map {
-        cadence.due(.claude, runtimes: first, at: Date(timeIntervalSince1970: Double($0)))
+@Test(arguments: [false, true], [false, true])
+func offlineMonitoringPreservesNativeEvidenceWithoutProviderWork(
+    marked: Bool, injectUnavailableRegistry: Bool
+) async throws {
+    let fake = FakeRegistry(marked: marked, available: false)
+    let configuration = try MonitoringConfiguration(samples: 3)
+    let session: MonitoringSession
+    if injectUnavailableRegistry {
+        session = MonitoringSession(configuration: configuration, reader: fake, clock: fake, registry: fake)
+    } else {
+        session = MonitoringSession(configuration: configuration, reader: fake, clock: fake)
     }
-    #expect(decisions.enumerated().filter(\.element).map(\.offset) == [0, 60])
-    let additional = first.union([ProcessIdentity(pid: 11, startMicroseconds: 2)])
-    let changed = cadence.due(.claude, runtimes: additional, at: Date(timeIntervalSince1970: 61))
-    let unchanged = cadence.due(.claude, runtimes: additional, at: Date(timeIntervalSince1970: 62))
-    #expect(changed)
-    #expect(!unchanged)
+    let profile = PipelineProfile()
+    let findings = Mutex<[HeavyProcess]>([])
+    try await session.profiling(profile).run { snapshot in
+        defer { fake.reportRead.signal() }
+        findings.withLock { $0.append(contentsOf: snapshot.findings) }
+    }
+    let rows = findings.withLock { $0 }
+    #expect(rows.count == 3)
+    #expect(rows.allSatisfy { $0.cpuPercent == 100 })
+    #expect(rows.allSatisfy { $0.attribution.threadID == (marked ? sessionA : nil) })
+    #expect(rows.allSatisfy { $0.attribution.evidence == (marked ? .marker : .runtimeOnly) })
+    #expect(fake.calls.withLock { $0 } == 0)
+    let measured = profile.snapshot()
+    #expect(measured.workers["providers"] == nil)
+    #expect(measured.counters["registryInitialAdmissions", default: 0] == 0)
+    #expect(measured.counters["registryRequestedCandidates", default: 0] == 0)
+    #expect(measured.counters["registryCompletedListings", default: 0] == 0)
 }
 
 @Test func failedListingKeepsRuntimeUnresolvedWithoutRetryingEverySample() async throws {

@@ -304,6 +304,64 @@ import Testing
         #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
     }
 
+    @Test(arguments: [40, 80, 120, 160], [false, true])
+    func groupedChildrenHaveExplicitBranchesAndCountsWithoutMovingResourceColumns(
+        width: Int, pinnedGroup: Bool
+    ) throws {
+        var state = LiveReportState(grouping: pinnedGroup ? .none : .session)
+        state.receive(snapshot())
+        state.overview.enabled = false
+        let group = try #require(state.groups.first)
+        if pinnedGroup { state.togglePin(.group(group.id)) }
+        state.select(.group(group.id))
+        state.setChildDisclosure(expanded: true)
+        let children = state.children(of: group)
+        #expect(children.count == 2)
+        for (index, child) in children.enumerated() {
+            state.select(.process(child.process))
+            let lines = LiveReportLayout.lines(state: state, width: width, height: 40)
+            let parentIndex = try #require(lines.firstIndex { $0.text.contains("▾") })
+            let parent = lines[parentIndex + (width < 85 ? 1 : 0)].text
+            #expect(parent.contains("#2"))
+            let selected = lines.filter { $0.style == .selected }
+            let identity = try #require(selected.first).text
+            #expect(identity.contains(index == 0 ? "├─" : "└─"))
+            #expect(identity.contains("claude/" + sessions[0].prefix(8)))
+            #expect(identity.contains(child.observedName))
+            let resources = try #require(selected.last).text
+            let parentCPU = try #require(parent.range(of: "90.00"))
+            let childCPU = try #require(resources.range(of: index == 0 ? "90.00" : "0.00"))
+            #expect(
+                TerminalCells.width(String(parent[..<parentCPU.upperBound]))
+                    == TerminalCells.width(String(resources[..<childCPU.upperBound])))
+            #expect(resources.contains("/work"))
+            #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
+        }
+    }
+
+    @Test(arguments: [60, 120])
+    func individuallyPinnedProcessIsNotDrawnAsAGroupChild(width: Int) throws {
+        var state = LiveReportState()
+        state.receive(snapshot())
+        state.overview.enabled = false
+        let group = try #require(state.groups.first)
+        let pinned = try #require(group.processes.first)
+        state.togglePin(.group(group.id))
+        state.togglePin(.process(pinned.process))
+        state.select(.group(group.id))
+        state.setChildDisclosure(expanded: true)
+        state.select(.process(pinned.process))
+        let selected = LiveReportLayout.lines(state: state, width: width, height: 40)
+            .filter { $0.style == .selected }.map(\.text).joined(separator: "\n")
+        #expect(selected.contains("★"))
+        #expect(!selected.contains("├─") && !selected.contains("└─"))
+        state.select(.process(try #require(state.children(of: group).first).process))
+        let child = LiveReportLayout.lines(state: state, width: width, height: 40)
+            .filter { $0.style == .selected }.map(\.text).joined(separator: "\n")
+        #expect(child.contains("└─"))
+        #expect(!child.contains("├─"))
+    }
+
     @Test func pinnedGroupTotalsDetermineNumericColumnWidthsInFlatMode() throws {
         var state = LiveReportState(grouping: .none)
         state.receive(snapshot(readings: (999.9, 99_990_000_000)))
@@ -334,7 +392,7 @@ import Testing
         state.select(.process(process.process))
         let lines = LiveReportLayout.lines(state: state, width: width, height: 30)
         let selected = try #require(lines.first { $0.style == .selected })
-        #expect(selected.text.hasPrefix("> i "))
+        #expect(selected.text.hasPrefix(width < 85 && grouping == .session ? "> ├─ i " : "> i "))
         #expect(!selected.text.contains("▸"))
         #expect(!selected.text.contains("▾"))
         if width >= 85 {

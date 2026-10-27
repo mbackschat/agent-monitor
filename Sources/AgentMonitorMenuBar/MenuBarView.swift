@@ -39,12 +39,6 @@ struct MenuBarView: View {
                 if model.diagnosis.state.isVisible {
                     Button("Back") { model.diagnosis.dismiss() }
                 } else {
-                    Button("Diagnose CPU") { model.beginDiagnosis() }
-                        .disabled(
-                            !model.isOpen || model.report.actionPanel != nil
-                                || model.diagnosis.state.isRunning
-                        )
-                        .help(DiagnosisViewState.startHelp)
                     Button(
                         model.report.frozen ? "Resume" : "Pause",
                         systemImage: model.report.frozen ? "play.fill" : "pause.fill"
@@ -54,61 +48,17 @@ struct MenuBarView: View {
                 }
             }
             .padding(.vertical, 16).padding(.trailing, 16).padding(.leading, 32)
-            if !model.diagnosis.state.isVisible {
-                if !model.report.showsOverview {
-                    Text(DiagnosisViewState.purpose)
-                        .font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal).padding(.bottom, 6)
-                }
-                Text(CPUContext.text(model.report.snapshot?.cpuAccounting))
-                    .font(.caption).foregroundStyle(.secondary).monospacedDigit()
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal).padding(.bottom, 12)
-            }
             Divider()
-            ScrollViewReader { proxy in
-                ScrollView {
-                    if model.showsKeyboardHelp && !model.diagnosis.state.isVisible {
-                        MenuBarKeyboardHelp { model.showsKeyboardHelp = false }
-                    }
-                    if model.diagnosis.state.isVisible {
-                        MenuBarDiagnosisView(
-                            diagnosis: model.diagnosis, copyStatus: model.diagnosisCopyStatus,
-                            onCopy: { model.copyDiagnosisReport() })
-                    } else if let panel = model.report.actionPanel {
-                        actionPanel(panel)
-                    } else {
-                        report
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .scrollBounceBehavior(.basedOnSize)
-                .onChange(of: model.report.overview.selection) { _, row in
-                    if model.isOpen, model.report.showsOverview, !model.diagnosis.state.isVisible,
-                        model.report.actionPanel == nil, let row
-                    {
-                        proxy.scrollTo(row, anchor: .center)
-                        if focus != nil { focus = .contributor(row) }
-                    }
-                }
-                .onChange(of: focusedRow) { _, row in
-                    if let row { proxy.scrollTo(row, anchor: .center) }
-                }
-                .onChange(of: model.report.pins.map(\.id)) { previous, current in
-                    if current.count > previous.count, let row = current.last {
-                        proxy.scrollTo(row, anchor: .top)
-                    }
-                }
+            if model.report.showsOverview, !model.diagnosis.state.isVisible,
+                model.report.actionPanel == nil
+            {
+                report
+            } else {
+                scrollingContent
             }
             Divider()
             HStack {
-                Text(
-                    model.liveIcon
-                        ? "Closed: every \(model.report.interval.formatted()) seconds"
-                        : "Updates only while open"
-                )
-                .font(.caption).foregroundStyle(.secondary)
+                MenuBarReferenceMenu(model: model)
                 Spacer()
                 Picker("Panel size", selection: $model.panelSize) {
                     ForEach(MenuBarPanelSize.allCases, id: \.self) { size in
@@ -134,8 +84,7 @@ struct MenuBarView: View {
         }
         .onKeyPress(keys: [.leftArrow, .rightArrow], phases: .down) { key in
             if model.report.showsOverview {
-                return model.handleOverviewArrow(key.key, focus: focus, modifiers: key.modifiers)
-                    ? .handled : .ignored
+                return .ignored
             }
             guard model.isOpen, !model.diagnosis.state.isVisible, model.report.actionPanel == nil,
                 focus != nil, MenuBarKeyboard.isBulkDisclosure(modifiers: key.modifiers),
@@ -152,8 +101,7 @@ struct MenuBarView: View {
                 return .ignored
             }
             if model.report.showsOverview {
-                return model.handleOverviewArrow(key.key, focus: focus, modifiers: key.modifiers)
-                    ? .handled : .ignored
+                return .ignored
             }
             return moveFocus(by: key.key == .upArrow ? -1 : 1)
         }
@@ -173,7 +121,7 @@ struct MenuBarView: View {
                 NSApplication.shared.terminate(nil)
                 return .handled
             }
-            return model.handleShortcut(key.characters, row: focusedRow, focus: focus) ? .handled : .ignored
+            return model.handleShortcut(key.characters, row: focusedRow) ? .handled : .ignored
         }
         .task(id: pendingPinFocus) {
             guard let row = pendingPinFocus else { return }
@@ -187,32 +135,34 @@ struct MenuBarView: View {
         }
     }
 
-    private var report: some View {
-        let projection = model.rowIndex.projection
-        let pinned = projection.pinnedRows
-        let unpinned = projection.unpinnedRows
-        return VStack(alignment: .leading, spacing: model.report.showsOverview ? 8 : 12) {
-            if let saved = model.savedMessage {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Unsent message to \(saved.process.observedName)").font(.subheadline.bold())
-                    Text(
-                        "PID \(String(saved.process.process.pid)) · \(saved.recipientID ?? "unavailable recipient")"
-                    )
-                    .font(.caption).foregroundStyle(.secondary)
-                    Text(saved.text).font(.caption).lineLimit(2).textSelection(.enabled)
-                        .help(saved.text)
-                    HStack {
-                        Button("Resume…") { model.resumeMessage() }
-                        Button("Copy text") {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(saved.text, forType: .string)
-                        }
-                        Spacer()
-                        Button("Discard", role: .destructive) { model.discardMessage() }
-                    }.controlSize(.small)
+    private var scrollingContent: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                if model.diagnosis.state.isVisible {
+                    MenuBarDiagnosisView(
+                        diagnosis: model.diagnosis, copyStatus: model.diagnosisCopyStatus,
+                        onCopy: { model.copyDiagnosisReport() })
+                } else if let panel = model.report.actionPanel {
+                    actionPanel(panel)
+                } else {
+                    report
                 }
-                Divider()
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .scrollBounceBehavior(.basedOnSize)
+            .onChange(of: focusedRow) { _, row in
+                if let row { proxy.scrollTo(row, anchor: .center) }
+            }
+            .onChange(of: model.report.pins.map(\.id)) { previous, current in
+                if current.count > previous.count, let row = current.last {
+                    proxy.scrollTo(row, anchor: .top)
+                }
+            }
+        }
+    }
+
+    private var report: some View {
+        return VStack(alignment: .leading, spacing: model.report.showsOverview ? 8 : 12) {
             HStack {
                 Text(
                     model.report.showsOverview
@@ -229,20 +179,8 @@ struct MenuBarView: View {
                 }
                 MenuBarViewOptions(model: model)
             }
-            Text(
-                "\(model.report.showsOverview ? "" : model.report.sortDescription + " · ")\(model.report.showsOverview && model.report.thresholds.isUnfiltered ? "Resource filters off" : ThresholdContext.text(model.report.thresholds)) · \(resource(model.report.interval, unit: " s")) acquisition · \(resource(LiveReportState.displayIntervalSeconds, unit: " s")) display"
-            )
-            .font(.caption).foregroundStyle(.secondary)
-            if !model.report.showsOverview, let snapshot = model.report.snapshot {
-                MenuBarCoverageStatus(status: CoverageStatus(snapshot: snapshot))
-            }
-            if !model.report.showsOverview, let window = model.report.snapshot?.window {
-                Label(
-                    "CPU window · \(window.durationSeconds.formatted(.number.precision(.fractionLength(1)))) s",
-                    systemImage: "clock"
-                )
-                .font(.caption2).foregroundStyle(.secondary)
-                .help(AccountingContext.window(window))
+            if !model.report.showsOverview, model.report.snapshot != nil {
+                MenuBarCoverageLink(model: model)
             }
             if let error = model.error, model.report.snapshot != nil {
                 Text(error).font(.caption).foregroundStyle(.orange)
@@ -255,48 +193,25 @@ struct MenuBarView: View {
                 Text("Filter changes pending next displayed sample").font(.caption).foregroundStyle(
                     .secondary)
             }
-            VStack(alignment: .leading, spacing: 12) {
-                if let error = model.error, model.report.snapshot == nil {
-                    ContentUnavailableView(
-                        "Unable to sample", systemImage: "exclamationmark.triangle", description: Text(error))
-                } else if model.report.snapshot == nil {
-                    VStack(spacing: 10) {
-                        ProgressView().controlSize(.small)
-                        Text("Measuring activity…").foregroundStyle(.secondary)
-                    }.frame(maxWidth: .infinity).padding(.vertical, 20)
-                } else if model.report.showsOverview {
-                    MenuBarContributorOverview(model: model, focus: $focus)
-                } else if pinned.isEmpty && unpinned.isEmpty {
-                    ContentUnavailableView(
-                        "No matching agent processes", systemImage: "checkmark.circle",
-                        description: Text("No observed processes match this scope and its display filters."))
-                } else {
-                    if !pinned.isEmpty {
-                        Label("Pinned", systemImage: "pin.fill").font(.caption.bold()).foregroundStyle(
-                            .secondary)
-                        LazyVStack(alignment: .leading, spacing: 2) {
-                            ForEach(pinned, id: \.id) { nativeRow($0) }
-                        }
-                        if !unpinned.isEmpty { Divider() }
-                    }
-                    LazyVStack(alignment: .leading, spacing: 2) {
-                        ForEach(unpinned, id: \.id) { nativeRow($0) }
-                    }
-                }
+            if model.report.snapshot != nil, model.report.showsOverview {
+                MenuBarContributorOverview(model: model, focus: $focus)
+            } else {
+                processResults
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .focusable()
+                    .focused($focus, equals: .table)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .focusable()
-            .focused($focus, equals: .table)
             if let notice = model.report.notice {
                 Text(notice).font(.caption).foregroundStyle(.secondary)
             }
             if let result = model.lastActionResult {
                 Text(result.text).font(.caption).textSelection(.enabled)
             }
-            if !model.report.showsOverview, let snapshot = model.report.snapshot {
-                MenuBarSamplingCoverage(snapshot: snapshot)
-            }
         }
+        .frame(
+            maxWidth: .infinity, maxHeight: model.report.showsOverview ? .infinity : nil,
+            alignment: .topLeading
+        )
         .padding(14)
         .task(id: model.isOpen) {
             guard model.isOpen else {
@@ -308,6 +223,38 @@ struct MenuBarView: View {
                 model.report.showsOverview
                 ? .table : initialFocus.open(rows: model.visibleRowIDs, preferred: model.report.selection)
             if let focusedRow { model.selectRow(focusedRow) }
+        }
+    }
+
+    private var processResults: some View {
+        let projection = model.rowIndex.projection
+        let pinned = projection.pinnedRows
+        let unpinned = projection.unpinnedRows
+        return VStack(alignment: .leading, spacing: 12) {
+            if let error = model.error, model.report.snapshot == nil {
+                ContentUnavailableView(
+                    "Unable to sample", systemImage: "exclamationmark.triangle", description: Text(error))
+            } else if model.report.snapshot == nil {
+                VStack(spacing: 10) {
+                    ProgressView().controlSize(.small)
+                    Text("Measuring activity…").foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity).padding(.vertical, 20)
+            } else if pinned.isEmpty && unpinned.isEmpty {
+                ContentUnavailableView(
+                    "No matching agent processes", systemImage: "checkmark.circle",
+                    description: Text("No observed processes match this scope and its display filters."))
+            } else {
+                if !pinned.isEmpty {
+                    Label("Pinned", systemImage: "pin.fill").font(.caption.bold()).foregroundStyle(.secondary)
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(pinned, id: \.id) { nativeRow($0) }
+                    }
+                    if !unpinned.isEmpty { Divider() }
+                }
+                LazyVStack(alignment: .leading, spacing: 2) {
+                    ForEach(unpinned, id: \.id) { nativeRow($0) }
+                }
+            }
         }
     }
 
@@ -373,6 +320,7 @@ struct MenuBarView: View {
             .disabled(!model.canBegin(.focus, row: id))
         Button("Message…", systemImage: "bubble") { model.begin(.message, row: id) }
             .disabled(!model.canBegin(.message, row: id))
+            .help(ProviderRuntimeAvailability.messagingUnavailableReason)
         Button("Terminate…", systemImage: "stop", role: .destructive) { model.begin(.terminate, row: id) }
             .disabled(!model.canBegin(.terminate, row: id))
     }
@@ -470,6 +418,7 @@ struct MenuBarView: View {
                         model.begin(.message, row: .process(process.process))
                     }
                     .disabled(!model.canBegin(.message, row: .process(process.process)))
+                    .help(ProviderRuntimeAvailability.messagingUnavailableReason)
                     Spacer(minLength: 0)
                     Button("Terminate…", role: .destructive) {
                         model.begin(.terminate, row: .process(process.process))
@@ -506,64 +455,19 @@ struct MenuBarView: View {
                     Spacer()
                     Button("Terminate", role: .destructive) { model.input(.confirm) }
                 }
-            case .loading, .working, .focusing:
-                ProgressView(panel.phase == .loading ? "Checking live recipients…" : "Working…")
+            case .working, .focusing:
+                ProgressView("Working…")
                     .controlSize(.small)
                 Text("Closing this panel cancels pending work.").font(.caption).foregroundStyle(
                     .secondary)
-            case .compose, .review:
-                messagePanel(panel)
+            case .loading, .compose, .review:
+                Text(ProviderRuntimeAvailability.messagingUnavailableReason)
+                Button("Done") { model.input(.escape) }
             case .result:
                 Text(panel.result?.text ?? "Action finished").textSelection(.enabled)
                 Button("Done") { model.input(.escape) }
             }
         }.padding(16)
-    }
-
-    @ViewBuilder private func messagePanel(_ panel: ActionPanel) -> some View {
-        Text(panel.phase == .compose ? "Message agent" : "Review exact message").font(.headline)
-        if let recipient = panel.recipient {
-            Text("\(recipient.label): \(recipient.id)").font(.caption).textSelection(.enabled)
-            if let reason = recipient.unavailableReason { Text(reason).foregroundStyle(.orange) }
-        }
-        if panel.phase == .compose {
-            if (panel.draft?.recipients.choices.count ?? 0) > 1 {
-                Button("Change recipient") { model.input(.recipient) }
-            }
-            if let context = panel.draft?.context {
-                Text(context).font(.caption).textSelection(.enabled)
-            }
-            TextEditor(text: Binding(get: { model.report.actionPanel?.text ?? "" }, set: model.setMessage))
-                .font(.body).frame(height: 130).border(.quaternary)
-                .accessibilityLabel("Message to agent")
-            if let notice = panel.inputNotice {
-                Text(notice).font(.caption).foregroundStyle(.orange)
-            }
-            HStack {
-                Button("Cancel") { model.input(.escape) }
-                Spacer()
-                copyMessageButton
-                Button("Review…") { model.input(.review) }
-                    .disabled(
-                        panel.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            || panel.recipient?.unavailableReason != nil)
-            }
-        } else {
-            Text(panel.draft?.message(panel.text) ?? panel.text).textSelection(.enabled)
-            HStack {
-                Button("Edit") { model.input(.escape) }
-                Spacer()
-                copyMessageButton
-                Button("Send message") { model.input(.confirm) }.buttonStyle(.borderedProminent)
-            }
-        }
-        Text(MessageWording.note(panel.process.attribution.provider)).font(.caption).foregroundStyle(
-            .secondary)
-    }
-
-    private var copyMessageButton: some View {
-        Button(model.messageCopyStatus ?? "Copy message", systemImage: "doc.on.doc") { model.copyMessage() }
-            .help("Copy the exact message, including the inspected process's resource context.")
     }
 
     private func resource(_ value: Double?, unit: String, partial: Bool = false) -> String {

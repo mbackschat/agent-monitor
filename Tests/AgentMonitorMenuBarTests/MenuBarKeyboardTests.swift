@@ -162,29 +162,3 @@ func nativeRowArrowsAcceptNonShortcutFlags(modifiers: EventModifiers) {
     #expect(focus.rowsChanged([first], focus: .table) == first)
     #expect(focus.open(rows: [first], preferred: nil) == .row(first))
 }
-
-@Test @MainActor func overviewArrowsRespectFocusDiagnosisAndModifiers() async throws {
-    let snapshot = try nativeOverviewFixture()
-    let model = MenuBarModel(
-        diagnosisSource: { try await menuBarDiagnosisFixture() },
-        source: { _, _, receive in try await receive(snapshot) })
-    model.open()
-    await model.waitForCollection()
-    let initial = model.report.overview
-    #expect(!model.handleOverviewArrow(.downArrow, focus: nil))
-    #expect(!model.handleOverviewArrow(.rightArrow, focus: .table, modifiers: .command))
-    #expect(model.report.overview == initial)
-    #expect(model.handleOverviewArrow(.downArrow, focus: .table))
-    #expect(model.report.overview.selection != initial.selection)
-    #expect(model.beginDiagnosis())
-    let held = model.report.overview
-    for key in [KeyEquivalent.upArrow, .downArrow, .leftArrow, .rightArrow] {
-        #expect(!model.handleOverviewArrow(key, focus: .table))
-        #expect(model.report.overview == held)
-    }
-    await model.diagnosis.waitForCompletion()
-    model.diagnosis.dismiss()
-    model.close()
-    #expect(!model.handleOverviewArrow(.downArrow, focus: .table))
-    await model.stop()
-}

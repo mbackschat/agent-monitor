@@ -10,7 +10,7 @@ public struct ClaudeMessaging: AgentMessaging {
     private let locateInbox: @Sendable (HeavyProcess) throws -> String
 
     public init() {
-        self.init(registry: CommandSessionRegistryReader(timeout: 10), locateInbox: NativeActions.claudeInbox)
+        self.init(registry: OfflineSessionRegistryReader(), locateInbox: NativeActions.claudeInbox)
     }
 
     init(
@@ -23,6 +23,9 @@ public struct ClaudeMessaging: AgentMessaging {
     }
 
     public func recipients(for target: MessageTarget) throws -> MessageRecipients {
+        guard registry.isAvailable else {
+            throw ActionFailure(ProviderRuntimeAvailability.messagingUnavailableReason)
+        }
         // `/clear` or `/resume` can rebind a runtime to another session after its children inherited
         // the old marker, so verify against the same harness listing that attribution uses.
         let adapters = AttributionAdapters.builtIn
@@ -45,6 +48,9 @@ public struct ClaudeMessaging: AgentMessaging {
     }
 
     public func send(_ message: String, to recipient: String, for target: MessageTarget) throws {
+        guard registry.isAvailable else {
+            throw ActionFailure(ProviderRuntimeAvailability.messagingUnavailableReason)
+        }
         guard recipient == target.session else { throw ActionFailure("Choose the verified Claude session.") }
         let path = try inbox(for: target)
         // Claude Code 2.1.300 prints this stream-json user line as its own inbox usage hint. The auth

@@ -187,8 +187,5 @@ func diagnosisPresentationFixture(
             #expect(AgentGuide.render(.semantics).contains(evidence))
         }
         #expect(AgentGuide.render().contains("agent-monitor diagnose cpu --json"))
-        #expect(AgentGuide.render(.actions).contains("invocation"))
-        #expect(AgentGuide.render(.tui).contains("1/2"))
-        #expect(AgentGuide.render(.tui).contains("h"))
     }
 }

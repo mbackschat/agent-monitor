@@ -1,8 +1,8 @@
 import Darwin
 import Foundation
 
-/// A provider CLI run confined to one serial owner; deadlines and output limits also bound a broken one.
-/// Shared by verified actions and harness session listings.
+/// A helper confined to one serial owner, with deadlines and output limits.
+/// Production runs fixed local Terminal automation; provider transports use disposable test fixtures.
 package final class BoundedCommand {
     private let process = Process()
     private let input = Pipe()

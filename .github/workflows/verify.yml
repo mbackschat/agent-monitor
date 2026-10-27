@@ -36,7 +36,8 @@ jobs:
           mkdir -p .build/menubar-validation
           MENUBAR_PREVIEW_PATH="$PWD/.build/menubar-validation/panel.png" \
           MENUBAR_ICON_PREVIEW_PATH="$PWD/.build/menubar-validation/icons.png" \
-          MENUBAR_MESSAGE_PREVIEW_PATH="$PWD/.build/menubar-validation/message.png" \
+          MENUBAR_OVERVIEW_PREVIEW_PATH="$PWD/.build/menubar-validation/overview.png" \
+          MENUBAR_REFERENCE_PREVIEW_DIRECTORY="$PWD/.build/menubar-validation" \
           swift test
       - name: Retain synthetic native renders
         if: always()

@@ -94,7 +94,7 @@ public struct CPUDiagnosisSession: Sendable {
         excluding: Set<Int32> = [], monitorPID: Int32? = nil
     ) {
         self.init(
-            reader: reader, clock: clock, registry: CommandSessionRegistryReader(),
+            reader: reader, clock: clock, registry: OfflineSessionRegistryReader(),
             excluding: excluding, monitorPID: monitorPID)
     }
 
@@ -159,7 +159,7 @@ public struct CPUDiagnosisSession: Sendable {
             return monitor.finding(for: identity)
         }
         var lookups: [DiagnosisLookup] = []
-        let needed = monitor.sessionRegistryRuntimes(in: findings)
+        let needed = registry.isAvailable ? monitor.sessionRegistryRuntimes(in: findings) : [:]
         for provider in needed.keys.sorted(by: { $0.rawValue < $1.rawValue }) {
             guard let query = monitor.sessionRegistry(for: provider),
                 needed[provider]?.contains(where: {

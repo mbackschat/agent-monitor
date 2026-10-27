@@ -210,9 +210,12 @@ struct IndependentMonitoringPipeline: Sendable {
                             reader: reader, clock: clock, includeCommand: configuration.includeCommands,
                             checking: cancellation.check)
                     }
-                    group.addTask {
-                        try await enrichment.refreshRegistries(
-                            reader: reader, registry: registry, clock: clock, checking: cancellation.check)
+                    if registry.isAvailable {
+                        group.addTask {
+                            try await enrichment.refreshRegistries(
+                                reader: reader, registry: registry, clock: clock, checking: cancellation.check
+                            )
+                        }
                     }
                     do {
                         while true {
@@ -557,18 +560,21 @@ struct IndependentMonitoringPipeline: Sendable {
                         scan.snapshot.promptEvidence.filter { $0.status.hasMetadata }
                             .map { ($0.process, $0) }, uniquingKeysWith: { _, last in last }),
                     requestedAt: scan.finishedAt))
-            var queries: [RegistryRefreshRequest] = []
-            for (provider, runtimes) in state.monitor.sessionRegistryRuntimes(
-                in: findings, excludingChildrenOf: getpid())
-            where state.cadence.due(provider, runtimes: runtimes, at: scan.timestamp, profile: profile) {
-                if let query = state.monitor.sessionRegistry(for: provider) {
-                    state.monitor.profileRegistryCandidates(runtimes)
-                    queries.append(
-                        RegistryRefreshRequest(
-                            provider: provider, query: query, samples: runtimes.compactMap { samples[$0] }))
+            if registry.isAvailable {
+                var queries: [RegistryRefreshRequest] = []
+                for (provider, runtimes) in state.monitor.sessionRegistryRuntimes(
+                    in: findings, excludingChildrenOf: getpid())
+                where state.cadence.due(provider, runtimes: runtimes, at: scan.timestamp, profile: profile) {
+                    if let query = state.monitor.sessionRegistry(for: provider) {
+                        state.monitor.profileRegistryCandidates(runtimes)
+                        queries.append(
+                            RegistryRefreshRequest(
+                                provider: provider, query: query, samples: runtimes.compactMap { samples[$0] }
+                            ))
+                    }
                 }
+                enrichment.requestRegistries(queries)
             }
-            enrichment.requestRegistries(queries)
             return (accounting, findings)
         }
         try state.sampling.synchronize(

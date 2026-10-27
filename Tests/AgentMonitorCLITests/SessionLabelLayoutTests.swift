@@ -133,9 +133,10 @@ import Testing
         let coverage = lines.filter { $0.style == .warning }.map(\.text).joined()
         #expect(coverage.contains("Read failures") || coverage.contains("Coverage:"))
         #expect(coverage.contains("overrun") || coverage.contains("3 warnings"))
+        #expect(coverage.contains("D diagnostics"))
+        #expect(text.contains("? help"))
         if filtered {
             #expect(text.contains(ThresholdContext.text(state.thresholds)))
-            #expect(text.contains("Resize for coverage details"))
         }
         #expect(lines.count <= 8)
     }

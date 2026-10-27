@@ -9,13 +9,15 @@ struct ReportTable {
 
     let cpuWidth: Int
     let memoryWidth: Int
+    private let identifierWidth: Int
     private let preferredProcessWidth: Int
 
-    init(metrics: [(cpu: Double?, memoryGB: Double?)], processNames: [String]) {
+    init(metrics: [(cpu: Double?, memoryGB: Double?)], processNames: [String], identifiers: [String] = []) {
         preferredProcessWidth = max(
             "PROCESS".count, processNames.map { TerminalCells.width(TextReport.safe($0)) }.max() ?? 0)
         cpuWidth = max(6, metrics.map { Self.number($0.cpu).count }.max() ?? 0)
         memoryWidth = max(5, metrics.map { Self.number($0.memoryGB).count }.max() ?? 0)
+        identifierWidth = max(6, identifiers.map { TerminalCells.width($0) }.max() ?? 0)
     }
 
     func columns(for width: Int, leadingInset: Int = 0) -> Columns {
@@ -26,7 +28,7 @@ struct ReportTable {
         return Columns(process: process, agent: agent, directory: available - process - agent)
     }
 
-    func header(columns: Columns, grouped: Bool = false) -> String {
+    func header(columns: Columns, grouped: Bool = false, hasGroups: Bool = false) -> String {
         let description: String
         if grouped {
             description = "LAUNCH SESSION / PROCESS | all observed totals"
@@ -35,7 +37,8 @@ struct ReportTable {
                 Self.pad("PROCESS", to: columns.process) + " "
                 + Self.pad("AGENT / SESSION", to: columns.agent) + " CWD"
         }
-        return prefix(marker: " ", pid: grouped ? "PID/#" : "PID", cpu: "CPU%", memory: "GB") + description
+        return prefix(marker: " ", pid: grouped || hasGroups ? "PID/#" : "PID", cpu: "CPU%", memory: "GB")
+            + description
     }
 
     func directoryHeader(grouped: Bool) -> String {
@@ -57,7 +60,7 @@ struct ReportTable {
         marker: String, pid: String, cpu: String, memory: String,
         cpuMarker: String = " ", memoryMarker: String = " "
     ) -> String {
-        "\(marker) \(Self.pad(pid, to: 6)) \(right(cpu, width: cpuWidth))\(cpuMarker) \(right(memory, width: memoryWidth))\(memoryMarker)  "
+        "\(marker) \(Self.pad(pid, to: identifierWidth)) \(right(cpu, width: cpuWidth))\(cpuMarker) \(right(memory, width: memoryWidth))\(memoryMarker)  "
     }
 
     static func number(_ value: Double?) -> String {
