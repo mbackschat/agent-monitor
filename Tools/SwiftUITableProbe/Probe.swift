@@ -22,14 +22,19 @@ enum BindingMode: String, CaseIterable {
     var selection: String?
     let roots: [Node]
     let mode: BindingMode
+    let followingRoot: Bool
+    let expandedRootIndex: Int
 
-    init(count: Int, depth: Int, mode: BindingMode) {
+    init(count: Int, depth: Int, mode: BindingMode, followingRoot: Bool) {
         self.mode = mode
-        roots = (0..<count).map { index in
-            let leaves = [Node("leaf-\(index)-a"), Node("leaf-\(index)-b")]
-            let children = depth == 3 ? [Node("grandchild-\(index)", children: leaves)] : leaves
-            return Node("parent-\(index)", children: [Node("child-\(index)", children: children)])
-        }
+        self.followingRoot = followingRoot
+        expandedRootIndex = count - 1
+        roots =
+            (0..<count).map { index in
+                let leaves = [Node("leaf-\(index)-a"), Node("leaf-\(index)-b")]
+                let children = depth == 3 ? [Node("grandchild-\(index)", children: leaves)] : leaves
+                return Node("parent-\(index)", children: [Node("child-\(index)", children: children)])
+            } + (followingRoot ? [Node("following-root")] : [])
         setOpen(true)
     }
 
@@ -52,7 +57,7 @@ enum BindingMode: String, CaseIterable {
     }
 
     func setOpen(_ expanded: Bool) {
-        guard let parent = roots.last else { return }
+        let parent = roots[expandedRootIndex]
         @MainActor func apply(_ node: Node) {
             guard !node.children.isEmpty else { return }
             node.expanded = expanded
@@ -93,6 +98,7 @@ struct Fixture: View {
 
 struct ProbeResult: Codable {
     let mode: String
+    let followingRoot: Bool
     let roots: Int
     let depth: Int
     let phase: String
@@ -126,6 +132,7 @@ struct ProbeResult: Codable {
     let expected =
         Array(repeating: 0, count: count)
         + (expanded ? Array(1..<depth) + [depth, depth] : [])
+        + (state.followingRoot ? [0] : [])
     host.layoutSubtreeIfNeeded()
     let immediate = outline(in: host)?.numberOfRows
     for _ in 0..<20 {
@@ -141,7 +148,8 @@ struct ProbeResult: Codable {
     }
     guard let table = outline(in: host) else {
         return ProbeResult(
-            mode: state.mode.rawValue, roots: count, depth: depth, phase: phase,
+            mode: state.mode.rawValue, followingRoot: state.followingRoot, roots: count, depth: depth,
+            phase: phase,
             rowsAfterLayout: immediate, rowsAfterTwentyYields: yielded, expectedLevels: expected,
             actualLevels: [], targetInitiallyOutsideViewport: nil, selectedID: state.selection,
             expectedSelection: nil, passed: false)
@@ -150,7 +158,7 @@ struct ProbeResult: Codable {
     var outside: Bool?
     var target: String?
     if expanded, levels == expected {
-        let row = expected.count - 1
+        let row = expected.count - (state.followingRoot ? 2 : 1)
         target = "leaf-\(count - 1)-b"
         outside = !NSLocationInRange(row, table.rows(in: table.visibleRect))
         table.scrollRowToVisible(row)
@@ -164,7 +172,8 @@ struct ProbeResult: Codable {
         }
     }
     return ProbeResult(
-        mode: state.mode.rawValue, roots: count, depth: depth, phase: phase,
+        mode: state.mode.rawValue, followingRoot: state.followingRoot, roots: count, depth: depth,
+        phase: phase,
         rowsAfterLayout: immediate, rowsAfterTwentyYields: yielded, expectedLevels: expected,
         actualLevels: levels, targetInitiallyOutsideViewport: outside, selectedID: state.selection,
         expectedSelection: target,
@@ -181,7 +190,9 @@ struct ProbeResult: Codable {
             for mode in BindingMode.allCases {
                 for count in [1, 30] {
                     for depth in [2, 3] {
-                        let state = FixtureState(count: count, depth: depth, mode: mode)
+                        let state = FixtureState(
+                            count: count, depth: depth, mode: mode,
+                            followingRoot: CommandLine.arguments.contains("--following-root"))
                         let (host, window) = mount(state)
                         results.append(
                             await inspect(
