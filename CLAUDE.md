@@ -16,6 +16,10 @@ These are acceptance priorities, not claims that the current sampler meets them.
 
 Provide a clear, actionable resource overview under stress. Keep agent/session identity, workload CWD, executable and contribution understandable together; directory summaries cannot replace session identity. Prefer compact aligned tables and meaningful graphics, with structured disclosure and contextual verified actions. Put explanations and arguments on demand, not in diagnostic paragraphs. Keep material coverage gaps visible. Native SwiftUI/AppKit and terminal conventions guide interaction; iStat Menus and htop/btop are references, not a reason to lose the agent/session focus. Review Mac and TUI against the [product contract](docs/product.md) before accepting presentation changes.
 
+For UI/UX recommendations, design, implementation and review, use the repository-owned [monitor-ui-ux skill](skills/monitor-ui-ux/SKILL.md) and the applicable [Mac/TUI review procedure](docs/development.md#resource-overview-ux-review). This is required even for advice without code changes; view-refactoring and performance skills do not substitute for interaction design. If host discovery fails, read the tracked skill directly. Maintain the procedure with accepted UX changes and demonstrated failures, and keep unfinished corrections in PLAN rather than claiming the interface already complies.
+
+Before recommending a UI framework or control, check the current platform's standard controls against the actual interaction requirements using the installed SDK or official documentation. For Mac content, evaluate SwiftUI first, including hierarchical `Table` for multi-column trees. Recommend AppKit or custom controls only with a specific demonstrated limitation or an established repository ownership requirement; unfamiliarity is not evidence of a limitation. Preserve AppKit's existing lifecycle ownership. Name the evidence and tradeoff in the recommendation, and leave unverified claims explicit.
+
 Diagnostic recording defaults off. Normal monitoring retains bounded working state and rolling in-memory history only; never add automatic process-data persistence or an unbounded in-memory log. Recording requires explicit opt-in under its [separate proposal](docs/proposals/diagnostic-recording.md).
 
 ## Start and scope
@@ -29,6 +33,8 @@ For measurement and presentation changes, assess whether the Mac app and TUI wou
 Do not fork or vendor-patch SwiftTUI; preserve the user's [dependency decision](docs/decisions/swifttui-fork.md).
 
 ## Ownership and essential invariants
+
+Agent Monitor must not initiate Internet connections, directly or through helpers it launches. A local-looking provider command or a flag disabling nonessential traffic is not an offline guarantee. Do not add or approve a helper path without establishing how Internet access is prevented; surface unavailable attribution/actions instead of silently violating this requirement. This runtime rule applies to Mac, TUI and CLI; it does not prohibit development-time documentation lookup or dependency installation. [NET-01](PLAN.md#open-follow-ups) tracks the existing provider-helper gap; the rule is not a claim of implemented enforcement.
 
 | Target under `Sources/` | Owns |
 | --- | --- |
