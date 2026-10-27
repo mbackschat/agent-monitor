@@ -26,12 +26,6 @@ import Vision
     #expect(model.report.showsOverview)
     #expect(model.report.overview.main.count == 2)
     #expect(model.report.overview.nodes[.section(.recent)]?.stats.noLongerObserved.count == 1)
-    if let first = model.report.overview.main.first {
-        model.report.overview.setDisclosure(expanded: true, for: first)
-        if let child = model.report.overview.nodes[first]?.children.first {
-            model.report.overview.setDisclosure(expanded: true, for: child)
-        }
-    }
     _ = NSApplication.shared
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
@@ -41,6 +35,14 @@ import Vision
     window.isReleasedWhenClosed = false
     defer { window.close() }
     window.contentView = host
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+    if let first = model.report.overview.main.first {
+        model.report.overview.setDisclosure(expanded: true, for: first)
+        await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+        if let child = model.report.overview.nodes[first]?.children.first {
+            model.report.overview.setDisclosure(expanded: true, for: child)
+        }
+    }
     await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
     let bitmap = try #require(
         NSBitmapImageRep(

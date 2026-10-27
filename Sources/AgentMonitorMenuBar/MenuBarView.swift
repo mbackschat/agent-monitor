@@ -17,6 +17,10 @@ struct MenuBarView: View {
         nonmutating set { focus = newValue.map(MenuBarFocus.row) }
     }
 
+    private var overviewVisible: Bool {
+        model.report.showsOverview && !model.diagnosis.state.isVisible && model.report.actionPanel == nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
@@ -38,6 +42,7 @@ struct MenuBarView: View {
                 Spacer()
                 if model.diagnosis.state.isVisible {
                     Button("Back") { model.diagnosis.dismiss() }
+                        .focused($focus, equals: .inspection)
                 } else {
                     Button(
                         model.report.frozen ? "Resume" : "Pause",
@@ -49,12 +54,15 @@ struct MenuBarView: View {
             }
             .padding(.vertical, 16).padding(.trailing, 16).padding(.leading, 32)
             Divider()
-            if model.report.showsOverview, !model.diagnosis.state.isVisible,
-                model.report.actionPanel == nil
-            {
-                report
-            } else {
-                scrollingContent
+            // Retaining the table avoids SwiftUI's nested-expansion initialization failure.
+            // See docs/research/native-menu-design.md#hidden-swiftui-restoration-prototype--2026-10-27.
+            ZStack {
+                report(overview: true)
+                    .opacity(overviewVisible ? 1 : 0)
+                    .disabled(!overviewVisible)
+                    .allowsHitTesting(overviewVisible)
+                    .accessibilityHidden(!overviewVisible)
+                if !overviewVisible { scrollingContent }
             }
             Divider()
             HStack {
@@ -72,7 +80,11 @@ struct MenuBarView: View {
         }
         .frame(width: MenuBarLayout.width, height: min(model.panelSize.height, maximumHeight))
         .onChange(of: model.diagnosis.state.isVisible || model.report.actionPanel != nil) { _, inspecting in
-            if inspecting { focus = nil }
+            if inspecting {
+                focus = .inspection
+            } else if model.isOpen {
+                restoreReportFocus()
+            }
         }
         .onChange(of: model.visibleRowIDs) { _, rows in
             guard model.isOpen, !model.report.showsOverview, !model.diagnosis.state.isVisible,
@@ -111,7 +123,7 @@ struct MenuBarView: View {
             }
             focus =
                 overview
-                ? .table : initialFocus.open(rows: model.visibleRowIDs, preferred: model.report.selection)
+                ? .overview : initialFocus.open(rows: model.visibleRowIDs, preferred: model.report.selection)
         }
         .onKeyPress(keys: MenuBarKeyboard.keys, phases: .down) { key in
             guard !model.diagnosis.state.isVisible, model.report.actionPanel == nil,
@@ -127,6 +139,13 @@ struct MenuBarView: View {
             guard let row = pendingPinFocus else { return }
             if model.visibleRowIDs.contains(row) { focusedRow = row }
             pendingPinFocus = nil
+        }
+        .task(id: model.isOpen) {
+            if model.isOpen, !model.diagnosis.state.isVisible, model.report.actionPanel == nil {
+                restoreReportFocus()
+            } else {
+                focus = nil
+            }
         }
         .onGeometryChange(for: CGSize.self) {
             $0.size
@@ -145,7 +164,15 @@ struct MenuBarView: View {
                 } else if let panel = model.report.actionPanel {
                     actionPanel(panel)
                 } else {
-                    report
+                    report(overview: false)
+                        .task {
+                            await Task.yield()
+                            guard !Task.isCancelled, model.isOpen, !model.report.showsOverview,
+                                !model.diagnosis.state.isVisible, model.report.actionPanel == nil
+                            else { return }
+                            if let row = model.report.selection { proxy.scrollTo(row, anchor: .center) }
+                            restoreReportFocus()
+                        }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -161,25 +188,25 @@ struct MenuBarView: View {
         }
     }
 
-    private var report: some View {
-        return VStack(alignment: .leading, spacing: model.report.showsOverview ? 8 : 12) {
+    private func report(overview: Bool) -> some View {
+        return VStack(alignment: .leading, spacing: overview ? 8 : 12) {
             HStack {
                 Text(
-                    model.report.showsOverview
+                    overview
                         ? "Main contributors"
                         : (model.observedProcessCount.map { "Observed processes · \($0)" }
                             ?? "Observed processes")
                 )
                 .font(.subheadline.bold())
                 Spacer()
-                if model.report.showsOverview {
+                if overview {
                     Button(model.report.overview.showAll ? "Compact" : "Show all") {
                         model.report.overview.showAll.toggle()
                     }.controlSize(.small)
                 }
                 MenuBarViewOptions(model: model)
             }
-            if !model.report.showsOverview, model.report.snapshot != nil {
+            if !overview, model.report.snapshot != nil {
                 MenuBarCoverageLink(model: model)
             }
             if let error = model.error, model.report.snapshot != nil {
@@ -193,7 +220,7 @@ struct MenuBarView: View {
                 Text("Filter changes pending next displayed sample").font(.caption).foregroundStyle(
                     .secondary)
             }
-            if model.report.snapshot != nil, model.report.showsOverview {
+            if overview {
                 MenuBarContributorOverview(model: model, focus: $focus)
             } else {
                 processResults
@@ -209,21 +236,17 @@ struct MenuBarView: View {
             }
         }
         .frame(
-            maxWidth: .infinity, maxHeight: model.report.showsOverview ? .infinity : nil,
+            maxWidth: .infinity, maxHeight: overview ? .infinity : nil,
             alignment: .topLeading
         )
         .padding(14)
-        .task(id: model.isOpen) {
-            guard model.isOpen else {
-                focus = nil
-                return
-            }
-            // Action review and diagnosis remove these focus targets; restore after the table remounts.
-            focus =
-                model.report.showsOverview
-                ? .table : initialFocus.open(rows: model.visibleRowIDs, preferred: model.report.selection)
-            if let focusedRow { model.selectRow(focusedRow) }
-        }
+    }
+
+    private func restoreReportFocus() {
+        focus =
+            model.report.showsOverview
+            ? .overview : initialFocus.open(rows: model.visibleRowIDs, preferred: model.report.selection)
+        if let focusedRow { model.selectRow(focusedRow) }
     }
 
     private var processResults: some View {
@@ -452,6 +475,7 @@ struct MenuBarView: View {
                 )
                 HStack {
                     Button("Cancel") { model.input(.escape) }
+                        .focused($focus, equals: .inspection)
                     Spacer()
                     Button("Terminate", role: .destructive) { model.input(.confirm) }
                 }
@@ -463,9 +487,11 @@ struct MenuBarView: View {
             case .loading, .compose, .review:
                 Text(ProviderRuntimeAvailability.messagingUnavailableReason)
                 Button("Done") { model.input(.escape) }
+                    .focused($focus, equals: .inspection)
             case .result:
                 Text(panel.result?.text ?? "Action finished").textSelection(.enabled)
                 Button("Done") { model.input(.escape) }
+                    .focused($focus, equals: .inspection)
             }
         }.padding(16)
     }

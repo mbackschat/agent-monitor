@@ -2,13 +2,15 @@ import AgentMonitorPresentation
 
 enum MenuBarFocus: Hashable {
     case table
+    case overview
+    case inspection
     case row(LiveReportRowID)
     case pin(LiveReportRowID)
 
     var rowID: LiveReportRowID? {
         switch self {
         case .row(let id), .pin(let id): id
-        case .table: nil
+        case .table, .overview, .inspection: nil
         }
     }
 }

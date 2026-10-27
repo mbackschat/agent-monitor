@@ -6,41 +6,86 @@ struct MenuBarContributorTable: View {
     @Bindable var model: MenuBarModel
     var focus: FocusState<MenuBarFocus?>.Binding
 
-    var body: some View {
-        let overview = model.report.overview
-        MenuBarContributorOutline(
-            model: model, overview: overview, focused: focus.wrappedValue == .table,
-            focusChanged: { active in
-                if active {
-                    if focus.wrappedValue != .table { focus.wrappedValue = .table }
-                } else if focus.wrappedValue == .table {
-                    focus.wrappedValue = nil
-                }
-            },
-            cell: { node, column in AnyView(cell(node: node, column: column, overview: overview)) },
-            height: { node, width in
-                let probe = NSHostingView(
-                    rootView: MenuBarContributorCellContent(
-                        node: node, pinned: overview.pinned.contains(node.id)
-                    ) {
-                        Text("Details").underline()
-                    }.frame(width: width))
-                probe.layoutSubtreeIfNeeded()
-                return max(32, ceil(probe.fittingSize.height))
-            }
-        )
-        .accessibilityLabel("Main contributors")
-        .frame(minHeight: 120, maxHeight: .infinity)
-        .focusable()
-        .focused(focus, equals: .table)
+    private var acceptsInteraction: Bool {
+        model.isOpen && model.report.showsOverview && !model.diagnosis.state.isVisible
+            && model.report.actionPanel == nil
     }
 
-    @ViewBuilder private func cell(
-        node: ContributorNode, column: MenuBarContributorColumn, overview: ContributorOverview
-    ) -> some View {
-        switch column {
-        case .contributor:
-            MenuBarContributorTableCell(node: node, model: model)
+    var body: some View {
+        let overview = model.report.overview
+        Table(
+            of: ContributorNode.self,
+            selection: Binding(
+                get: { model.report.overview.selection },
+                set: { id in
+                    if acceptsInteraction, let id { model.report.overview.select(id) }
+                })
+        ) {
+            TableColumn("Contributor") { node in
+                MenuBarContributorTableCell(node: node, model: model)
+            }.width(min: 130, ideal: 172)
+            TableColumn("CPU") { node in metric(node: node, kind: .cpu) }.width(74)
+            TableColumn("Memory") { node in metric(node: node, kind: .memory) }.width(78)
+        } rows: {
+            MenuBarContributorRows(
+                model: model, ids: overview.topLevel, acceptsInteraction: acceptsInteraction)
+        }
+        .tableStyle(.inset(alternatesRowBackgrounds: true))
+        .accessibilityLabel("Main contributors")
+        .frame(minHeight: 120, maxHeight: .infinity)
+        .focused(focus, equals: .overview)
+        .background {
+            MenuBarTableState(
+                rows: overview.visibleRows.map(\.id), selection: overview.selection,
+                active: acceptsInteraction)
+        }
+        .onKeyPress(keys: [.upArrow, .downArrow, .leftArrow, .rightArrow], phases: .down) { _ in
+            !acceptsInteraction || overview.detailsVisible ? .handled : .ignored
+        }
+        .onKeyPress(keys: MenuBarKeyboard.keys, phases: .down) { key in
+            guard acceptsInteraction, MenuBarKeyboard.accepts(key.characters, modifiers: key.modifiers)
+            else { return .ignored }
+            if key.characters == "q" {
+                NSApplication.shared.terminate(nil)
+                return .handled
+            }
+            return model.handleShortcut(key.characters, row: nil) ? .handled : .ignored
+        }
+        .contextMenu(forSelectionType: ContributorID.self) { ids in
+            if acceptsInteraction, let id = ids.first {
+                Button("Details…") {
+                    guard selectContextTarget(id) else { return }
+                    if !model.report.overview.detailsVisible { model.report.overview.toggleDetails() }
+                }
+                Button("Pin / unpin session") {
+                    guard selectContextTarget(id) else { return }
+                    model.report.overview.togglePin()
+                }
+            }
+        }
+    }
+
+    private func selectContextTarget(_ id: ContributorID) -> Bool {
+        guard acceptsInteraction, model.report.overview.visibleRows.contains(where: { $0.id == id }) else {
+            return false
+        }
+        model.report.overview.select(id)
+        return true
+    }
+
+    private enum Metric { case cpu, memory }
+
+    @ViewBuilder private func metric(node: ContributorNode, kind: Metric) -> some View {
+        let overview = model.report.overview
+        switch kind {
+        case .memory:
+            MenuBarContributorMetric(
+                value: node.stats.memoryText, fraction: overview.memoryMeterFraction(node.stats)
+            )
+            .font(.caption)
+            .help(
+                "Current physical footprint; bar scale is physical RAM. \(node.stats.missingMemory) readings unavailable. Historical peaks are in details."
+            )
         case .cpu:
             VStack(alignment: .trailing, spacing: 3) {
                 MenuBarContributorMetric(
@@ -54,14 +99,42 @@ struct MenuBarContributorTable: View {
                     .font(.caption2).modifier(MenuBarContributorTextStyle(secondary: true))
                     .help("Measured CPU-seconds in the recent range, including workers no longer observed.")
             }.font(.caption).frame(maxWidth: .infinity, alignment: .trailing)
-        case .memory:
-            MenuBarContributorMetric(
-                value: node.stats.memoryText, fraction: overview.memoryMeterFraction(node.stats)
-            )
-            .font(.caption)
-            .help(
-                "Current physical footprint; bar scale is physical RAM. \(node.stats.missingMemory) readings unavailable. Historical peaks are in details."
-            )
+        }
+    }
+}
+
+private struct MenuBarContributorRows: TableRowContent {
+    let model: MenuBarModel
+    let ids: [ContributorID]
+    let acceptsInteraction: Bool
+
+    private func visibleNodes(_ ids: [ContributorID]) -> [ContributorNode] {
+        ids.compactMap { model.report.overview.nodes[$0] }.filter {
+            $0.process == nil || $0.stats.filtered.isEmpty
+        }
+    }
+
+    @TableRowBuilder<ContributorNode> var tableRowBody: some TableRowContent<ContributorNode> {
+        ForEach(visibleNodes(ids)) { node in
+            let children = visibleNodes(node.children.filter { !model.report.overview.pinned.contains($0) })
+                .map(\.id)
+            if children.isEmpty {
+                TableRow(node)
+            } else {
+                DisclosureTableRow(
+                    node,
+                    isExpanded: Binding(
+                        get: { model.report.overview.isExpanded(node.id) },
+                        set: {
+                            if acceptsInteraction {
+                                model.report.overview.setDisclosure(expanded: $0, for: node.id)
+                            }
+                        })
+                ) {
+                    MenuBarContributorRows(
+                        model: model, ids: children, acceptsInteraction: acceptsInteraction)
+                }
+            }
         }
     }
 }
@@ -75,7 +148,9 @@ private struct MenuBarContributorTableCell: View {
     private var detailsPresented: Binding<Bool> {
         Binding(
             get: {
-                model.report.overview.selection == node.id && model.report.overview.detailsVisible
+                model.report.showsOverview && !model.diagnosis.state.isVisible
+                    && model.report.actionPanel == nil
+                    && model.report.overview.selection == node.id && model.report.overview.detailsVisible
             },
             set: { presented in
                 if !presented, model.report.overview.selection == node.id,

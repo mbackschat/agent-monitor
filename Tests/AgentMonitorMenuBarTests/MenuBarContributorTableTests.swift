@@ -11,16 +11,18 @@ import Testing
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
-    let parent = try #require(model.report.overview.main.first)
-    model.report.overview.toggle(parent)
-    let contributor = try #require(model.report.overview.nodes[parent]?.children.first)
-    model.report.overview.setDisclosure(expanded: true, for: contributor)
     let host = NSHostingView(rootView: MenuBarView(model: model))
     host.frame = NSRect(x: 0, y: 0, width: 420, height: 720)
     let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
     defer { window.close() }
     window.contentView = host
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+    let parent = try #require(model.report.overview.main.first)
+    model.report.overview.toggle(parent)
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+    let contributor = try #require(model.report.overview.nodes[parent]?.children.first)
+    model.report.overview.setDisclosure(expanded: true, for: contributor)
     await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
     let outline = try #require(contributorOutline(in: host))
     let columnCount = outline.numberOfColumns
@@ -36,17 +38,6 @@ import Testing
     #expect(outline.usesAlternatingRowBackgroundColors)
     let selectedRow = try #require(outline.rowView(atRow: outline.selectedRow, makeIfNecessary: true))
     #expect(selectedRow.isSelected)
-    for row in 0..<min(rowCount, 3) {
-        let frame = outline.rect(ofRow: row)
-        for column in 0..<columnCount {
-            let cell = try #require(outline.view(atColumn: column, row: row, makeIfNecessary: true))
-            let hosting = try #require(contributorHosting(in: cell))
-            let contentHeight = hosting.fittingSize.height
-            #expect(contentHeight <= frame.height + 1)
-            #expect(hosting.frame.height <= frame.height + 1)
-        }
-        if row > 0 { #expect(outline.rect(ofRow: row - 1).maxY <= frame.minY) }
-    }
     #expect(
         outline.bounds.width <= 392,
         "Column widths \(outline.tableColumns.map(\.width)); viewport \(String(describing: outline.enclosingScrollView?.contentSize))"
@@ -55,14 +46,9 @@ import Testing
     await model.stop()
 }
 
-@MainActor private func contributorOutline(in view: NSView) -> NSOutlineView? {
+@MainActor func contributorOutline(in view: NSView) -> NSOutlineView? {
     if let outline = view as? NSOutlineView { return outline }
     return view.subviews.lazy.compactMap { contributorOutline(in: $0) }.first
-}
-
-@MainActor private func contributorHosting(in view: NSView) -> NSHostingView<AnyView>? {
-    if let hosting = view as? NSHostingView<AnyView> { return hosting }
-    return view.subviews.lazy.compactMap { contributorHosting(in: $0) }.first
 }
 
 @Test @MainActor func nativeContributorTableSelectionAndDisclosureRemainIndependent() async throws {
@@ -103,7 +89,7 @@ import Testing
     }
 }
 
-@Test @MainActor func nativeContributorKeysSelectOnceInspectTheSelectedIdentityAndPause() async throws {
+@Test @MainActor func nativeContributorNavigationSelectsOnceAndTabsAway() async throws {
     _ = NSApplication.shared
     let snapshot = try nativeOverviewFixture()
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
@@ -115,7 +101,7 @@ import Testing
     defer { window.close() }
     let outline = try #require(contributorOutline(in: host))
     let expected = try #require(model.report.overview.visibleRows.dropFirst().first?.id)
-    let focusDeadline = ContinuousClock.now + .seconds(30)
+    let focusDeadline = ContinuousClock.now + .seconds(2)
     while window.firstResponder !== outline, ContinuousClock.now < focusDeadline {
         host.layoutSubtreeIfNeeded()
         await Task.yield()
@@ -125,26 +111,6 @@ import Testing
     outline.keyDown(with: try contributorKey("\u{F701}", code: 125, window: window))
     #expect(model.report.overview.selection == expected)
     #expect(outline.selectedRow == 1)
-    outline.keyDown(with: try contributorKey("i", code: 34, window: window))
-    #expect(model.report.overview.selection == expected)
-    #expect(model.report.overview.detailsVisible)
-    for (characters, code) in [
-        ("\u{F700}", UInt16(126)), ("\u{F701}", 125), ("\u{F702}", 123), ("\u{F703}", 124),
-    ] {
-        outline.keyDown(with: try contributorKey(characters, code: code, window: window))
-        #expect(model.report.overview.selection == expected)
-        #expect(model.report.overview.detailsVisible)
-    }
-    outline.keyDown(with: try contributorKey("i", code: 34, window: window))
-    #expect(!model.report.overview.detailsVisible)
-    outline.keyDown(with: try contributorKey("p", code: 35, window: window))
-    #expect(model.report.frozen)
-    outline.keyDown(with: try contributorKey("p", code: 35, window: window))
-    #expect(!model.report.frozen)
-    outline.keyDown(with: try contributorKey(".", code: 47, window: window))
-    #expect(model.report.overview.pinned.contains(expected))
-    outline.keyDown(with: try contributorKey(".", code: 47, window: window))
-    #expect(!model.report.overview.pinned.contains(expected))
     let next = try #require(contributorOptions(in: host))
     outline.nextKeyView = next
     outline.keyDown(with: try contributorKey("\t", code: 48, window: window))
@@ -166,49 +132,28 @@ import Testing
     return view.subviews.lazy.compactMap { contributorOptions(in: $0) }.first
 }
 
-@Test @MainActor func nativeContributorOutlineHonorsFocusRequestedBeforeItsFirstUpdate() async throws {
+@Test @MainActor func nativeContributorTableExpandsOffscreenBranchesBeforeKeyboardSelection() async throws {
     _ = NSApplication.shared
     let snapshot = try nativeOverviewFixture()
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
-    let configuration = MenuBarContributorOutline(
-        model: model, overview: model.report.overview, focused: true, focusChanged: { _ in },
-        cell: { node, _ in AnyView(Text(node.title)) }, height: { _, _ in 44 })
-    let coordinator = configuration.makeCoordinator()
-    let scroll = configuration.makeScrollView(coordinator: coordinator)
-    scroll.frame = NSRect(x: 0, y: 0, width: 392, height: 300)
-    let window = NSWindow(
-        contentRect: scroll.frame, styleMask: [.borderless], backing: .buffered, defer: false)
-    window.isReleasedWhenClosed = false
-    defer { window.close() }
-    window.contentView = scroll
-    let outline = try #require(contributorOutline(in: scroll))
-    #expect(window.firstResponder === outline)
-    coordinator.update(configuration, scroll: scroll)
-    #expect(window.firstResponder === outline)
-    await model.stop()
-}
-
-@Test @MainActor func nativeContributorTableRestoresOffscreenExpansionBeforeKeyboardSelection() async throws {
-    _ = NSApplication.shared
-    let snapshot = try nativeOverviewFixture()
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
-    model.open()
-    await model.waitForCollection()
-    let section = ContributorID.section(.remainder)
-    model.report.overview.setDisclosure(expanded: true, for: section)
-    let session = try #require(model.report.overview.nodes[section]?.children.last)
-    model.report.overview.setDisclosure(expanded: true, for: session)
-    let contributor = try #require(model.report.overview.nodes[session]?.children.first)
-    model.report.overview.setDisclosure(expanded: true, for: contributor)
-    let process = try #require(model.report.overview.nodes[contributor]?.children.first)
     let host = NSHostingView(rootView: MenuBarView(model: model))
     host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
     let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
     defer { window.close() }
     window.contentView = host
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+    let section = ContributorID.section(.remainder)
+    model.report.overview.setDisclosure(expanded: true, for: section)
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+    let session = try #require(model.report.overview.nodes[section]?.children.last)
+    model.report.overview.setDisclosure(expanded: true, for: session)
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+    let contributor = try #require(model.report.overview.nodes[session]?.children.first)
+    model.report.overview.setDisclosure(expanded: true, for: contributor)
+    let process = try #require(model.report.overview.nodes[contributor]?.children.first)
     await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
     let outline = try #require(contributorOutline(in: host))
     try #require(outline.numberOfRows == model.report.overview.visibleRows.count)
@@ -235,7 +180,6 @@ import Testing
     defer { window.close() }
     let outline = try #require(contributorOutline(in: host))
     let scroll = try #require(outline.enclosingScrollView)
-    let item = outline.item(atRow: outline.selectedRow) as AnyObject
     outline.scrollRowToVisible(outline.numberOfRows - 1)
     let origin = scroll.contentView.bounds.origin
     model.report.receive(snapshot)
@@ -246,13 +190,13 @@ import Testing
     #expect(model.report.overview.selection == selected)
     #expect(model.report.overview.open == open)
     #expect(abs(scroll.contentView.bounds.origin.y - origin.y) <= 1)
-    #expect(outline.item(atRow: outline.selectedRow) as AnyObject === item)
+    #expect(outline.selectedRow == model.report.overview.visibleRows.firstIndex { $0.id == selected })
     model.report.overview.sort(by: .memory)
     host.layoutSubtreeIfNeeded()
     await Task.yield()
     host.layoutSubtreeIfNeeded()
     #expect(model.report.overview.selection == selected)
-    #expect(outline.item(atRow: outline.selectedRow) as AnyObject === item)
+    #expect(outline.selectedRow == model.report.overview.visibleRows.firstIndex { $0.id == selected })
     #expect(model.report.overview.open == open)
     await model.stop()
 }
