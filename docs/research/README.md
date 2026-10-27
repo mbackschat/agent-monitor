@@ -25,6 +25,7 @@ Checked dates are when the evidence was gathered; later editorial edits do not r
 | [Local process observations](terminal-process-observations.md) | 2026-10-14 | Anonymized process topology, marker readability and synthetic orphan experiments. |
 | [macOS measurement and attribution](macos-process-attribution.md) | 2026-10-14 | Native APIs, counter units, process identity, permissions and event-collection limits. |
 | [CPU accounting coverage](cpu-accounting.md) | 2026-10-16; follow-ups to 2026-10-26 | Polling/newborn/exit coverage, child-counter correctness, native/scheduler probes, live-build timing, exec evidence and conditional recording-size arithmetic. |
+| [Adaptive sampling prototype](cpu-accounting.md#adaptive-sampling-offline-prototype--2026-10-27) | 2026-10-27 | Closed-loop synthetic idle savings, short-worker phase losses, persistent-read-failure comparison and the limits of scan count as a native-cost proxy. |
 | [Supplemental inspection observations](cpu-accounting.md#supplemental-inspection-observations-source-review--2026-10-26) | 2026-10-26 | Census/identity/freshness source constraints and the [bounded native comparison](cpu-accounting.md#bounded-inspection-comparison-retry--2026-10-26): better 50 ms-worker capture, persistent shorter-worker loss and cost above the absolute target. |
 | [Exit accounting alternatives and workload evidence](cpu-accounting.md#exit-accounting-alternatives-and-workload-evidence--2026-10-26) | 2026-10-26 | User-reported build/runtime workload families; source-supported cumulative exit CPU and exact-lifetime trace linkage; root/private-interface, endpoint and event-loss limits; ES/BSD accounting and Docker/Linux alternatives. No complete native CPU/memory backend is validated. |
 | [Activity Monitor data path](cpu-accounting.md#activity-monitor-data-path--2026-10-26) | 2026-10-26 | Installed binary imports, private client entitlements and sysmond access checks; separate host/process/coalition mechanisms and limits of Apple's documented process and energy views. No complete exited-worker accounting or public replacement API established. |
@@ -33,6 +34,8 @@ Checked dates are when the evidence was gathered; later editorial edits do not r
 | [Development tools](development-tools.md) | 2026-10-14–15; source audit 2026-10-26 | Skill contents/discovery, first source trial, grouping/sizing observations and [test-oracle limitations](development-tools.md#test-value-audit--2026-10-26). |
 
 ## Retained measurements
+
+- [Adaptive sampling synthetic comparison on 2026-10-27](adaptive-sampling-2026-10-27.json): 54 scenarios × three schedules through production acquisition with a virtual clock; [method and limits](cpu-accounting.md#adaptive-sampling-offline-prototype--2026-10-27). Contains synthetic aggregate results and source hashes, not recorded user processes or native overhead measurements.
 
 - [Aggregate acceptance profile on 2026-10-25](pipeline-acceptance-2026-10-25.json): optimized commit `bd87b9d`, 633 seconds with providers enabled, fixed stage/thread costs and per-window coverage; [interpretation and limits](menu-bar-load-cost.md#aggregate-acceptance-profile--2026-10-25). This one-run retention exception contains no process identities or raw traces.
 
