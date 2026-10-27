@@ -22,6 +22,8 @@ The completed short-worker fixture confirms substantial loss despite timely poll
 
 - [ ] **UX-01 — Validate the responsibility workflow in both interfaces.** Use the [review procedure](docs/development.md#resource-overview-ux-review), including multiple contributors/CWDs, departed workers, memory-heavy idle work, uncertainty, nested sorting and contextual actions. Overview and process inspection must be checked separately; legacy process-view feedback remains open below. Complete headless review and the user's narrow/wide Mac/TUI smoke checks. Supply a focused external-review prompt at the next review checkpoint.
 
+- [ ] **ADAPT-01 — Review the agreed adaptive sampling contract before implementation.** The [adaptive acquisition section](docs/proposals/resource-accounting.md#adaptive-acquisition) specifies a shared 100 ms minimum, 250 ms visible maximum, 2.5× closed-panel maximum and 60-second gradual relaxation, with activity-triggered acceleration. The design is documented; implementation has not been requested. Preserve fixed 100 ms behavior until then, and assess quiet-to-burst coverage and heartbeat behavior separately from monitoring cost.
+
 ### Existing validation follow-ups
 
 - [ ] **TUI-INPUT-01 — Bound ordered input end to end.** The [proposal](docs/proposals/bounded-terminal-input.md) is on hold for an official upstream fix or verified supported-public-API solution. Reader/parser/runtime queues and producer-side paste ordering remain open. The [no-fork decision](docs/decisions/swifttui-fork.md) prohibits forks, vendored changes and checkout patches.

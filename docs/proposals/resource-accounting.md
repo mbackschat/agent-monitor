@@ -109,11 +109,58 @@ Retain per-worker listing/read timestamps and outcomes so never-listed, listed-b
 
 ### Adaptive acquisition
 
-The user's proposed adaptation remains a candidate after fixed-cadence measurements. Adapt the whole collector before considering individual process rates. Accelerate on non-monitor churn, process/host activity and memory changes; slow gradually only with fresh agreeing quiet signals, with separate thresholds/dwell times and periodic fast observations. Missing signals are not quiet. Do not drive adaptation solely from measured agent CPU.
+This agreed design changes the requested interval of the whole collector to reduce cost during observed quiet periods. It is not implemented and remains outside this proposal's first-delivery implementation authorization. The existing fixed-cadence behavior remains current until implementation is requested. Display refresh, metadata/provider freshness, process scope, accounting and attribution retain their separate contracts.
 
-Exclude the exact monitor/helper lifetimes from activation signals, while recording their cost separately. Comparable-window host-minus-monitor occupancy may be a control input after its tick resolution, sampling skew and helper coverage are validated; it is never an attribution result. Unidentified descendants and unrelated host load can still sustain acceleration. Expose rate-change reasons and achieved timing. The highest visible PID is not an established creation counter or missed-process bound.
+#### Settings and limits
 
-Require coverage comparisons against fixed fast collection across burst phases and durations, plus idle cost and self-trigger tests. No numeric adaptive thresholds are selected. A fixed fastest **validated** cadence is selectable; back-to-back scans are a bounded experiment, not an always-on default. A time-bounded intensive mode may be offered with measured cost visible. Monitoring overhead is a tradeoff to measure, not automatically a prohibited workload action. Adaptation is not mathematically proven always worse, but may miss a burst before detecting its trigger.
+Mac and TUI expose the same advanced settings. These are proposed defaults, not measured optimal values:
+
+| Setting | Type | Default | Contract |
+| --- | --- | --- | --- |
+| Adaptive sampling | Boolean | Enabled | Off means **Use maximum interval**, not stop sampling. |
+| Minimum interval | Duration | 100 ms | Shared by all contexts. |
+| Visible maximum interval | Duration | 250 ms | Applies to the open Mac panel and TUI. |
+| Closed-panel maximum multiplier | Finite scalar | 2.5 | Multiplies the visible maximum only. |
+| Quiet window | Duration | 60 s | Time without observed activity needed to reach the maximum. |
+
+With these defaults, the open Mac panel and TUI use 100–250 ms; the closed Mac panel uses 100–625 ms. There is no independently configured closed-panel minimum or maximum. Durations must be positive and finite, minimum must not exceed visible maximum, and the multiplier must be at least one with a finite, representable derived maximum. Reject invalid combinations together. Fixed 100 ms collection remains selectable by disabling adaptation, setting the visible maximum to 100 ms and the multiplier to one.
+
+**Rationale:** sharing the minimum preserves the ability to return to 100 ms during background activity. Multiplying both bounds would impose a 250 ms background floor even during a build. The larger closed-panel maximum expresses a deliberate cost/coverage tradeoff when the user is not inspecting the panel; 2.5 is a configurable policy choice, not a measured CPU-cost ratio. Disabling adaptation has the user's requested maximum-interval meaning, which must be explicit in the control label.
+
+#### Activity and interval selection
+
+Activity is any of the following, evaluated from complete acquisitions before display filtering:
+
+- A newly listed PID or newly verified process lifetime, including detected PID reuse. New arrivals trigger before ownership is resolved; the highest PID value is not a creation counter.
+- A tracked lifetime becoming absent from the complete listing or being replaced by a verified different lifetime. This is a transition signal, not an assertion that absence proves exit.
+- A positive accepted CPU increment in attributed agent work, including provider-known work whose exact session is unresolved. Zero is quiet only when it is a valid measurement.
+
+Exclude exact monitor and monitor-owned helper lifetimes from activity signals while retaining their cost separately. Startup establishes the initial population rather than treating every existing process as a new arrival. Failed complete listings or unavailable counters needed to assess tracked agent activity reset the quiet timer and hold the minimum; they cannot be interpreted as zero activity. A newly listed but unreadable process still triggers as an arrival. Repeated unreadability of an unrelated, already-listed PID is not repeatedly counted as a new process. Later attribution cannot retroactively justify an earlier quiet period.
+
+On startup, enabling adaptation or opening the Mac panel, set the requested interval to the minimum and reset the quiet timer. Each activity signal immediately does the same. Otherwise, derive the next requested interval from monotonic time:
+
+```text
+quietFraction: Double = clamp(secondsSinceActivity / quietWindowSeconds, 0, 1)
+interval: Duration = minimum + quietFraction × (contextMaximum − minimum)
+```
+
+Evaluate the rule after each complete acquisition. An earlier requested deadline takes effect without waiting through the previous longer period; an in-flight read is not interrupted. There are no overlapping scans or catch-up bursts. Closing the Mac panel preserves the quiet timer and changes only the applicable maximum. Changing settings while adaptive sampling is enabled restarts at the newly configured minimum. With adaptation disabled, startup, visibility and settings changes use the applicable maximum directly.
+
+**Rationale:** observed process age is not completed lifetime, and slower polling hides short workers, so the fastest observed worker is a biased control signal. Arrival/disappearance signals complement measured agent CPU instead of allowing unclassified churn to look idle. Immediate acceleration and gradual relaxation avoid a separate pair of switching thresholds or dwell timers; activity has memory without delaying the response to a detected burst. Any positive agent CPU increment is deliberately conservative: heartbeat work may keep sampling fast. An activity threshold should be considered only if observations show that this prevents useful quiet-period savings; no arbitrary threshold is part of this design.
+
+#### Lifecycle and visibility
+
+Presentation pause does not stop acquisition or activity detection. Static icon mode retains its current lifecycle: closed-panel collection is off, and reopening starts a fresh acquisition baseline. Adaptive sampling does not add background collection to that mode. TUI uses the visible range without attempting to infer terminal-window visibility. Existing manual interval controls must not silently compete with adaptation; advanced controls expose the mode and configured bounds together.
+
+Coverage details show adaptive versus maximum-interval mode, the current requested interval, applicable bounds, the latest acceleration/reset reason, and achieved gaps/overruns. Retained accounting windows preserve requested-interval ranges and whether sampling policy changed within the window, so historical results are not described using only today's setting. Display refresh remains independent. Neither automatic slowing nor visibility changes may discard accepted CPU, redefine totals through filters, or manufacture ownership or final-exit measurements.
+
+#### Limits and evidence required
+
+The first burst after a quiet period can be partly or wholly missed before any trigger is observed. A quiet timer establishes absence of observed triggers, not absence of work. Longer intervals can worsen CPU tails, discovery and memory-peak coverage; requesting the minimum does not guarantee the achieved cadence. No cost saving or complete accounting is claimed from this policy alone.
+
+Validation must compare against fixed 100 ms acquisition, using the [offline lifecycle fixture](../../Tests/AgentMonitorCoreTests/WorkloadCoverageTests.swift) and [recording interpretation limits](../../Tools/WorkloadCapture/README.md). Cover quiet-to-burst transitions at varied phases, overlapping subsecond workers, long-lived agents that resume CPU without spawning, heartbeat activity, unknown ownership, failed reads, PID reuse, monitor/helper self-trigger exclusion, settings/mode changes and open/closed/static transitions. Check discovered identities, accepted CPU, never-read CPU and final tails separately; accounting conservation and current versus historical memory remain mandatory. Native cost/cadence and closed-panel/App Nap claims require separately authorized measurement with explicit acceptance criteria; this write-up authorizes no live trials.
+
+Excluded from this adaptive design: per-process rates, shortest-observed-age estimation, host-load subtraction, memory-driven activation, periodic extra probe scans, separate hysteresis thresholds, new intensive modes, changes to experimental between-scan discovery, automatic recording and changes to CLI text/JSONL acquisition defaults. Compatibility with separately enabled experimental discovery must be validated against the actual complete-scan deadlines before combining the modes.
 
 ### Other optional capabilities
 
