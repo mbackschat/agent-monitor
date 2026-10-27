@@ -84,3 +84,23 @@ On 2026-10-17 the user confirmed action-review drag detachment, row focus/copy/d
 ## Secondary process-row context — 2026-10-26
 
 Source review and synthetic offscreen rendering found a 280-point row with a long executable and matching directory suffixes losing its distinguishing leading directory component through middle truncation. Tail truncation preserved that component. Flat and flattened-singleton rows also exposed provider/session ownership only in tooltips, even though their standalone placement supplied no enclosing session heading. These are context-loss counterexamples, not evidence of arbitrary-path legibility or physical interaction. The [native contract](../architecture.md#native-menu-bar-app) owns the resulting row behavior; physical readability and interaction remain unverified.
+
+
+## Standalone SwiftUI table expansion — 2026-10-27
+
+The earlier application-specific SwiftUI table attempt was recorded as failing to restore nested initially expanded descendants, including offscreen branches. A subsequent web review found no exact independent report or Apple acknowledgment. Apple's [DisclosureTableRow documentation](https://developer.apple.com/documentation/swiftui/disclosuretablerow) explicitly demonstrates an initially true expansion binding. A [firsthand forum follow-up from January 2024](https://www.hackingwithswift.com/forums/swiftui/fussing-with-table-on-macos/25250) describes successful nested per-node `@Bindable` expansion. Neither source tests the full Agent Monitor composition.
+
+The user requested a standalone reproduction. The retained [probe and command](../../Tools/SwiftUITableProbe/README.md) use only SwiftUI and AppKit, stable synthetic identities, unshown windows and no production model. The environment was Apple Silicon, macOS 27.0.1 (26A434), Xcode 27.1 (27A9275), Swift 6.4 (swiftlang-6.4.0.34.1), Swift 6 language mode and an unoptimized build. The final run used normal local AppKit service access. No live workloads, provider helpers or physical input were involved.
+
+| Roots | Disclosure levels | Expected expanded rows | Expected collapsed rows | Result for both binding modes |
+| --- | --- | --- | --- | --- |
+| 1 | 2 | 4 | 1 | Initial, collapse, reopen and remount passed. |
+| 1 | 3 | 5 | 1 | Initial, collapse, reopen and remount passed. |
+| 30 | 2 | 33 | 30 | Initial, collapse, reopen and remount passed; last leaf was outside the viewport before scrolling. |
+| 30 | 3 | 34 | 30 | Initial, collapse, reopen and remount passed; last leaf was outside the viewport before scrolling. |
+
+All 32 checkpoints passed using both a shared set of expanded IDs with explicit bindings and direct per-node `@Bindable` Boolean properties. The public backing outline's row counts and indentation matched the independently specified hierarchy. Clearing selection, scrolling and selecting the final leaf reported its exact ID through the SwiftUI binding. Every expected row count was already correct after the first explicit layout pass and remained correct after twenty task yields; no additional readiness wait was needed. Thus this fixture supplies no evidence for a deferred-update explanation of the earlier failure.
+
+A disposable negative-control copy forced shared-set child bindings to return false while keeping the expected expanded hierarchy unchanged. It exited with status one and rejected all twelve affected expanded checkpoints; collapsed checkpoints and the unmodified per-node cases passed. This qualifies the missing-descendant oracle without treating an intentionally broken binding as a SwiftUI failure. The temporary negative source and executables were removed after extracting these results.
+
+Conclusion: the alleged nested-expansion failure was not reproduced in this isolated fixture. Initial expansion, offscreen descendants and table recreation are not sufficient conditions for the reported failure on this toolchain. The earlier integration's binding, identity, composition or harness behavior remains unresolved; these are possible investigation areas, not demonstrated causes. The existing AppKit bridge remains unchanged. Its regression tests establish its behavior, not that SwiftUI cannot meet the requirement. This probe does not establish full production interaction, physical keyboard delivery, VoiceOver or behavior on other OS/toolchain versions.
