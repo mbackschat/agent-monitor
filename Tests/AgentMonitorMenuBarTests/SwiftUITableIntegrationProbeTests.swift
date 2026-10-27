@@ -68,7 +68,7 @@ private enum IntegrationPhase: CaseIterable {
     case initial, collapse, reopen, refresh
 }
 
-private struct IntegrationTable: View {
+struct IntegrationTable: View {
     @Bindable var model: MenuBarModel
     let constant: Bool
 
@@ -116,7 +116,7 @@ private struct IntegrationRows: TableRowContent {
     }
 }
 
-@MainActor private func integrationOutline(in view: NSView) -> NSOutlineView? {
+@MainActor func integrationOutline(in view: NSView) -> NSOutlineView? {
     if let table = view as? NSOutlineView { return table }
     return view.subviews.lazy.compactMap { integrationOutline(in: $0) }.first
 }

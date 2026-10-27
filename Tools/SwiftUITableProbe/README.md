@@ -50,3 +50,11 @@ The opt-in [production-state reconstruction](../../Tests/AgentMonitorMenuBarTest
 ```sh
 SWIFTUI_TABLE_TRIAGE=1 swift test --filter swiftUITableProductionOverviewFollowingRootReproduction
 ```
+
+## Retained-table alternative
+
+The [lifecycle probe](../../Tests/AgentMonitorMenuBarTests/SwiftUITableRetentionProbeTests.swift) starts collapsed, opens a synthetic branch, then keeps the table mounted beneath inspection content. It checks native identity, row depths, selection, disclosure, scroll position and stable pixel bytes after returning. This tests avoiding recreation; it does not use the collapse/reopen repair or change production UI. See the [dated findings and limits](../../docs/research/native-menu-design.md#hidden-swiftui-restoration-prototype--2026-10-27).
+
+```sh
+SWIFTUI_TABLE_RETENTION=1 swift test --filter retainedSwiftUITableSurvivesCoveredInspection
+```
