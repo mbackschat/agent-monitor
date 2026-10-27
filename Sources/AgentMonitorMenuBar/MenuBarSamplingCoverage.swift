@@ -12,7 +12,7 @@ struct MenuBarCoverageSummary: View {
                     HStack {
                         Text("Recent history")
                         Spacer()
-                        Text(duration, format: .number.precision(.fractionLength(1))) + Text(" / 60 s")
+                        Text("\(duration, format: .number.precision(.fractionLength(1))) / 60 s")
                         if summary.retentionLimited {
                             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                                 .help(
