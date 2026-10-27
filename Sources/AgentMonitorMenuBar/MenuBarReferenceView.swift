@@ -2,43 +2,47 @@ import AgentMonitorCore
 import AgentMonitorPresentation
 import SwiftUI
 
+enum MenuBarReferencePage: String, Identifiable {
+    case glossary, diagnostics, keyboard
+    var id: Self { self }
+    var title: String {
+        switch self {
+        case .glossary: "Help & glossary"
+        case .diagnostics: "Diagnostics"
+        case .keyboard: "Keyboard shortcuts"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .glossary: "questionmark.circle"
+        case .diagnostics: "stethoscope"
+        case .keyboard: "keyboard"
+        }
+    }
+}
+
 struct MenuBarReferenceMenu: View {
     @Bindable var model: MenuBarModel
 
     var body: some View {
         HStack(spacing: 8) {
-            Button("Help") { model.showsKeyboardHelp = true }
-                .popover(isPresented: $model.showsKeyboardHelp) {
-                    MenuBarReferenceContent(model: model, page: .glossary) {
-                        model.showsKeyboardHelp = false
-                    }
-                }
-            MenuBarReferenceButton(model: model, page: .diagnostics, title: "Diagnostics")
+            referenceButton(.glossary)
+            referenceButton(.diagnostics)
         }
         .controlSize(.small)
+        .popover(item: $model.referencePage) { page in
+            MenuBarReferenceContent(model: model, page: page) { model.referencePage = nil }
+        }
+    }
+
+    private func referenceButton(_ page: MenuBarReferencePage) -> some View {
+        Button(page.title, systemImage: page.symbol) { model.referencePage = page }
+            .labelStyle(.iconOnly).help(page.title)
     }
 }
 
-private struct MenuBarReferenceButton: View {
-    @Bindable var model: MenuBarModel
-    let page: ReportReferencePage
-    let title: String
-    @State private var presented = false
-
-    var body: some View {
-        Button(title) { presented = true }
-            .popover(isPresented: $presented) {
-                MenuBarReferenceContent(model: model, page: page) { presented = false }
-            }
-            .onChange(of: model.isOpen) { _, open in
-                if !open { presented = false }
-            }
-    }
-}
-
-struct MenuBarCoverageLink: View {
-    @Bindable var model: MenuBarModel
-    @State private var presented = false
+struct MenuBarCoverageStatus: View {
+    let model: MenuBarModel
 
     var body: some View {
         let status = model.report.displayCoverageStatus
@@ -50,31 +54,17 @@ struct MenuBarCoverageLink: View {
                 )
                 .lineLimit(1)
                 .foregroundStyle(status.severity == .warning ? Color.orange : Color.secondary)
-                Button {
-                    presented = true
-                } label: {
-                    Text("Details…").underline()
-                }
-                .buttonStyle(.link)
-                .accessibilityLabel("Coverage details")
-                .accessibilityHint("Open measurement diagnostics")
             }
             Spacer(minLength: 0)
         }
         .font(.caption2)
         .frame(height: 18)
-        .popover(isPresented: $presented) {
-            MenuBarReferenceContent(model: model, page: .diagnostics) { presented = false }
-        }
-        .onChange(of: model.isOpen) { _, open in
-            if !open { presented = false }
-        }
     }
 }
 
 struct MenuBarReferenceContent: View {
     @Bindable var model: MenuBarModel
-    let page: ReportReferencePage
+    let page: MenuBarReferencePage
     let dismiss: () -> Void
 
     var body: some View {
@@ -82,7 +72,8 @@ struct MenuBarReferenceContent: View {
             HStack {
                 Text(page.title).font(.headline)
                 Spacer()
-                Button("Done", action: dismiss).keyboardShortcut(.cancelAction)
+                Button("Close", systemImage: "xmark", action: dismiss)
+                    .labelStyle(.iconOnly).help("Close").keyboardShortcut(.cancelAction)
             }
             .padding(14)
             Divider()
@@ -91,6 +82,7 @@ struct MenuBarReferenceContent: View {
                     switch page {
                     case .glossary: glossary
                     case .diagnostics: diagnostics
+                    case .keyboard: MenuBarKeyboardShortcuts()
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -103,9 +95,6 @@ struct MenuBarReferenceContent: View {
 
     private var glossary: some View {
         VStack(alignment: .leading, spacing: 16) {
-            DisclosureGroup("Keyboard shortcuts") {
-                MenuBarKeyboardShortcuts().padding(.top, 8)
-            }
             ForEach(ReportGlossary.entries) { entry in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(entry.title).font(.subheadline.bold()).accessibilityAddTraits(.isHeader)

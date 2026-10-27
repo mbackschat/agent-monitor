@@ -186,7 +186,7 @@ import Testing
     #expect(model.report.grouping == .none)
     #expect(model.report.sortKey == .memory)
     #expect(model.report.ascending)
-    #expect(model.showsKeyboardHelp)
+    #expect(model.referencePage == .glossary)
     let sameSort = try #require(menu.item(withTitle: "Footprint"))
     menu.performActionForItem(at: menu.index(of: sameSort))
     #expect(model.report.ascending)
@@ -325,5 +325,29 @@ func selectedThresholdRejectsNegativeOrNonFiniteCPU(value: Double) {
         #expect(!model.report.hasPins)
         #expect(model.report.visibleRows.isEmpty)
     }
+    await model.stop()
+}
+
+@Test @MainActor func overviewMenuDirectionDoesNotChangeProcessSortState() async throws {
+    let snapshot = try nativeOverviewFixture()
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let controller = MenuBarOptionsController(model: model)
+    let menu = controller.makeMenu()
+    for expected in [true, false] {
+        let item = try #require(menu.item(withTitle: "Ascending"))
+        #expect(item.isEnabled)
+        menu.performActionForItem(at: menu.index(of: item))
+        controller.menuNeedsUpdate(menu)
+        #expect(model.report.overview.ascending == expected)
+        #expect(menu.item(withTitle: "Ascending")?.state == (expected ? .on : .off))
+        #expect(model.report.sortKey == .stable)
+        #expect(!model.report.ascending)
+    }
+    let alphabetical = try #require(menu.item(withTitle: "Contributor"))
+    menu.performActionForItem(at: menu.index(of: alphabetical))
+    #expect(model.report.overview.order == .contributor)
+    #expect(model.report.overview.ascending)
     await model.stop()
 }

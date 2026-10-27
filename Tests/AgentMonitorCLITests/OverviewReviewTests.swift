@@ -5,6 +5,72 @@ import Testing
 @testable import AgentMonitorCore
 
 @Suite struct OverviewReviewTests {
+    @Test func explicitOverviewSortingOrdersBothDirectionsAndSurvivesRefresh() throws {
+        let snapshot = try reviewSnapshot(
+            cpu: [90, 40, 70], memory: [200_000_000, 400_000_000, 300_000_000])
+        var overview = ContributorOverview()
+        overview.receive(snapshot)
+        overview.select(session(2))
+        let total = overview.totals
+        for (field, expected) in [
+            (ContributorOrder.contributor, [1, 2, 3]), (.cpu, [2, 3, 1]), (.memory, [1, 3, 2]),
+        ] {
+            for ascending in [true, false] {
+                overview.sort(by: field, ascending: ascending)
+                let ids = (ascending ? expected : expected.reversed()).map(session)
+                #expect(overview.main == ids)
+                overview.receive(snapshot)
+                #expect(overview.main == ids)
+                #expect(overview.selection == session(2))
+                #expect(overview.totals == total)
+            }
+        }
+    }
+
+    @Test func overviewSortDirectionsReachNestedProcessSiblings() throws {
+        var overview = ContributorOverview()
+        overview.receive(
+            try reviewSnapshot(
+                cpu: [90, 40, 70], memory: [200_000_000, 400_000_000, 300_000_000], sameSession: true))
+        let executable = try #require(overview.nodes[session(1)]?.children.first)
+        for field in [ContributorOrder.cpu, .memory] {
+            for ascending in [true, false] {
+                overview.sort(by: field, ascending: ascending)
+                let children = try #require(overview.nodes[executable]?.children)
+                let values = children.compactMap { overview.nodes[$0] }.map {
+                    field == .cpu ? $0.stats.currentCPU : Double($0.stats.memoryBytes)
+                }
+                #expect(values.count == 3)
+                #expect(values == (ascending ? values.sorted() : values.sorted(by: >)))
+            }
+        }
+    }
+
+    @Test func rowActivationTogglesVisibleGroupsButLeavesLeafDisclosureEmpty() throws {
+        var overview = ContributorOverview()
+        overview.receive(try reviewSnapshot(cpu: [90], memory: [200_000_000]))
+        let parent = session(1)
+        overview.activateRow(parent)
+        #expect(overview.isExpanded(parent))
+        let executable = try #require(overview.nodes[parent]?.children.first)
+        overview.activateRow(executable)
+        let leaf = try #require(overview.nodes[executable]?.children.first)
+        overview.activateRow(leaf)
+        #expect(overview.selection == leaf)
+        #expect(!overview.isExpanded(leaf))
+        overview.activateRow(parent)
+        #expect(!overview.isExpanded(parent))
+        #expect(overview.selection == parent)
+        overview.activateRow(leaf)
+        #expect(overview.selection == parent)
+        var quiet = ContributorOverview()
+        quiet.receive(try reviewSnapshot(cpu: [1], memory: [1]))
+        quiet.showAll = true
+        quiet.activateRow(.section(.remainder))
+        #expect(!quiet.isExpanded(.section(.remainder)))
+        #expect(!quiet.showAll)
+    }
+
     @Test func collapsedDetailReleaseIsVisibleWithoutInventingUnknownOwnership() throws {
         let snapshot = try reviewSnapshot(cpu: [90, 20], memory: [123, 456], collapse: true)
         var overview = ContributorOverview()

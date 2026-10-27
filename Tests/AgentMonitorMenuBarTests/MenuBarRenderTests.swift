@@ -315,14 +315,14 @@ private struct DisclosureChevronFixture: View {
 
 @Test @MainActor func nativeHelpFitsItsOwnPageAndDismissesWithThePanel() async throws {
     let model = MenuBarModel { _, _, _ in }
-    model.showsKeyboardHelp = true
+    model.referencePage = .glossary
     _ = NSApplication.shared
     let host = NSHostingView(rootView: MenuBarView(model: model))
     host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
     host.layoutSubtreeIfNeeded()
     #expect(host.fittingSize == NSSize(width: 420, height: 560))
     let help = NSHostingView(
-        rootView: MenuBarReferenceContent(model: model, page: .glossary) { model.showsKeyboardHelp = false }
+        rootView: MenuBarReferenceContent(model: model, page: .glossary) { model.referencePage = nil }
             .background(Color(nsColor: .windowBackgroundColor)))
     help.frame.size = NSSize(width: 400, height: 480)
     help.layoutSubtreeIfNeeded()
@@ -336,7 +336,7 @@ private struct DisclosureChevronFixture: View {
             to: URL(fileURLWithPath: path))
     }
     model.close()
-    #expect(!model.showsKeyboardHelp)
+    #expect(model.referencePage == nil)
     await model.stop()
 }
 

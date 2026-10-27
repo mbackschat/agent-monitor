@@ -5,9 +5,9 @@ import Testing
 
 @testable import AgentMonitorMenuBar
 
-@Test(arguments: [ReportReferencePage.glossary, .diagnostics], [false, true])
+@Test(arguments: [MenuBarReferencePage.glossary, .diagnostics, .keyboard], [false, true])
 @MainActor func nativeReferencePagesKeepLongContentInABoundedScrollView(
-    page: ReportReferencePage, dark: Bool
+    page: MenuBarReferencePage, dark: Bool
 ) async throws {
     _ = NSApplication.shared
     let snapshot = try nativeOverviewFixture(unreadable: 5)
@@ -30,12 +30,12 @@ import Testing
     let document = try #require(scroll.documentView)
     #expect(scroll.contentSize.width <= 400)
     #expect(scroll.contentSize.height < 480)
-    #expect(document.frame.height > scroll.contentSize.height)
+    if page != .keyboard { #expect(document.frame.height > scroll.contentSize.height) }
     #expect(document.frame.width <= scroll.contentSize.width + 1)
     if let directory = ProcessInfo.processInfo.environment["MENUBAR_REFERENCE_PREVIEW_DIRECTORY"] {
         let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
         host.cacheDisplay(in: host.bounds, to: bitmap)
-        let name = "\(page == .glossary ? "help" : "diagnostics")-\(dark ? "dark" : "light").png"
+        let name = "\(page.rawValue)-\(dark ? "dark" : "light").png"
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: directory).appendingPathComponent(name))
     }
@@ -45,4 +45,17 @@ import Testing
 @MainActor private func referenceScrollView(in view: NSView) -> NSScrollView? {
     if let scroll = view as? NSScrollView { return scroll }
     return view.subviews.lazy.compactMap { referenceScrollView(in: $0) }.first
+}
+
+@Test @MainActor func keyboardHelpHasItsOwnMenuEntry() throws {
+    let model = MenuBarModel { _, _, _ in }
+    let controller = MenuBarOptionsController(model: model)
+    let menu = controller.makeMenu()
+    for page in [MenuBarReferencePage.glossary, .keyboard, .diagnostics] {
+        let item = try #require(menu.item(withTitle: page.title))
+        menu.performActionForItem(at: menu.index(of: item))
+        #expect(model.referencePage == page)
+    }
+    model.close()
+    #expect(model.referencePage == nil)
 }

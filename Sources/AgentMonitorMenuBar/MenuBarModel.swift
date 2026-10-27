@@ -28,7 +28,7 @@ final class MenuBarModel {
     let diagnosis: CPUDiagnosisController
     let commands = CommandInspectionController()
     var panelSize: MenuBarPanelSize = .standard
-    var showsKeyboardHelp = false
+    var referencePage: MenuBarReferencePage?
     private(set) var arrivals = MenuBarArrivals()
     @ObservationIgnored private var arrivalExpiry: Task<Void, Never>?
     @ObservationIgnored private var arrivalDeadline: ContinuousClock.Instant?
@@ -149,7 +149,7 @@ final class MenuBarModel {
     }
 
     func close() {
-        showsKeyboardHelp = false
+        referencePage = nil
         commands.dismiss()
         diagnosis.dismiss()
         isOpen = false

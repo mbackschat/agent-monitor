@@ -48,6 +48,7 @@ struct MenuBarView: View {
                         model.report.frozen ? "Resume" : "Pause",
                         systemImage: model.report.frozen ? "play.fill" : "pause.fill"
                     ) { model.toggleFreeze() }
+                    .labelStyle(.iconOnly)
                     .disabled(model.report.snapshot == nil || model.report.actionPanel != nil)
                     .help("Hold the displayed sample and row order. Resume shows the latest sample (p).")
                 }
@@ -74,7 +75,9 @@ struct MenuBarView: View {
                     }
                 }
                 .labelsHidden().frame(width: 100).controlSize(.small)
-                Button("Quit") { NSApplication.shared.terminate(nil) }.keyboardShortcut("q")
+                Button("Quit", systemImage: "power") { NSApplication.shared.terminate(nil) }.labelStyle(
+                    .iconOnly
+                ).help("Quit Agent Monitor").keyboardShortcut("q")
             }
             .padding(12)
         }
@@ -200,14 +203,21 @@ struct MenuBarView: View {
                 .font(.subheadline.bold())
                 Spacer()
                 if overview {
-                    Button(model.report.overview.showAll ? "Compact" : "Show all") {
+                    Button(
+                        model.report.overview.showAll ? "Compact" : "Show all",
+                        systemImage: model.report.overview.showAll
+                            ? "line.3.horizontal.decrease" : "list.bullet"
+                    ) {
                         model.report.overview.showAll.toggle()
-                    }.controlSize(.small)
+                    }.labelStyle(.iconOnly).help(
+                        model.report.overview.showAll
+                            ? "Compact contributor overview" : "Show all contributors"
+                    ).controlSize(.small)
                 }
                 MenuBarViewOptions(model: model)
             }
             if !overview, model.report.snapshot != nil {
-                MenuBarCoverageLink(model: model)
+                MenuBarCoverageStatus(model: model)
             }
             if let error = model.error, model.report.snapshot != nil {
                 Text(error).font(.caption).foregroundStyle(.orange)

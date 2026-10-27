@@ -27,6 +27,7 @@ struct MenuBarViewOptions: NSViewRepresentable {
 enum MenuBarOption: Equatable {
     case grouping(ReportGrouping)
     case sort(ReportSort)
+    case contributorSort
     case ascending
     case cpu(Double)
     case memory(UInt64)
@@ -37,7 +38,8 @@ enum MenuBarOption: Equatable {
     case closedMultiplier(Double)
     case historyMetric(HistoryMetric)
     case historyWindow(HistoryWindow)
-    case liveIcon, keyboardHelp, overview, allContributors, unpinAll
+    case reference(MenuBarReferencePage)
+    case liveIcon, overview, allContributors, unpinAll
 
     func samplingSettings(from current: SamplingSettings) -> SamplingSettings? {
         var settings = current
@@ -75,6 +77,9 @@ enum MenuBarOption: Equatable {
         button.setAccessibilityLabel(placement == .history ? "History metric and time range" : "View options")
         button.toolTip = "Grouping, sort direction, CPU and footprint thresholds, and sampling options"
         button.menu = makeMenu()
+        if placement == .pullDown {
+            button.imagePosition = .imageOnly
+        }
         self.button = button
         updateTitle(button)
         return button
@@ -108,6 +113,8 @@ enum MenuBarOption: Equatable {
         case .pullDown:
             // NSPopUpButton consumes its first item as the button title; a submenu does not.
             menu.addItem(withTitle: "View options", action: nil, keyEquivalent: "")
+            menu.items.last?.image = NSImage(
+                systemSymbolName: "slider.horizontal.3", accessibilityDescription: "View options")
         case .history:
             menu.addItem(
                 withTitle: "\(model.report.historyMetric.rawValue) · \(model.report.historyWindow.rawValue)",
@@ -142,6 +149,11 @@ enum MenuBarOption: Equatable {
             model.report.hasPins && model.report.actionPanel == nil && !model.diagnosis.state.isVisible
         menu.addItem(.separator())
         menu.addItem(.sectionHeader(title: "Sort by"))
+        if model.report.showsOverview {
+            add(
+                "Contributor", .contributorSort, checked: model.report.overview.order == .contributor,
+                to: menu)
+        }
         for sort in ReportSort.allCases {
             add(
                 sort.rawValue, .sort(sort),
@@ -150,8 +162,11 @@ enum MenuBarOption: Equatable {
                         || sort == .memory && model.report.overview.order == .memory)
                     : model.report.sortKey == sort, to: menu)
         }
-        add("Ascending", .ascending, checked: model.report.ascending, to: menu)
-        menu.items.last?.isEnabled = model.report.sortKey != .stable
+        add(
+            "Ascending", .ascending,
+            checked: model.report.showsOverview ? model.report.overview.ascending : model.report.ascending,
+            to: menu)
+        menu.items.last?.isEnabled = model.report.showsOverview || model.report.sortKey != .stable
         menu.addItem(.separator())
         menu.addItem(.sectionHeader(title: "Display filters"))
         let filterHelp = "Changes process rows; observed totals and recent activity stay unchanged."
@@ -180,7 +195,11 @@ enum MenuBarOption: Equatable {
         add("Live menu bar icon", .liveIcon, checked: model.liveIcon, to: menu)
         addSamplingOptions(to: menu)
         menu.addItem(.separator())
-        add("Help & glossary", .keyboardHelp, checked: model.showsKeyboardHelp, to: menu)
+        for page in [MenuBarReferencePage.glossary, .keyboard, .diagnostics] {
+            add(page.title, .reference(page), checked: model.referencePage == page, to: menu)
+            menu.items.last?.image = NSImage(
+                systemSymbolName: page.symbol, accessibilityDescription: page.title)
+        }
     }
 
     private func addSamplingOptions(to menu: NSMenu) {
@@ -256,7 +275,14 @@ enum MenuBarOption: Equatable {
                 model.report.overview.enabled = false
                 if model.report.sortKey != sort { model.report.sort(by: sort) }
             }
-        case .ascending: model.report.reverseSort()
+        case .contributorSort: model.report.overview.sort(by: .contributor, ascending: true)
+        case .ascending:
+            if model.report.showsOverview {
+                model.report.overview.sort(
+                    by: model.report.overview.order, ascending: !model.report.overview.ascending)
+            } else {
+                model.report.reverseSort()
+            }
         case .cpu(let value):
             model.report.setThresholds(
                 Thresholds(cpuPercent: value, memoryBytes: model.report.thresholds.memoryBytes))
@@ -268,7 +294,7 @@ enum MenuBarOption: Equatable {
                 model.report.setSamplingSettings(settings)
             }
         case .liveIcon: model.setLiveIcon(!model.liveIcon)
-        case .keyboardHelp: model.showsKeyboardHelp.toggle()
+        case .reference(let page): model.referencePage = page
         case .historyMetric(let metric): model.report.historyMetric = metric
         case .historyWindow(let window): model.report.historyWindow = window
         }

@@ -21,7 +21,7 @@ struct MenuBarContributorOverview: View {
             if let notice = overview.pinNotice {
                 Text(notice).font(.caption).foregroundStyle(.orange)
             }
-            MenuBarCoverageLink(model: model)
+            MenuBarCoverageStatus(model: model)
             MenuBarContributorTable(model: model, focus: focus)
         }
     }

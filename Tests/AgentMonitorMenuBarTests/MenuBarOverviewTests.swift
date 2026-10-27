@@ -55,6 +55,16 @@ import Vision
     let path = dark ? URL(fileURLWithPath: output).deletingPathExtension().path + "-dark.png" : output
     try #require(bitmap.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: path))
     #expect(host.bounds.height == 560)
+    model.report.overview.select(.section(.uncertain))
+    let outline = try #require(contributorOutline(in: host))
+    outline.scrollRowToVisible(outline.numberOfRows - 1)
+    await Task.yield()
+    host.layoutSubtreeIfNeeded()
+    let groups = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+    host.cacheDisplay(in: host.bounds, to: groups)
+    let groupsPath = URL(fileURLWithPath: path).deletingPathExtension().path + "-groups.png"
+    try #require(groups.representation(using: .png, properties: [:])).write(
+        to: URL(fileURLWithPath: groupsPath))
     window.contentView = nil
     await model.stop()
 }
@@ -131,7 +141,7 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
         window: projection.summary, recentActivity: store.snapshot())
 }
 
-@Test @MainActor func processReadGapsExposeAnActionableCoverageWarning() async throws {
+@Test @MainActor func processReadGapsRemainVisibleWithoutADuplicateCoverageAction() async throws {
     let snapshot = try nativeOverviewFixture(unreadable: 3)
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
@@ -156,7 +166,7 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
         .joined(separator: " ")
     #expect(text.contains("Coverage: 1 warning"))
-    #expect(text.contains("Details"))
+    #expect(!text.contains("Details"))
     #expect(model.report.displayCoverageStatus.notes.contains { $0.text.contains("3 same-user") })
     await model.stop()
 }

@@ -68,7 +68,7 @@ import Vision
     }
 }
 
-@Test @MainActor func expandedArgumentsAndCoverageActionRemainReadable() async throws {
+@Test @MainActor func expandedArgumentsAndPassiveCoverageRemainReadable() async throws {
     _ = NSApplication.shared
     let snapshot = try nativeOverviewFixture(unreadable: 5)
     let process = try #require(snapshot.findings.first)
@@ -84,7 +84,7 @@ import Vision
     await controller.wait()
     let host = NSHostingView(
         rootView: VStack(alignment: .leading, spacing: 12) {
-            MenuBarCoverageLink(model: model)
+            MenuBarCoverageStatus(model: model)
             MenuBarCommandInspection(process: process, controller: controller)
         }
         .padding(14).frame(width: 400).background(Color(nsColor: .windowBackgroundColor)))
@@ -99,7 +99,7 @@ import Vision
     let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
     #expect(text.contains("ARGUMENT-END"), "\(text)")
     #expect(text.contains("Coverage:"), "\(text)")
-    #expect(text.contains("Details"), "\(text)")
+    #expect(!text.contains("Details"), "\(text)")
     if let output = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: output).appendingPathComponent("coverage-and-arguments.png"))

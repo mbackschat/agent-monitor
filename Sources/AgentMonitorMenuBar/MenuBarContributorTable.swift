@@ -19,13 +19,42 @@ struct MenuBarContributorTable: View {
                 get: { model.report.overview.selection },
                 set: { id in
                     if acceptsInteraction, let id { model.report.overview.select(id) }
+                }),
+            sortOrder: Binding(
+                get: {
+                    [
+                        MenuBarContributorSort(
+                            field: overview.order, order: overview.ascending ? .forward : .reverse)
+                    ]
+                },
+                set: { sorts in
+                    guard acceptsInteraction, let sort = sorts.first else { return }
+                    model.report.overview.sort(by: sort.field, ascending: sort.order == .forward)
                 })
         ) {
-            TableColumn("Contributor") { node in
-                MenuBarContributorTableCell(node: node, model: model)
+            TableColumn(
+                "Contributor", sortUsing: MenuBarContributorSort(field: .contributor, order: .forward)
+            ) { node in
+                MenuBarContributorTableCell(node: node, model: model) { activate(node) }
             }.width(min: 130, ideal: 172)
-            TableColumn("CPU") { node in metric(node: node, kind: .cpu) }.width(74)
-            TableColumn("Memory") { node in metric(node: node, kind: .memory) }.width(78)
+            TableColumn("CPU", sortUsing: MenuBarContributorSort(field: .cpu)) { node in
+                Button {
+                    activate(node)
+                } label: {
+                    metric(node: node, kind: .cpu).frame(maxHeight: .infinity).contentShape(Rectangle())
+                }.buttonStyle(.plain)
+                    .accessibilityHint(
+                        node.children.isEmpty ? "Select row" : "Select row and toggle children")
+            }.width(74)
+            TableColumn("Memory", sortUsing: MenuBarContributorSort(field: .memory)) { node in
+                Button {
+                    activate(node)
+                } label: {
+                    metric(node: node, kind: .memory).frame(maxHeight: .infinity).contentShape(Rectangle())
+                }.buttonStyle(.plain)
+                    .accessibilityHint(
+                        node.children.isEmpty ? "Select row" : "Select row and toggle children")
+            }.width(88)
         } rows: {
             MenuBarContributorRows(
                 model: model, ids: overview.topLevel, acceptsInteraction: acceptsInteraction)
@@ -64,6 +93,11 @@ struct MenuBarContributorTable: View {
                 }
             }
         }
+    }
+
+    private func activate(_ node: ContributorNode) {
+        guard acceptsInteraction else { return }
+        model.report.overview.activateRow(node.id)
     }
 
     private func selectContextTarget(_ id: ContributorID) -> Bool {
@@ -143,6 +177,7 @@ private struct MenuBarContributorRows: TableRowContent {
 private struct MenuBarContributorTableCell: View {
     let node: ContributorNode
     @Bindable var model: MenuBarModel
+    let activate: () -> Void
 
     private var isSelected: Bool { model.report.overview.selection == node.id }
 
@@ -163,12 +198,14 @@ private struct MenuBarContributorTableCell: View {
     }
 
     var body: some View {
-        MenuBarContributorCellContent(node: node, pinned: model.report.overview.pinned.contains(node.id)) {
-            if isSelected {
-                detailsButton
-            } else {
-                Text("Details").underline().hidden().accessibilityHidden(true)
-            }
+        Button(action: activate) {
+            MenuBarContributorCellContent(node: node, pinned: model.report.overview.pinned.contains(node.id))
+                .frame(maxHeight: .infinity).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(node.children.isEmpty ? "Select row" : "Select row and toggle children")
+        .overlay(alignment: .bottomTrailing) {
+            if isSelected { detailsButton.padding(.bottom, 3) }
         }
     }
 
@@ -180,7 +217,7 @@ private struct MenuBarContributorTableCell: View {
             model.report.overview.select(node.id)
             model.report.overview.toggleDetails()
         } label: {
-            Text("Details").underline()
+            Image(systemName: "info.circle").frame(width: 24, height: 20).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .modifier(MenuBarContributorTextStyle(link: true))
@@ -202,26 +239,27 @@ private struct MenuBarContributorTableCell: View {
     }
 }
 
-private struct MenuBarContributorCellContent<Details: View>: View {
+private struct MenuBarContributorCellContent: View {
     let node: ContributorNode
     let pinned: Bool
-    let details: Details
-
-    init(node: ContributorNode, pinned: Bool, @ViewBuilder details: () -> Details) {
-        self.node = node
-        self.pinned = pinned
-        self.details = details()
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            MenuBarContributorTableLabel(label: node.label)
+            HStack(alignment: .top, spacing: 5) {
+                if let symbol = node.id.summarySymbol {
+                    Image(systemName: symbol).font(.caption)
+                        .accessibilityLabel("Summary group")
+                        .help("Summary group; not an individual agent session")
+                }
+                MenuBarContributorTableLabel(label: node.label)
+            }
             HStack(spacing: 6) {
                 if pinned { Image(systemName: "pin.fill").accessibilityHidden(true) }
                 Text(node.stats.currentAvailable ? "Processes \(node.stats.current.count)" : "Processes —")
                     .modifier(MenuBarContributorTextStyle(secondary: true)).help(node.stats.census)
                 Spacer(minLength: 0)
-                details
+                Image(systemName: "info.circle").frame(width: 24, height: 20).hidden().accessibilityHidden(
+                    true)
             }.font(.caption2)
         }
         .padding(.vertical, 3)
@@ -291,5 +329,50 @@ private struct MenuBarContributorTextStyle: ViewModifier {
             prominence == .increased
                 ? Color(nsColor: .alternateSelectedControlTextColor)
                 : (link ? Color.accentColor : (secondary ? Color.secondary : Color.primary)))
+    }
+}
+
+struct MenuBarContributorSort: SortComparator {
+    let field: ContributorOrder
+    var order: SortOrder = .reverse
+
+    func compare(_ lhs: ContributorNode, _ rhs: ContributorNode) -> ComparisonResult {
+        let result: ComparisonResult
+        switch field {
+        case .contributor:
+            result =
+                lhs.title == rhs.title
+                ? .orderedSame : (lhs.title < rhs.title ? .orderedAscending : .orderedDescending)
+        case .cpu:
+            result =
+                lhs.stats.currentCPU == rhs.stats.currentCPU
+                ? .orderedSame
+                : (lhs.stats.currentCPU < rhs.stats.currentCPU ? .orderedAscending : .orderedDescending)
+        case .memory:
+            result =
+                lhs.stats.memoryBytes == rhs.stats.memoryBytes
+                ? .orderedSame
+                : (lhs.stats.memoryBytes < rhs.stats.memoryBytes ? .orderedAscending : .orderedDescending)
+        }
+        return order == .forward ? result : ComparisonResult(rawValue: -result.rawValue)!
+    }
+}
+
+extension ContributorID {
+    var summarySymbol: String? {
+        switch self {
+        case .section(let section):
+            switch section {
+            case .recent: "clock.arrow.circlepath"
+            case .remainder: "square.stack.3d.up"
+            case .uncertain: "questionmark.folder"
+            case .shared: "square.stack.3d.up.fill"
+            case .released: "archivebox"
+            }
+        case .more: "ellipsis.rectangle"
+        case .collapsed: "archivebox"
+        case .provider: "square.stack.3d.up"
+        case .session, .executable, .process: nil
+        }
     }
 }

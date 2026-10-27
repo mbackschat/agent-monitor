@@ -31,6 +31,7 @@ import Testing
     let contributorExpanded = rowCount > 1 && outline.isItemExpanded(outline.item(atRow: 1))
     let processExpandable = rowCount > 2 && outline.isExpandable(outline.item(atRow: 2))
     #expect(columnCount == 3)
+    #expect(outline.tableColumns.allSatisfy { $0.sortDescriptorPrototype != nil })
     #expect(rowCount == model.report.overview.visibleRows.count)
     #expect(levels == [0, 1, 2])
     #expect(contributorExpanded)
@@ -198,5 +199,33 @@ import Testing
     #expect(model.report.overview.selection == selected)
     #expect(outline.selectedRow == model.report.overview.visibleRows.firstIndex { $0.id == selected })
     #expect(model.report.overview.open == open)
+    await model.stop()
+}
+
+@Test @MainActor func nativeContributorHeadersDispatchBothSortDirections() async throws {
+    let snapshot = try nativeOverviewFixture()
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let host = NSHostingView(rootView: MenuBarView(model: model))
+    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    let window = await mountOffscreenNativePreview(host)
+    defer { window.close() }
+    let table = try #require(contributorOutline(in: host))
+    let selected = model.report.overview.selection
+    for (index, field) in [ContributorOrder.contributor, .cpu, .memory].enumerated() {
+        let prototype = try #require(table.tableColumns[index].sortDescriptorPrototype)
+        for ascending in [true, false] {
+            let descriptor =
+                prototype.ascending == ascending
+                ? prototype : prototype.reversedSortDescriptor as! NSSortDescriptor
+            table.sortDescriptors = [descriptor]
+            await Task.yield()
+            host.layoutSubtreeIfNeeded()
+            #expect(model.report.overview.order == field)
+            #expect(model.report.overview.ascending == ascending)
+            #expect(model.report.overview.selection == selected)
+        }
+    }
     await model.stop()
 }

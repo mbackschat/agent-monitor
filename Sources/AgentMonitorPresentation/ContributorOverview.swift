@@ -136,7 +136,7 @@ public struct ContributorRow: Equatable, Sendable, Identifiable {
     public var id: ContributorID { node.id }
 }
 
-public enum ContributorOrder: String, Sendable { case cpu, memory }
+public enum ContributorOrder: String, Sendable { case contributor, cpu, memory }
 
 /// One immutable-category projection and disclosure policy for native and terminal hosts.
 public struct ContributorOverview: Equatable, Sendable {
@@ -149,6 +149,7 @@ public struct ContributorOverview: Equatable, Sendable {
     public private(set) var census = ""
     public private(set) var coverageStatus = CoverageStatus(notes: [])
     public private(set) var order: ContributorOrder = .cpu
+    public private(set) var ascending = false
     public let memoryCapacityBytes: UInt64
     public private(set) var runID: UUID?
     private var scope: ProcessScope?
@@ -180,8 +181,9 @@ public struct ContributorOverview: Equatable, Sendable {
     public var meterScale: String {
         "Bars: CPU 100% = one core; memory 100% = \(number(Double(memoryCapacityBytes) / 1e9)) GB RAM"
     }
-    public mutating func sort(by order: ContributorOrder) {
+    public mutating func sort(by order: ContributorOrder, ascending: Bool = false) {
         self.order = order
+        self.ascending = ascending
         expandRemainders()
         main = contributionOrder(main)
         sortChildren()
@@ -196,6 +198,7 @@ public struct ContributorOverview: Equatable, Sendable {
     private func value(_ id: ContributorID, _ metric: ContributorOrder) -> Double {
         let stats = nodes[id]?.stats
         switch metric {
+        case .contributor: return 0
         case .cpu: return stats?.currentCPU ?? 0
         case .memory: return Double(stats?.memoryBytes ?? 0)
         }
@@ -203,9 +206,15 @@ public struct ContributorOverview: Equatable, Sendable {
     private func contributionOrder(_ ids: [ContributorID]) -> [ContributorID] {
         let secondary: ContributorOrder = order == .cpu ? .memory : .cpu
         return ids.sorted {
+            if order == .contributor {
+                let a = nodes[$0]?.title ?? ""
+                let b = nodes[$1]?.title ?? ""
+                if a != b { return ascending ? a < b : a > b }
+                return ascending ? identity($0) < identity($1) : identity($0) > identity($1)
+            }
             let a = value($0, order)
             let b = value($1, order)
-            guard a == b else { return a > b }
+            guard a == b else { return ascending ? a < b : a > b }
             let c = value($0, secondary)
             let d = value($1, secondary)
             return c == d ? identity($0) < identity($1) : c > d
@@ -216,6 +225,7 @@ public struct ContributorOverview: Equatable, Sendable {
     /// the list while a sustained leader still rises. Each insertion goes before the first row it
     /// beats, which keeps every row within the band of all rows above it; explicit sorting stays exact.
     private func refreshOrder(_ ids: [ContributorID], previous: [ContributorID]) -> [ContributorID] {
+        if order == .contributor || ascending { return contributionOrder(ids) }
         let present = Set(ids)
         let survivors = previous.filter { present.contains($0) }
         let known = Set(survivors)
@@ -283,6 +293,12 @@ public struct ContributorOverview: Equatable, Sendable {
         detailOffset = 0
         if !open.insert(id).inserted { open.remove(id) }
     }
+    public mutating func activateRow(_ id: ContributorID) {
+        guard visibleRows.contains(where: { $0.id == id }) else { return }
+        select(id)
+        setDisclosure(expanded: !isExpanded(id), for: id)
+    }
+
     public mutating func select(_ id: ContributorID) {
         guard nodes[id] != nil, selection != id else { return }
         selection = id
