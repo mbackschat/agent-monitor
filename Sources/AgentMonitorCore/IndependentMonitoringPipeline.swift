@@ -8,24 +8,29 @@ public struct AcquisitionTiming: Equatable, Codable, Sendable {
     public let scanSequence: UInt64
     public let qualityOfService: AcquisitionQualityOfService
     public let requestedPeriodSeconds: Double
+    public let effectivePeriodSeconds: Double
     public let achievedPeriodSeconds: Double?
     public let scanWorkSeconds: Double
     public let resolutionDelaySeconds: Double
     public let promptCapture: PromptCaptureSummary?
+    public let sampling: SamplingCoverage
 
     public init(
         runID: UUID, scanSequence: UInt64, qualityOfService: AcquisitionQualityOfService,
         requestedPeriodSeconds: Double, achievedPeriodSeconds: Double?, scanWorkSeconds: Double,
-        resolutionDelaySeconds: Double, promptCapture: PromptCaptureSummary? = nil
+        resolutionDelaySeconds: Double, promptCapture: PromptCaptureSummary? = nil,
+        sampling: SamplingCoverage = SamplingCoverage(), effectivePeriodSeconds: Double? = nil
     ) {
         self.runID = runID
         self.scanSequence = scanSequence
         self.qualityOfService = qualityOfService
         self.requestedPeriodSeconds = requestedPeriodSeconds
+        self.effectivePeriodSeconds = effectivePeriodSeconds ?? requestedPeriodSeconds
         self.achievedPeriodSeconds = achievedPeriodSeconds
         self.scanWorkSeconds = scanWorkSeconds
         self.resolutionDelaySeconds = resolutionDelaySeconds
         self.promptCapture = promptCapture
+        self.sampling = sampling
     }
 }
 
@@ -48,9 +53,11 @@ private struct AcquiredScan: Sendable {
     let startedAt: Double
     let finishedAt: Double
     let interval: Double
+    let effectiveInterval: Double
     let achievedPeriod: Double?
     let carried: [HeldInspectionObservation]
     let inspectionCoverage: InspectionCoverage
+    let sampling: SamplingCoverage
 }
 
 private struct AcquisitionState: Sendable {
@@ -60,6 +67,8 @@ private struct AcquisitionState: Sendable {
     var promptCapture = PromptEvidenceCapture()
     var sequence: UInt64 = 0
     var inspection: InspectionScheduler?
+    var completedSampling = SamplingCoverage()
+    var activeOverrides: Set<SamplingOverride> = []
 }
 
 private struct ResolutionState: Sendable {
@@ -69,6 +78,8 @@ private struct ResolutionState: Sendable {
     var latest: ResolvedScan?
     var displayStartedAt: Double?
     var published = false
+    var sampling = SamplingSession(
+        LiveInterval.Value(settings: SamplingSettings(), panelVisible: true), at: 0)
 }
 
 private struct ReportEndpoint: Sendable {
@@ -300,14 +311,22 @@ struct IndependentMonitoringPipeline: Sendable {
                 defer { if let observation { live?.removeObserver(observation) } }
                 do {
                     var count = 0
-                    var interval = live?.seconds ?? configuration.intervalSeconds
+                    state.resolution.sampling = SamplingSession(samplingValue(live), at: clock.monotonicNow())
+                    try state.resolution.sampling.synchronize(
+                        samplingValue(live), at: clock.monotonicNow(), inspection: inspectionActive)
+                    var interval = state.resolution.sampling.decision.requestedSeconds
+                    var effectiveInterval = interval
                     while true {
                         guard interval.isFinite, (0.1...60).contains(interval) else {
                             throw MonitoringError.invalidConfiguration
                         }
+                        try state.resolution.sampling.synchronize(
+                            samplingValue(live), at: clock.monotonicNow(), inspection: inspectionActive)
+                        let planned = state.resolution.sampling.decision
                         let scan = try autoreleasepool {
                             try acquire(
-                                &state, interval: interval, enrichment: enrichment,
+                                &state, interval: interval, effectiveInterval: effectiveInterval, live: live,
+                                enrichment: enrichment,
                                 cancellation: cancellation)
                         }
                         if let report = scan.report {
@@ -321,10 +340,14 @@ struct IndependentMonitoringPipeline: Sendable {
                             if configuration.samples > 0, count >= configuration.samples { break }
                         }
                         try inspectBetweenScans(
-                            &state, since: scan.startedAt, interval: interval, cancellation: cancellation)
-                        interval = try waitSynchronously(
-                            clock, live: live, since: scan.startedAt, state: &state,
+                            &state, since: scan.startedAt,
+                            interval: state.resolution.sampling.decision.requestedSeconds,
                             cancellation: cancellation)
+                        let period = try waitSynchronously(
+                            clock, live: live, since: scan.startedAt, planned: planned, state: &state,
+                            cancellation: cancellation)
+                        interval = period.requested
+                        effectiveInterval = period.effective
                     }
                 } catch {
                     discardInspection(&state)
@@ -350,7 +373,8 @@ struct IndependentMonitoringPipeline: Sendable {
     }
 
     private func acquire(
-        _ state: inout AcquisitionState, interval: Double, enrichment: PipelineEnrichment,
+        _ state: inout AcquisitionState, interval: Double, effectiveInterval: Double, live: LiveInterval?,
+        enrichment: PipelineEnrichment,
         cancellation: PipelineCancellation
     ) throws -> (startedAt: Double, sequence: UInt64, report: ResolvedScan?) {
         let job = profile.map { _ in PipelineProfile.Stamp() }
@@ -393,10 +417,11 @@ struct IndependentMonitoringPipeline: Sendable {
         state.previousStart = start
         let scan = AcquiredScan(
             snapshot: snapshot, counters: counters, timestamp: clock.now(), startedAt: start,
-            finishedAt: clock.monotonicNow(), interval: interval, achievedPeriod: period,
-            carried: carried, inspectionCoverage: inspectionCoverage)
+            finishedAt: clock.monotonicNow(), interval: interval, effectiveInterval: effectiveInterval,
+            achievedPeriod: period,
+            carried: carried, inspectionCoverage: inspectionCoverage, sampling: state.completedSampling)
         let report = try resolve(
-            scan, state: &state.resolution,
+            scan, state: &state.resolution, live: live,
             enrichment: enrichment, cancellation: cancellation)
         return (startedAt: start, sequence: counters.id.sequence, report: report)
     }
@@ -436,23 +461,61 @@ struct IndependentMonitoringPipeline: Sendable {
 
     private func waitSynchronously(
         _ blocking: any AcquisitionClock, live: LiveInterval?, since start: Double,
+        planned: SamplingDecision,
         state: inout AcquisitionState, cancellation: PipelineCancellation
-    ) throws -> Double {
+    ) throws -> (requested: Double, effective: Double) {
+        var effectiveInterval = planned.requestedSeconds
+        var current = planned
+        var deadline = start + current.requestedSeconds
+        var segmentStart = start
+        var previousOverrides = state.activeOverrides
+        var coverage = SamplingCoverage()
+        var policyChanges = 0
+        func record(until now: Double) {
+            coverage.append(
+                current, duration: max(0, now - segmentStart),
+                activations: current.overrides.subtracting(previousOverrides), policyChanges: policyChanges)
+            previousOverrides = current.overrides
+            policyChanges = 0
+            segmentStart = now
+        }
         while true {
             if let inspection { state.inspection?.synchronize(inspection) }
             try cancellation.check()
-            let interval = live?.seconds ?? configuration.intervalSeconds
-            guard interval.isFinite, (0.1...60).contains(interval) else {
-                throw MonitoringError.invalidConfiguration
+            let now = clock.monotonicNow()
+            // A due deadline is evidence already accrued; later settings cannot erase its overrun.
+            if now >= deadline {
+                record(until: now)
+                state.completedSampling = coverage
+                state.activeOverrides = current.overrides
+                return (current.requestedSeconds, effectiveInterval)
             }
-            let deadline = start + interval
-            if clock.monotonicNow() >= deadline { return interval }
+            try state.resolution.sampling.synchronize(
+                samplingValue(live), at: now, inspection: inspectionActive)
+            let next = state.resolution.sampling.decision
+            let changes = state.resolution.sampling.takePolicyChanges()
+            if next != current || changes > 0 {
+                record(until: now)
+                current = next
+                policyChanges = changes
+                deadline = max(now, start + current.requestedSeconds)
+                effectiveInterval = max(current.requestedSeconds, now - start)
+            }
+            if clock.monotonicNow() >= deadline { continue }
             try blocking.wait(until: deadline, wake: cancellation.wake)
         }
     }
 
+    private var inspectionActive: Bool {
+        configuration.inspectionObservations && inspection?.value.active == true
+    }
+
+    private func samplingValue(_ live: LiveInterval?) -> LiveInterval.Value {
+        live?.value ?? LiveInterval.Value(settings: configuration.sampling, panelVisible: true)
+    }
+
     private func resolve(
-        _ scan: AcquiredScan, state: inout ResolutionState,
+        _ scan: AcquiredScan, state: inout ResolutionState, live: LiveInterval?,
         enrichment: PipelineEnrichment, cancellation: PipelineCancellation
     ) throws -> ResolvedScan? {
         try cancellation.check()
@@ -508,19 +571,28 @@ struct IndependentMonitoringPipeline: Sendable {
             enrichment.requestRegistries(queries)
             return (accounting, findings)
         }
+        try state.sampling.synchronize(
+            samplingValue(live), at: clock.monotonicNow(), inspection: inspectionActive)
+        state.sampling.observe(
+            scan.counters, snapshot: scan.snapshot, rows: findings, monitor: &state.monitor,
+            carried: scan.carried, excluding: excluded, at: clock.monotonicNow(), inspection: inspectionActive
+        )
         guard scan.counters.id.sequence > 0 else {
             if configuration.reportIntervalSeconds != nil {
                 state.window = AccountingWindow(baseline: scan.counters)
             }
             return nil
         }
+        var sampling = scan.sampling
+        sampling.setLatest(state.sampling.decision, policyChanges: state.sampling.takePolicyChanges())
         let timing = AcquisitionTiming(
             runID: scan.counters.id.runID, scanSequence: scan.counters.id.sequence,
             qualityOfService: .userInitiated, requestedPeriodSeconds: scan.interval,
             achievedPeriodSeconds: scan.achievedPeriod,
             scanWorkSeconds: max(0, scan.finishedAt - scan.startedAt),
             resolutionDelaySeconds: max(0, clock.monotonicNow() - scan.finishedAt),
-            promptCapture: PromptCaptureSummary(scan.snapshot.promptEvidence))
+            promptCapture: PromptCaptureSummary(scan.snapshot.promptEvidence), sampling: sampling,
+            effectivePeriodSeconds: scan.effectiveInterval)
         if let refresh = configuration.reportIntervalSeconds {
             let accountingStart = profile.map { _ in PipelineProfile.Stamp() }
             var accountingEnded = false

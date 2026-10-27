@@ -15,6 +15,9 @@ typealias MenuBarSource =
 final class MenuBarModel {
     var report = LiveReportState(grouping: .session, interval: 0.1) {
         didSet {
+            if oldValue.samplingSettings != report.samplingSettings {
+                liveInterval.setSettings(report.samplingSettings)
+            }
             commands.reconcile(with: report)
             if MenuBarRowIndex.needsUpdate(from: oldValue, to: report) {
                 rowIndex = MenuBarRowIndex(state: report)
@@ -39,8 +42,7 @@ final class MenuBarModel {
     private(set) var isPerformingAction = false
     private(set) var indicator = MenuBarIndicator()
     @ObservationIgnored var onIndicatorChange: (() -> Void)?
-    @ObservationIgnored private let liveInterval = LiveInterval(0.25)
-    @ObservationIgnored private var needsStartupSample = true
+    @ObservationIgnored private let liveInterval = LiveInterval(settings: SamplingSettings())
     @ObservationIgnored private(set) var collection: Task<Void, Never>?
     @ObservationIgnored private(set) var action: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
@@ -81,6 +83,7 @@ final class MenuBarModel {
     func open() {
         guard !isOpen else { return }
         isOpen = true
+        liveInterval.setPanelVisible(true)
         generation = UUID()
         report.resetCollection()
         if let latestSnapshot { report.receive(latestSnapshot) }
@@ -98,13 +101,9 @@ final class MenuBarModel {
         onIndicatorChange?()
     }
 
-    private var samplingInterval: Double {
-        let regular = report.interval
-        return needsStartupSample ? min(0.25, regular) : regular
-    }
-
     private func startCollection() {
-        liveInterval.set(samplingInterval)
+        liveInterval.setSettings(report.samplingSettings)
+        liveInterval.setPanelVisible(isOpen)
         if let collection {
             if collection.isCancelled { restartCollectionAfterDrain = true }
             return
@@ -167,8 +166,9 @@ final class MenuBarModel {
         }
         messageCopyStatus = nil
         isOpen = false
+        liveInterval.setPanelVisible(false)
         generation = UUID()
-        if liveIcon { liveInterval.set(samplingInterval) } else { cancelCollection() }
+        if !liveIcon { cancelCollection() }
         action?.cancel()
         report.resetCollection()
         updateArrivals()
@@ -203,10 +203,6 @@ final class MenuBarModel {
     private func receive(_ snapshot: MonitoringSnapshot, generation token: UUID) {
         guard collectionGeneration == token else { return }
         latestSnapshot = snapshot
-        if needsStartupSample {
-            needsStartupSample = false
-            liveInterval.set(samplingInterval)
-        }
         if isOpen {
             report.receive(snapshot)
             updateArrivals()
@@ -285,12 +281,10 @@ final class MenuBarModel {
 
     func adjustInterval(_ adjustment: IntervalAdjustment) {
         report.adjustInterval(adjustment)
-        liveInterval.set(samplingInterval)
     }
 
     func setInterval(_ seconds: Double) {
         report.setInterval(seconds)
-        liveInterval.set(samplingInterval)
     }
 
     @discardableResult func togglePin(_ row: LiveReportRowID) -> Bool {

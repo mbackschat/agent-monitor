@@ -108,8 +108,8 @@ public enum LiveReportLayout {
                 + " | p resume | " : ""
         let cadence =
             state.snapshot?.window == nil
-            ? "every \(seconds) s"
-            : "acquire \(seconds) s / display \(String(format: "%g", LiveReportState.displayIntervalSeconds)) s"
+            ? (state.samplingSettings.enabled ? "acquire max \(seconds) s" : "every \(seconds) s")
+            : "acquire \(state.samplingSettings.enabled ? "max " : "")\(seconds) s / display \(String(format: "%g", LiveReportState.displayIntervalSeconds)) s"
         let activity = "\(state.sortDescription) | \(cadence)"
         let title =
             state.frozen ? frozen + activity : "Agent Monitor | \(activity) | Updates: \(state.updates)"

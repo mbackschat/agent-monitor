@@ -92,16 +92,27 @@ final class AdaptiveWorkloadReader: ProcessReading, AcquisitionClock, SessionReg
         var firstReads: [ProcessIdentity: Double] = [:]
         var identities: Set<ProcessIdentity> = []
         var executables: [ProcessIdentity: String] = [:]
+        var requested = 0.1
     }
     let state: Mutex<State>
     let scenario: AdaptiveWorkloadScenario
     let arm: AdaptiveWorkloadArm
     let live: LiveInterval
+    let productionController: Bool
 
-    init(_ scenario: AdaptiveWorkloadScenario, arm: AdaptiveWorkloadArm) {
+    init(
+        _ scenario: AdaptiveWorkloadScenario, arm: AdaptiveWorkloadArm, productionController: Bool = false
+    ) {
         self.scenario = scenario
         self.arm = arm
-        live = LiveInterval(arm == .fixedMaximum ? scenario.maximum : 0.1)
+        self.productionController = productionController
+        if productionController {
+            live = LiveInterval(
+                settings: SamplingSettings(
+                    enabled: true, visibleMaximum: scenario.maximum, window: scenario.window))
+        } else {
+            live = LiveInterval(arm == .fixedMaximum ? scenario.maximum : 0.1)
+        }
         state = Mutex(
             State(
                 evidence: AdaptiveSamplingEvidence(relaxPersistentFailures: scenario.relaxPersistentFailures),
@@ -116,6 +127,7 @@ final class AdaptiveWorkloadReader: ProcessReading, AcquisitionClock, SessionReg
             guard deadline + scenario.scanSeconds <= scenario.horizon else {
                 throw AdaptiveWorkloadEnd.horizon
             }
+            if productionController, let last = $0.ticks.last { $0.requested = deadline - last.start }
             $0.time = max($0.time, deadline)
         }
     }
@@ -180,12 +192,13 @@ final class AdaptiveWorkloadReader: ProcessReading, AcquisitionClock, SessionReg
             }
             state.ticks.append(
                 Tick(
-                    start: start, end: end, requested: interval, decision: decision,
+                    start: start, end: end, requested: productionController ? state.requested : interval,
+                    decision: decision,
                     persistent: evidence.persistentlyUnreadable))
             state.time = end
             return (snapshot, interval)
         }
-        live.set(output.1)
+        if !productionController { live.set(output.1) }
         return output.0
     }
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
@@ -209,6 +222,7 @@ struct AdaptiveWorkloadResult {
     let firstReads: [ProcessIdentity: Double]
     let identities: Set<ProcessIdentity>
     let contributions: [FrozenCPUContribution]
+    let sampling: SamplingCoverage
 
     func scans(in range: Range<Double>) -> Int { ticks.filter { range.contains($0.start) }.count }
     func fraction(in range: Range<Double>, matching predicate: (AdaptiveWorkloadReader.Tick) -> Bool)
@@ -250,10 +264,12 @@ struct AdaptiveWorkloadResult {
     }
 }
 
-func runAdaptiveWorkload(_ scenario: AdaptiveWorkloadScenario, arm: AdaptiveWorkloadArm) async throws
+func runAdaptiveWorkload(
+    _ scenario: AdaptiveWorkloadScenario, arm: AdaptiveWorkloadArm, productionController: Bool = false
+) async throws
     -> AdaptiveWorkloadResult
 {
-    let reader = AdaptiveWorkloadReader(scenario, arm: arm)
+    let reader = AdaptiveWorkloadReader(scenario, arm: arm, productionController: productionController)
     // Virtual time can outrun publication; reserve the finite scenario's maximum unit population.
     let limits = MonitoringPipelineLimits(
         pendingScans: Int(scenario.horizon) + 2,
@@ -262,13 +278,17 @@ func runAdaptiveWorkload(_ scenario: AdaptiveWorkloadScenario, arm: AdaptiveWork
         configuration: try MonitoringConfiguration(
             intervalSeconds: reader.live.seconds, samples: 0, scope: .allProcesses, pipelineLimits: limits,
             promptCaptureLimits: PromptCaptureLimits(attempts: 512, bytes: 512 * 65_536),
-            reportIntervalSeconds: 1),
+            reportIntervalSeconds: 1, sampling: productionController ? reader.live.settings : nil),
         reader: reader, clock: reader, registry: reader)
     let windows = Mutex<[FrozenCPUContribution]>([])
+    let sampling = Mutex(SamplingCoverage())
     do {
         try await session.run(interval: reader.live) { value in
             #expect(value.window?.collapsedContributions.isEmpty != false)
             windows.withLock { $0.append(contentsOf: value.window?.contributions ?? []) }
+            if let coverage = value.window?.acquisitionCoverage.sampling {
+                sampling.withLock { $0.merge(coverage) }
+            }
         }
         Issue.record("The bounded fixture must end at its explicit horizon or listing failure")
     } catch AdaptiveWorkloadEnd.horizon {
@@ -286,7 +306,7 @@ func runAdaptiveWorkload(_ scenario: AdaptiveWorkloadScenario, arm: AdaptiveWork
     let result = AdaptiveWorkloadResult(
         ticks: state.ticks, accepted: state.accepted, lastReads: state.lastReads,
         firstReads: state.firstReads, identities: state.identities,
-        contributions: contributions)
+        contributions: contributions, sampling: sampling.withLock { $0 })
     let partition = result.partition(scenario)
     #expect(
         abs(

@@ -74,8 +74,8 @@ public struct LiveReportState: Equatable, Sendable {
     public private(set) var updates = 0
 
     public private(set) var thresholds: Thresholds
-    /// Requested seconds between samples; the session reads it live.
-    public private(set) var interval: Double
+    public private(set) var samplingSettings: SamplingSettings
+    public var interval: Double { samplingSettings.visibleMaximum }
     /// A frozen view keeps its snapshot while sampling continues; the latest one waits here.
     public private(set) var frozen = false
     private var heldSnapshot: MonitoringSnapshot?
@@ -84,11 +84,13 @@ public struct LiveReportState: Equatable, Sendable {
 
     public static let intervalSteps: [Double] = [0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60]
 
-    public init(grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(), interval: Double = 1)
-    {
+    public init(
+        grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(), interval: Double = 1,
+        sampling: SamplingSettings? = nil
+    ) {
         self.grouping = grouping
         self.thresholds = thresholds
-        self.interval = interval
+        samplingSettings = sampling ?? SamplingSettings(visibleMaximum: interval)
     }
 
     public mutating func inspectOverviewProcess() {
@@ -104,15 +106,27 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func adjustInterval(_ adjustment: IntervalAdjustment) {
+        let validSteps = Self.intervalSteps.filter { seconds in
+            var settings = samplingSettings
+            settings.visibleMaximum = seconds
+            return settings.isValid
+        }
         switch adjustment {
-        case .faster: interval = Self.intervalSteps.last { $0 < interval } ?? interval
-        case .slower: interval = Self.intervalSteps.first { $0 > interval } ?? interval
+        case .faster: setInterval(validSteps.last { $0 < interval } ?? interval)
+        case .slower: setInterval(validSteps.first { $0 > interval } ?? interval)
         }
     }
 
     public mutating func setInterval(_ seconds: Double) {
-        guard seconds.isFinite, seconds > 0 else { return }
-        interval = seconds
+        var settings = samplingSettings
+        settings.visibleMaximum = seconds
+        setSamplingSettings(settings)
+    }
+
+    @discardableResult public mutating func setSamplingSettings(_ settings: SamplingSettings) -> Bool {
+        guard settings.isValid else { return false }
+        samplingSettings = settings
+        return true
     }
 
     public mutating func setThresholds(_ value: Thresholds) {
@@ -235,7 +249,7 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func resetCollection() {
-        var fresh = LiveReportState(grouping: grouping, thresholds: thresholds, interval: interval)
+        var fresh = LiveReportState(grouping: grouping, thresholds: thresholds, sampling: samplingSettings)
         fresh.overview = overview
         fresh.overview.resetInspection()
         fresh.collectedHistory = collectedHistory

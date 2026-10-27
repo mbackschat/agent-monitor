@@ -4,15 +4,24 @@ public struct AcquisitionCoverage: Equatable, Codable, Sendable {
     public private(set) var timedPeriodCount = 0
     public private(set) var maximumGapSeconds: Double?
     public private(set) var overrunCount = 0
+    public private(set) var minimumRequestedPeriodSeconds: Double?
+    public private(set) var maximumRequestedPeriodSeconds: Double?
+    public private(set) var sampling = SamplingCoverage()
 
     public init() {}
 
     mutating func append(_ timing: AcquisitionTiming?) {
         scanCount += 1
-        guard let timing, let period = timing.achievedPeriodSeconds else { return }
+        guard let timing else { return }
+        let minimum = timing.sampling.minimumRequestedSeconds ?? timing.requestedPeriodSeconds
+        let maximum = timing.sampling.maximumRequestedSeconds ?? timing.requestedPeriodSeconds
+        minimumRequestedPeriodSeconds = min(minimumRequestedPeriodSeconds ?? minimum, minimum)
+        maximumRequestedPeriodSeconds = max(maximumRequestedPeriodSeconds ?? maximum, maximum)
+        sampling.merge(timing.sampling)
+        guard let period = timing.achievedPeriodSeconds else { return }
         timedPeriodCount += 1
         maximumGapSeconds = max(maximumGapSeconds ?? period, period)
-        if period > timing.requestedPeriodSeconds * 1.5 { overrunCount += 1 }
+        if period > timing.effectivePeriodSeconds * 1.5 { overrunCount += 1 }
     }
 
     public mutating func merge(_ other: Self) {
@@ -20,5 +29,12 @@ public struct AcquisitionCoverage: Equatable, Codable, Sendable {
         timedPeriodCount += other.timedPeriodCount
         overrunCount += other.overrunCount
         if let gap = other.maximumGapSeconds { maximumGapSeconds = max(maximumGapSeconds ?? gap, gap) }
+        if let requested = other.minimumRequestedPeriodSeconds {
+            minimumRequestedPeriodSeconds = min(minimumRequestedPeriodSeconds ?? requested, requested)
+        }
+        if let requested = other.maximumRequestedPeriodSeconds {
+            maximumRequestedPeriodSeconds = max(maximumRequestedPeriodSeconds ?? requested, requested)
+        }
+        sampling.merge(other.sampling)
     }
 }

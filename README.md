@@ -137,9 +137,12 @@ The following options control reports; diagnosis has fixed defaults and its own 
 | --- | --- | --- |
 | `--cpu <percent>` | CPU threshold; 100% means one occupied core. Zero disables this filter. Accepts nonnegative values. | `0` (%) |
 | `--memory-gb <gb>` | Physical memory footprint threshold in decimal GB. Zero disables this filter. Accepts nonnegative values. | `0` (GB) |
-| `--interval <seconds>` | Requested acquisition period, from 0.1 to 60 seconds; overruns delay collection. | `0.1` (seconds) |
+| `--interval <seconds>` | Requested acquisition period, or visible maximum with TUI adaptive sampling enabled, from 0.1 to 60 seconds; overruns delay collection. | `0.1` (seconds) |
 | `--samples <count>` | Number of accounting windows; slow readers may receive combined reports. `0` runs until you quit. | `1`; `0` with `--tui` |
 | `--tui`, `-tui` | Open the grouped contributor overview with a five-second display; requires interactive input and output. | Off; text reports |
+| `--adaptive-sampling` / `--no-adaptive-sampling` | Enable/disable activity-based acquisition between the configured minimum and `--interval`; mutually exclusive and require `--tui`. | Off |
+| `--sampling-minimum <seconds>` | Adaptive minimum; must be at least 0.1 and no greater than `--interval`. Requires `--tui`; does not enable adaptation. | `0.1` (seconds) |
+| `--sampling-window <seconds>` | Rolling activity window, from 1 to 300 seconds. Requires `--tui`; does not enable adaptation. | `60` (seconds) |
 | `--inspection-observations` | Experimental extra discovery between complete scans while the TUI is live and unpaused; requires `--tui`. Benefit and cost are unmeasured. | Off |
 | `--group <mode>` | Text/process-view grouping: `none` shows individual processes; `session` groups by launch session and totals all observed members. | `none` |
 | `--json` | Emit JSONL schema version 1: one complete JSON object per report, including CPU context, contribution windows and historical contributors. | Off |

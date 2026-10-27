@@ -311,6 +311,15 @@
         },
         "promptCapture": {
           "$ref": "#/$defs/promptCaptureSummary"
+        },
+        "sampling": {
+          "$ref": "#/$defs/samplingCoverage"
+        },
+        "effectivePeriodSeconds": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 60,
+          "description": "Effective pending deadline minus the preceding acquisition start, used only as the overrun baseline. Mid-period policy changes can make this differ from the actual requested interval."
         }
       },
       "required": [
@@ -319,7 +328,9 @@
         "qualityOfService",
         "requestedPeriodSeconds",
         "scanWorkSeconds",
-        "resolutionDelaySeconds"
+        "resolutionDelaySeconds",
+        "sampling",
+        "effectivePeriodSeconds"
       ]
     },
     "promptCaptureSummary": {
@@ -690,18 +701,34 @@
         "overrunCount": {
           "type": "integer",
           "minimum": 0,
-          "description": "Count of periods strictly above 1.5 times the period requested for that scan."
+          "description": "Count of periods strictly above 1.5 times their effective deadline minus the preceding scan start. Later settings cannot erase an elapsed deadline."
         },
         "maximumGapSeconds": {
           "type": "number",
           "minimum": 0,
           "description": "Maximum observed start-to-start acquisition period over the window, including gaps. Omitted when timing is unavailable."
+        },
+        "sampling": {
+          "$ref": "#/$defs/samplingCoverage"
+        },
+        "minimumRequestedPeriodSeconds": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 60,
+          "description": "Smallest actual requested acquisition interval represented in the window, including mid-period policy changes; omitted when timing is unavailable."
+        },
+        "maximumRequestedPeriodSeconds": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 60,
+          "description": "Largest actual requested acquisition interval represented in the window, paired with maximumGapSeconds; omitted when timing is unavailable. Effective deadline baselines do not alter this range."
         }
       },
       "required": [
         "scanCount",
         "timedPeriodCount",
-        "overrunCount"
+        "overrunCount",
+        "sampling"
       ]
     },
     "lifetimeCountRange": {
@@ -1001,6 +1028,199 @@
           "minimum": 0
         }
       }
+    },
+    "samplingCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "latest": {
+          "$ref": "#/$defs/samplingDecision"
+        },
+        "modes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "fixed",
+              "adaptive"
+            ]
+          }
+        },
+        "overrideActivations": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "uncertainty": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "lifecycle": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "recovery": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "excess": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sustained": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "inspection": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "description": "Per-reason entries into an override, rather than scans while it remains active."
+        },
+        "overrideSeconds": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "uncertainty": {
+              "type": "number",
+              "minimum": 0
+            },
+            "lifecycle": {
+              "type": "number",
+              "minimum": 0
+            },
+            "recovery": {
+              "type": "number",
+              "minimum": 0
+            },
+            "excess": {
+              "type": "number",
+              "minimum": 0
+            },
+            "sustained": {
+              "type": "number",
+              "minimum": 0
+            },
+            "inspection": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "description": "Time under each reason across accepted periods; simultaneous reasons overlap. Durations and activation counts sum on coalescing."
+        },
+        "policyChangeCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minimumRequestedSeconds": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 60,
+          "description": "Smallest actual requested interval represented by appended periods; latest-only updates do not alter the range."
+        },
+        "maximumRequestedSeconds": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 60,
+          "description": "Largest actual requested interval represented by appended periods; effective deadline baselines remain separate."
+        }
+      },
+      "required": [
+        "modes",
+        "overrideActivations",
+        "overrideSeconds",
+        "policyChangeCount"
+      ],
+      "description": "Bounded sampling diagnostics for retained acquisition periods. Latest explains the current controller; aggregate override totals preserve earlier periods."
+    },
+    "samplingDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "fixed",
+            "adaptive"
+          ],
+          "description": "fixed selects the context maximum unless experimental inspection applies; ordinary CLI acquisition remains fixed."
+        },
+        "requestedSeconds": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 60
+        },
+        "baseSeconds": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 60
+        },
+        "minimumSeconds": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 60
+        },
+        "maximumSeconds": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 60
+        },
+        "rollingCPURate": {
+          "type": "number",
+          "minimum": 0,
+          "description": "All-eligible CPU-seconds per second of enclosing rollingSpanSeconds support; no interval-supported ownership is asserted."
+        },
+        "youngCPURate": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Young or unknown-age eligible CPU-seconds per second using the same rollingSpanSeconds support."
+        },
+        "arrivalRate": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Eligible arrivals per second using rollingSpanSeconds support."
+        },
+        "rollingSpanSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "recentCPURate": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Recent all-eligible CPU-seconds per second of enclosing recentSpanSeconds support, which can exceed the one-second lookback."
+        },
+        "recentSpanSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "overrides": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "uncertainty",
+              "lifecycle",
+              "recovery",
+              "excess",
+              "sustained",
+              "inspection"
+            ]
+          }
+        }
+      },
+      "required": [
+        "mode",
+        "requestedSeconds",
+        "baseSeconds",
+        "minimumSeconds",
+        "maximumSeconds",
+        "rollingCPURate",
+        "youngCPURate",
+        "arrivalRate",
+        "rollingSpanSeconds",
+        "recentCPURate",
+        "recentSpanSeconds",
+        "overrides"
+      ]
     }
   }
 }

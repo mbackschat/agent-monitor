@@ -86,14 +86,16 @@ struct MenuBarCoverageSummary: View {
                 }
             }
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
-                ForEach([0, 3], id: \.self) { start in
+                ForEach(Array(stride(from: 0, to: summary.metrics.count, by: 3)), id: \.self) { start in
                     GridRow {
                         ForEach(Array(summary.metrics.dropFirst(start).prefix(3))) { metric in
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(metric.value).font(.system(.body, design: .rounded).weight(.semibold))
                                     .monospacedDigit()
                                     .foregroundStyle(metric.warning ? Color.orange : Color.primary)
+                                    .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
                                 Text(metric.title).font(.caption2).foregroundStyle(.secondary)
+                                    .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .help(metric.help)

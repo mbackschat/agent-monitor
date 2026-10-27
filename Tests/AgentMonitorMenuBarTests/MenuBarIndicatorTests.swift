@@ -217,7 +217,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     #expect(model.report.snapshot == nil)
 }
 
-@Test @MainActor func startupUsesOneFastSampleThenReturnsToNormalCadence() async throws {
+@Test @MainActor func startupUsesTheSelectedMaximumWithoutAnInitialFastSample() async throws {
     let (requests, input) = AsyncStream<Void>.makeStream()
     let (events, output) = AsyncStream<Double>.makeStream()
     let model = MenuBarModel { _, interval, receive in
@@ -230,7 +230,7 @@ private func loadSample(_ cpu: Double, pid: Int32 = 42001, time: Double = 1) thr
     var iterator = events.makeAsyncIterator()
     model.setInterval(5)
     model.start()
-    #expect(await iterator.next() == 0.25)
+    #expect(await iterator.next() == 5)
     model.open()
     model.close()
     input.yield(())

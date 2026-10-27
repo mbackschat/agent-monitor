@@ -705,9 +705,8 @@ public struct ContributorOverview: Equatable, Sendable {
         for unit in recent.units { publication.merge(unit.publicationCoverage) }
         notes += [CoverageStatus.publication(publication, range: .recent, endingAt: recent.endedAt)]
             .compactMap { $0 }
-        if let timing = snapshot.window?.acquisitionCoverage {
-            notes += [CoverageStatus.overruns(timing)].compactMap { $0 }
-        }
+        let acquisition = recent.acquisitionCoverage
+        notes += [CoverageStatus.overruns(acquisition)].compactMap { $0 }
         var readCoverage = ReadCoverage()
         for unit in recent.units { readCoverage.merge(unit.readCoverage) }
         notes += CoverageStatus.reads(readCoverage)
@@ -744,7 +743,7 @@ public struct ContributorOverview: Equatable, Sendable {
         samplingCoverage = SamplingCoverageSummary(
             snapshot: snapshot, reads: readCoverage, observed: observedBounds,
             recentDuration: recent.duration, retentionLimited: recent.retentionLimited,
-            inspection: recent.inspectionCoverage)
+            inspection: recent.inspectionCoverage, acquisition: acquisition)
         coverageStatus = CoverageStatus(notes: notes)
         coverage =
             "Recent \(number(recent.duration)) s"
@@ -759,9 +758,7 @@ public struct ContributorOverview: Equatable, Sendable {
         if let range = AccountingContext.publicationRange(publication, endingAt: recent.endedAt) {
             coverage += " · " + range
         }
-        if let timing = snapshot.window?.acquisitionCoverage {
-            coverage += " · " + AccountingContext.acquisition(timing)
-        }
+        coverage += " · " + AccountingContext.acquisition(acquisition)
     }
 
     private mutating func partition(previous: [ContributorID: [ContributorID]]) {

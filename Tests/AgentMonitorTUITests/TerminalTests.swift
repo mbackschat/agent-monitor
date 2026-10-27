@@ -261,6 +261,71 @@ private func dividerRow(_ text: String) -> Int? {
     text.split(separator: "\n", omittingEmptySubsequences: false).firstIndex { $0.contains("─ Details") }
 }
 
+@Test func terminalAdaptiveIntervalKeysPreserveFullSourceSettingsWhilePaused() async throws {
+    let binary =
+        ProcessInfo.processInfo.environment["AGENT_MONITOR_TUI_FIXTURE"]
+        ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().appendingPathComponent(".build/debug/monitor-tui-fixture").path
+    let terminal = try RealTerminalPTYPair.open(size: .init(width: 120, height: 24), stallBudget: nil)
+    defer { terminal.close() }
+    var original = termios()
+    try #require(tcgetattr(terminal.slave, &original) == 0)
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let settings = directory.appendingPathComponent("sampling.json")
+    let pid = try launch(
+        binary, terminal: terminal.slave,
+        environment: ["AGENT_MONITOR_SAMPLING_FIXTURE": settings.path])
+    var reaped = false
+    defer {
+        if !reaped {
+            kill(pid, SIGKILL)
+            waitpid(pid, nil, 0)
+        }
+    }
+    var screen = ANSIVisibleScreen(size: .init(width: 120, height: 24))
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(8)
+    ) { $0.contains("fixture-42") && $0.contains("acquire max 1 s") }
+    try await expectSourceSamplingSettings(at: settings, maximum: 1)
+    try writeAllBytes(Array("p>".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("PAUSED") && $0.contains("acquire max 0.5 s") }
+    try await expectSourceSamplingSettings(at: settings, maximum: 0.5)
+    try writeAllBytes(Array(">c".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("CPU descending") && $0.contains("acquire max 0.5 s") }
+    try await expectSourceSamplingSettings(at: settings, maximum: 0.5)
+    try writeAllBytes(Array((String(repeating: "<", count: 10) + "m").utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("PAUSED") && $0.contains("Footprint descending") && $0.contains("acquire max 10 s") }
+    try await expectSourceSamplingSettings(at: settings, maximum: 10)
+    try writeAllBytes(Array("q".utf8), to: terminal.master)
+    try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
+}
+
+private func expectSourceSamplingSettings(at url: URL, maximum: Double) async throws {
+    let deadline = ContinuousClock.now + .seconds(4)
+    while ContinuousClock.now < deadline {
+        if let data = try? Data(contentsOf: url),
+            let settings = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            settings["visibleMaximum"] as? Double == maximum
+        {
+            #expect(settings["enabled"] as? Bool == true)
+            #expect(settings["minimum"] as? Double == 0.4)
+            #expect(settings["closedMultiplier"] as? Double == 2.5)
+            #expect(settings["window"] as? Double == 17)
+            return
+        }
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    Issue.record("Fake source did not observe visible maximum \(maximum) within four seconds")
+}
+
 @Test func terminalActionsRequireConfirmationAndPasteCannotSubmit() async throws {
     let binary =
         ProcessInfo.processInfo.environment["AGENT_MONITOR_TUI_FIXTURE"]

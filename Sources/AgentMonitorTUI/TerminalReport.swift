@@ -20,7 +20,7 @@ public enum TerminalReport {
         let inspection = session.inspectionObservations ? LiveInspection(active: true) : nil
         try await run(
             grouping: grouping, thresholds: session.initialThresholds, interval: session.initialInterval,
-            color: color, inspection: inspection
+            sampling: session.initialSampling, color: color, inspection: inspection
         ) { thresholds, interval, receive in
             try await session.run(thresholds: thresholds, interval: interval, inspection: inspection, receive)
         }
@@ -28,6 +28,7 @@ public enum TerminalReport {
 
     public static func run(
         grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(), interval: Double = 1,
+        sampling: SamplingSettings? = nil,
         color: Bool = true, inspection: LiveInspection? = nil,
         actions: any ProcessActions = SessionActions.local(),
         diagnosisSource: @escaping CPUDiagnosisSource = CPUDiagnosisSession.collectLocal,
@@ -41,9 +42,10 @@ public enum TerminalReport {
             }
         }
         let identity = Identity(components: ["agent-monitor"])
-        let liveInterval = LiveInterval(interval)
+        let settings = sampling ?? SamplingSettings(visibleMaximum: interval)
+        let liveInterval = LiveInterval(settings: settings)
         let state = StateContainer(
-            initialState: LiveReportState(grouping: grouping, thresholds: thresholds, interval: interval),
+            initialState: LiveReportState(grouping: grouping, thresholds: thresholds, sampling: settings),
             invalidationIdentities: [identity])
         let outcome = TerminalOutcome()
         let diagnosis = CPUDiagnosisController(source: diagnosisSource)
@@ -137,9 +139,11 @@ public enum TerminalReport {
                 default: shortcut = nil
                 }
                 if let shortcut {
-                    let previousInterval = state.state.interval
+                    let previousSettings = state.state.samplingSettings
                     state.mutate { $0.apply(shortcut) }
-                    if state.state.interval != previousInterval { liveInterval.set(state.state.interval) }
+                    if state.state.samplingSettings != previousSettings {
+                        liveInterval.setSettings(state.state.samplingSettings)
+                    }
                     return .handled
                 }
                 switch key.key {

@@ -7,7 +7,13 @@ import Synchronization
 @main
 enum TUIFixture {
     static func main() async throws {
+        let samplingPath = ProcessInfo.processInfo.environment["AGENT_MONITOR_SAMPLING_FIXTURE"]
+        let sampling = samplingPath.map { _ in
+            SamplingSettings(
+                enabled: true, minimum: 0.4, visibleMaximum: 1, closedMultiplier: 2.5, window: 17)
+        }
         try await TerminalReport.run(
+            sampling: sampling,
             actions: FixtureActions(),
             diagnosisSource: {
                 if let path = ProcessInfo.processInfo.environment["AGENT_MONITOR_DIAGNOSIS_GATE"] {
@@ -31,7 +37,14 @@ enum TUIFixture {
                     return
                 }
                 var tick = 0
+                var recordedSettings: SamplingSettings?
                 while !Task.isCancelled {
+                    if let samplingPath, interval.settings != recordedSettings {
+                        let settings = interval.settings
+                        try JSONEncoder().encode(settings).write(
+                            to: URL(fileURLWithPath: samplingPath), options: .atomic)
+                        recordedSettings = settings
+                    }
                     tick += 1
                     let rows = try [
                         row(pid: 42, cpu: tick.isMultiple(of: 2) ? 40 : 90), row(pid: 84, cpu: 60),

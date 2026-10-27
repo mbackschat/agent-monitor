@@ -70,6 +70,11 @@ public final class RecentActivitySnapshot: Equatable, Sendable {
             return combined
         }
     }
+    public var acquisitionCoverage: AcquisitionCoverage {
+        units.reduce(into: AcquisitionCoverage()) { result, unit in
+            result.merge(unit.acquisitionCoverage)
+        }
+    }
 
     public var baselineScan: UInt64 { units.first?.baselineScan ?? finalScan }
     public var startedAt: Double { units.first?.startedAt ?? endedAt }

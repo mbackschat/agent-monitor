@@ -145,6 +145,7 @@ public struct MonitoringConfiguration: Sendable {
     public let reportIntervalSeconds: Double?
     public let promptCaptureLimits: PromptCaptureLimits
     public let inspectionObservations: Bool
+    public let sampling: SamplingSettings
 
     public init(
         thresholds: Thresholds = Thresholds(), intervalSeconds: Double = 1, samples: Int = 1,
@@ -152,15 +153,17 @@ public struct MonitoringConfiguration: Sendable {
         pipelineLimits: MonitoringPipelineLimits = MonitoringPipelineLimits(),
         promptCaptureLimits: PromptCaptureLimits = PromptCaptureLimits(),
         reportIntervalSeconds: Double? = nil,
-        inspectionObservations: Bool = false
+        inspectionObservations: Bool = false, sampling: SamplingSettings? = nil
     ) throws {
-        guard intervalSeconds.isFinite, (0.1...60).contains(intervalSeconds), samples >= 0,
+        let sampling = sampling ?? SamplingSettings(visibleMaximum: intervalSeconds)
+        guard sampling.isValid, intervalSeconds.isFinite, (0.1...60).contains(intervalSeconds), samples >= 0,
             thresholds.cpuPercent.isFinite, thresholds.cpuPercent >= 0, pipelineLimits.isValid,
             promptCaptureLimits.isValid, !inspectionObservations || reportIntervalSeconds != nil,
             reportIntervalSeconds.map({ $0.isFinite && (0.1...60).contains($0) }) ?? true
         else { throw MonitoringError.invalidConfiguration }
         self.thresholds = thresholds
-        self.intervalSeconds = intervalSeconds
+        self.intervalSeconds = sampling.visibleMaximum
+        self.sampling = sampling
         self.samples = samples
         self.includeCommands = includeCommands
         self.scope = scope
@@ -251,6 +254,7 @@ public struct MonitoringSession: Sendable {
     public var initialThresholds: Thresholds { configuration.thresholds }
     public var inspectionObservations: Bool { configuration.inspectionObservations }
     public var initialInterval: Double { configuration.intervalSeconds }
+    public var initialSampling: SamplingSettings { configuration.sampling }
 
     /// Serial counter/accounting collection is independent of blocking enrichment and presentation.
     @concurrent public func run(

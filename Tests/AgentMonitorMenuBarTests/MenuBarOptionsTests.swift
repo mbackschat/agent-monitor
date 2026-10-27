@@ -24,7 +24,7 @@ import Testing
     #expect(menu.item(withTitle: "Ascending")?.isEnabled == false)
     #expect(menu.item(withTitle: "Footprint")?.state == .off)
     #expect(menu.item(withTitle: "PID")?.state == .off)
-    #expect(menu.items.filter { $0.submenu != nil }.count == 3)
+    #expect(menu.items.filter { $0.submenu != nil }.count == 5)
     #expect(menu.item(withTitle: "CPU filter: Off")?.submenu?.item(withTitle: "Off")?.state == .on)
     #expect(menu.item(withTitle: "Footprint filter: Off")?.submenu?.item(withTitle: "Off")?.state == .on)
 }
@@ -82,7 +82,7 @@ import Testing
     let controller = MenuBarOptionsController(model: model)
     let button = controller.makeButton()
     let menu = try #require(button.menu)
-    let submenus = menu.items.compactMap(\.submenu)
+    let submenus = Array(menu.items.compactMap(\.submenu).prefix(3))
     #expect(submenus.count == 3)
     for submenu in submenus {
         #expect(submenu.items.count >= 7)
@@ -105,6 +105,71 @@ import Testing
         submenus[2].items.first { $0.representedObject as? MenuBarOption == .interval(15) })
     submenus[2].performActionForItem(at: submenus[2].index(of: interval))
     #expect(model.report.interval == 15)
+}
+
+@Test @MainActor func samplingModeExplicitlyChoosesMaximumIntervalOrAdaptation() throws {
+    _ = NSApplication.shared
+    let model = MenuBarModel { _, _, _ in }
+    let controller = MenuBarOptionsController(model: model)
+    let menu = controller.makeMenu()
+    let mode = try #require(menu.item(withTitle: "Mode: Use maximum interval")?.submenu)
+    #expect(mode.item(withTitle: "Use maximum interval")?.state == .on)
+    #expect(mode.item(withTitle: "Adaptive sampling")?.state == .off)
+    let adaptive = try #require(mode.item(withTitle: "Adaptive sampling"))
+    mode.performActionForItem(at: mode.index(of: adaptive))
+    #expect(model.report.samplingSettings.enabled)
+    controller.menuNeedsUpdate(menu)
+    let updated = try #require(menu.item(withTitle: "Mode: Adaptive")?.submenu)
+    #expect(updated.item(withTitle: "Adaptive sampling")?.state == .on)
+    let maximum = try #require(updated.item(withTitle: "Use maximum interval"))
+    updated.performActionForItem(at: updated.index(of: maximum))
+    #expect(!model.report.samplingSettings.enabled)
+    #expect(model.report.samplingSettings.minimum == 0.1)
+    #expect(model.report.samplingSettings.visibleMaximum == 0.1)
+    #expect(model.report.samplingSettings.closedMultiplier == 1)
+}
+
+@Test @MainActor func advancedSamplingMenusRetainCurrentValuesAndDisableInvalidCombinations() throws {
+    _ = NSApplication.shared
+    let model = MenuBarModel { _, _, _ in }
+    var settings = SamplingSettings(
+        enabled: true, minimum: 0.3, visibleMaximum: 4, closedMultiplier: 3, window: 45)
+    let accepted = model.report.setSamplingSettings(settings)
+    #expect(accepted)
+    let controller = MenuBarOptionsController(model: model)
+    let menu = controller.makeMenu()
+    let maximum = try #require(menu.item(withTitle: "Maximum interval: 4 s")?.submenu)
+    #expect(maximum.item(withTitle: "\(Double(0.25).formatted()) s")?.isEnabled == false)
+    #expect(maximum.item(withTitle: "15 s")?.isEnabled == true)
+    #expect(maximum.item(withTitle: "30 s")?.isEnabled == false)
+    let advanced = try #require(menu.item(withTitle: "Advanced sampling")?.submenu)
+    let minimum = try #require(
+        advanced.item(withTitle: "Minimum interval: \(settings.minimum.formatted()) s")?.submenu)
+    #expect(minimum.item(withTitle: "\(settings.minimum.formatted()) s")?.state == .on)
+    #expect(minimum.item(withTitle: "5 s")?.isEnabled == false)
+    let window = try #require(advanced.item(withTitle: "Activity window: 45 s")?.submenu)
+    #expect(window.item(withTitle: "45 s")?.state == .on)
+    let multiplier = try #require(advanced.item(withTitle: "Closed-panel multiplier: 3×")?.submenu)
+    #expect(multiplier.item(withTitle: "3×")?.state == .on)
+    let selected = try #require(window.item(withTitle: "120 s"))
+    window.performActionForItem(at: window.index(of: selected))
+    settings.window = 120
+    #expect(model.report.samplingSettings == settings)
+}
+
+@Test @MainActor func trackedSamplingChoicePreservesSettingsChangedSinceMenuOpening() throws {
+    _ = NSApplication.shared
+    let model = MenuBarModel { _, _, _ in }
+    let controller = MenuBarOptionsController(model: model)
+    let menu = controller.makeMenu()
+    let mode = try #require(menu.item(withTitle: "Mode: Use maximum interval")?.submenu)
+    let adaptive = try #require(mode.item(withTitle: "Adaptive sampling"))
+    controller.menuWillOpen(menu)
+    model.setInterval(15)
+    mode.performActionForItem(at: mode.index(of: adaptive))
+    #expect(model.report.samplingSettings.enabled)
+    #expect(model.report.interval == 15)
+    controller.menuDidClose(menu)
 }
 
 @Test @MainActor func flatOptionsDispatchAndReopenWithTheCurrentSelection() throws {

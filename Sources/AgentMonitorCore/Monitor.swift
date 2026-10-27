@@ -10,6 +10,8 @@ public struct Monitor: Sendable {
         var metadata = ProcessMetadata(status: .unavailable)
         var markerObservedAt: Double?
         var metadataObservedAt: Double?
+        var samplingMetadataClear: Bool?
+        var collectorOwned = false
         var sampleTextBytes: Int
         var metadataPayload = MonitoringPayloadSize(observations: 0, textBytes: 0)
         var payloadSize: MonitoringPayloadSize {
@@ -63,6 +65,7 @@ public struct Monitor: Sendable {
                 invocationName = nil
                 markerObservedAt = nil
                 metadataObservedAt = nil
+                samplingMetadataClear = nil
                 recognizedProviders = adapters.runtimeProviders(for: next.executable)
                 runtimeProviders = recognizedProviders
             }
@@ -393,6 +396,22 @@ public struct Monitor: Sendable {
         }
         updated.invocation = updated.invocation ?? node.metadata.invocation
         let metadataChanged = node.metadata != updated
+        if updated.markers != node.metadata.markers || updated.invocation != node.metadata.invocation
+            || updated.writerThreadIDs != node.metadata.writerThreadIDs
+            || updated.listeningSockets != node.metadata.listeningSockets
+        {
+            node.samplingMetadataClear = nil
+        }
+        if !olderMetadata {
+            switch metadata.status {
+            case .markerRead, .notObserved:
+                node.samplingMetadataClear =
+                    updated.markers.isEmpty && updated.writerThreadIDs.isEmpty
+                    && updated.listeningSockets.isEmpty
+            case .malformed: node.samplingMetadataClear = nil
+            case .unavailable, .truncated: break
+            }
+        }
         node.metadata = updated
         node.metadataPayload = AttributionStorage.metadata(updated)
         attributionStorageRecordVisits += node.metadataPayload.observations
@@ -713,6 +732,57 @@ public struct Monitor: Sendable {
 
     func chain(from identity: ProcessIdentity) -> [ProcessIdentity] {
         chain(from: identity, overlay: nil)
+    }
+
+    // Adaptive control uses completed own evidence and retained exact ancestry, never a negative parent alone.
+    mutating func samplingObservations(
+        _ snapshot: ProcessSnapshot, rows: [HeavyProcess], collectorPID: Int32, excluding: Set<Int32> = []
+    )
+        -> [SamplingObservation]
+    {
+        let rows = Dictionary(rows.map { ($0.process, $0) }, uniquingKeysWith: { _, last in last })
+        let outOfScope = Set(snapshot.nativeOutcomes.filter { $0.status == .outOfScopeUser }.map(\.pid))
+        var result: [SamplingObservation] = []
+        var seen: Set<Int32> = []
+        for sample in snapshot.samples {
+            seen.insert(sample.identity.pid)
+            let ancestry = chain(from: sample.identity)
+            let helper =
+                sample.identity.pid == collectorPID
+                || samplingCollectorOwned(ancestry, collectorPID: collectorPID)
+            if helper { nodes[sample.identity]?.collectorOwned = true }
+            let owner = rows[sample.identity]?.attribution
+            let candidate =
+                owner?.evidence == .ambiguous || owner?.provider != nil || owner?.runtime != nil
+                || !(owner?.candidateThreadIDs.isEmpty ?? true)
+            let completedNegative =
+                !candidate && !ancestry.isEmpty
+                && ancestry.allSatisfy { nodes[$0]?.samplingMetadataClear == true }
+            let cpu = sample.rawCPU?.seconds ?? sample.cpuSeconds
+            result.append(
+                SamplingObservation(
+                    pid: sample.identity.pid, identity: sample.identity,
+                    birth: sample.startedAt,
+                    eligible: !helper && !completedNegative && !outOfScope.contains(sample.identity.pid)
+                        && !excluding.contains(sample.identity.pid),
+                    countersAvailable: cpu.map { $0.isFinite && $0 >= 0 } ?? false))
+        }
+        let listed = snapshot.listedPIDs ?? snapshot.nativeOutcomes.map(\.pid)
+        for pid in Set(listed).subtracting(seen) {
+            result.append(
+                SamplingObservation(
+                    pid: pid, identity: nil, birth: nil,
+                    eligible: pid != collectorPID && !outOfScope.contains(pid) && !excluding.contains(pid),
+                    countersAvailable: false))
+        }
+        return result
+    }
+
+    func samplingCollectorOwned(_ ancestry: [ProcessIdentity], collectorPID: Int32) -> Bool {
+        ancestry.contains {
+            $0.pid == collectorPID || nodes[$0]?.collectorOwned == true
+                || nodes[$0]?.sample.parentPID == collectorPID
+        }
     }
 
     private func chain(from identity: ProcessIdentity, overlay: Node?) -> [ProcessIdentity] {

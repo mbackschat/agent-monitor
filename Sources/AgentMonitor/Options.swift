@@ -1,3 +1,4 @@
+import AgentMonitorCore
 import AgentMonitorPresentation
 import ArgumentParser
 
@@ -31,7 +32,7 @@ struct ReportOptions: ParsableArguments {
     @Option(
         name: .customLong("interval"),
         help:
-            "Requested acquisition period in seconds, from 0.1 to 60. Default: 0.1; scan overruns delay collection."
+            "Requested acquisition period in seconds (0.1–60), or visible maximum with --tui --adaptive-sampling. Default: 0.1; overruns delay collection."
     )
     var requestedInterval: Double?
 
@@ -52,6 +53,30 @@ struct ReportOptions: ParsableArguments {
             "Live grouped contributor overview with a five-second display; requires an interactive terminal. See agent-monitor guide tui for all keys."
     )
     var tui = false
+
+    @Flag(
+        name: .customLong("adaptive-sampling"), inversion: .prefixedNo, exclusivity: .exclusive,
+        help: "Adapt acquisition to activity; requires --tui. Default: off."
+    )
+    var requestedAdaptiveSampling: Bool?
+
+    @Option(
+        name: .customLong("sampling-minimum"),
+        help: "Minimum acquisition seconds, 0.1 through --interval. Requires --tui. Default: 0.1."
+    )
+    var requestedSamplingMinimum: Double?
+
+    @Option(
+        name: .customLong("sampling-window"),
+        help: "Rolling activity seconds, 1–300. Requires --tui. Default: 60."
+    )
+    var requestedSamplingWindow: Double?
+
+    var sampling: SamplingSettings {
+        SamplingSettings(
+            enabled: requestedAdaptiveSampling ?? false, minimum: requestedSamplingMinimum ?? 0.1,
+            visibleMaximum: interval, window: requestedSamplingWindow ?? 60)
+    }
 
     @Flag(
         help:
@@ -86,11 +111,20 @@ struct ReportOptions: ParsableArguments {
     var isSpecified: Bool {
         requestedCPU != nil || requestedMemoryGB != nil || requestedInterval != nil || sampleLimit != nil
             || requestedGroup != nil || tui || inspectionObservations || allProcesses || commands || noColor
+            || requestedAdaptiveSampling != nil || requestedSamplingMinimum != nil
+            || requestedSamplingWindow != nil
     }
 
     mutating func validate() throws {
         guard !inspectionObservations || tui else {
             throw ValidationError("--inspection-observations requires --tui")
+        }
+        guard
+            tui
+                || (requestedAdaptiveSampling == nil && requestedSamplingMinimum == nil
+                    && requestedSamplingWindow == nil)
+        else {
+            throw ValidationError("adaptive sampling options require --tui")
         }
         guard cpu.isFinite, cpu >= 0 else {
             throw ValidationError("--cpu requires a finite, nonnegative number")
@@ -102,6 +136,11 @@ struct ReportOptions: ParsableArguments {
         }
         guard interval.isFinite, (0.1...60).contains(interval) else {
             throw ValidationError("--interval must be between 0.1 and 60 seconds")
+        }
+        guard !tui || sampling.isValid else {
+            throw ValidationError(
+                "sampling settings require 0.1 <= minimum <= --interval <= 60 and a finite window from 1 to 300 seconds"
+            )
         }
         guard samples >= 0 else {
             throw ValidationError("--samples requires an integer >= 0")
@@ -131,6 +170,7 @@ struct Options: ParsableArguments {
     var interval: Double { report.interval }
     var samples: Int { report.samples }
     var tui: Bool { report.tui }
+    var sampling: SamplingSettings? { tui ? report.sampling : nil }
     var inspectionObservations: Bool { report.inspectionObservations }
     var group: GroupOption { report.group }
     var grouping: ReportGrouping { report.grouping }

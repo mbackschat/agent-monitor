@@ -31,9 +31,26 @@ enum MenuBarOption: Equatable {
     case cpu(Double)
     case memory(UInt64)
     case interval(Double)
+    case samplingMode(Bool)
+    case samplingMinimum(Double)
+    case samplingWindow(Double)
+    case closedMultiplier(Double)
     case historyMetric(HistoryMetric)
     case historyWindow(HistoryWindow)
     case liveIcon, keyboardHelp, overview, allContributors, unpinAll
+
+    func samplingSettings(from current: SamplingSettings) -> SamplingSettings? {
+        var settings = current
+        switch self {
+        case .interval(let value): settings.visibleMaximum = value
+        case .samplingMode(let enabled): settings.enabled = enabled
+        case .samplingMinimum(let value): settings.minimum = value
+        case .samplingWindow(let value): settings.window = value
+        case .closedMultiplier(let value): settings.closedMultiplier = value
+        default: return nil
+        }
+        return settings
+    }
 }
 
 @MainActor final class MenuBarOptionsController: NSObject, NSMenuDelegate {
@@ -56,7 +73,7 @@ enum MenuBarOption: Equatable {
         button.bezelStyle = .rounded
         button.preferredEdge = .minY
         button.setAccessibilityLabel(placement == .history ? "History metric and time range" : "View options")
-        button.toolTip = "Grouping, sort direction, CPU and footprint thresholds, and sampling interval"
+        button.toolTip = "Grouping, sort direction, CPU and footprint thresholds, and sampling options"
         button.menu = makeMenu()
         self.button = button
         updateTitle(button)
@@ -161,13 +178,43 @@ enum MenuBarOption: Equatable {
         menu.addItem(.separator())
         menu.addItem(.sectionHeader(title: "Sampling"))
         add("Live menu bar icon", .liveIcon, checked: model.liveIcon, to: menu)
-        let interval = model.report.interval
-        let intervalMenu = submenu("Acquire every \(interval.formatted()) seconds", in: menu)
-        for value in Set(LiveReportState.intervalSteps + [15, interval]).sorted() {
-            add("\(value.formatted()) s", .interval(value), checked: value == interval, to: intervalMenu)
-        }
+        addSamplingOptions(to: menu)
         menu.addItem(.separator())
         add("Keyboard shortcuts", .keyboardHelp, checked: model.showsKeyboardHelp, to: menu)
+    }
+
+    private func addSamplingOptions(to menu: NSMenu) {
+        let settings = model.report.samplingSettings
+        let interval = settings.visibleMaximum
+        let intervalMenu = submenu(
+            "Maximum interval: \(interval.formatted()) s", in: menu, help: "Maximum while the panel is open.")
+        for value in Set(LiveReportState.intervalSteps + [15, interval]).sorted() {
+            addSamplingChoice("\(value.formatted()) s", .interval(value), to: intervalMenu)
+        }
+        let modeMenu = submenu(
+            settings.enabled ? "Mode: Adaptive" : "Mode: Use maximum interval", in: menu)
+        addSamplingChoice("Use maximum interval", .samplingMode(false), to: modeMenu)
+        addSamplingChoice("Adaptive sampling", .samplingMode(true), to: modeMenu)
+        let advanced = submenu("Advanced sampling", in: menu)
+        let minimumMenu = submenu("Minimum interval: \(settings.minimum.formatted()) s", in: advanced)
+        for value in Set(LiveReportState.intervalSteps + [15, settings.minimum]).sorted() {
+            addSamplingChoice("\(value.formatted()) s", .samplingMinimum(value), to: minimumMenu)
+        }
+        let windowMenu = submenu("Activity window: \(settings.window.formatted()) s", in: advanced)
+        for value in Set([1, 5, 10, 30, 60, 120, 300, settings.window]).sorted() {
+            addSamplingChoice("\(value.formatted()) s", .samplingWindow(value), to: windowMenu)
+        }
+        let multiplierMenu = submenu(
+            "Closed-panel multiplier: \(settings.closedMultiplier.formatted())×", in: advanced)
+        for value in Set([1, 1.5, 2, 2.5, 4, 5, 10, settings.closedMultiplier]).sorted() {
+            addSamplingChoice("\(value.formatted())×", .closedMultiplier(value), to: multiplierMenu)
+        }
+    }
+
+    private func addSamplingChoice(_ title: String, _ option: MenuBarOption, to menu: NSMenu) {
+        let current = model.report.samplingSettings
+        guard let settings = option.samplingSettings(from: current) else { return }
+        add(title, option, checked: settings == current, enabled: settings.isValid, to: menu)
     }
 
     private func submenu(_ title: String, in menu: NSMenu, help: String? = nil) -> NSMenu {
@@ -180,11 +227,14 @@ enum MenuBarOption: Equatable {
         return child
     }
 
-    private func add(_ title: String, _ option: MenuBarOption, checked: Bool, to menu: NSMenu) {
+    private func add(
+        _ title: String, _ option: MenuBarOption, checked: Bool, enabled: Bool = true, to menu: NSMenu
+    ) {
         let item = NSMenuItem(title: title, action: #selector(choose(_:)), keyEquivalent: "")
         item.target = self
         item.representedObject = option
         item.state = checked ? .on : .off
+        item.isEnabled = enabled
         menu.addItem(item)
     }
 
@@ -213,7 +263,10 @@ enum MenuBarOption: Equatable {
         case .memory(let value):
             model.report.setThresholds(
                 Thresholds(cpuPercent: model.report.thresholds.cpuPercent, memoryBytes: value))
-        case .interval(let value): model.setInterval(value)
+        case .interval, .samplingMode, .samplingMinimum, .samplingWindow, .closedMultiplier:
+            if let settings = option.samplingSettings(from: model.report.samplingSettings) {
+                model.report.setSamplingSettings(settings)
+            }
         case .liveIcon: model.setLiveIcon(!model.liveIcon)
         case .keyboardHelp: model.showsKeyboardHelp.toggle()
         case .historyMetric(let metric): model.report.historyMetric = metric

@@ -53,7 +53,7 @@ struct AgentMonitorCommand: AsyncParsableCommand {
             intervalSeconds: options.interval, samples: options.samples, includeCommands: options.commands,
             scope: options.allProcesses ? .allProcesses : .agentsOnly, collectAgentLoad: options.tui,
             reportIntervalSeconds: options.tui ? LiveReportState.displayIntervalSeconds : 1,
-            inspectionObservations: options.inspectionObservations)
+            inspectionObservations: options.inspectionObservations, sampling: options.sampling)
         let session = MonitoringSession(
             configuration: configuration, reader: try NativeProcessReader(), excluding: [getpid()],
             recentActivity: options.tui ? RecentActivityStore() : nil)
