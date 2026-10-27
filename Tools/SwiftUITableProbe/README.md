@@ -2,6 +2,27 @@
 
 [Probe.swift](Probe.swift) imports only AppKit and SwiftUI. It creates synthetic hierarchical tables in unshown windows, without Agent Monitor models, collectors, providers, third-party dependencies or desktop automation. The [initial control result](../../docs/research/native-menu-design.md#standalone-swiftui-table-expansion--2026-10-27) and [following-root triage](../../docs/research/native-menu-design.md#swiftui-following-root-triage--2026-10-27) record the tested platform and interpretation.
 
+## Interactive example
+
+[Demo.swift](Demo.swift) shows the failing and control row orders side by side. It uses synthetic rows only. Build and open it from the repository root:
+
+```sh
+bash Tools/SwiftUITableProbe/build-demo.sh
+open ".build/SwiftUI Table Demo.app"
+```
+
+The left table puts Session B after the expanded Session A branch; the right puts Session B first. Both models initially mark Session A and its executable group expanded. On the recorded toolchain the left shows three rows and the right five. Collapse Session A on the left, then expand it: its process rows appear. **Recreate both tables** (⌘R) restores the initial comparison; closing the window quits the demo. This is the original failure/recovery example, not the hidden-restoration prototype.
+
+The same view has an unshown-window check:
+
+```sh
+".build/SwiftUI Table Demo.app/Contents/MacOS/SwiftUITableDemo" --check
+```
+
+The expected sorted row counts are `[3, 5]` initially, `[2, 5]` collapsed, `[5, 5]` reopened and `[3, 5]` after recreation. The development-only bundle is ignored and remains local for the user's interaction check; rebuild it with [build-demo.sh](build-demo.sh).
+
+## Automated standalone probe
+
 Run from the repository root with the installed Xcode toolchain:
 
 ```sh
