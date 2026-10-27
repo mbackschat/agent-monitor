@@ -35,7 +35,7 @@ import Testing
     #expect(levels == [0, 1, 2])
     #expect(contributorExpanded)
     #expect(!processExpandable)
-    #expect(outline.usesAlternatingRowBackgroundColors)
+    #expect(!outline.usesAlternatingRowBackgroundColors)
     let selectedRow = try #require(outline.rowView(atRow: outline.selectedRow, makeIfNecessary: true))
     #expect(selectedRow.isSelected)
     #expect(

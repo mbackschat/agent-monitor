@@ -44,17 +44,19 @@ struct MenuBarCoverageLink: View {
         let status = model.report.displayCoverageStatus
         HStack {
             if !status.notes.isEmpty {
+                Label(
+                    status.summaryText,
+                    systemImage: status.severity == .warning ? "exclamationmark.triangle" : "info.circle"
+                )
+                .lineLimit(1)
+                .foregroundStyle(status.severity == .warning ? Color.orange : Color.secondary)
                 Button {
                     presented = true
                 } label: {
-                    Label(
-                        status.summaryText + " · Details…",
-                        systemImage: status.severity == .warning ? "exclamationmark.triangle" : "info.circle"
-                    )
-                    .lineLimit(1)
+                    Text("Details…").underline()
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(status.severity == .warning ? Color.orange : Color.secondary)
+                .buttonStyle(.link)
+                .accessibilityLabel("Coverage details")
                 .accessibilityHint("Open measurement diagnostics")
             }
             Spacer(minLength: 0)

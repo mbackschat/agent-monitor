@@ -11,6 +11,7 @@ struct MenuBarContributorInspection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(TextReport.safe(node.title)).font(.headline).textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 20) {
                 metric("CPU", node.stats.cpuText(duration: duration))
                 metric("Memory", node.stats.memoryText)
@@ -38,6 +39,7 @@ struct MenuBarContributorInspection: View {
                     )
             }
         }
+        .lineLimit(nil)
         .padding(14).frame(width: 400)
     }
 
@@ -57,9 +59,11 @@ struct MenuBarInspectionFields: View {
             ForEach(Array(fields.enumerated()), id: \.offset) { _, field in
                 GridRow(alignment: .top) {
                     Text(field.label).foregroundStyle(.secondary).frame(width: 114, alignment: .leading)
-                    Text(TextReport.safe(field.value)).frame(maxWidth: .infinity, alignment: .leading)
+                    Text(TextReport.safe(field.value))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }.help(field.help ?? "")
             }
-        }.font(.caption).textSelection(.enabled)
+        }.font(.caption).lineLimit(nil).textSelection(.enabled)
     }
 }

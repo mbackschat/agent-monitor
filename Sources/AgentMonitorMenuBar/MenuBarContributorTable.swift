@@ -30,7 +30,8 @@ struct MenuBarContributorTable: View {
             MenuBarContributorRows(
                 model: model, ids: overview.topLevel, acceptsInteraction: acceptsInteraction)
         }
-        .tableStyle(.inset(alternatesRowBackgrounds: true))
+        .tableStyle(.inset(alternatesRowBackgrounds: false))
+        .scrollContentBackground(.hidden)
         .accessibilityLabel("Main contributors")
         .frame(minHeight: 120, maxHeight: .infinity)
         .focused(focus, equals: .overview)
