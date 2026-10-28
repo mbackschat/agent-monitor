@@ -196,11 +196,12 @@ struct MenuBarView: View {
             HStack {
                 Text(
                     overview
-                        ? (model.report.overview.showAll ? "All contributors" : "Main contributors")
+                        ? model.report.overview.title
                         : (model.observedProcessCount.map { "Observed processes · \($0)" }
                             ?? "Observed processes")
                 )
                 .font(.subheadline.bold())
+                .help(overview ? model.report.overview.populationHelp : "")
                 Spacer()
                 if overview {
                     Button(

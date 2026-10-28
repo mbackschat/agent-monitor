@@ -23,17 +23,18 @@ public struct ContributorActivity: Equatable, Sendable {
     }
     public private(set) var spans: [Span] = []
     public private(set) var samples: [ContributorID: [Sample?]] = [:]
-    public private(set) var ceiling = 200.0
+    public private(set) var ceiling = 100.0
     public var duration: Double { max(0, (spans.last?.endedAt ?? 0) - (spans.first?.startedAt ?? 0)) }
     public var maximumSpan: Double { spans.map(\.duration).max() ?? 0 }
 
     public init() {}
 
     init(
-        recent: RecentActivitySnapshot, nodes: [ContributorID: ContributorNode],
+        recent: RecentActivitySnapshot, nodes: [ContributorID: ContributorNode], logicalCPUCount: Int,
         leaf: (RecentWorkerCategory) -> ContributorID
     ) {
         self.init()
+        ceiling = 100 * Double(max(1, logicalCPUCount))
         let units = recent.units
         guard let first = units.first, let last = units.last else { return }
         let crossings = units.flatMap(\.crossings).filter {
@@ -122,29 +123,27 @@ public struct ContributorActivity: Equatable, Sendable {
             return values
         }
         for id in nodes.keys { _ = aggregate(id) }
-        let peak =
-            samples.values.flatMap { values in
-                zip(values, spans).compactMap { $0?.percent(in: $1) }
-            }.max() ?? 0
-        ceiling = max(200, ceil(peak / 100) * 100)
+
     }
 
     public var scaleLabel: String { "0–\(Int(ceiling))%" }
 
     public var intervalLabel: String {
-        "\(String(format: "%.1f", duration)) s · spans ≤\(String(format: "%.1f", maximumSpan)) s"
+        let unequal = spans.map(\.duration).min().map { maximumSpan - $0 > 0.001 } ?? false
+        return "\(String(format: "%.1f", duration)) s · \(spans.count) interval averages"
+            + (unequal ? " · unequal durations" : "")
     }
 
     public func terminalLane(for id: ContributorID, width: Int, level: Int = 0, rows: Int = 1) -> String {
-        guard width > 0, duration > 0, let values = samples[id], let first = spans.first else {
+        guard width > 0, !spans.isEmpty, let values = samples[id] else {
             return String(repeating: "·", count: max(0, width))
         }
         let levels = Array("▁▂▃▄▅▆▇█")
         return (0..<width).map { column in
-            let time = first.startedAt + duration * (Double(column) + 0.5) / Double(width)
-            guard let index = spans.firstIndex(where: { time >= $0.startedAt && time < $0.endedAt }),
-                let sample = values[index], let percent = sample.percent(in: spans[index])
+            let index = min(spans.count - 1, column * spans.count / width)
+            guard let sample = values[index], let percent = sample.percent(in: spans[index])
             else { return "·" }
+            if percent > ceiling, level == 0 { return "↑" }
             let filled = min(
                 8, max(0, Int(ceil(percent / ceiling * Double(8 * rows))) - (rows - level - 1) * 8))
             if filled == 0 { return level == rows - 1 ? "_" : " " }

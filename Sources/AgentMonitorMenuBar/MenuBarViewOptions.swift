@@ -134,8 +134,10 @@ enum MenuBarOption: Equatable {
         case .submenu: break
         }
         menu.addItem(.sectionHeader(title: "Show"))
-        add("Main contributors", .overview, checked: model.report.overview.enabled, to: menu)
-        add("Show all contributors", .allContributors, checked: model.report.overview.showAll, to: menu)
+        add(model.report.overview.title, .overview, checked: model.report.overview.enabled, to: menu)
+        add(
+            "Show all contributors (\(model.report.overview.population.total))", .allContributors,
+            checked: model.report.overview.showAll, to: menu)
         add(
             "Group by agent session", .grouping(.session),
             checked: !model.report.overview.enabled && model.report.grouping == .session,

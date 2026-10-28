@@ -17,7 +17,7 @@ import Testing
     #expect(button.isEnabled)
     #expect(button.acceptsFirstMouse(for: nil))
     #expect(button.pullsDown)
-    #expect(menu.item(withTitle: "Main contributors")?.state == .on)
+    #expect(menu.item(withTitle: model.report.overview.title)?.state == .on)
     #expect(menu.item(withTitle: "Processes")?.state == .off)
     #expect(menu.item(withTitle: "Stable order")?.state == .on)
     #expect(menu.item(withTitle: "CPU")?.state == .off)

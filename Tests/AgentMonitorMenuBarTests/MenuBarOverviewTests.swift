@@ -96,7 +96,41 @@ import Vision
     await model.stop()
 }
 
-func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
+@Test @MainActor func intervalBarsHaveEqualPixelWidthsDespiteUnequalDurations() async throws {
+    var overview = ContributorOverview()
+    overview.receive(try nativeOverviewFixture(secondSampleTime: 3))
+    #expect(overview.activity.spans.map(\.duration) == [1, 2])
+    let id = try #require(overview.main.first)
+    let host = NSHostingView(
+        rootView: MenuBarContributorLane(activity: overview.activity, id: id)
+            .accentColor(.red).frame(width: 101, height: 32).background(.black))
+    host.frame = NSRect(x: 0, y: 0, width: 101, height: 32)
+    let window = await mountOffscreenNativePreview(host)
+    defer { window.close() }
+    let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    if let output = ProcessInfo.processInfo.environment["MENUBAR_BAR_PREVIEW_PATH"] {
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: output))
+    }
+    var widths: [Int] = []
+    var width = 0
+    for x in 0..<bitmap.pixelsWide {
+        let color = try #require(bitmap.colorAt(x: x, y: bitmap.pixelsHigh - 2)?.usingColorSpace(.deviceRGB))
+        let filled = max(color.redComponent, color.greenComponent, color.blueComponent) > 0.5
+        if filled {
+            width += 1
+        } else if width > 0 {
+            widths.append(width)
+            width = 0
+        }
+    }
+    if width > 0 { widths.append(width) }
+    try #require(widths.count == 2)
+    #expect(widths[0] == widths[1])
+}
+
+func nativeOverviewFixture(unreadable: Int = 0, secondSampleTime: Double = 2) throws -> MonitoringSnapshot {
     var ledger = CounterLedger()
     func values(_ tick: Int) -> [ProcessSample] {
         var result: [ProcessSample] = []
@@ -108,7 +142,8 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
                     identity: ProcessIdentity(pid: Int32(42000 + index), startMicroseconds: UInt64(index)),
                     parentPID: 0, executable: index == 3 ? "/usr/bin/java" : "/usr/local/bin/node",
                     name: index == 3 ? "java" : "node",
-                    sampledAt: Double(tick), cpuSeconds: cpu, footprintBytes: bytes))
+                    sampledAt: tick == 2 ? secondSampleTime : Double(tick), cpuSeconds: cpu,
+                    footprintBytes: bytes))
         }
         return result
     }
@@ -147,7 +182,8 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     var window = AccountingWindow(baseline: baseline)
     for tick in 1...2 {
         let samples = values(tick)
-        let scan = ledger.ingest(samples, listedAt: Double(tick), source: source(samples, at: Double(tick)))
+        let time = tick == 2 ? secondSampleTime : Double(tick)
+        let scan = ledger.ingest(samples, listedAt: time, source: source(samples, at: time))
         let findings = rows(samples)
         var activity = AccountingWindow(baseline: baseline)
         try activity.append(scan, rows: findings)

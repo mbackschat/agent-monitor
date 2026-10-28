@@ -133,6 +133,7 @@ public struct ContributorStats: Equatable, Sendable {
 public struct ContributorRow: Equatable, Sendable, Identifiable {
     public let node: ContributorNode
     public let depth: Int
+    public let isLastSibling: Bool
     public var id: ContributorID { node.id }
 }
 
@@ -164,6 +165,7 @@ public struct ContributorOverview: Equatable, Sendable {
     private var formerlySelected: [ContributorID: Double] = [:]
     private var latestTime = 0.0
     public private(set) var activity = ContributorActivity()
+    private var logicalCPUCount = 1
     private var source: RecentActivitySnapshot?
     var workloadDirectoryLabels: [String: String] = [:]
     public private(set) var detailOffset = 0
@@ -240,6 +242,27 @@ public struct ContributorOverview: Equatable, Sendable {
         return "\(number(source.duration)) s" + (source.retentionLimited ? " (retention limit / gap)" : "")
     }
 
+    public var population: (main: Int, total: Int) {
+        let retained = Set(
+            nodes.values.compactMap { node -> ContributorID? in
+                guard case .session(_, _, nil) = node.id, node.stats.hasContributions else { return nil }
+                return node.id
+            })
+        let selected = retained.intersection(Set(main + pinned)).count
+        return (selected, retained.count)
+    }
+
+    public var title: String {
+        let counts = population
+        return showAll
+            ? "All contributors (\(counts.total))"
+            : "Main contributors (\(counts.main)/\(counts.total))"
+    }
+
+    public var populationHelp: String {
+        "Main or pinned / all retained session groups. A root and its threads count once. Shared, unresolved and released-detail work are shown separately."
+    }
+
     public var topLevel: [ContributorID] {
         let summaries: [ContributorID] = [
             .section(.recent), .section(.remainder), .section(.uncertain), .section(.shared),
@@ -253,12 +276,18 @@ public struct ContributorOverview: Equatable, Sendable {
 
     public var visibleRows: [ContributorRow] {
         var rows: [ContributorRow] = []
-        func visit(_ id: ContributorID, depth: Int) {
+        func visit(_ id: ContributorID, depth: Int, last: Bool = false) {
             guard let node = nodes[id] else { return }
             if node.process != nil && !node.stats.filtered.isEmpty { return }
-            rows.append(ContributorRow(node: node, depth: depth))
+            rows.append(ContributorRow(node: node, depth: depth, isLastSibling: last))
             if isExpanded(id) {
-                for child in node.children where !pinned.contains(child) { visit(child, depth: depth + 1) }
+                let children = node.children.filter {
+                    guard !pinned.contains($0), let child = nodes[$0] else { return false }
+                    return child.process == nil || child.stats.filtered.isEmpty
+                }
+                for (index, child) in children.enumerated() {
+                    visit(child, depth: depth + 1, last: index == children.count - 1)
+                }
             }
         }
         for id in topLevel { visit(id, depth: 0) }
@@ -389,7 +418,9 @@ public struct ContributorOverview: Equatable, Sendable {
 
     private mutating func rebuildActivity() {
         guard let source else { return }
-        activity = ContributorActivity(recent: source, nodes: nodes) { path(for: $0).last!.0 }
+        activity = ContributorActivity(recent: source, nodes: nodes, logicalCPUCount: logicalCPUCount) {
+            path(for: $0).last!.0
+        }
     }
 
     public mutating func receive(_ snapshot: MonitoringSnapshot) {
@@ -407,6 +438,7 @@ public struct ContributorOverview: Equatable, Sendable {
             scope = recent.scope
             runID = recent.runID
         }
+        logicalCPUCount = snapshot.cpuAccounting.logicalCPUCount
         latestTime = recent.endedAt
         let displayBaseline = recent.displayUnits.first?.baselineScan ?? recent.finalScan
         duration =

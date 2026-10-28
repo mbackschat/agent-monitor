@@ -26,7 +26,7 @@ public enum ReportGlossary {
         Entry(
             id: "activity", title: "Activity lanes",
             definition:
-                "CPU over whole retained time spans, using one common zero-to-ceiling scale for every row. The ceiling starts at 200% and increases for higher measured values. Empty spans (terminal dots) are unmeasured, not idle; a baseline is measured zero. Shaded spans or ~ spans have incomplete observations or reduced identity detail. The caption gives the actual range and widest span; coalesced or crossing intervals cannot reveal activity inside that span. Memory beside the lane is current, not historical."
+                "CPU averages over whole retained intervals, using the fixed machine-capacity scale for every row: logical CPU count × 100%, with 100% meaning one core. Activity never rescales the ceiling. Equal-width bars run oldest to newest; each bar represents one interval, even when durations differ. Empty spans (terminal dots) are unmeasured, not idle; a baseline is measured zero. Shaded spans or ~ spans have incomplete observations or reduced identity detail. The caption gives the retained range and interval count and flags unequal durations; coalesced or crossing intervals cannot reveal activity inside that span. An orange cap or terminal ↑ marks values above the fixed ceiling. Memory beside the lane is current, not historical."
         ),
         Entry(
             id: "memory", title: "Memory",

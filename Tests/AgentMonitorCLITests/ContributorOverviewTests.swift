@@ -22,8 +22,21 @@ import Testing
         let snapshot = try overviewFixture()
         var overview = ContributorOverview()
         overview.receive(snapshot)
+        func title(_ overview: ContributorOverview) -> String {
+            var state = LiveReportState()
+            state.overview = overview
+            return ContributorLayout.lines(state: state, width: 120, height: 30).first?.text ?? ""
+        }
         let totals = overview.totals
+        #expect(title(overview).contains("Main contributors (1/22)"))
+        overview.select(try #require(overview.main.first))
+        overview.togglePin()
+        #expect(title(overview).contains("Main contributors (1/22)"))
+        overview.select(.session(provider: "codex", session: "session-22", root: nil))
+        overview.togglePin()
+        #expect(title(overview).contains("Main contributors (2/22)"))
         overview.showAll = true
+        #expect(title(overview).contains("All contributors (22)"))
         #expect(overview.totals == totals)
         overview.toggle(.section(.remainder))
         #expect(overview.totals == totals)

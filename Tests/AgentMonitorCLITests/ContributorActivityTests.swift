@@ -10,7 +10,7 @@ import Testing
         overview.receive(try overviewFixture())
         let activity = overview.activity
         #expect(activity.spans.count == 2)
-        #expect(activity.ceiling == 200)
+        #expect(activity.ceiling == 800)
         let quiet = ContributorID.session(provider: "codex", session: "session-1", root: nil)
         let burst = ContributorID.session(provider: "codex", session: "session-22", root: nil)
         let quietValues = try #require(activity.samples[quiet])
@@ -66,13 +66,14 @@ import Testing
         #expect(!context.contains("No longer observed"))
     }
 
-    @Test func crossingsMergeWholeSpansWithoutInventingFineTiming() throws {
+    @Test(arguments: [2, 8])
+    func crossingsMergeWholeSpansWithoutInventingFineTiming(cpuCount: Int) throws {
         let identity = ProcessIdentity(pid: 100, startMicroseconds: 1)
         var ledger = CounterLedger()
         func sample(_ time: Double) -> ProcessSample {
             ProcessSample(
                 identity: identity, parentPID: 0, executable: "/bin/java", name: "java", sampledAt: time,
-                cpuSeconds: time * 3, footprintBytes: 1_000_000)
+                cpuSeconds: time <= 1 ? time : 1 + (time - 1) * 3, footprintBytes: 1_000_000)
         }
         var baseline = ledger.ingest([sample(0)], listedAt: 0)
         let store = RecentActivityStore()
@@ -97,7 +98,8 @@ import Testing
         let recent = try #require(store.snapshot())
         let snapshot = MonitoringSnapshot(
             cpuAccounting: CPUAccounting(
-                hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0, unmeasuredLifetimeCount: 0,
+                hostBusyPercent: nil, logicalCPUCount: cpuCount, measuredUserPercent: 0,
+                unmeasuredLifetimeCount: 0,
                 previousScanSeconds: nil), timestamp: Date(), intervalSeconds: 1, cpuThresholdPercent: 0,
             memoryThresholdBytes: 0, sampledProcessCount: 1, unreadableProcessCount: 0, findings: [],
             recentActivity: recent)
@@ -106,7 +108,14 @@ import Testing
         let id = ContributorID.session(provider: "codex", session: "crossing", root: nil)
         #expect(overview.activity.spans.map(\.duration) == [1, 2])
         let samples = try #require(overview.activity.samples[id])
-        #expect(samples.compactMap { $0?.cpuSeconds } == [3, 6])
-        #expect(overview.activity.ceiling >= 300)
+        #expect(samples.compactMap { $0?.cpuSeconds } == [1, 6])
+        #expect(overview.activity.ceiling == Double(cpuCount * 100))
+        #expect(
+            overview.activity.terminalLane(for: id, width: 12)
+                == String(repeating: cpuCount == 8 ? "▁" : "▄", count: 6)
+                + String(repeating: cpuCount == 8 ? "▃" : "↑", count: 6))
+        #expect(overview.activity.intervalLabel.contains("unequal durations"))
+        overview.sort(by: .memory)
+        #expect(overview.activity.ceiling == Double(cpuCount * 100))
     }
 }

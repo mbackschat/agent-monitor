@@ -40,7 +40,7 @@ func statusItemRoutesSecondaryClicksToTheContextMenu(
     }
     #expect(menu.items.contains { $0.title.contains("1 observed") })
     let options = try #require(menu.item(withTitle: "View options")?.submenu)
-    #expect(options.item(withTitle: "Main contributors")?.state == .on)
+    #expect(options.item(withTitle: model.report.overview.title)?.state == .on)
     #expect(options.item(withTitle: "View options") == nil)
     for (title, action) in [
         ("Open Agent Monitor", MenuBarStatusMenu.Action.open), ("Quit Agent Monitor", .quit),

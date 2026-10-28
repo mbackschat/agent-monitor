@@ -10,7 +10,7 @@ import Testing
         state.overview.toggleDetails()
         let lines = ContributorLayout.lines(state: state, width: 120, height: 30)
         let text = lines.map(\.text).joined(separator: "\n")
-        #expect(text.contains("0–200%"))
+        #expect(text.contains("0–800%"))
         #expect(text.contains("┌") && text.contains("└"))
         #expect(text.contains("Tab") && text.contains("Esc"))
         #expect(lines.contains { $0.style == .selected && $0.text.contains("session-") })

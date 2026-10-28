@@ -15,10 +15,12 @@ public enum ContributorLayout {
         var footer = footerLines(state: state, width: width)
         let status = state.displayCoverageStatus
         let coverage = ReportLine(status.terminalSummary(width: width), style: status.lineStyle)
+        let title = (state.frozen ? "PAUSED · p resume" : "Agent Monitor") + " | " + overview.title
         var header = [
             ReportLine(
-                (state.frozen ? "PAUSED · p resume" : "Agent Monitor") + " | "
-                    + (overview.showAll ? "All contributors" : "Main contributors"), style: .title),
+                TerminalCells.width(title) <= width
+                    ? title : (state.frozen ? "PAUSED | " : "") + overview.title,
+                style: .title),
             ReportLine(overview.totals.summary(duration: overview.duration)),
             coverage,
             ReportLine(

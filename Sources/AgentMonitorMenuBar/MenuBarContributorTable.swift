@@ -18,6 +18,11 @@ struct MenuBarContributorTable: View {
         let inspecting = overview.detailsVisible
         let rows = overview.visibleRows
         let positions = Dictionary(uniqueKeysWithValues: rows.enumerated().map { ($0.element.id, $0.offset) })
+        var group = -1
+        let groupIndices = rows.map { row in
+            if row.depth == 0 { group += 1 }
+            return group
+        }
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 sortButton("Contributor", field: .contributor)
@@ -40,14 +45,27 @@ struct MenuBarContributorTable: View {
                     Button {
                         if acceptsInteraction { model.report.overview.activateRow(node.id) }
                     } label: {
-                        MenuBarContributorRow(node: node, overview: overview)
+                        MenuBarContributorRow(node: node, overview: overview, depth: depth)
                             .padding(.horizontal, 8).padding(.vertical, 4).padding(
-                                .leading, CGFloat(depth) * 8
+                                .leading, CGFloat(depth) * 18
                             )
                             .background(
-                                index.isMultiple(of: 2) ? Color.primary.opacity(0.045) : .clear,
+                                Color.primary.opacity(
+                                    (groupIndices.indices.contains(index)
+                                        && groupIndices[index].isMultiple(of: 2)) ? 0.055 : 0.015),
                                 in: RoundedRectangle(cornerRadius: 7)
                             )
+                            .overlay(alignment: .leading) {
+                                if depth > 0 {
+                                    MenuBarContributorBranch(
+                                        last: positions[node.id].map { rows[$0].isLastSibling } ?? true
+                                    )
+                                    .frame(width: 14)
+                                    .padding(.leading, CGFloat(depth) * 18 - 12)
+                                    .allowsHitTesting(false).accessibilityHidden(true)
+                                }
+                            }
+                            .padding(.top, depth == 0 && index > 0 ? 10 : 0)
                             .contentShape(Rectangle())
                     }.buttonStyle(.plain)
                         .accessibilityHint(
@@ -73,7 +91,7 @@ struct MenuBarContributorTable: View {
             .tableColumnHeaders(.hidden)
             .tableStyle(.inset(alternatesRowBackgrounds: false))
             .scrollContentBackground(.hidden)
-            .accessibilityLabel(overview.showAll ? "All contributors" : "Main contributors")
+            .accessibilityLabel(overview.title)
             .frame(minHeight: 0, maxHeight: .infinity)
             .focused(focus, equals: .overview)
             .background {
@@ -174,6 +192,7 @@ struct MenuBarContributorRow: View {
     @Environment(\.backgroundProminence) private var prominence
     let node: ContributorNode
     let overview: ContributorOverview
+    var depth = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -185,7 +204,9 @@ struct MenuBarContributorRow: View {
                     )
                     .foregroundStyle(.secondary).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(TextReport.safe(node.label.headline)).font(.system(size: 14, weight: .semibold))
+                        Text(TextReport.safe(node.label.headline))
+                            .font(
+                                .system(size: depth == 0 ? 15 : 13, weight: depth == 0 ? .semibold : .medium))
                         if let name = node.label.sessionName {
                             Text(TextReport.safe(name)).font(.system(size: 12))
                         }
@@ -221,32 +242,57 @@ struct MenuBarContributorRow: View {
     }
 }
 
-private struct MenuBarContributorLane: View {
+private struct MenuBarContributorBranch: View {
+    let last: Bool
+
+    var body: some View {
+        Canvas { context, size in
+            var branch = Path()
+            branch.move(to: CGPoint(x: 1, y: 0))
+            branch.addLine(to: CGPoint(x: 1, y: last ? size.height / 2 : size.height))
+            branch.move(to: CGPoint(x: 1, y: size.height / 2))
+            branch.addLine(to: CGPoint(x: size.width, y: size.height / 2))
+            context.stroke(branch, with: .foreground, lineWidth: 1.5)
+        }.foregroundStyle(.secondary.opacity(0.6))
+    }
+}
+
+struct MenuBarContributorLane: View {
     let activity: ContributorActivity
     let id: ContributorID
     @Environment(\.backgroundProminence) private var prominence
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         Canvas { context, size in
             let color: Color = prominence == .increased ? .white : .accentColor
             let bounds = Path(CGRect(x: 0, y: 0, width: size.width, height: size.height))
             context.stroke(bounds, with: .color(color.opacity(0.25)), lineWidth: 1)
-            guard activity.duration > 0, let first = activity.spans.first else { return }
+            guard !activity.spans.isEmpty else { return }
+            // Whole intervals are ordinal bars, with pixel-aligned equal widths; unequal durations
+            // remain explicit in the caption (architecture.md, Resource history).
+            let step = floor(size.width * displayScale / Double(activity.spans.count)) / displayScale
+            let leading = (size.width - step * Double(activity.spans.count)) / 2
+            let gap = 1 / displayScale
             for (index, sample) in (activity.samples[id] ?? []).enumerated() {
                 let span = activity.spans[index]
-                let x = (span.startedAt - first.startedAt) / activity.duration * size.width
-                let width = span.duration / activity.duration * size.width
+                let x = leading + Double(index) * step
                 guard let value = sample?.percent(in: span) else { continue }
                 let height = max(1, min(1, value / activity.ceiling) * size.height)
                 let bar = Path(
-                    CGRect(x: x + 0.5, y: size.height - height, width: max(0.5, width - 1), height: height))
+                    CGRect(
+                        x: x + gap, y: size.height - height, width: max(gap, step - gap), height: height))
                 context.fill(bar, with: .color(color.opacity(sample?.qualified == true ? 0.45 : 0.8)))
+                if value > activity.ceiling {
+                    let cap = Path(CGRect(x: x, y: 0, width: step, height: 2))
+                    context.fill(cap, with: .color(.orange))
+                }
             }
         }
         .accessibilityLabel("CPU history, " + activity.scaleLabel + ", " + activity.intervalLabel)
         .help(
             "CPU history · " + activity.scaleLabel + " · " + activity.intervalLabel
-                + ". Gaps are unmeasured; shaded spans have incomplete observations or reduced detail. 100% is one core."
+                + ". Fixed machine-capacity scale; 100% is one logical CPU. Equal-width bars are whole interval averages, oldest left and newest right, regardless of duration. Gaps are unmeasured; shaded spans have incomplete observations or reduced detail. An orange cap marks values above the fixed ceiling."
         )
     }
 }
