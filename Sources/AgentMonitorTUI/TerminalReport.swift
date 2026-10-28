@@ -157,12 +157,41 @@ public enum TerminalReport {
                     let size = host.surfaceSize
                     state.mutate {
                         if $0.showsOverview {
-                            if $0.overview.detailsVisible { $0.overview.scroll(by: delta) }
+                            if $0.overview.detailsVisible {
+                                let maximum = ContributorLayout.maximumDetailOffset(
+                                    state: $0, width: size.width, height: size.height)
+                                $0.overview.scroll(by: delta, maximum: maximum)
+                            }
                         } else if $0.detailsMode != .minimized {
                             let maximum = LiveReportLayout.maximumDetailOffset(
                                 state: $0, width: size.width, height: size.height)
                             $0.scrollDetails(by: delta, maximum: maximum)
                         }
+                    }
+                }
+                if state.state.showsOverview, state.state.overview.detailsVisible {
+                    switch key.key {
+                    case .tab:
+                        state.mutate { $0.overview.toggleFocus() }
+                        return .handled
+                    case .escape:
+                        state.mutate { $0.overview.toggleDetails() }
+                        return .handled
+                    case .arrowUp
+                    where state.state.overview.focus == .details
+                        && ContributorLayout.hasDetailPane(
+                            state: state.state, width: host.surfaceSize.width, height: host.surfaceSize.height
+                        ):
+                        scrollInspection(by: -1)
+                        return .handled
+                    case .arrowDown
+                    where state.state.overview.focus == .details
+                        && ContributorLayout.hasDetailPane(
+                            state: state.state, width: host.surfaceSize.width, height: host.surfaceSize.height
+                        ):
+                        scrollInspection(by: 1)
+                        return .handled
+                    default: break
                     }
                 }
                 let shortcut: ReportShortcut?

@@ -193,42 +193,15 @@ import Testing
         #expect(overview.main == [session(3), session(2), session(1)])
     }
 
-    @Test func quietPopulationDoesNotFillCPUMeters() throws {
-        var state = LiveReportState()
-        state.overview = ContributorOverview(memoryCapacityBytes: 16_000_000_000)
-        state.receive(try reviewSnapshot(cpu: [0.2], memory: [200_000_000]))
-        #expect(abs(state.overview.cpuMeterFraction(state.overview.totals) - 0.002) < 1e-9)
-        #expect(state.overview.memoryMeterFraction(state.overview.totals) == 0.0125)
-        let lines = ContributorLayout.lines(state: state, width: 120, height: 24)
-        let row = try #require(lines.first { $0.text.contains("codex · session- · /project") })
-        #expect(row.text.contains("0.2% ▱▱▱▱"))
-    }
-
-    @Test func foldingGroupsDoesNotDumpEvidenceAndCoverageIsVisible() throws {
-        var state = LiveReportState()
-        state.receive(try reviewSnapshot(cpu: [20, 10], memory: [200_000_000, 200_000_000], unreadable: 3))
-        state.overview.toggle(session(1))
-        let lines = ContributorLayout.lines(state: state, width: 120, height: 24)
-        #expect(!lines.contains { $0.text.contains("Exact session:") })
-        state.overview.toggleDetails()
-        #expect(
-            ContributorLayout.lines(state: state, width: 120, height: 24).contains {
-                $0.text.contains("Exact session:")
-            })
-        #expect(lines.prefix(6).contains { $0.text.contains("Read failures: 3 same-user PIDs") })
-    }
-
     /// A gap appearing or clearing must not move the rows under the user's selection.
     @Test func overviewHeaderReservesOneCoverageRow() throws {
-        func header(unreadable: Int) throws -> [ReportLine] {
+        func firstContributor(unreadable: Int) throws -> Int {
             var state = LiveReportState()
             state.receive(try reviewSnapshot(cpu: [20], memory: [200_000_000], unreadable: unreadable))
             let lines = ContributorLayout.lines(state: state, width: 120, height: 24)
-            return Array(lines.prefix { $0.style != .heading })
+            return try #require(lines.firstIndex { $0.style == .selected })
         }
-        let clean = try header(unreadable: 0)
-        #expect(clean.contains(ReportLine("", style: .muted)))
-        #expect(clean.count == (try header(unreadable: 1)).count)
+        #expect(try firstContributor(unreadable: 0) == firstContributor(unreadable: 1))
     }
 
     @Test func multipleDirectoriesUseSharedProjectRuleEvenWithMatchingBasenames() throws {

@@ -194,7 +194,7 @@ private struct DisclosureChevronFixture: View {
 @Test @MainActor func nativePanelInheritsChangingSystemAppearance() throws {
     _ = NSApplication.shared
     let model = MenuBarModel { _, _, _ in }
-    let container = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 560))
+    let container = NSView(frame: NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560))
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
     host.frame = container.bounds
@@ -203,7 +203,7 @@ private struct DisclosureChevronFixture: View {
     for dark in [false, true, false] {
         container.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         host.layoutSubtreeIfNeeded()
-        #expect(host.fittingSize == NSSize(width: 420, height: 560))
+        #expect(host.fittingSize == NSSize(width: MenuBarLayout.width, height: 560))
         let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
         host.cacheDisplay(in: host.bounds, to: bitmap)
         let background = try #require(bitmap.colorAt(x: 5, y: 5)?.usingColorSpace(.deviceRGB))
@@ -237,7 +237,7 @@ private struct DisclosureChevronFixture: View {
     await model.waitForCollection()
     _ = NSApplication.shared
     let host = NSHostingView(rootView: MenuBarView(model: model))
-    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
     host.layoutSubtreeIfNeeded()
     #expect(host.fittingSize.height == 560)
     await model.stop()
@@ -302,7 +302,7 @@ private struct DisclosureChevronFixture: View {
     await model.waitForCollection()
     _ = NSApplication.shared
     let host = NSHostingView(rootView: MenuBarView(model: model, maximumHeight: 600))
-    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
     host.layoutSubtreeIfNeeded()
     model.panelSize = size
     host.layoutSubtreeIfNeeded()
@@ -318,9 +318,9 @@ private struct DisclosureChevronFixture: View {
     model.referencePage = .glossary
     _ = NSApplication.shared
     let host = NSHostingView(rootView: MenuBarView(model: model))
-    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
     host.layoutSubtreeIfNeeded()
-    #expect(host.fittingSize == NSSize(width: 420, height: 560))
+    #expect(host.fittingSize == NSSize(width: MenuBarLayout.width, height: 560))
     let help = NSHostingView(
         rootView: MenuBarReferenceContent(model: model, page: .glossary) { model.referencePage = nil }
             .background(Color(nsColor: .windowBackgroundColor)))
@@ -429,10 +429,10 @@ private struct DisclosureChevronFixture: View {
     await model.waitForCollection()
     let host = NSHostingView(rootView: MenuBarView(model: model).background(Color.white))
     host.appearance = NSAppearance(named: .aqua)
-    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
     func headerImage() throws -> Data {
         host.layoutSubtreeIfNeeded()
-        let header = NSRect(x: 0, y: 0, width: 420, height: 100)
+        let header = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 100)
         let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: header))
         host.cacheDisplay(in: header, to: bitmap)
         let scale = Double(bitmap.pixelsWide) / header.width
@@ -452,7 +452,7 @@ private struct DisclosureChevronFixture: View {
     delegate.popoverDidDetach?(NSPopover())
     let after = try headerImage()
     #expect(before == after)
-    #expect(host.fittingSize == NSSize(width: 420, height: 560))
+    #expect(host.fittingSize == NSSize(width: MenuBarLayout.width, height: 560))
     #expect(model.isOpen)
     await model.stop()
 }

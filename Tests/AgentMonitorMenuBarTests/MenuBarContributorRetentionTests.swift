@@ -16,7 +16,7 @@ import Testing
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
-    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
     let window = await mountOffscreenNativePreview(host)
     defer { window.close() }
     let original = try #require(contributorOutline(in: host))
@@ -33,6 +33,7 @@ import Testing
     let expected = model.report.overview.visibleRows
     try #require(original.numberOfRows == expected.count)
     let selectedRow = try #require(expected.firstIndex { $0.id == process })
+    #expect(original.level(forRow: selectedRow) == 3)
     original.selectRowIndexes(IndexSet(integer: selectedRow), byExtendingSelection: false)
     original.scrollRowToVisible(selectedRow)
     let scroll = try #require(original.enclosingScrollView)
@@ -75,6 +76,13 @@ import Testing
         let after = try await retentionFrame(scroll)
         #expect(before == after)
     }
+    model.report.overview.toggleDetails()
+    try #require(model.beginDiagnosis())
+    await model.diagnosis.waitForCompletion()
+    model.report.overview.toggleDetails()
+    _ = try await retentionFrame(host)
+    #expect(window.firstResponder !== original, "Hidden details change stole focus")
+    model.diagnosis.dismiss()
     for order in [ContributorOrder.memory, .cpu] {
         model.report.overview.sort(by: order)
         await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
@@ -98,11 +106,42 @@ import Testing
 
 private enum InspectionScreen { case diagnosis, process, review }
 
+@Test @MainActor func queuedTableReconciliationPreservesNewerNativeSelection() async throws {
+    _ = NSApplication.shared
+    let snapshot = try nativeOverviewFixture()
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let host = NSHostingView(rootView: MenuBarView(model: model))
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
+    let window = await mountOffscreenNativePreview(host)
+    defer { window.close() }
+    let outline = try #require(contributorOutline(in: host))
+    let ids = model.report.overview.visibleRows.map(\.id)
+    try #require(ids.count >= 2)
+    outline.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+    let anchor = NSView()
+    host.addSubview(anchor)
+    let coordinator = MenuBarTableState.Coordinator()
+    coordinator.update(
+        MenuBarTableState(
+            rows: ids, selection: ids[0], active: true, inspecting: false,
+            isCurrent: { model.report.overview.selection == ids[0] }), view: anchor)
+    outline.selectRowIndexes(IndexSet(integer: 1), byExtendingSelection: false)
+    try #require(model.report.overview.selection == ids[1])
+    await coordinator.pending?.value
+    #expect(outline.selectedRow == 1)
+    #expect(model.report.overview.selection == ids[1])
+    await model.stop()
+}
+
 @MainActor private func retentionFrame(_ view: NSView) async throws -> Data {
     var previous = Data()
     var stablePasses = 0
-    let deadline = ContinuousClock.now + .seconds(2)
-    while stablePasses < 2, ContinuousClock.now < deadline {
+    // Count rendered frames: concurrent MainActor OCR can consume a wall-clock deadline before
+    // this task gets a second frame (ledger native-suite run, 2026-10-28).
+    for _ in 0..<120 {
+        if stablePasses == 2 { break }
         try await Task.sleep(for: .milliseconds(16))
         view.layoutSubtreeIfNeeded()
         let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))

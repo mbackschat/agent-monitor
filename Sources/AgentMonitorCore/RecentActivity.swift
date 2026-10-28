@@ -291,9 +291,28 @@ public final class RecentActivityUnit: Sendable {
 }
 
 extension RecentActivityUnit {
-    /// Published ranges never shrink: whole-unit eviction belongs to the store, not to a paused view.
-    /// Compact category sums keep snapshot leases independent of the number of original units.
-    static func compacted(_ units: [RecentActivityUnit]) -> [RecentActivityUnit] {
+    /// Whole-unit time spans preserve contributor history without retaining every scan in a lease.
+    /// Existing record/text limits charge every span; publication may evict whole units under pressure.
+    static func compacted(_ units: [RecentActivityUnit], maximumSpans: Int = 12) -> [RecentActivityUnit] {
+        guard let first = units.first, let last = units.last else { return [] }
+        let duration = last.endedAt - first.startedAt
+        guard duration > 0 else { return merged(units) }
+        var groups: [[RecentActivityUnit]] = []
+        var previousBucket: Int?
+        for unit in units {
+            let bucket = min(
+                maximumSpans - 1,
+                max(0, Int((unit.startedAt - first.startedAt) / duration * Double(maximumSpans))))
+            if bucket != previousBucket {
+                groups.append([])
+                previousBucket = bucket
+            }
+            groups[groups.count - 1].append(unit)
+        }
+        return groups.flatMap { merged($0) }
+    }
+
+    private static func merged(_ units: [RecentActivityUnit]) -> [RecentActivityUnit] {
         guard let first = units.first, let last = units.last else { return [] }
         if units.count == 1 { return units }
         var records: [RecentWorkerCategory: RecentWorkerRecord] = [:]

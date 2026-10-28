@@ -53,7 +53,7 @@ struct MenuBarView: View {
                     .help("Hold the displayed sample and row order. Resume shows the latest sample (p).")
                 }
             }
-            .padding(.vertical, 16).padding(.trailing, 16).padding(.leading, 32)
+            .padding(.vertical, 10).padding(.trailing, 16).padding(.leading, 32)
             Divider()
             // Retaining the table avoids SwiftUI's nested-expansion initialization failure.
             // See docs/research/native-menu-design.md#hidden-swiftui-restoration-prototype--2026-10-27.
@@ -196,7 +196,7 @@ struct MenuBarView: View {
             HStack {
                 Text(
                     overview
-                        ? "Main contributors"
+                        ? (model.report.overview.showAll ? "All contributors" : "Main contributors")
                         : (model.observedProcessCount.map { "Observed processes · \($0)" }
                             ?? "Observed processes")
                 )
@@ -222,7 +222,7 @@ struct MenuBarView: View {
             if let error = model.error, model.report.snapshot != nil {
                 Text(error).font(.caption).foregroundStyle(.orange)
             }
-            MenuBarHistoryStrip(model: model)
+            if !overview { MenuBarHistoryStrip(model: model) }
             if let snapshot = model.report.snapshot,
                 snapshot.cpuThresholdPercent != model.report.thresholds.cpuPercent
                     || snapshot.memoryThresholdBytes != model.report.thresholds.memoryBytes

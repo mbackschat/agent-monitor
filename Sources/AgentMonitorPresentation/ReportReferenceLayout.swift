@@ -83,7 +83,7 @@ public enum ReportReferenceLayout {
         ReportLine("v overview/processes · a recent/remainder · ↑/↓ select · ←/→ collapse/expand"),
         ReportLine(
             "Process view: Shift+←/→ collapse/expand session groups · Enter inspect current overview process"),
-        ReportLine("i show/hide details · PgUp/PgDn scroll 5 lines · [/] scroll 1 line"),
+        ReportLine("i details · Tab rows/details · Esc close · PgUp/PgDn scroll · [/] one line"),
         ReportLine(
             "c/m CPU/memory order · n/o enter process PID/Stable order · r reverse process numeric order · g process groups"
         ),

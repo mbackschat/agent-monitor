@@ -1,0 +1,63 @@
+import AgentMonitorCore
+import AgentMonitorPresentation
+import Foundation
+import Synchronization
+
+extension Preview {
+    static func ledgerState() async throws -> LiveReportState {
+        let state = Mutex(LiveReportState())
+        let session = MonitoringSession(
+            configuration: try MonitoringConfiguration(
+                intervalSeconds: 0.1, samples: 12, collectAgentLoad: true, reportIntervalSeconds: 1),
+            reader: LedgerPreviewReader(), recentActivity: RecentActivityStore())
+        try await session.run { snapshot in state.withLock { $0.receive(snapshot) } }
+        return state.withLock { value in
+            value.overview.showAll = true
+            return value
+        }
+    }
+}
+
+private final class LedgerPreviewReader: ProcessReading, Sendable {
+    private let tick = Mutex(0)
+    private let names = ["java", "rustc", "node", "python", "swift-frontend", "node", "pytest", "node"]
+    private let cpu = [1.42, 0.63, 0.37, 0.12, 0.014, 0.002, 0.096, 0.08]
+    private let memory: [UInt64] = [
+        1_800_000_000, 2_400_000_000, 900_000_000, 400_000_000, 200_000_000, 3_200_000_000, 100_000_000,
+        300_000_000,
+    ]
+    func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
+        let time = tick.withLock { value in
+            defer { value += 1 }
+            return value
+        }
+        let samples = names.indices.filter { $0 != 6 || time < 9 }.map { index in
+            ProcessSample(
+                identity: ProcessIdentity(pid: Int32(42000 + index), startMicroseconds: UInt64(index + 1)),
+                parentPID: 0, executable: "/usr/local/bin/" + names[index], name: names[index],
+                sampledAt: Double(time),
+                cpuSeconds: (0..<time).reduce(0.0) { sum, interval in
+                    let phases = [0.1, 0.2, 0.55, 1.0, 0.9, 0.75, 1.1, 0.9, 1.15, 0.95, 1.1, 1.0]
+                    return sum + cpu[index] * phases[(interval + index * 2) % phases.count]
+                }, footprintBytes: memory[index])
+        }
+        return ProcessSnapshot(
+            samples: samples, enumeratedCount: samples.count, unreadableCount: 0,
+            listedAt: Double(time), scanSeconds: 0, hostCounters: nil, logicalCPUCount: 8)
+    }
+    func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
+        let index = Int(sample.identity.pid - 42000)
+        let projects = [
+            "atlas/api", "orbit", "atlas/web", "harbor", "sample-app", "atlas/cache", "tests", "shared",
+        ]
+        return ProcessMetadata(
+            markers: index == 7
+                ? []
+                : [
+                    SessionMarker(
+                        threadID: String(format: "%08d-1111-4111-8111-111111111111", index + 1),
+                        provider: index.isMultiple(of: 2) ? .claude : .codex)
+                ],
+            status: .markerRead, cwd: "/projects/" + projects[index])
+    }
+}

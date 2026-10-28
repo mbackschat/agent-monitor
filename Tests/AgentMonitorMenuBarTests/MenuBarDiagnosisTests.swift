@@ -158,9 +158,9 @@ private actor NativeDiagnosisGate {
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
     host.layoutSubtreeIfNeeded()
-    #expect(host.fittingSize == NSSize(width: 420, height: 560))
+    #expect(host.fittingSize == NSSize(width: MenuBarLayout.width, height: 560))
     if let directory = ProcessInfo.processInfo.environment["MENUBAR_DIAGNOSIS_PREVIEW_DIRECTORY"] {
         let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
         host.cacheDisplay(in: host.bounds, to: bitmap)

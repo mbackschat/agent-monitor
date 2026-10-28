@@ -120,11 +120,14 @@ private struct NoPublicationRegistry: SessionRegistryReading {
         history.resume.signal()
         _ = await run.value
         let values = results.withLock { $0 }
-        let summary = try #require(values.last?.recentActivity?.units.first)
-        #expect(summary.publicationCoverage.sourceUnitCount == 4)
-        #expect(summary.publicationCoverage.publishedUnitCount == 2)
-        #expect(summary.publicationCoverage.coalescedUnitCount == 3)
-        #expect(abs(summary.publicationCoverage.maximumUnitSpanSeconds - 3) < 1e-8)
+        let summary = try #require(values.last?.recentActivity)
+        let publication = summary.units.reduce(into: PublicationCoverage()) {
+            $0.merge($1.publicationCoverage)
+        }
+        #expect(publication.sourceUnitCount == 4)
+        #expect(publication.publishedUnitCount == 2)
+        #expect(publication.coalescedUnitCount == 3)
+        #expect(abs(publication.maximumUnitSpanSeconds - 3) < 1e-8)
         #expect(abs(try #require(values.last?.recentActivity?.cpuSeconds) - 0.4) < 1e-8)
         #expect(
             abs(values.compactMap(\.window).flatMap(\.contributions).reduce(0) { $0 + $1.cpuSeconds } - 0.4)

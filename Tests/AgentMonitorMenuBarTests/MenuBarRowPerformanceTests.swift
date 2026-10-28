@@ -115,7 +115,7 @@ private struct RowRenderMeasurement: Codable {
         #expect(model.visibleRowIDs.count == displayedCount + (expanded ? 1 : 0))
         let start = ContinuousClock.now
         let host = NSHostingView(rootView: MenuBarView(model: model))
-        host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+        host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
         host.layoutSubtreeIfNeeded()
         let initial = elapsedMilliseconds(since: start)
         var refresh: [Double] = []
@@ -124,7 +124,7 @@ private struct RowRenderMeasurement: Codable {
             model.report.receive(snapshot(Double(tick)))
             host.layoutSubtreeIfNeeded()
             refresh.append(elapsedMilliseconds(since: start))
-            #expect(host.fittingSize == NSSize(width: 420, height: 560))
+            #expect(host.fittingSize == NSSize(width: MenuBarLayout.width, height: 560))
         }
         measurements.append(
             RowRenderMeasurement(

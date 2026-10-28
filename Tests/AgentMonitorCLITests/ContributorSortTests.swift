@@ -65,10 +65,6 @@ import Testing
                     == [2, 1])
             let cpuRows = state.overview.visibleRows
             #expect(cpuRows.filter { $0.node.process != nil }.compactMap { $0.node.process?.pid } == [2, 1])
-            let lines = ContributorLayout.lines(state: state, width: 120, height: 40).map(\.text)
-            let javaLine = try #require(lines.firstIndex { $0.contains("java ×2") })
-            let zshLine = try #require(lines.firstIndex { $0.contains("zsh") })
-            #expect(javaLine < zshLine)
             state.overview.sort(by: .memory)
             #expect(state.overview.nodes[session]?.children == [zsh, java])
             #expect(

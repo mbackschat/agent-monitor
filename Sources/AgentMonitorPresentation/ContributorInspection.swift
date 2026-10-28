@@ -6,6 +6,19 @@ public enum ContributorLabel: Equatable, Sendable {
     case session(identity: String, name: String?, directory: String?)
     case workload(name: String, directory: String?)
 
+    public var sessionName: String? {
+        if case .session(_, let name, _) = self { return name }
+        return nil
+    }
+
+    public var headline: String {
+        switch self {
+        case .text(let title): title
+        case .session(let identity, _, _): identity
+        case .workload(let name, _): name
+        }
+    }
+
     public var title: String {
         switch self {
         case .text(let text): text
@@ -29,6 +42,19 @@ public struct ContributorNode: Equatable, Sendable, Identifiable {
     init(id: ContributorID, title: String) {
         self.id = id
         label = .text(title)
+    }
+
+    public var ownerHeadline: String {
+        func session(_ id: ContributorID) -> String? {
+            switch id {
+            case .session(let provider, let session, _): provider + " · " + session.prefix(8)
+            case .executable(let parent, _, _), .more(let parent), .process(let parent, _),
+                .provider(let parent, _):
+                session(parent)
+            case .section, .collapsed: nil
+            }
+        }
+        return session(id) ?? label.headline
     }
 
     public var populationFields: [InspectionField] {
@@ -181,4 +207,64 @@ struct ContributorEvidence: Equatable, Sendable {
 private func memory(_ reading: RecentMemoryReading) -> String {
     String(format: "%.1f MB at %.1f s", Double(reading.bytes) / 1e6, reading.observedAt)
         + " · scan \(reading.scan) · \(reading.evidence.rawValue)"
+}
+
+extension ContributorOverview {
+    public func workloadContext(for node: ContributorNode) -> String {
+        var workloads: [ContributorNode] = []
+        func collect(_ id: ContributorID) {
+            guard let child = nodes[id] else { return }
+            if case .executable = id {
+                workloads.append(child)
+                return
+            }
+            for id in child.children { collect(id) }
+        }
+        func retainedContext(_ value: String) -> String {
+            guard node.stats.current.isEmpty, node.stats.hasContributions else { return value }
+            let presence: String
+            if !node.stats.currentAvailable {
+                presence = "Current presence unavailable"
+            } else if !node.stats.noLongerObserved.isEmpty {
+                presence = "No longer observed"
+            } else {
+                presence = "Observed elsewhere"
+            }
+            return value + " · " + presence + " · Recent CPU " + node.stats.recentCPUText
+        }
+        switch node.id {
+        case .session:
+            collect(node.id)
+            let labels = workloadDirectoryLabels
+            let context = workloads.prefix(3).map { child in
+                if case .executable(_, let name, let cwd) = child.id {
+                    return name + " · " + (cwd.map { labels[$0] ?? $0 } ?? "CWD unavailable") + " "
+                        + child.stats.cpuText(duration: duration)
+                }
+                return child.label.headline
+            }.joined(separator: "  +  ")
+            let remaining = workloads.count > 3 ? "  +\(workloads.count - 3) more workloads" : ""
+            if !context.isEmpty { return retainedContext(context + remaining) }
+        case .executable(_, _, let cwd): return retainedContext(cwd ?? "CWD unavailable")
+        case .process:
+            return retainedContext(
+                node.inspectionFields.first { $0.label == "Directory" }?.value ?? "CWD unavailable")
+        case .section, .provider, .more, .collapsed: break
+        }
+        let population =
+            node.stats.currentAvailable
+            ? "\(node.stats.current.count) processes" : "Current presence unavailable"
+        let departed =
+            node.stats.noLongerObserved.isEmpty
+            ? "" : " · \(node.stats.noLongerObserved.count) no longer observed"
+        let released =
+            node.stats.collapsedWorkers == nil ? "" : " · \(node.stats.workerCountText) observed workers"
+        return population + departed + released + " · Recent CPU " + node.stats.recentCPUText
+    }
+}
+
+extension ContributorStats {
+    public var currentMemoryText: String {
+        currentAvailable && !current.isEmpty ? memoryText : "—"
+    }
 }

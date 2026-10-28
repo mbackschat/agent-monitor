@@ -144,7 +144,7 @@ import Testing
                     records: [], crossings: [], excluded: 0, acquisition: coverage))
         }
         let before = try #require(store.snapshot())
-        #expect(before.units.count == 1)
+        #expect(before.units.count == 2)
         #expect(before.acquisitionCoverage.scanCount == 2)
         #expect(before.acquisitionCoverage.sampling.overrideActivations == ["lifecycle": 1])
         #expect(before.acquisitionCoverage.sampling.overrideSeconds == ["lifecycle": 1])

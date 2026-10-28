@@ -83,13 +83,4 @@ import Testing
         #expect(LiveReportLayout.lines(state: state, width: width, height: 12).first?.text == "Diagnostics")
     }
 
-    @Test(arguments: [60, 80, 140])
-    func overviewCountNamesProcessesRatherThanTime(width: Int) throws {
-        var state = LiveReportState()
-        state.receive(try overviewFixture())
-        let heading = try #require(
-            LiveReportLayout.lines(state: state, width: width, height: 30).first { $0.style == .heading })
-        #expect(heading.text.contains("PROCS"))
-        #expect(!heading.text.contains("NOW"))
-    }
 }

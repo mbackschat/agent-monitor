@@ -15,5 +15,5 @@ enum MenuBarPanelSize: String, CaseIterable {
 }
 
 enum MenuBarLayout {
-    static let width: CGFloat = 420
+    static let width: CGFloat = 620
 }

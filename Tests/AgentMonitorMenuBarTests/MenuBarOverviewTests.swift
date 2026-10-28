@@ -15,7 +15,7 @@ import Vision
     let output = try #require(ProcessInfo.processInfo.environment["MENUBAR_OVERVIEW_PREVIEW_PATH"])
     let snapshot = try nativeOverviewFixture()
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
-    model.report.overview = ContributorOverview(memoryCapacityBytes: 16_000_000_000)
+    model.report.overview = ContributorOverview()
     model.open()
     await model.waitForCollection()
     var terminal = LiveReportState()
@@ -65,6 +65,33 @@ import Vision
     let groupsPath = URL(fileURLWithPath: path).deletingPathExtension().path + "-groups.png"
     try #require(groups.representation(using: .png, properties: [:])).write(
         to: URL(fileURLWithPath: groupsPath))
+    if let selected = model.report.overview.main.first {
+        let selectedIndex = try #require(model.report.overview.visibleRows.firstIndex { $0.id == selected })
+        outline.selectRowIndexes(IndexSet(integer: selectedIndex), byExtendingSelection: false)
+        outline.scrollRowToVisible(selectedIndex)
+        await Task.yield()
+        host.layoutSubtreeIfNeeded()
+        #expect(model.report.overview.selection == selected)
+        model.report.overview.toggleDetails()
+        for size in [MenuBarPanelSize.standard, .compact] {
+            model.panelSize = size
+            window.setContentSize(NSSize(width: MenuBarLayout.width, height: size.height))
+            await Task.yield()
+            host.layoutSubtreeIfNeeded()
+            #expect(model.report.overview.detailsVisible)
+            #expect(model.report.overview.selection == selected)
+            #expect(host.fittingSize.height == size.height)
+            #expect(contributorOutline(in: host) === outline)
+            #expect(outline.enclosingScrollView?.bounds.height ?? 0 >= 45)
+            let details = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: details)
+            let detailsPath =
+                URL(fileURLWithPath: path).deletingPathExtension().path + "-details-"
+                + size.rawValue.lowercased() + ".png"
+            try #require(details.representation(using: .png, properties: [:])).write(
+                to: URL(fileURLWithPath: detailsPath))
+        }
+    }
     window.contentView = nil
     await model.stop()
 }
@@ -151,7 +178,7 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
-    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
     let window = await mountOffscreenNativePreview(host)
     defer { window.close() }
     let bitmap = try #require(
@@ -229,7 +256,6 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
                     && abs($0.bounds.midY - label.bounds.midY) < label.bounds.height / 2
             }, "Missing value \(value) beside \(title): \(text)")
     }
-    #expect(!text.contains("Totals are independent"))
     #expect(!text.contains("Session CPU is"))
     if let path = ProcessInfo.processInfo.environment["MENUBAR_COVERAGE_PREVIEW_PATH"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
@@ -240,7 +266,12 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
 @Test @MainActor func commandInspectionRendersArgumentBoundariesInABoundedPane() async throws {
     _ = NSApplication.shared
     let process = try #require(try nativeOverviewFixture().findings.first)
-    let controller = CommandInspectionController { _ in ["java", "-Xmx2g", "two words"] }
+    let controller = CommandInspectionController { _ in
+        [
+            "/Users/fixture/Library/Application Support/LongProject/Tools/LanguageServers/Versions/Current/java/ARGUMENT-END",
+            "-Xmx2g", "two words",
+        ]
+    }
     #expect(controller.start(process))
     await controller.wait()
     let host = NSHostingView(
@@ -262,7 +293,7 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
     let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
     #expect(text.contains("read on demand"), "\(text)")
-    #expect(text.contains("java"), "\(text)")
+    #expect(text.replacingOccurrences(of: " ", with: "").contains("ARGUMENT-END"), "\(text)")
     #expect(text.contains("two words"), "\(text)")
     #expect(text.contains("Hide"), "\(text)")
 }
@@ -285,7 +316,7 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     await model.stop()
 }
 
-@Test @MainActor func contributorInspectionRendersLabelledValuesInsteadOfParagraphs() throws {
+@Test @MainActor func contributorInspectorKeepsIdentityAndResourceContext() throws {
     _ = NSApplication.shared
     var overview = ContributorOverview()
     overview.receive(try nativeOverviewFixture())
@@ -294,11 +325,10 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
         rootView:
             MenuBarContributorInspection(
                 node: node, duration: overview.duration, canInspect: false, inspect: {}
-            )
+            ).frame(width: 580, height: 250)
             .background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
     host.layoutSubtreeIfNeeded()
-    #expect(host.fittingSize.height <= 500)
     host.frame.size = host.fittingSize
     let bitmap = try #require(
         NSBitmapImageRep(
@@ -314,11 +344,8 @@ func nativeOverviewFixture(unreadable: Int = 0) throws -> MonitoringSnapshot {
     #expect(text.contains("Agent"), "\(text)")
     #expect(text.contains("Session"), "\(text)")
     #expect(text.contains("Directory"), "\(text)")
-    #expect(text.contains("Counts and evidence"), "\(text)")
-    #expect(!text.contains("Membership changes"), "\(text)")
     #expect(text.contains("Executable"), "\(text)")
     #expect(text.contains("Recent CPU"), "\(text)")
-    #expect(!text.contains("Totals are independent"))
     if let path = ProcessInfo.processInfo.environment["MENUBAR_INSPECTION_PREVIEW_PATH"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: path))

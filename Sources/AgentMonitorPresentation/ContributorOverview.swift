@@ -150,7 +150,6 @@ public struct ContributorOverview: Equatable, Sendable {
     public private(set) var coverageStatus = CoverageStatus(notes: [])
     public private(set) var order: ContributorOrder = .cpu
     public private(set) var ascending = false
-    public let memoryCapacityBytes: UInt64
     public private(set) var runID: UUID?
     private var scope: ProcessScope?
     public private(set) var selection: ContributorID?
@@ -164,23 +163,18 @@ public struct ContributorOverview: Equatable, Sendable {
     private var memoryRank: [ContributorID] = []
     private var formerlySelected: [ContributorID: Double] = [:]
     private var latestTime = 0.0
+    public private(set) var activity = ContributorActivity()
     private var source: RecentActivitySnapshot?
+    var workloadDirectoryLabels: [String: String] = [:]
     public private(set) var detailOffset = 0
-    public private(set) var detailsVisible = false
-
-    public init(memoryCapacityBytes: UInt64 = ProcessInfo.processInfo.physicalMemory) {
-        self.memoryCapacityBytes = memoryCapacityBytes
+    public enum Focus: Sendable { case rows, details }
+    public private(set) var focus: Focus = .rows
+    public private(set) var detailsVisible = false {
+        didSet { if !detailsVisible { focus = .rows } }
     }
 
-    public func cpuMeterFraction(_ stats: ContributorStats) -> Double {
-        duration > 0 ? min(1, max(0, stats.currentCPU / duration)) : 0
-    }
-    public func memoryMeterFraction(_ stats: ContributorStats) -> Double {
-        memoryCapacityBytes > 0 ? min(1, Double(stats.memoryBytes) / Double(memoryCapacityBytes)) : 0
-    }
-    public var meterScale: String {
-        "Bars: CPU 100% = one core; memory 100% = \(number(Double(memoryCapacityBytes) / 1e9)) GB RAM"
-    }
+    public init() {}
+
     public mutating func sort(by order: ContributorOrder, ascending: Bool = false) {
         self.order = order
         self.ascending = ascending
@@ -188,6 +182,7 @@ public struct ContributorOverview: Equatable, Sendable {
         main = contributionOrder(main)
         sortChildren()
         limitContributors()
+        rebuildActivity()
     }
     private mutating func sortChildren() {
         for id in Array(nodes.keys) {
@@ -276,6 +271,7 @@ public struct ContributorOverview: Equatable, Sendable {
 
     public mutating func resetInspection() {
         source = nil
+        activity = ContributorActivity()
         unavailablePins = []
         detailsVisible = false
         main = []
@@ -307,9 +303,16 @@ public struct ContributorOverview: Equatable, Sendable {
     }
     public mutating func toggleDetails() {
         detailsVisible.toggle()
+        focus = detailsVisible ? .details : .rows
         detailOffset = 0
     }
-    public mutating func scroll(by delta: Int) { detailOffset = max(0, detailOffset + delta) }
+    public mutating func toggleFocus() {
+        guard detailsVisible else { return }
+        focus = focus == .rows ? .details : .rows
+    }
+    public mutating func scroll(by delta: Int, maximum: Int = .max) {
+        detailOffset = min(maximum, max(0, min(detailOffset, maximum) + delta))
+    }
     public mutating func move(by delta: Int) {
         detailOffset = 0
         detailsVisible = false
@@ -375,12 +378,18 @@ public struct ContributorOverview: Equatable, Sendable {
     private mutating func reconcilePins() {
         pinNotice = nil
         partition(previous: nodes.mapValues(\.children))
+        rebuildActivity()
         open.formIntersection(nodes.keys)
         if !visibleRows.contains(where: { $0.id == selection }) {
             selection = visibleRows.first?.id
             detailsVisible = false
             detailOffset = 0
         }
+    }
+
+    private mutating func rebuildActivity() {
+        guard let source else { return }
+        activity = ContributorActivity(recent: source, nodes: nodes) { path(for: $0).last!.0 }
     }
 
     public mutating func receive(_ snapshot: MonitoringSnapshot) {
@@ -390,7 +399,7 @@ public struct ContributorOverview: Equatable, Sendable {
             let showAll = showAll
             let pinned = pinned
             let order = order
-            self = Self(memoryCapacityBytes: memoryCapacityBytes)
+            self = Self()
             self.order = order
             self.enabled = enabled
             self.showAll = showAll
@@ -629,6 +638,7 @@ public struct ContributorOverview: Equatable, Sendable {
         let names = SessionDisplayNames(records: metadata.values)
         let directoryLabels = WorkloadDirectory.compactLabels(
             for: Set(entries.keys.filter { !$0.isAgentRuntime }.compactMap(\.cwd)))
+        workloadDirectoryLabels = directoryLabels
         for id in Array(nodes.keys) {
             switch id {
             case .session(let provider, let session, let root):
@@ -721,6 +731,7 @@ public struct ContributorOverview: Equatable, Sendable {
         census =
             "\(observedText) observed \(recent.scope == .allProcesses ? "same-user" : "agent-associated") processes in this window, including \(historical) retained no-longer-observed identities"
         source = recent
+        rebuildActivity()
         var notes: [CoverageStatus.Note] = []
         let collapsedValues = Array(collapsedDisplay.values) + Array(collapsedRecent.values)
         if !collapsedValues.isEmpty {

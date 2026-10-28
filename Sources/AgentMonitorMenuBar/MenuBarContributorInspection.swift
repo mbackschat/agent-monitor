@@ -7,48 +7,58 @@ struct MenuBarContributorInspection: View {
     let duration: Double
     let canInspect: Bool
     let inspect: () -> Void
+    var close: () -> Void = {}
+    var focus: FocusState<MenuBarFocus?>.Binding? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(TextReport.safe(node.title)).font(.headline).textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 20) {
-                metric("CPU", node.stats.cpuText(duration: duration))
-                metric("Memory", node.stats.memoryText)
-                metric("Recent CPU", node.stats.recentCPUText)
+            HStack(alignment: .top) {
+                Text(
+                    TextReport.safe(
+                        node.ownerHeadline
+                            + (node.ownerHeadline == node.label.headline ? "" : " / " + node.label.headline))
+                ).font(.headline).textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                if let focus {
+                    closeButton.focused(focus, equals: .inspection)
+                } else {
+                    closeButton
+                }
             }
-            Divider()
             let context = node.inspectionFields.filter { $0.kind == .context }
             let evidence = node.populationFields + node.inspectionFields.filter { $0.kind == .evidence }
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
+                    Text(
+                        "CPU " + node.stats.cpuText(duration: duration) + " · Memory "
+                            + node.stats.currentMemoryText
+                            + " · Recent CPU " + node.stats.recentCPUText
+                    )
+                    .font(.caption).monospacedDigit().textSelection(.enabled)
                     MenuBarInspectionFields(fields: context)
+                    if node.process != nil {
+                        Button("Inspect current process…", action: inspect).disabled(!canInspect)
+                            .help(
+                                "Open process details, arguments and verified actions. Historical workers cannot be action targets."
+                            )
+                    }
                     DisclosureGroup("Counts and evidence", isExpanded: $showsEvidence) {
                         MenuBarInspectionFields(fields: evidence).padding(.top, 6)
                     }.font(.caption)
                 }
             }
-            .frame(
-                idealHeight: min(
-                    340, CGFloat(context.count + (showsEvidence ? evidence.count : 0)) * 22 + 28),
-                maxHeight: 340)
-            if node.process != nil {
-                Button("Inspect current process…", action: inspect).disabled(!canInspect)
-                    .help(
-                        "Open process details, arguments and verified actions. Historical workers cannot be action targets."
-                    )
-            }
+
         }
         .lineLimit(nil)
-        .padding(14).frame(width: 400)
+        .padding(.horizontal, 10).padding(.vertical, 6)
     }
 
-    private func metric(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.body.monospacedDigit())
-        }
+    private var closeButton: some View {
+        Button("Close details", systemImage: "xmark", action: close)
+            .labelStyle(.iconOnly).help("Close details (Esc)")
     }
+
 }
 
 struct MenuBarInspectionFields: View {

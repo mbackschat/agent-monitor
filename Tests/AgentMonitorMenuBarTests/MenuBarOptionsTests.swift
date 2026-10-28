@@ -58,7 +58,7 @@ import Testing
     _ = NSApplication.shared
     let model = MenuBarModel { _, _, _ in }
     let host = NSHostingView(rootView: MenuBarView(model: model))
-    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
     host.layoutSubtreeIfNeeded()
     let button = try #require(findOptionsButton(in: host))
     let menu = try #require(button.menu)

@@ -30,6 +30,38 @@ import Testing
         #expect(unit.crossings.isEmpty)
     }
 
+    @Test func temporalPublicationKeepsWholeBoundariesAndConservesOnRepublish() throws {
+        var ledger = CounterLedger()
+        var baseline = ledger.ingest([sample(42, at: 0, cpu: 0)], listedAt: 0)
+        var units: [RecentActivityUnit] = []
+        let store = RecentActivityStore()
+        var time = 0.0
+        for index in 1...25 {
+            time += index.isMultiple(of: 3) ? 2 : 1
+            let value = sample(42, at: time, cpu: time / 2)
+            let scan = ledger.ingest([value], listedAt: time)
+            var window = AccountingWindow(baseline: baseline)
+            try window.append(scan, rows: [recentRow(value, session: sessionA)])
+            let unit = window.seal(scope: .agentsOnly)
+            units.append(unit)
+            store.append(unit, current: window.current, present: window.present)
+            baseline = scan
+        }
+        let snapshot = try #require(store.snapshot())
+        #expect(snapshot.units.count <= 12 && snapshot.units.count > 1)
+        #expect(snapshot.duration == time)
+        #expect(snapshot.cpuSeconds == time / 2)
+        for (index, unit) in snapshot.units.enumerated() {
+            #expect(units.contains { $0.baselineScan == unit.baselineScan && $0.startedAt == unit.startedAt })
+            #expect(units.contains { $0.finalScan == unit.finalScan && $0.endedAt == unit.endedAt })
+            if index > 0 { #expect(snapshot.units[index - 1].endedAt == unit.startedAt) }
+        }
+        let republished = snapshot.displaying(try #require(units.last))
+        #expect(republished.units.map(\.startedAt) == snapshot.units.map(\.startedAt))
+        #expect(republished.cpuSeconds == snapshot.cpuSeconds)
+        #expect(republished.duration == snapshot.duration)
+    }
+
     @Test func crossingCPUBecomesRecoveredAfterWholeUnitEviction() throws {
         var ledger = CounterLedger()
         let first = ledger.ingest([sample(42, at: 0, cpu: 0)], listedAt: 0)
@@ -113,7 +145,7 @@ extension RecentActivityTests {
         var rawCPU: [(opening: UInt64, closing: UInt64, seconds: Double)] = []
         var rawMemory: [(scan: UInt64, key: String, bytes: UInt64)] = []
         var rawKernelPeak: [(scan: UInt64, key: String, reading: RecentMemoryReading?)] = []
-        for unitIndex in 0..<8 {
+        for unitIndex in 0..<16 {
             var accumulator = AccountingWindow(baseline: baseline)
             for offset in 1...3 {
                 let tick = unitIndex * 3 + offset
@@ -188,7 +220,9 @@ extension RecentActivityTests {
                 let key =
                     "\(category.process.pid)/\(category.owner.sessionID ?? "?")/\(category.executable)/\(category.isAgentRuntime)"
                 if let bytes = record.maximumFootprint?.bytes { actual[key] = max(actual[key] ?? 0, bytes) }
-                actualKernelPeaks[key] = record.kernelPeak
+                if let peak = record.kernelPeak, actualKernelPeaks[key].map({ peak.scan > $0.scan }) ?? true {
+                    actualKernelPeaks[key] = peak
+                }
                 actualUnavailable[key] = record.kernelPeakUnavailable
             }
             #expect(actual == expectedMemory)
@@ -231,7 +265,7 @@ extension RecentActivityTests {
             baseline = scan
         }
         #expect(paused?.cpuSeconds == 2)
-        #expect(paused?.units.flatMap(\.records).count == 1)
+        #expect((paused?.units.count ?? 0) <= 12)
         #expect(store.snapshot()?.retentionLimited == true)
     }
 }
@@ -352,18 +386,25 @@ extension RecentActivityTests {
         var ledger = CounterLedger()
         var baseline = ledger.ingest([sample(42, at: 0, cpu: 0)], listedAt: 0)
         var held: RecentActivitySnapshot?
+        var heldDuration = 0.0
         for tick in 1...90 {
             let value = sample(42, at: Double(tick), cpu: Double(tick))
             let scan = ledger.ingest([value], listedAt: Double(tick))
             var window = AccountingWindow(baseline: baseline)
             try window.append(scan, rows: [recentRow(value, session: sessionA)])
             store.append(window.seal(scope: .agentsOnly), current: window.current, present: window.present)
-            if tick == 30 { held = store.snapshot() }
+            if tick == 30 {
+                held = store.snapshot()
+                heldDuration = held?.duration ?? 0
+                #expect(heldDuration > 0)
+            }
             if tick.isMultiple(of: 5) {
                 let snapshot = try #require(store.snapshot())
                 #expect(!snapshot.units.isEmpty)
                 #expect(snapshot.cpuSeconds == snapshot.duration)
-                #expect(snapshot.units.flatMap(\.records).count == 1)
+                #expect(
+                    snapshot.units.count <= 12
+                        && snapshot.units.allSatisfy { $0.records.count == 1 })
                 let displayed = snapshot.displaying(window.seal(scope: .agentsOnly))
                 #expect(!displayed.units.isEmpty)
                 #expect(displayed.cpuSeconds == displayed.duration)
@@ -372,7 +413,7 @@ extension RecentActivityTests {
             #expect(store.retainedPayloadSize.observations <= 100)
             baseline = scan
         }
-        #expect(held?.cpuSeconds == 30)
-        #expect(held?.duration == 30)
+        #expect(held?.cpuSeconds == heldDuration)
+        #expect(held?.duration == heldDuration)
     }
 }

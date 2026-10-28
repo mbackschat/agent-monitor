@@ -257,7 +257,8 @@ public final class RecentActivityStore: RecentActivityCollecting {
     ) -> RecentActivitySnapshot {
         let id = UUID()
         var retained = units
-        var projected = RecentActivityUnit.compacted(retained)
+        var maximumSpans = 12
+        var projected = RecentActivityUnit.compacted(retained, maximumSpans: maximumSpans)
         var displayed = display
         var rows = current
         var identities = present
@@ -274,6 +275,12 @@ public final class RecentActivityStore: RecentActivityCollecting {
             return Lease(units: sizes, extra: extra)
         }
         value.leases[id] = lease()
+        // Coverage outranks chart resolution (product.md): coarsen history before eviction.
+        for count in [6, 3, 1] where !fits(value) {
+            maximumSpans = count
+            projected = RecentActivityUnit.compacted(retained, maximumSpans: count)
+            value.leases[id] = lease()
+        }
         // Published ranges own compact records, so evict original store units before reducing
         // an immutable projection. Republishing must not try to free its own still-live input.
         evictUnitsToFit(&value)
@@ -285,7 +292,7 @@ public final class RecentActivityStore: RecentActivityCollecting {
                 value.lossBoundary = max(value.lossBoundary ?? removed.endedAt, removed.endedAt)
             }
             shortened = true
-            projected = RecentActivityUnit.compacted(retained)
+            projected = RecentActivityUnit.compacted(retained, maximumSpans: maximumSpans)
             value.leases[id] = lease()
         }
         if !fits(value) {

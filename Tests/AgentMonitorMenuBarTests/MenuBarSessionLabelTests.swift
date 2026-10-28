@@ -17,8 +17,8 @@ import Vision
     for (index, id) in overview.main.enumerated() {
         let node = try #require(overview.nodes[id])
         let host = NSHostingView(
-            rootView: MenuBarContributorTableLabel(label: node.label)
-                .frame(width: 180)
+            rootView: MenuBarContributorRow(node: node, overview: overview)
+                .frame(width: 580)
                 .background(Color(nsColor: .windowBackgroundColor)))
         host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         host.layoutSubtreeIfNeeded()
@@ -42,7 +42,7 @@ import Vision
         #expect(text.contains("build indexing"), "\(text)")
         #expect(text.contains(index == 0 ? "work" : "tmp"), "\(text)")
         #expect(text.contains("alpha/project"), "\(text)")
-        #expect(host.bounds.height <= 44)
+        #expect(host.bounds.height <= 90)
         if let output = ProcessInfo.processInfo.environment["MENUBAR_SESSION_LABEL_PREVIEW_PATH"] {
             let base = URL(fileURLWithPath: output).deletingPathExtension().path
             let path = base + (dark ? "-dark" : "") + "-\(index + 1).png"
@@ -65,7 +65,7 @@ import Vision
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
     let window = await mountOffscreenNativePreview(host)
     defer { window.close() }
     let bitmap = try #require(
@@ -107,7 +107,7 @@ import Vision
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
-    host.frame = NSRect(x: 0, y: 0, width: 420, height: 700)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 700)
     let window = await mountOffscreenNativePreview(host)
     defer { window.close() }
     let text = try processDirectoryRenderText(
@@ -166,7 +166,7 @@ import Vision
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
-    host.frame = NSRect(x: 0, y: 0, width: 420, height: 560)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
     let window = await mountOffscreenNativePreview(host)
     defer { window.close() }
     let output = ProcessInfo.processInfo.environment["MENUBAR_STANDALONE_PREVIEW_PATH"]
@@ -292,8 +292,8 @@ private enum StandaloneEvidenceFixture: CaseIterable {
     #expect(families.count == 2)
     for (index, row) in families.enumerated() {
         let host = NSHostingView(
-            rootView: MenuBarContributorTableLabel(label: row.node.label)
-                .frame(width: 150).padding(8).background(Color(nsColor: .windowBackgroundColor)))
+            rootView: MenuBarContributorRow(node: row.node, overview: overview)
+                .frame(width: 580).padding(8).background(Color(nsColor: .windowBackgroundColor)))
         host.appearance = NSAppearance(named: .aqua)
         host.layoutSubtreeIfNeeded()
         host.frame.size = host.fittingSize
@@ -305,7 +305,7 @@ private enum StandaloneEvidenceFixture: CaseIterable {
         let cwd = try #require(row.node.inspectionFields.first { $0.label == "Directory" }).value
         #expect(text.contains(cwd == "/work/app" ? "work/app" : "tmp/web"), "\(text)")
         #expect(text.contains("rust"), "\(text)")
-        #expect(host.fittingSize.height <= 44)
+        #expect(host.fittingSize.height <= 90)
     }
 }
 
@@ -327,7 +327,7 @@ private enum StandaloneEvidenceFixture: CaseIterable {
     let host = NSHostingView(
         rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
-    host.frame = NSRect(x: 0, y: 0, width: 420, height: 700)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 700)
     host.layoutSubtreeIfNeeded()
     let text = try processDirectoryRenderText(
         host, output: ProcessInfo.processInfo.environment["MENUBAR_ROOT_PREVIEW_PATH"])

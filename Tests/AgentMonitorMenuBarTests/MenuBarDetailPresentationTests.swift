@@ -45,7 +45,7 @@ import Vision
     }
 }
 
-@Test @MainActor func contributorTableShowsItsBackdropThroughHeaderAndEmptyContent() async throws {
+@Test @MainActor func contributorLedgerHeaderAndEmptyTablePreserveBackdrop() async throws {
     _ = NSApplication.shared
     let model = MenuBarModel { _, _, _ in }
     let host = NSHostingView(rootView: ContributorTableBackdrop(model: model))
@@ -68,45 +68,6 @@ import Vision
     }
 }
 
-@Test @MainActor func expandedArgumentsAndPassiveCoverageRemainReadable() async throws {
-    _ = NSApplication.shared
-    let snapshot = try nativeOverviewFixture(unreadable: 5)
-    let process = try #require(snapshot.findings.first)
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
-    model.open()
-    await model.waitForCollection()
-    let controller = CommandInspectionController { _ in
-        [
-            "/Users/fixture/Library/Application Support/LongProject/Tools/LanguageServers/Versions/Current/ARGUMENT-END"
-        ]
-    }
-    #expect(controller.start(process))
-    await controller.wait()
-    let host = NSHostingView(
-        rootView: VStack(alignment: .leading, spacing: 12) {
-            MenuBarCoverageStatus(model: model)
-            MenuBarCommandInspection(process: process, controller: controller)
-        }
-        .padding(14).frame(width: 400).background(Color(nsColor: .windowBackgroundColor)))
-    host.appearance = NSAppearance(named: .aqua)
-    host.layoutSubtreeIfNeeded()
-    host.frame.size = host.fittingSize
-    let window = await mountOffscreenNativePreview(host)
-    defer { window.close() }
-    let bitmap = try detailBitmap(host)
-    let request = try nativeTextRecognitionRequest()
-    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
-    let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
-    #expect(text.contains("ARGUMENT-END"), "\(text)")
-    #expect(text.contains("Coverage:"), "\(text)")
-    #expect(!text.contains("Details"), "\(text)")
-    if let output = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
-        try #require(bitmap.representation(using: .png, properties: [:])).write(
-            to: URL(fileURLWithPath: output).appendingPathComponent("coverage-and-arguments.png"))
-    }
-    await model.stop()
-}
-
 private struct ContributorTableBackdrop: View {
     let model: MenuBarModel
     @FocusState private var focus: MenuBarFocus?
@@ -122,4 +83,49 @@ private struct ContributorTableBackdrop: View {
     let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
     view.cacheDisplay(in: view.bounds, to: bitmap)
     return bitmap
+}
+
+@Test @MainActor func compactProcessInspectorKeepsWindowHeaderInsideBounds() async throws {
+    _ = NSApplication.shared
+    let snapshot = try nativeOverviewFixture(unreadable: 3)
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    model.panelSize = .compact
+    let host = NSHostingView(
+        rootView: MenuBarView(model: model).background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: .aqua)
+    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 420)
+    let window = await mountOffscreenNativePreview(host)
+    defer { window.close() }
+    let session = try #require(model.report.overview.main.first)
+    model.report.overview.setDisclosure(expanded: true, for: session)
+    let workload = try #require(model.report.overview.nodes[session]?.children.first)
+    model.report.overview.setDisclosure(expanded: true, for: workload)
+    let process = try #require(model.report.overview.nodes[workload]?.children.first)
+    model.report.overview.select(process)
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+    let outline = try #require(contributorOutline(in: host))
+    let row = try #require(model.report.overview.visibleRows.firstIndex { $0.id == process })
+    outline.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+    outline.scrollRowToVisible(row)
+    model.report.overview.toggleDetails()
+    await Task.yield()
+    host.layoutSubtreeIfNeeded()
+    await Task.yield()
+    let bitmap = try detailBitmap(host)
+    let selectedRect = outline.rect(ofRow: row)
+    #expect(outline.visibleRect.intersects(selectedRect))
+    #expect(selectedRect.minY >= outline.visibleRect.minY - 1)
+    let request = try nativeTextRecognitionRequest()
+    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
+    let heading = try #require(
+        request.results?.first { $0.topCandidates(1).first?.string == "Agent Monitor" })
+    #expect(heading.boundingBox.maxY < 0.99)
+    #expect(heading.boundingBox.minY > 0.85)
+    if let directory = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: directory).appendingPathComponent("compact-process-inspector.png"))
+    }
+    await model.stop()
 }

@@ -1,0 +1,182 @@
+{
+  "description": "Eight-session synthetic design fixture; no live telemetry. Python/runtime split extends prior Other measured work without changing session totals.",
+  "cpuPercent": 371.6,
+  "memoryGB": 10.9,
+  "sessions": [
+    {
+      "name": "Claude \u00b7 a84c2f10",
+      "cpu": 142.0,
+      "mem": 1.8,
+      "trace": [
+        34,
+        51,
+        98,
+        143,
+        120,
+        155,
+        138,
+        146,
+        129,
+        142
+      ],
+      "context": "java \u00b7 atlas/api 118%   node \u00b7 atlas/web 18%   python \u00b7 atlas/api 4%   runtime 2%"
+    },
+    {
+      "name": "Codex \u00b7 c91e4b20",
+      "cpu": 96.0,
+      "mem": 1.1,
+      "trace": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        32,
+        72,
+        96
+      ],
+      "context": "ninja \u00b7 atlas/api 80%   clangd \u00b7 atlas/api 16%",
+      "new": true
+    },
+    {
+      "name": "Codex \u00b7 01a16949",
+      "cpu": 63.0,
+      "mem": 2.4,
+      "trace": [
+        0,
+        0,
+        0,
+        0,
+        12,
+        19,
+        26,
+        44,
+        58,
+        63
+      ],
+      "context": "rustc \u00b7 orbit 51%   codex runtime 12%"
+    },
+    {
+      "name": "Claude \u00b7 5bf1042a",
+      "cpu": 37.0,
+      "mem": 0.9,
+      "trace": [
+        22,
+        30,
+        24,
+        42,
+        51,
+        34,
+        41,
+        36,
+        40,
+        37
+      ],
+      "context": "node \u00b7 storefront/web 29%   python \u00b7 storefront/api 6%   runtime 2%"
+    },
+    {
+      "name": "Codex \u00b7 334de918",
+      "cpu": 12.0,
+      "mem": 0.4,
+      "trace": [
+        6,
+        8,
+        5,
+        20,
+        17,
+        9,
+        13,
+        15,
+        12,
+        12
+      ],
+      "context": "swiftc \u00b7 desktop/Sources 10%   codex runtime 2%"
+    },
+    {
+      "name": "Claude \u00b7 aa82f230",
+      "cpu": 1.4,
+      "mem": 0.2,
+      "trace": [
+        4,
+        5,
+        7,
+        1,
+        2,
+        3,
+        2,
+        1,
+        1,
+        1.4
+      ],
+      "context": "rg \u00b7 tooling/scripts 0.4%   claude runtime 1%"
+    },
+    {
+      "name": "Claude \u00b7 78a63076",
+      "cpu": 0.2,
+      "mem": 3.2,
+      "trace": [
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ],
+      "context": "node \u00b7 atlas/web \u00b7 3.2 GB current memory",
+      "memory": true
+    },
+    {
+      "name": "Codex \u00b7 65e551f5",
+      "cpu": null,
+      "mem": null,
+      "trace": [
+        0,
+        0,
+        0,
+        0,
+        78.333,
+        78.333,
+        null,
+        null,
+        null,
+        null
+      ],
+      "context": "pytest \u00b7 atlas/api \u00b7 9.4 CPU-s in last 60 s \u00b7 no longer observed",
+      "recent": true
+    }
+  ],
+  "javaChildrenCPU": [
+    60,
+    58
+  ],
+  "pythonCPU": [
+    1.3333333333333333,
+    2.0,
+    2.6666666666666665,
+    4.0,
+    3.3333333333333335,
+    4.666666666666667,
+    4.0,
+    4.0,
+    4.0,
+    4.0
+  ],
+  "runtimeCPU": [
+    0.6666666666666666,
+    1.0,
+    1.3333333333333333,
+    2.0,
+    1.6666666666666667,
+    2.3333333333333335,
+    2.0,
+    2.0,
+    2.0,
+    2.0
+  ]
+}

@@ -13,128 +13,124 @@ struct MenuBarContributorTable: View {
 
     var body: some View {
         let overview = model.report.overview
-        Table(
-            of: ContributorNode.self,
-            selection: Binding(
-                get: { model.report.overview.selection },
-                set: { id in
-                    if acceptsInteraction, let id { model.report.overview.select(id) }
-                }),
-            sortOrder: Binding(
-                get: {
-                    [
-                        MenuBarContributorSort(
-                            field: overview.order, order: overview.ascending ? .forward : .reverse)
-                    ]
-                },
-                set: { sorts in
-                    guard acceptsInteraction, let sort = sorts.first else { return }
-                    model.report.overview.sort(by: sort.field, ascending: sort.order == .forward)
-                })
-        ) {
-            TableColumn(
-                "Contributor", sortUsing: MenuBarContributorSort(field: .contributor, order: .forward)
-            ) { node in
-                MenuBarContributorTableCell(node: node, model: model) { activate(node) }
-            }.width(min: 130, ideal: 172)
-            TableColumn("CPU", sortUsing: MenuBarContributorSort(field: .cpu)) { node in
-                Button {
-                    activate(node)
-                } label: {
-                    metric(node: node, kind: .cpu).frame(maxHeight: .infinity).contentShape(Rectangle())
-                }.buttonStyle(.plain)
-                    .accessibilityHint(
-                        node.children.isEmpty ? "Select row" : "Select row and toggle children")
-            }.width(74)
-            TableColumn("Memory", sortUsing: MenuBarContributorSort(field: .memory)) { node in
-                Button {
-                    activate(node)
-                } label: {
-                    metric(node: node, kind: .memory).frame(maxHeight: .infinity).contentShape(Rectangle())
-                }.buttonStyle(.plain)
-                    .accessibilityHint(
-                        node.children.isEmpty ? "Select row" : "Select row and toggle children")
-            }.width(88)
-        } rows: {
-            MenuBarContributorRows(
-                model: model, ids: overview.topLevel, acceptsInteraction: acceptsInteraction)
-        }
-        .tableStyle(.inset(alternatesRowBackgrounds: false))
-        .scrollContentBackground(.hidden)
-        .accessibilityLabel("Main contributors")
-        .frame(minHeight: 120, maxHeight: .infinity)
-        .focused(focus, equals: .overview)
-        .background {
-            MenuBarTableState(
-                rows: overview.visibleRows.map(\.id), selection: overview.selection,
-                active: acceptsInteraction)
-        }
-        .onKeyPress(keys: [.upArrow, .downArrow, .leftArrow, .rightArrow], phases: .down) { _ in
-            !acceptsInteraction || overview.detailsVisible ? .handled : .ignored
-        }
-        .onKeyPress(keys: MenuBarKeyboard.keys, phases: .down) { key in
-            guard acceptsInteraction, MenuBarKeyboard.accepts(key.characters, modifiers: key.modifiers)
-            else { return .ignored }
-            if key.characters == "q" {
-                NSApplication.shared.terminate(nil)
-                return .handled
-            }
-            return model.handleShortcut(key.characters, row: nil) ? .handled : .ignored
-        }
-        .contextMenu(forSelectionType: ContributorID.self) { ids in
-            if acceptsInteraction, let id = ids.first {
-                Button("Details…") {
-                    guard selectContextTarget(id) else { return }
-                    if !model.report.overview.detailsVisible { model.report.overview.toggleDetails() }
-                }
-                Button("Pin / unpin session") {
-                    guard selectContextTarget(id) else { return }
-                    model.report.overview.togglePin()
-                }
-            }
-        }
-    }
-
-    private func activate(_ node: ContributorNode) {
-        guard acceptsInteraction else { return }
-        model.report.overview.activateRow(node.id)
-    }
-
-    private func selectContextTarget(_ id: ContributorID) -> Bool {
-        guard acceptsInteraction, model.report.overview.visibleRows.contains(where: { $0.id == id }) else {
-            return false
-        }
-        model.report.overview.select(id)
-        return true
-    }
-
-    private enum Metric { case cpu, memory }
-
-    @ViewBuilder private func metric(node: ContributorNode, kind: Metric) -> some View {
-        let overview = model.report.overview
-        switch kind {
-        case .memory:
-            MenuBarContributorMetric(
-                value: node.stats.memoryText, fraction: overview.memoryMeterFraction(node.stats)
-            )
-            .font(.caption)
-            .help(
-                "Current physical footprint; bar scale is physical RAM. \(node.stats.missingMemory) readings unavailable. Historical peaks are in details."
-            )
-        case .cpu:
-            VStack(alignment: .trailing, spacing: 3) {
-                MenuBarContributorMetric(
-                    value: node.stats.cpuText(duration: overview.duration),
-                    fraction: overview.cpuMeterFraction(node.stats)
+        let active = acceptsInteraction
+        let selectedIdentity = overview.selection
+        let inspecting = overview.detailsVisible
+        let rows = overview.visibleRows
+        let positions = Dictionary(uniqueKeysWithValues: rows.enumerated().map { ($0.element.id, $0.offset) })
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                sortButton("Contributor", field: .contributor)
+                Spacer(minLength: 0)
+                Text("CPU history · " + overview.activity.scaleLabel).font(.caption).foregroundStyle(
+                    .secondary)
+                sortButton("CPU", field: .cpu).frame(width: 80, alignment: .trailing)
+                sortButton("Memory", field: .memory).frame(width: 88, alignment: .trailing)
+            }.padding(.horizontal, 14).padding(.vertical, 7)
+            Table(
+                of: ContributorNode.self,
+                selection: Binding(
+                    get: { model.report.overview.selection },
+                    set: { id in if acceptsInteraction, let id { model.report.overview.select(id) } }
                 )
-                .help(
-                    "CPU over \(overview.duration.formatted()) s. Bar: 100% is one core. Session ownership is point evidence."
-                )
-                Text("Recent " + node.stats.recentCPUText).monospacedDigit().lineLimit(1)
-                    .font(.caption2).modifier(MenuBarContributorTextStyle(secondary: true))
-                    .help("Measured CPU-seconds in the recent range, including workers no longer observed.")
-            }.font(.caption).frame(maxWidth: .infinity, alignment: .trailing)
+            ) {
+                TableColumn("Contributor") { node in
+                    let index = positions[node.id] ?? 0
+                    let depth = positions[node.id].map { rows[$0].depth } ?? 0
+                    Button {
+                        if acceptsInteraction { model.report.overview.activateRow(node.id) }
+                    } label: {
+                        MenuBarContributorRow(node: node, overview: overview)
+                            .padding(.horizontal, 8).padding(.vertical, 4).padding(
+                                .leading, CGFloat(depth) * 8
+                            )
+                            .background(
+                                index.isMultiple(of: 2) ? Color.primary.opacity(0.045) : .clear,
+                                in: RoundedRectangle(cornerRadius: 7)
+                            )
+                            .contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                        .accessibilityHint(
+                            node.children.isEmpty ? "Select row" : "Select row and toggle children"
+                        )
+                        .overlay(alignment: .bottomTrailing) {
+                            if overview.selection == node.id {
+                                Button {
+                                    guard acceptsInteraction else { return }
+                                    model.report.overview.toggleDetails()
+                                } label: {
+                                    Image(systemName: "info.circle").padding(6)
+                                }
+                                .buttonStyle(.plain).help("Contributor details (i)")
+                                .accessibilityLabel("Details for " + node.label.headline)
+                            }
+                        }
+                }.width(min: 280, ideal: 560)
+            } rows: {
+                MenuBarContributorRows(
+                    model: model, ids: overview.topLevel, acceptsInteraction: acceptsInteraction)
+            }
+            .tableColumnHeaders(.hidden)
+            .tableStyle(.inset(alternatesRowBackgrounds: false))
+            .scrollContentBackground(.hidden)
+            .accessibilityLabel(overview.showAll ? "All contributors" : "Main contributors")
+            .frame(minHeight: 0, maxHeight: .infinity)
+            .focused(focus, equals: .overview)
+            .background {
+                MenuBarTableState(
+                    rows: rows.map(\.id), selection: overview.selection,
+                    active: active, inspecting: inspecting,
+                    isCurrent: {
+                        model.report.overview.selection == selectedIdentity && acceptsInteraction == active
+                            && model.report.overview.detailsVisible == inspecting
+                    })
+            }
+            .onKeyPress(keys: MenuBarKeyboard.keys, phases: .down) { key in
+                guard acceptsInteraction, MenuBarKeyboard.accepts(key.characters, modifiers: key.modifiers)
+                else { return .ignored }
+                if key.characters == "q" {
+                    NSApplication.shared.terminate(nil)
+                    return .handled
+                }
+                return model.handleShortcut(key.characters, row: nil) ? .handled : .ignored
+            }
+            .contextMenu(forSelectionType: ContributorID.self) { ids in
+                if acceptsInteraction, let id = ids.first {
+                    Button("Details…") {
+                        model.report.overview.select(id)
+                        if !model.report.overview.detailsVisible { model.report.overview.toggleDetails() }
+                    }
+                    Button("Pin / unpin session") {
+                        model.report.overview.select(id)
+                        model.report.overview.togglePin()
+                    }
+                }
+            }
         }
+    }
+
+    private func sortButton(_ title: String, field: ContributorOrder) -> some View {
+        Button {
+            guard acceptsInteraction else { return }
+            let overview = model.report.overview
+            model.report.overview.sort(
+                by: field, ascending: overview.order == field ? !overview.ascending : field == .contributor)
+        } label: {
+            HStack(spacing: 3) {
+                Text(title)
+                if model.report.overview.order == field {
+                    Image(systemName: model.report.overview.ascending ? "chevron.up" : "chevron.down").font(
+                        .caption2)
+                }
+            }.font(.caption.weight(.semibold))
+        }.buttonStyle(.plain)
+            .accessibilityIdentifier("contributor-sort-" + title.lowercased())
+            .accessibilityLabel("Sort by " + title)
+            .accessibilityValue(
+                model.report.overview.order == field
+                    ? (model.report.overview.ascending ? "Ascending" : "Descending") : "Not sorted"
+            )
+            .help("Sort by " + title + "; click again to reverse")
     }
 }
 
@@ -174,187 +170,84 @@ private struct MenuBarContributorRows: TableRowContent {
     }
 }
 
-private struct MenuBarContributorTableCell: View {
+struct MenuBarContributorRow: View {
+    @Environment(\.backgroundProminence) private var prominence
     let node: ContributorNode
-    @Bindable var model: MenuBarModel
-    let activate: () -> Void
-
-    private var isSelected: Bool { model.report.overview.selection == node.id }
-
-    private var detailsPresented: Binding<Bool> {
-        Binding(
-            get: {
-                model.report.showsOverview && !model.diagnosis.state.isVisible
-                    && model.report.actionPanel == nil
-                    && model.report.overview.selection == node.id && model.report.overview.detailsVisible
-            },
-            set: { presented in
-                if !presented, model.report.overview.selection == node.id,
-                    model.report.overview.detailsVisible
-                {
-                    model.report.overview.toggleDetails()
-                }
-            })
-    }
+    let overview: ContributorOverview
 
     var body: some View {
-        Button(action: activate) {
-            MenuBarContributorCellContent(node: node, pinned: model.report.overview.pinned.contains(node.id))
-                .frame(maxHeight: .infinity).contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint(node.children.isEmpty ? "Select row" : "Select row and toggle children")
-        .overlay(alignment: .bottomTrailing) {
-            if isSelected { detailsButton.padding(.bottom, 3) }
-        }
-    }
-
-    private var detailsButton: some View {
-        Button {
-            guard model.report.overview.visibleRows.contains(where: { $0.id == node.id }) else {
-                return
-            }
-            model.report.overview.select(node.id)
-            model.report.overview.toggleDetails()
-        } label: {
-            Image(systemName: "info.circle").frame(width: 24, height: 20).contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .modifier(MenuBarContributorTextStyle(link: true))
-        .accessibilityLabel("Details for " + node.title)
-        .help("Inspect this contributor (i); disclosure reveals children")
-        .popover(isPresented: detailsPresented) {
-            MenuBarContributorInspection(
-                node: node, duration: model.report.overview.duration,
-                canInspect: node.process.map { identity in
-                    model.report.snapshot?.findings.contains {
-                        $0.process == identity && !$0.isHistorical
-                    } == true
-                } ?? false,
-                inspect: {
-                    if model.report.overview.detailsVisible { model.report.overview.toggleDetails() }
-                    model.report.inspectOverviewProcess()
-                })
-        }
-    }
-}
-
-private struct MenuBarContributorCellContent: View {
-    let node: ContributorNode
-    let pinned: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(alignment: .top, spacing: 5) {
-                if let symbol = node.id.summarySymbol {
-                    Image(systemName: symbol).font(.caption)
-                        .accessibilityLabel("Summary group")
-                        .help("Summary group; not an individual agent session")
-                }
-                MenuBarContributorTableLabel(label: node.label)
-            }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                HStack(spacing: 6) {
+                    Image(
+                        systemName: node.id.summarySymbol
+                            ?? (node.process == nil ? "bubble.left" : "terminal")
+                    )
+                    .foregroundStyle(.secondary).accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(TextReport.safe(node.label.headline)).font(.system(size: 14, weight: .semibold))
+                        if let name = node.label.sessionName {
+                            Text(TextReport.safe(name)).font(.system(size: 12))
+                        }
+                    }.lineLimit(1).truncationMode(.middle)
+                    if overview.pinned.contains(node.id) { Image(systemName: "pin.fill").font(.caption) }
+                }.frame(maxWidth: .infinity, alignment: .leading)
+                MenuBarContributorLane(activity: overview.activity, id: node.id).frame(width: 100, height: 32)
+                Text(node.stats.cpuText(duration: overview.duration)).font(
+                    .system(size: 18, weight: .semibold)
+                )
+                .frame(width: 80, alignment: .trailing).accessibilityLabel(
+                    "CPU: " + node.stats.cpuText(duration: overview.duration))
+                Text(node.stats.currentMemoryText).font(.system(size: 16, weight: .medium))
+                    .frame(width: 88, alignment: .trailing).accessibilityLabel(
+                        "Memory: " + node.stats.currentMemoryText)
+            }.monospacedDigit()
             HStack(spacing: 6) {
-                if pinned { Image(systemName: "pin.fill").accessibilityHidden(true) }
-                Text(node.stats.currentAvailable ? "Processes \(node.stats.current.count)" : "Processes —")
-                    .modifier(MenuBarContributorTextStyle(secondary: true)).help(node.stats.census)
-                Spacer(minLength: 0)
-                Image(systemName: "info.circle").frame(width: 24, height: 20).hidden().accessibilityHidden(
-                    true)
-            }.font(.caption2)
-        }
-        .padding(.vertical, 3)
-        .help(node.title + ". " + node.stats.census)
+                Text(TextReport.safe(overview.workloadContext(for: node)))
+                    .lineLimit(2).truncationMode(.middle).frame(maxWidth: .infinity, alignment: .leading)
+                Text(node.stats.currentAvailable ? "\(node.stats.current.count)" : "—")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .padding(.horizontal, 7).padding(.vertical, 2)
+                    .background(.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 5))
+                    .accessibilityLabel(
+                        node.stats.currentAvailable
+                            ? "Processes now: " + String(node.stats.current.count)
+                            : "Current process count unavailable")
+            }.font(.system(size: 12)).foregroundStyle(
+                prominence == .increased ? Color.white.opacity(0.85) : Color.secondary
+            ).padding(.trailing, 24)
+        }.foregroundStyle(prominence == .increased ? Color.white : Color.primary).help(
+            node.title + ". " + node.stats.census)
     }
 }
 
-struct MenuBarContributorTableLabel: View {
-    let label: ContributorLabel
+private struct MenuBarContributorLane: View {
+    let activity: ContributorActivity
+    let id: ContributorID
+    @Environment(\.backgroundProminence) private var prominence
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            switch label {
-            case .text(let title):
-                titleText(title)
-            case .session(let identity, let name, let directory):
-                titleText(identity)
-                if let name { contextText(name) }
-                if let directory { contextText(directory) }
-            case .workload(let name, let directory):
-                titleText(name)
-                if let directory { contextText(directory) }
+        Canvas { context, size in
+            let color: Color = prominence == .increased ? .white : .accentColor
+            let bounds = Path(CGRect(x: 0, y: 0, width: size.width, height: size.height))
+            context.stroke(bounds, with: .color(color.opacity(0.25)), lineWidth: 1)
+            guard activity.duration > 0, let first = activity.spans.first else { return }
+            for (index, sample) in (activity.samples[id] ?? []).enumerated() {
+                let span = activity.spans[index]
+                let x = (span.startedAt - first.startedAt) / activity.duration * size.width
+                let width = span.duration / activity.duration * size.width
+                guard let value = sample?.percent(in: span) else { continue }
+                let height = max(1, min(1, value / activity.ceiling) * size.height)
+                let bar = Path(
+                    CGRect(x: x + 0.5, y: size.height - height, width: max(0.5, width - 1), height: height))
+                context.fill(bar, with: .color(color.opacity(sample?.qualified == true ? 0.45 : 0.8)))
             }
-        }.frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func titleText(_ value: String) -> some View {
-        Text(TextReport.safe(value)).font(.caption.weight(.medium))
-            .modifier(MenuBarContributorTextStyle())
-            .lineLimit(1).truncationMode(.middle)
-    }
-
-    private func contextText(_ value: String) -> some View {
-        Text(TextReport.safe(value)).font(.caption2)
-            .modifier(MenuBarContributorTextStyle(secondary: true))
-            .lineLimit(1).truncationMode(.middle)
-    }
-}
-
-private struct MenuBarContributorMetric: View {
-    @Environment(\.backgroundProminence) private var prominence
-    let value: String
-    let fraction: Double
-
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 2) {
-            Text(value).monospacedDigit().lineLimit(1).modifier(MenuBarContributorTextStyle())
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(
-                        prominence == .increased ? Color.white.opacity(0.25) : Color.secondary.opacity(0.2))
-                    Capsule().fill(prominence == .increased ? Color.white : Color.accentColor.opacity(0.65))
-                        .frame(width: geometry.size.width * min(1, max(0, fraction)))
-                }
-            }.frame(height: 2)
-        }.frame(maxWidth: .infinity, alignment: .trailing)
-    }
-}
-
-private struct MenuBarContributorTextStyle: ViewModifier {
-    @Environment(\.backgroundProminence) private var prominence
-    var secondary = false
-    var link = false
-
-    func body(content: Content) -> some View {
-        content.foregroundStyle(
-            prominence == .increased
-                ? Color(nsColor: .alternateSelectedControlTextColor)
-                : (link ? Color.accentColor : (secondary ? Color.secondary : Color.primary)))
-    }
-}
-
-struct MenuBarContributorSort: SortComparator {
-    let field: ContributorOrder
-    var order: SortOrder = .reverse
-
-    func compare(_ lhs: ContributorNode, _ rhs: ContributorNode) -> ComparisonResult {
-        let result: ComparisonResult
-        switch field {
-        case .contributor:
-            result =
-                lhs.title == rhs.title
-                ? .orderedSame : (lhs.title < rhs.title ? .orderedAscending : .orderedDescending)
-        case .cpu:
-            result =
-                lhs.stats.currentCPU == rhs.stats.currentCPU
-                ? .orderedSame
-                : (lhs.stats.currentCPU < rhs.stats.currentCPU ? .orderedAscending : .orderedDescending)
-        case .memory:
-            result =
-                lhs.stats.memoryBytes == rhs.stats.memoryBytes
-                ? .orderedSame
-                : (lhs.stats.memoryBytes < rhs.stats.memoryBytes ? .orderedAscending : .orderedDescending)
         }
-        return order == .forward ? result : ComparisonResult(rawValue: -result.rawValue)!
+        .accessibilityLabel("CPU history, " + activity.scaleLabel + ", " + activity.intervalLabel)
+        .help(
+            "CPU history · " + activity.scaleLabel + " · " + activity.intervalLabel
+                + ". Gaps are unmeasured; shaded spans have incomplete observations or reduced detail. 100% is one core."
+        )
     }
 }
 

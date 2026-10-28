@@ -24,6 +24,11 @@ public enum ReportGlossary {
                 "Measured CPU-seconds divided by the actual display-window duration, shown as a percentage. 100% means one logical core; parallel work can exceed 100%. Includes measured contributors that are no longer observed, not only processes present in the latest scan. — means no valid measurement, not zero CPU. In process-group totals, ~ marks a partial total with missing measurements."
         ),
         Entry(
+            id: "activity", title: "Activity lanes",
+            definition:
+                "CPU over whole retained time spans, using one common zero-to-ceiling scale for every row. The ceiling starts at 200% and increases for higher measured values. Empty spans (terminal dots) are unmeasured, not idle; a baseline is measured zero. Shaded spans or ~ spans have incomplete observations or reduced identity detail. The caption gives the actual range and widest span; coalesced or crossing intervals cannot reveal activity inside that span. Memory beside the lane is current, not historical."
+        ),
+        Entry(
             id: "memory", title: "Memory",
             definition:
                 "Sum of readable memory footprints for processes present in the displayed latest scan. MB and GB are decimal (1,000,000 and 1,000,000,000 bytes). ≥ marks a lower bound with missing readings; process-group totals use ~ for partial measurements. This is current sampled memory, not a historical peak."
