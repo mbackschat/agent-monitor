@@ -29,6 +29,7 @@ enum MenuBarOption: Equatable {
     case sort(ReportSort)
     case contributorSort
     case ascending
+    case chartRange(ContributorChartRange.Selection)
     case cpu(Double)
     case memory(UInt64)
     case interval(Double)
@@ -167,6 +168,19 @@ enum MenuBarOption: Equatable {
         menu.items.last?.isEnabled =
             overview ? model.report.overview.order != .stable : model.report.sortKey != .stable
         menu.addItem(.separator())
+        if overview, let range = model.report.overview.chartRange {
+            let rangeMenu = submenu(
+                "CPU chart range: \(Int(range.upper))%", in: menu,
+                help:
+                    "Fixed display range. Hardware default uses performance and super cores when identified; activity never changes it."
+            )
+            for choice in range.choices {
+                add(
+                    range.label(for: choice), .chartRange(choice), checked: range.selection == choice,
+                    to: rangeMenu)
+            }
+            menu.addItem(.separator())
+        }
         menu.addItem(.sectionHeader(title: "Display filters"))
         let filterHelp = "Changes process rows; observed totals and recent activity stay unchanged."
         let cpu = model.report.thresholds.cpuPercent
@@ -265,6 +279,8 @@ enum MenuBarOption: Equatable {
         case .contributorSort:
             if model.report.view.isOverview { model.report.overview.sort(by: .contributor, ascending: true) }
         case .ascending: model.report.reverseCurrentSort()
+        case .chartRange(let choice):
+            if model.report.view.isOverview { model.report.overview.setChartRange(choice) }
         case .cpu(let value):
             model.report.setThresholds(
                 Thresholds(cpuPercent: value, memoryBytes: model.report.thresholds.memoryBytes))

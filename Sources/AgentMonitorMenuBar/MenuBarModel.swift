@@ -51,6 +51,7 @@ final class MenuBarModel {
     @ObservationIgnored private let actions: any ProcessActions
 
     init(
+        cpuTopology: ProcessorTopology? = nil,
         actions: any ProcessActions = SessionActions.local(),
         diagnosisSource: @escaping CPUDiagnosisSource = CPUDiagnosisSession.collectLocal,
         source: @escaping MenuBarSource
@@ -58,6 +59,7 @@ final class MenuBarModel {
         diagnosis = CPUDiagnosisController(source: diagnosisSource)
         self.actions = actions
         self.source = source
+        report = LiveReportState(grouping: .session, interval: 0.1, cpuTopology: cpuTopology)
         diagnosis.onChange = { [weak self] _ in self?.diagnosisCopyStatus = nil }
     }
 

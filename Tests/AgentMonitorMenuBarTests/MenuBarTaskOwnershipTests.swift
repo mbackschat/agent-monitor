@@ -5,7 +5,7 @@ import Testing
 
 @testable import AgentMonitorMenuBar
 
-@Suite struct MenuBarTaskOwnershipTests {
+@Suite(.timeLimit(.minutes(1))) struct MenuBarTaskOwnershipTests {
     @Test(arguments: [false, true]) @MainActor
     func reopeningCoalescesTaskAdmissionUntilTheCollectorDrains(restart: Bool) async throws {
         let gate = OwnershipGate()
@@ -33,15 +33,15 @@ import Testing
     func cancelledActionsRemainOwnedAcrossDismissalUntilTheyDrain(kind: ProcessActionKind) async throws {
         let gate = OwnershipGate()
         let snapshot = try menuBarFixture()
+        let (received, marker) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         let model = MenuBarModel(actions: BlockedActions(gate: gate)) { _, _, receive in
             try await receive(snapshot)
+            marker.yield(())
             try await Task.sleep(for: .seconds(3600))
         }
         model.open()
-        let deadline = ContinuousClock.now + .seconds(5)
-        while model.report.snapshot == nil, ContinuousClock.now < deadline {
-            try await Task.sleep(for: .milliseconds(1))
-        }
+        var signals = received.makeAsyncIterator()
+        await signals.next()
         if model.report.snapshot == nil {
             await gate.release()
             await model.stop()
@@ -49,6 +49,7 @@ import Testing
         try #require(model.report.snapshot != nil)
         let row = LiveReportRowID.process(try #require(snapshot.findings.first).process)
         beginOwnedAction(kind, row: row, in: model)
+        try #require(model.isPerformingAction)
         try await requireOwnedStart(gate, in: model)
         let original = try #require(model.action)
         var admitted: Set<Task<Void, Never>> = [original]
@@ -108,6 +109,7 @@ import Testing
         model.open()
         await model.waitForCollection()
         beginOwnedAction(kind, row: .process(try #require(snapshot.findings.first).process), in: model)
+        try #require(model.isPerformingAction)
         try await requireOwnedStart(gate, in: model)
         let (stopping, marker) = AsyncStream<Void>.makeStream()
         var finished = false
@@ -133,19 +135,20 @@ private actor OwnershipGate {
     private var waiters: [CheckedContinuation<Void, Never>] = []
     private var released = false
     private(set) var calls = 0
+    private let arrivals = AsyncStream<Int>.makeStream(bufferingPolicy: .bufferingNewest(1))
 
     func wait() async {
         calls += 1
+        arrivals.continuation.yield(calls)
         if !released { await withCheckedContinuation { waiters.append($0) } }
     }
 
     func waitForCalls(_ expected: Int) async -> Bool {
-        let deadline = ContinuousClock.now + .seconds(5)
-        while calls < expected {
-            guard ContinuousClock.now < deadline, !Task.isCancelled else { return false }
-            do { try await Task.sleep(for: .milliseconds(1)) } catch { return false }
+        if calls >= expected { return true }
+        for await count in arrivals.stream {
+            if count >= expected { return true }
         }
-        return true
+        return false
     }
 
     func release() {

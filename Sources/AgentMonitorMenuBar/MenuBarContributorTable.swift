@@ -292,7 +292,7 @@ struct MenuBarContributorLane: View {
         .accessibilityLabel("CPU history, " + activity.scaleLabel + ", " + activity.intervalLabel)
         .help(
             "CPU history · " + activity.scaleLabel + " · " + activity.intervalLabel
-                + ". Fixed machine-capacity scale; 100% is one logical CPU. Equal-width bars are whole interval averages, oldest left and newest right, regardless of duration. Gaps are unmeasured; shaded spans have incomplete observations or reduced detail. An orange cap marks values above the fixed ceiling."
+                + ". Fixed display range; 100% is one CPU-second per elapsed second. Change it in View options or with b. Equal-width bars are whole interval averages, oldest left and newest right, regardless of duration. Gaps are unmeasured; shaded spans have incomplete observations or reduced detail. An orange cap marks values above the fixed ceiling; open contributor details for actual interval values."
         )
     }
 }

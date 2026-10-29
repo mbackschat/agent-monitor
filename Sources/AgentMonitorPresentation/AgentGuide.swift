@@ -111,7 +111,7 @@ public enum AgentGuide {
             ↑/↓ select; ←/→ collapse/expand children; process leaves do not expand.
             Shift+←/→ collapse/expand session groups at the current level; g toggles grouping.
             c/m/o choose CPU/memory/stable order in the current view; r reverses it; n sorts PID only in process views.
-            h cycles history CPU/memory/heavy count; t switches 10 minutes/one hour.
+            b cycles the fixed contributor CPU chart range; h cycles process-view history CPU/memory/heavy count; t switches 10 minutes/one hour.
             1/2 lower/raise CPU by 10 percentage points; 3/4 lower/raise footprint by 1 GB.
             </> increase/decrease the period, or adaptive visible maximum: 0.1, 0.25, 0.5, 1, 2, 5, 10, 30 or 60 seconds; invalid steps are skipped.
             Main contributors is the default: v switches overview/process views; a selects Main/All contributors.

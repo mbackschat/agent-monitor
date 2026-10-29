@@ -3,7 +3,6 @@ import AppKit
 import Foundation
 import SwiftUI
 import Testing
-import Vision
 
 @testable import AgentMonitorCore
 @testable import AgentMonitorMenuBar
@@ -14,11 +13,15 @@ import Vision
 @MainActor func nativeContributorOverviewRenders(dark: Bool) async throws {
     let output = try #require(ProcessInfo.processInfo.environment["MENUBAR_OVERVIEW_PREVIEW_PATH"])
     let snapshot = try nativeOverviewFixture()
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
-    model.report.overview = ContributorOverview()
+    let topology = ProcessorTopology(
+        logicalCPUCount: 8,
+        levels: [
+            .init(name: "Performance", logicalCPUCount: 4), .init(name: "Efficiency", logicalCPUCount: 4),
+        ])
+    let model = MenuBarModel(cpuTopology: topology) { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
-    var terminal = LiveReportState()
+    var terminal = LiveReportState(cpuTopology: topology)
     terminal.receive(snapshot)
     #expect(model.report.overview.totals == terminal.overview.totals)
     #expect(model.report.overview.main == terminal.overview.main)
@@ -224,9 +227,8 @@ func nativeOverviewFixture(unreadable: Int = 0, secondSampleTime: Double = 2) th
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let request = try nativeTextRecognitionRequest()
-    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
-    let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
+    let text = recognized.map(\.text)
         .joined(separator: " ")
     #expect(text.contains("Coverage: 1 warning"))
     #expect(!text.contains("Details"))
@@ -234,7 +236,7 @@ func nativeOverviewFixture(unreadable: Int = 0, secondSampleTime: Double = 2) th
     await model.stop()
 }
 
-@Test @MainActor func samplingCoverageRendersMetricsWithoutDiagnosticParagraphs() throws {
+@Test @MainActor func samplingCoverageRendersMetricsWithoutDiagnosticParagraphs() async throws {
     _ = NSApplication.shared
     let snapshot = try nativeOverviewFixture(unreadable: 9)
     var reads = ReadCoverage()
@@ -265,11 +267,7 @@ func nativeOverviewFixture(unreadable: Int = 0, secondSampleTime: Double = 2) th
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let request = try nativeTextRecognitionRequest()
-    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
-    let recognized = (request.results ?? []).compactMap { observation in
-        observation.topCandidates(1).first.map { (text: $0.string, bounds: observation.boundingBox) }
-    }
+    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
     let text = recognized.map(\.text).joined(separator: " ")
     for (title, value) in [
         ("Observed", "126"), (#"Read fa[il]lures"#, "15"), ("Sampled", "23"),
@@ -325,9 +323,8 @@ func nativeOverviewFixture(unreadable: Int = 0, secondSampleTime: Double = 2) th
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let request = try nativeTextRecognitionRequest()
-    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
-    let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
+    let text = recognized.map(\.text).joined(separator: " ")
     #expect(text.contains("read on demand"), "\(text)")
     #expect(text.replacingOccurrences(of: " ", with: "").contains("ARGUMENT-END"), "\(text)")
     #expect(text.contains("two words"), "\(text)")
@@ -352,7 +349,7 @@ func nativeOverviewFixture(unreadable: Int = 0, secondSampleTime: Double = 2) th
     await model.stop()
 }
 
-@Test @MainActor func contributorInspectorKeepsIdentityAndResourceContext() throws {
+@Test @MainActor func contributorInspectorKeepsIdentityAndResourceContext() async throws {
     _ = NSApplication.shared
     var overview = ContributorOverview()
     overview.receive(try nativeOverviewFixture())
@@ -374,9 +371,8 @@ func nativeOverviewFixture(unreadable: Int = 0, secondSampleTime: Double = 2) th
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let request = try nativeTextRecognitionRequest()
-    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
-    let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
+    let text = recognized.map(\.text).joined(separator: " ")
     #expect(text.contains("Agent"), "\(text)")
     #expect(text.contains("Session"), "\(text)")
     #expect(text.contains("Directory"), "\(text)")
@@ -388,7 +384,7 @@ func nativeOverviewFixture(unreadable: Int = 0, secondSampleTime: Double = 2) th
     }
 }
 
-@Test @MainActor func processLabelShowsEmbeddedInvocationInsteadOfVersionName() throws {
+@Test @MainActor func processLabelShowsEmbeddedInvocationInsteadOfVersionName() async throws {
     _ = NSApplication.shared
     let original = try #require(try nativeOverviewFixture().findings.first)
     let process = HeavyProcess(
@@ -409,9 +405,8 @@ func nativeOverviewFixture(unreadable: Int = 0, secondSampleTime: Double = 2) th
     host.frame.size = host.fittingSize
     let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let request = try nativeTextRecognitionRequest()
-    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
-    let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
+    let text = recognized.map(\.text).joined(separator: " ")
     #expect(text.contains("ugrep"), "\(text)")
     #expect(!text.contains("2.1.299"), "\(text)")
 }

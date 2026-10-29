@@ -3,12 +3,11 @@ import AppKit
 import Foundation
 import SwiftUI
 import Testing
-import Vision
 
 @testable import AgentMonitorCore
 @testable import AgentMonitorMenuBar
 
-@Test @MainActor func adaptiveSamplingCoverageRendersCurrentPolicyAndRetainedOverrideRows() throws {
+@Test @MainActor func adaptiveSamplingCoverageRendersCurrentPolicyAndRetainedOverrideRows() async throws {
     _ = NSApplication.shared
     var sampling = SamplingCoverage()
     sampling.append(
@@ -48,16 +47,16 @@ import Vision
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: path))
     }
-    let request = try nativeTextRecognitionRequest()
     let image = try #require(bitmap.cgImage)
+    let recognized: [NativeRecognizedText]
     do {
-        try VNImageRequestHandler(cgImage: image).perform([request])
+        recognized = try await nativeRecognizedText(in: image)
     } catch {
         Issue.record(
             error, "Vision OCR failed for the \(image.width) × \(image.height) offscreen coverage bitmap")
         return
     }
-    let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+    let text = recognized.map(\.text).joined(separator: " ")
     for label in ["Adaptive", "Requested / base", "Rolling support", "Recent support", "Recovery"] {
         #expect(text.contains(label))
     }

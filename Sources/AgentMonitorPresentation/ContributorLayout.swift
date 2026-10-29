@@ -155,7 +155,8 @@ public enum ContributorLayout {
     private static func fields(state: LiveReportState, width: Int) -> [String] {
         guard let id = state.overview.selection, let node = state.overview.nodes[id] else { return [] }
         return InspectionField.terminalLines(
-            node.inspectionFields.filter { $0.kind == .context } + node.populationFields
+            node.inspectionFields.filter { $0.kind == .context }
+                + state.overview.activity.inspectionFields(for: id) + node.populationFields
                 + node.inspectionFields.filter { $0.kind == .evidence }, width: width)
     }
 

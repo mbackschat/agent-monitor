@@ -20,7 +20,8 @@ public enum TerminalReport {
         let inspection = session.inspectionObservations ? LiveInspection(active: true) : nil
         try await run(
             grouping: grouping, thresholds: session.initialThresholds, interval: session.initialInterval,
-            sampling: session.initialSampling, color: color, inspection: inspection
+            sampling: session.initialSampling, cpuTopology: .readSystem(), color: color,
+            inspection: inspection
         ) { thresholds, interval, receive in
             try await session.run(thresholds: thresholds, interval: interval, inspection: inspection, receive)
         }
@@ -28,7 +29,7 @@ public enum TerminalReport {
 
     public static func run(
         grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(), interval: Double = 1,
-        sampling: SamplingSettings? = nil,
+        sampling: SamplingSettings? = nil, cpuTopology: ProcessorTopology? = nil,
         color: Bool = true, inspection: LiveInspection? = nil,
         actions: any ProcessActions = SessionActions.local(),
         diagnosisSource: @escaping CPUDiagnosisSource = CPUDiagnosisSession.collectLocal,
@@ -45,7 +46,8 @@ public enum TerminalReport {
         let settings = sampling ?? SamplingSettings(visibleMaximum: interval)
         let liveInterval = LiveInterval(settings: settings)
         let state = StateContainer(
-            initialState: LiveReportState(grouping: grouping, thresholds: thresholds, sampling: settings),
+            initialState: LiveReportState(
+                grouping: grouping, thresholds: thresholds, sampling: settings, cpuTopology: cpuTopology),
             invalidationIdentities: [identity])
         let outcome = TerminalOutcome()
         let diagnosis = CPUDiagnosisController(source: diagnosisSource)

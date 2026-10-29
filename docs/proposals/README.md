@@ -13,5 +13,4 @@ The table is generated from each proposal's `Status:` line; do not edit it by ha
 | [Container resource probes](container-resource-probes.md) | unapproved | 2026-10-24 |
 | [Proposed agent working model](agent-working-model.md) | unapproved | 2026-10-15 |
 | [Bounded, ordered terminal input](bounded-terminal-input.md) | on hold | 2026-10-26 |
-| [Hardware-informed fixed CPU chart range](fixed-cpu-chart-range.md) | on hold | 2026-10-29 |
 <!-- status-table:end -->

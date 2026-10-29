@@ -34,7 +34,7 @@ struct MenuBarContributorOverview: View {
                     if overview.detailsVisible, let id = overview.selection, let node = overview.nodes[id] {
                         Divider()
                         MenuBarContributorInspection(
-                            node: node, duration: overview.duration,
+                            activity: overview.activity, node: node, duration: overview.duration,
                             canInspect: node.process.map { identity in
                                 model.report.snapshot?.findings.contains {
                                     $0.process == identity && !$0.isHistorical

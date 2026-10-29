@@ -88,7 +88,7 @@ public enum ReportReferenceLayout {
             "c/m/o CPU/memory/Stable order · r reverse · n PID in process views · g process groups"
         ),
         ReportLine(". pin/unpin owning overview session or selected process/session · u unpin all"),
-        ReportLine("p pause/resume · h history metric · t history range"),
+        ReportLine("p pause/resume · b CPU chart range · h metric · t history range"),
         ReportLine("1/2 CPU threshold −/+10% · 3/4 memory threshold −/+1 GB · </> slower/faster acquisition"),
         ReportLine("Details: -/+ resize · 0 minimize · 9 maximize · = restore · x read/hide arguments"),
         ReportLine("k review termination · s messaging unavailable · f focus session terminal"),

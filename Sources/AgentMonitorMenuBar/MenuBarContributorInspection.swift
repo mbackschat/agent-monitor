@@ -3,6 +3,8 @@ import SwiftUI
 
 struct MenuBarContributorInspection: View {
     @State private var showsEvidence = false
+    @State private var showsHistory = false
+    var activity = ContributorActivity()
     let node: ContributorNode
     let duration: Double
     let canInspect: Bool
@@ -42,6 +44,12 @@ struct MenuBarContributorInspection: View {
                             .help(
                                 "Open process details, arguments and verified actions. Historical workers cannot be action targets."
                             )
+                    }
+                    if !activity.spans.isEmpty {
+                        DisclosureGroup("CPU history · " + activity.scaleLabel, isExpanded: $showsHistory) {
+                            MenuBarInspectionFields(fields: activity.inspectionFields(for: node.id)).padding(
+                                .top, 6)
+                        }.font(.caption)
                     }
                     DisclosureGroup("Counts and evidence", isExpanded: $showsEvidence) {
                         MenuBarInspectionFields(fields: evidence).padding(.top, 6)

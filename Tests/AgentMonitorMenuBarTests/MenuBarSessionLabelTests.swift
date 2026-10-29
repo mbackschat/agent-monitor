@@ -3,7 +3,6 @@ import AppKit
 import Foundation
 import SwiftUI
 import Testing
-import Vision
 
 @testable import AgentMonitorCore
 @testable import AgentMonitorMenuBar
@@ -33,9 +32,8 @@ import Vision
                 colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
         bitmap.size = host.bounds.size
         host.cacheDisplay(in: host.bounds, to: bitmap)
-        let request = try nativeTextRecognitionRequest()
-        try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
-        let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+        let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
+        let text = recognized.map(\.text)
             .joined(separator: " ").lowercased()
         #expect(text.contains(index == 0 ? "abcdabcd" : "12345678"), "\(text)")
         #expect(text.contains("claude"), "\(text)")
@@ -75,9 +73,8 @@ import Vision
             bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let request = try nativeTextRecognitionRequest()
-    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
-    let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
+    let text = recognized.map(\.text)
         .joined(separator: " ").lowercased()
     #expect(text.contains("abcdabcd"), "\(text)")
     #expect(text.contains("12345678"), "\(text)")
@@ -110,7 +107,7 @@ import Vision
     host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 700)
     let window = await mountOffscreenNativePreview(host)
     defer { window.close() }
-    let text = try processDirectoryRenderText(
+    let text = try await processDirectoryRenderText(
         host, output: ProcessInfo.processInfo.environment["MENUBAR_PROCESS_DIRECTORY_PREVIEW_PATH"])
     #expect(text.contains("work/api"), "\(text)")
     #expect(text.contains("tmp/web"), "\(text)")
@@ -119,7 +116,7 @@ import Vision
 }
 
 @Test(arguments: [0, 1])
-@MainActor func nativeLongProcessRowsKeepTheirOwnDirectoryAndValues(index: Int) throws {
+@MainActor func nativeLongProcessRowsKeepTheirOwnDirectoryAndValues(index: Int) async throws {
     _ = NSApplication.shared
     let snapshot = try namedSessionSnapshot()
     let original = snapshot.findings[index]
@@ -140,7 +137,7 @@ import Vision
     host.frame.size = host.fittingSize
     let output = ProcessInfo.processInfo.environment["MENUBAR_PROCESS_DIRECTORY_PREVIEW_PATH"]
         .map { URL(fileURLWithPath: $0).deletingPathExtension().path + "-row-\(index).png" }
-    let text = try processDirectoryRenderText(host, output: output)
+    let text = try await processDirectoryRenderText(host, output: output)
     #expect(text.contains("rust"), "\(text)")
     #expect(text.contains(index == 0 ? "work" : "tmp"), "\(text)")
     #expect(!text.contains(index == 0 ? "tmp" : "work"), "\(text)")
@@ -171,7 +168,7 @@ import Vision
     defer { window.close() }
     let output = ProcessInfo.processInfo.environment["MENUBAR_STANDALONE_PREVIEW_PATH"]
         .map { URL(fileURLWithPath: $0).deletingPathExtension().path + "-\(grouping.rawValue)-\(pinned).png" }
-    let text = try processDirectoryRenderText(host, output: output)
+    let text = try await processDirectoryRenderText(host, output: output)
     for expected in ["claude", "abcdabcd", "12345678", "indexing and attribution", "java", "work", "tmp/web"]
     {
         #expect(text.contains(expected), "\(text)")
@@ -200,7 +197,7 @@ private enum StandaloneEvidenceFixture: CaseIterable {
 
 @Test(arguments: StandaloneEvidenceFixture.allCases)
 @MainActor private func standaloneRowsPreserveUnknownAndSharedOwnership(kind: StandaloneEvidenceFixture)
-    throws
+    async throws
 {
     _ = NSApplication.shared
     let identity = ProcessIdentity(pid: 42001, startMicroseconds: 1)
@@ -222,7 +219,7 @@ private enum StandaloneEvidenceFixture: CaseIterable {
     host.appearance = NSAppearance(named: .aqua)
     host.layoutSubtreeIfNeeded()
     host.frame.size = host.fittingSize
-    let text = try processDirectoryRenderText(host, output: nil)
+    let text = try await processDirectoryRenderText(host, output: nil)
     #expect(text.contains(kind.label), "\(text)")
     #expect(text.contains(kind == .unknown ? "unknown" : "codex"), "\(text)")
     #expect(!text.contains("do not claim"))
@@ -230,7 +227,7 @@ private enum StandaloneEvidenceFixture: CaseIterable {
     #expect(text.contains("node") && text.contains("75%"), "\(text)")
 }
 
-@Test @MainActor func standaloneHistoricalLabelChangesStayVisibleBesideTheOwner() throws {
+@Test @MainActor func standaloneHistoricalLabelChangesStayVisibleBesideTheOwner() async throws {
     _ = NSApplication.shared
     let original = try #require(try namedSessionSnapshot().findings.first)
     let process = HeavyProcess(
@@ -251,14 +248,14 @@ private enum StandaloneEvidenceFixture: CaseIterable {
     host.appearance = NSAppearance(named: .aqua)
     host.layoutSubtreeIfNeeded()
     host.frame.size = host.fittingSize
-    let text = try processDirectoryRenderText(host, output: nil)
+    let text = try await processDirectoryRenderText(host, output: nil)
     for expected in ["claude", "abcdabcd", "changed", "past", "90%"] {
         #expect(text.contains(expected), "\(text)")
     }
     #expect(!text.contains("0.32"))
 }
 
-@MainActor private func processDirectoryRenderText(_ host: NSView, output: String?) throws -> String {
+@MainActor private func processDirectoryRenderText(_ host: NSView, output: String?) async throws -> String {
     let bitmap = try #require(
         NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: Int(host.bounds.width * 2),
@@ -267,17 +264,16 @@ private enum StandaloneEvidenceFixture: CaseIterable {
             bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let request = try nativeTextRecognitionRequest()
-    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
+    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
     if let output {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: output))
     }
-    return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+    return recognized.map(\.text)
         .joined(separator: " ").lowercased()
 }
 
-@Test @MainActor func nativeOverviewLongExecutablesKeepDistinctDirectoriesVisible() throws {
+@Test @MainActor func nativeOverviewLongExecutablesKeepDistinctDirectoriesVisible() async throws {
     _ = NSApplication.shared
     var overview = ContributorOverview()
     overview.receive(
@@ -297,7 +293,7 @@ private enum StandaloneEvidenceFixture: CaseIterable {
         host.appearance = NSAppearance(named: .aqua)
         host.layoutSubtreeIfNeeded()
         host.frame.size = host.fittingSize
-        let text = try processDirectoryRenderText(
+        let text = try await processDirectoryRenderText(
             host,
             output: ProcessInfo.processInfo.environment["MENUBAR_WORKLOAD_PREVIEW_PATH"].map {
                 $0 + "-\(index).png"
@@ -329,7 +325,7 @@ private enum StandaloneEvidenceFixture: CaseIterable {
     host.appearance = NSAppearance(named: .aqua)
     host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 700)
     host.layoutSubtreeIfNeeded()
-    let text = try processDirectoryRenderText(
+    let text = try await processDirectoryRenderText(
         host, output: ProcessInfo.processInfo.environment["MENUBAR_ROOT_PREVIEW_PATH"])
     for id in sessions { #expect(text.contains(id.prefix(8)), "\(text)") }
     await model.stop()

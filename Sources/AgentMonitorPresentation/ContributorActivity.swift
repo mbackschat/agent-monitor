@@ -27,14 +27,15 @@ public struct ContributorActivity: Equatable, Sendable {
     public var duration: Double { max(0, (spans.last?.endedAt ?? 0) - (spans.first?.startedAt ?? 0)) }
     public var maximumSpan: Double { spans.map(\.duration).max() ?? 0 }
 
-    public init() {}
+    public init(ceiling: Double = 100) {
+        self.ceiling = ceiling.isFinite && ceiling > 0 ? ceiling : 100
+    }
 
     init(
-        recent: RecentActivitySnapshot, nodes: [ContributorID: ContributorNode], logicalCPUCount: Int,
+        recent: RecentActivitySnapshot, nodes: [ContributorID: ContributorNode], ceiling: Double,
         leaf: (RecentWorkerCategory) -> ContributorID
     ) {
-        self.init()
-        ceiling = 100 * Double(max(1, logicalCPUCount))
+        self.init(ceiling: ceiling)
         let units = recent.units
         guard let first = units.first, let last = units.last else { return }
         let crossings = units.flatMap(\.crossings).filter {
@@ -132,6 +133,25 @@ public struct ContributorActivity: Equatable, Sendable {
         let unequal = spans.map(\.duration).min().map { maximumSpan - $0 > 0.001 } ?? false
         return "\(String(format: "%.1f", duration)) s · \(spans.count) interval averages"
             + (unequal ? " · unequal durations" : "")
+    }
+
+    public func inspectionFields(for id: ContributorID) -> [InspectionField] {
+        guard let values = samples[id], let start = spans.first?.startedAt else { return [] }
+        return [
+            InspectionField(
+                "CPU history", "\(scaleLabel) · oldest to newest; times relative to retained start")
+        ]
+            + spans.enumerated().map { index, span in
+                let label = String(format: "%.1f–%.1f s", span.startedAt - start, span.endedAt - start)
+                guard let sample = values[index], let percent = sample.percent(in: span) else {
+                    return InspectionField(label, "Unmeasured")
+                }
+                let value =
+                    String(format: "%.1f%% · %.3f CPU s / %.3f s", percent, sample.cpuSeconds, span.duration)
+                    + (percent > ceiling ? " · above chart range ↑" : "")
+                    + (sample.qualified ? " · incomplete observations or reduced detail" : "")
+                return InspectionField(label, value)
+            }
     }
 
     public func terminalLane(for id: ContributorID, width: Int, level: Int = 0, rows: Int = 1) -> String {

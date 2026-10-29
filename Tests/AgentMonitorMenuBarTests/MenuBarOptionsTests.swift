@@ -402,3 +402,30 @@ func selectedThresholdRejectsNegativeOrNonFiniteCPU(value: Double) {
     #expect(menu.item(withTitle: model.report.overview.allTitle)?.isEnabled == false)
     #expect(menu.item(withTitle: "PID")?.isEnabled == true)
 }
+
+@Test @MainActor func chartRangeMenuUsesExclusiveChoicesAndRetainsManualSelection() throws {
+    _ = NSApplication.shared
+    let topology = ProcessorTopology(
+        logicalCPUCount: 8,
+        levels: [
+            .init(name: "Performance", logicalCPUCount: 4), .init(name: "Efficiency", logicalCPUCount: 4),
+        ])
+    let model = MenuBarModel(cpuTopology: topology) { _, _, _ in }
+    model.report.receive(try nativeOverviewFixture())
+    let controller = MenuBarOptionsController(model: model)
+    let menu = controller.makeMenu()
+    let ranges = try #require(menu.item(withTitle: "CPU chart range: 400%")?.submenu)
+    #expect(ranges.items.filter { $0.state == .on }.map(\.title) == ["Hardware default (400%)"])
+    let full = try #require(ranges.item(withTitle: "800% · all cores"))
+    ranges.performActionForItem(at: ranges.index(of: full))
+    #expect(model.report.overview.activity.ceiling == 800)
+    controller.menuNeedsUpdate(menu)
+    let updated = try #require(menu.item(withTitle: "CPU chart range: 800%")?.submenu)
+    #expect(updated.items.filter { $0.state == .on }.map(\.title) == ["800% · all cores"])
+    let automatic = try #require(updated.item(withTitle: "Hardware default (400%)"))
+    updated.performActionForItem(at: updated.index(of: automatic))
+    #expect(model.report.overview.activity.ceiling == 400)
+    model.report.view = .processes
+    controller.menuNeedsUpdate(menu)
+    #expect(!menu.items.contains { $0.title.hasPrefix("CPU chart range:") })
+}

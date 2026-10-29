@@ -5,6 +5,42 @@ import Testing
 @testable import AgentMonitorCore
 
 @Suite struct ContributorActivityTests {
+    @Test func hardwareRangeAndManualChoiceSurviveMonitoringTransitions() throws {
+        let topology = ProcessorTopology(
+            logicalCPUCount: 8,
+            levels: [
+                .init(name: "Performance", logicalCPUCount: 4), .init(name: "Efficiency", logicalCPUCount: 4),
+            ])
+        var state = LiveReportState(cpuTopology: topology)
+        #expect(state.overview.activity.ceiling == 400)
+        state.receive(try overviewFixture())
+        #expect(state.overview.activity.ceiling == 400)
+        let original = state.overview.activity
+        let totals = state.overview.totals
+        state.overview.setChartRange(.percent(800))
+        #expect(state.overview.activity.ceiling == 800)
+        #expect(state.overview.activity.samples == original.samples)
+        #expect(state.overview.activity.spans == original.spans)
+        #expect(state.overview.totals == totals)
+        state.overview.setChartRange(.percent(.infinity))
+        #expect(state.overview.activity.ceiling == 800)
+        state.toggleFreeze()
+        state.overview.sort(by: .memory, ascending: true)
+        state.toggleFreeze()
+        state.view = .processes
+        state.apply(.chartRange)
+        #expect(state.overview.chartRange?.selection == .percent(800))
+        state.view = .allContributors
+        state.resetCollection()
+        #expect(state.overview.activity.ceiling == 800)
+        state.receive(try overviewFixture())
+        #expect(state.overview.activity.ceiling == 800)
+        #expect(state.overview.ascending)
+        state.apply(.chartRange)
+        #expect(state.overview.chartRange?.selection == .hardware)
+        #expect(state.overview.activity.ceiling == 400)
+    }
+
     @Test func lanesDistinguishObservedZeroFromDepartedWorkersAndConserveTotals() throws {
         var overview = ContributorOverview()
         overview.receive(try overviewFixture())
@@ -115,6 +151,9 @@ import Testing
                 == String(repeating: cpuCount == 8 ? "▁" : "▄", count: 6)
                 + String(repeating: cpuCount == 8 ? "▃" : "↑", count: 6))
         #expect(overview.activity.intervalLabel.contains("unequal durations"))
+        let fields = overview.activity.inspectionFields(for: id)
+        #expect(fields.map(\.value).contains { $0.contains("300.0%") && $0.contains("6.000 CPU s") })
+        #expect(fields.contains { $0.value.contains("above chart range") } == (cpuCount == 2))
         overview.sort(by: .memory)
         #expect(overview.activity.ceiling == Double(cpuCount * 100))
     }

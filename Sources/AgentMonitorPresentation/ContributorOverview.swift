@@ -165,7 +165,7 @@ public struct ContributorOverview: Equatable, Sendable {
     private var formerlySelected: [ContributorID: Double] = [:]
     private var latestTime = 0.0
     public private(set) var activity = ContributorActivity()
-    private var logicalCPUCount = 1
+    public private(set) var chartRange: ContributorChartRange?
     private var source: RecentActivitySnapshot?
     var workloadDirectoryLabels: [String: String] = [:]
     public private(set) var detailOffset = 0
@@ -175,7 +175,20 @@ public struct ContributorOverview: Equatable, Sendable {
         didSet { if !detailsVisible { focus = .rows } }
     }
 
-    public init() {}
+    public init(topology: ProcessorTopology? = nil) {
+        chartRange = topology.map(ContributorChartRange.init(topology:))
+        activity = ContributorActivity(ceiling: chartRange?.upper ?? 100)
+    }
+
+    public mutating func setChartRange(_ choice: ContributorChartRange.Selection) {
+        chartRange?.select(choice)
+        rebuildActivity()
+    }
+
+    public mutating func cycleChartRange() {
+        chartRange?.cycle()
+        rebuildActivity()
+    }
 
     public mutating func sort(by order: ContributorOrder, ascending: Bool = false) {
         self.order = order
@@ -309,7 +322,7 @@ public struct ContributorOverview: Equatable, Sendable {
 
     public mutating func resetInspection() {
         source = nil
-        activity = ContributorActivity()
+        activity = ContributorActivity(ceiling: chartRange?.upper ?? 100)
         unavailablePins = []
         detailsVisible = false
         main = []
@@ -426,8 +439,11 @@ public struct ContributorOverview: Equatable, Sendable {
     }
 
     private mutating func rebuildActivity() {
-        guard let source else { return }
-        activity = ContributorActivity(recent: source, nodes: nodes, logicalCPUCount: logicalCPUCount) {
+        guard let source else {
+            activity = ContributorActivity(ceiling: chartRange?.upper ?? 100)
+            return
+        }
+        activity = ContributorActivity(recent: source, nodes: nodes, ceiling: chartRange?.upper ?? 100) {
             path(for: $0).last!.0
         }
     }
@@ -439,7 +455,11 @@ public struct ContributorOverview: Equatable, Sendable {
             let showAll = showAll
             let pinned = pinned
             let order = order
+            let ascending = ascending
+            let chartRange = chartRange
             self = Self()
+            self.ascending = ascending
+            self.chartRange = chartRange
             self.order = order
             self.enabled = enabled
             self.showAll = showAll
@@ -447,7 +467,10 @@ public struct ContributorOverview: Equatable, Sendable {
             scope = recent.scope
             runID = recent.runID
         }
-        logicalCPUCount = snapshot.cpuAccounting.logicalCPUCount
+        if chartRange == nil {
+            chartRange = ContributorChartRange(
+                topology: ProcessorTopology(logicalCPUCount: snapshot.cpuAccounting.logicalCPUCount))
+        }
         latestTime = recent.endedAt
         let displayBaseline = recent.displayUnits.first?.baselineScan ?? recent.finalScan
         duration =

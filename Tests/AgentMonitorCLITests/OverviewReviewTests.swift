@@ -16,6 +16,8 @@ import Testing
             (ContributorOrder.contributor, [1, 2, 3]), (.cpu, [2, 3, 1]), (.memory, [1, 3, 2]),
         ] {
             for ascending in [true, false] {
+                overview.receive(snapshot)
+                overview.select(session(2))
                 overview.sort(by: field, ascending: ascending)
                 let ids = (ascending ? expected : expected.reversed()).map(session)
                 #expect(overview.main == ids)
@@ -23,6 +25,11 @@ import Testing
                 #expect(overview.main == ids)
                 #expect(overview.selection == session(2))
                 #expect(overview.totals == total)
+                overview.receive(
+                    try reviewSnapshot(cpu: [90, 40, 70], memory: [200_000_000, 400_000_000, 300_000_000]))
+                #expect(overview.order == field)
+                #expect(overview.ascending == ascending)
+                #expect(overview.main == ids)
             }
         }
     }

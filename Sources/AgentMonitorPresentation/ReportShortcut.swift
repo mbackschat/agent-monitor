@@ -17,6 +17,7 @@ public enum ReportShortcut: String, CaseIterable, Sendable {
     case memoryUp = "4"
     case historyMetric = "h"
     case historyWindow = "t"
+    case chartRange = "b"
     case slower = "<"
     case faster = ">"
 }
@@ -45,6 +46,8 @@ extension LiveReportState {
         case .memoryUp: adjustThreshold(.memoryUp)
         case .historyMetric: historyMetric = historyMetric.next
         case .historyWindow: historyWindow = historyWindow.next
+        case .chartRange:
+            if view.isOverview { overview.cycleChartRange() }
         case .slower: adjustInterval(.slower)
         case .faster: adjustInterval(.faster)
         }

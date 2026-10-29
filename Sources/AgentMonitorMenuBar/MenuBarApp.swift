@@ -19,7 +19,7 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
     private lazy var statusMenu = MenuBarStatusMenu(model: model)
     private let model: MenuBarModel
 
-    init(model: MenuBarModel = MenuBarModel(source: MenuBarCollection.source())) {
+    init(model: MenuBarModel = MenuBarModel(cpuTopology: .readSystem(), source: MenuBarCollection.source())) {
         self.model = model
         super.init()
     }

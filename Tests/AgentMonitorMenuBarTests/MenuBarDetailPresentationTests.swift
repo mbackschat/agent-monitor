@@ -2,7 +2,6 @@ import AgentMonitorPresentation
 import AppKit
 import SwiftUI
 import Testing
-import Vision
 
 @testable import AgentMonitorMenuBar
 
@@ -32,9 +31,8 @@ import Vision
     #expect(host.bounds.width == 400)
     #expect(host.bounds.height > 120)
     let bitmap = try detailBitmap(host)
-    let request = try nativeTextRecognitionRequest()
-    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
-    let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
+    let text = recognized.map(\.text).joined(separator: " ")
     #expect(text.contains("WORKSPACE-END"), "\(text)")
     #expect(text.contains("EXECUTABLE-END"), "\(text)")
     #expect(text.contains("27a87127bd99"), "\(text)")
@@ -117,12 +115,11 @@ private struct ContributorTableBackdrop: View {
     let selectedRect = outline.rect(ofRow: row)
     #expect(outline.visibleRect.intersects(selectedRect))
     #expect(selectedRect.minY >= outline.visibleRect.minY - 1)
-    let request = try nativeTextRecognitionRequest()
-    try VNImageRequestHandler(cgImage: #require(bitmap.cgImage)).perform([request])
+    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
     let heading = try #require(
-        request.results?.first { $0.topCandidates(1).first?.string == "Agent Monitor" })
-    #expect(heading.boundingBox.maxY < 0.99)
-    #expect(heading.boundingBox.minY > 0.85)
+        recognized.first { $0.text == "Agent Monitor" })
+    #expect(heading.bounds.maxY < 0.99)
+    #expect(heading.bounds.minY > 0.85)
     if let directory = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: directory).appendingPathComponent("compact-process-inspector.png"))

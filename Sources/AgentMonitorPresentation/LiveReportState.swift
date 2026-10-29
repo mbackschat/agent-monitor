@@ -122,8 +122,9 @@ public struct LiveReportState: Equatable, Sendable {
 
     public init(
         grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(), interval: Double = 1,
-        sampling: SamplingSettings? = nil
+        sampling: SamplingSettings? = nil, cpuTopology: ProcessorTopology? = nil
     ) {
+        overview = ContributorOverview(topology: cpuTopology)
         self.grouping = grouping
         self.thresholds = thresholds
         samplingSettings = sampling ?? SamplingSettings(visibleMaximum: interval)

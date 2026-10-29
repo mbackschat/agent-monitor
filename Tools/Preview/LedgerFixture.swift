@@ -5,7 +5,14 @@ import Synchronization
 
 extension Preview {
     static func ledgerState() async throws -> LiveReportState {
-        let state = Mutex(LiveReportState())
+        let state = Mutex(
+            LiveReportState(
+                cpuTopology: ProcessorTopology(
+                    logicalCPUCount: 8,
+                    levels: [
+                        .init(name: "Performance", logicalCPUCount: 4),
+                        .init(name: "Efficiency", logicalCPUCount: 4),
+                    ])))
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(
                 intervalSeconds: 0.1, samples: 12, collectAgentLoad: true, reportIntervalSeconds: 1),

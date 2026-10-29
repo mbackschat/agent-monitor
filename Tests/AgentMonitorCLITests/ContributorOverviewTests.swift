@@ -278,10 +278,13 @@ extension ContributorOverviewTests {
             unreadableProcessCount: 0, findings: [], recentActivity: store.snapshot())
         var state = LiveReportState()
         state.receive(original)
+        state.overview.sort(by: .contributor, ascending: true)
         state.toggleFreeze()
         state.receive(replacement)
         #expect(!state.frozen)
         #expect(state.snapshot?.recentActivity?.scope == .allProcesses)
+        #expect(state.overview.order == .contributor)
+        #expect(state.overview.ascending)
     }
 }
 
