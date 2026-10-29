@@ -1,0 +1,50 @@
+{
+  "claim": "conditional minimum visible contribution, never completeness or idle",
+  "counterAndLedgerMaximum": 18446744073709551615,
+  "hiddenOneIntervalHistories": 80275,
+  "model": "closed visible history; true births start at zero; monotone distinct additive sources",
+  "multisetPairs": 15876,
+  "nativeCalls": false,
+  "negativeControls": [
+    {
+      "case": "positional_clamp",
+      "true": 20,
+      "wrong": 100
+    },
+    {
+      "case": "aggregate_clamp",
+      "true": 10,
+      "wrong": 0
+    },
+    {
+      "case": "imported_history",
+      "true": 0,
+      "wrong": 90
+    },
+    {
+      "case": "merged_old_history",
+      "true": 10,
+      "wrong": 20
+    },
+    {
+      "case": "split_old_history",
+      "true": 10,
+      "wrong": 110
+    },
+    {
+      "case": "undetected_reset_to_nonzero",
+      "true": 0,
+      "wrong": 10
+    }
+  ],
+  "orderedPairs": 1600,
+  "python": "3.15.2",
+  "recordCap": 128,
+  "smokeCases": 8,
+  "sourceSHA256": "3aa01b818d7e2282d55623ae4add46f08b2597ff5f5c21790e170195d651871e",
+  "stateAssertions": 63,
+  "status": "passed",
+  "threeIntervalHistories": 8192,
+  "threeIntervalTransitions": 8736,
+  "unrestrictedVisibility": "trivial zero bound only; ledger returns unavailable"
+}
