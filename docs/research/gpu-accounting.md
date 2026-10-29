@@ -81,3 +81,61 @@ An additional [consumer implementation, `gpui-fps` at `7a9ac17`](https://github.
 Apple's [GPU timeline guide](https://developer.apple.com/documentation/xcode/analyzing-apple-gpu-performance-using-a-visual-timeline) distinguishes overlapping stages, occupancy, utilization and stalls; it does not define `accumulatedGPUTime`. The additional exact-key and lifecycle searches found consumers, not a producer-side definition of units, reporting delay or record retention. This is a bounded negative finding. The earlier M3 Pro comparison remains supporting unit evidence, not local calibration, and Metal command-buffer elapsed time remains a different measurement.
 
 The resulting inference is narrower than rejecting the registry route: a version-scoped cumulative-client contract could support honest observed accounting if lifecycle and charging evidence justify it. A controlled successful trial would characterize that hardware/OS/schema, not guarantee all future drivers or unseen transitions. No new source or offline case closes local metric calibration, exact client ownership, exit coverage or sustained cost. The [proposal's feasibility section](../proposals/gpu-resource-visibility.md#feasibility-gates-and-recommendation) owns the next experiment and its authorization boundary.
+
+## Bounded Metal calibration falsifies client-total retention — 2026-10-29
+
+**The live client total is not a continuously retained cumulative counter on this M1.** Under one unchanged client identity, releasing application references to queue B removed its record and its accumulated value. More seriously, selecting two actual observations around B's entire lifetime yields the same record count and an increasing client total while omitting all of B's already-observed increment. This falsifies the proposed cumulative-client shortcut; neither monotonicity nor equal endpoint record counts repair it. It does not establish that every driver version behaves identically or that no other GPU accounting route is possible.
+
+### Authorized method and successful work oracle
+
+The user explicitly authorized the previously proposed calibration on 2026-10-29. One disposable unprivileged Metal worker ran three serial batches: A, B while A was retained idle, and A after B's application references were released through a drained autorelease pool. One shared 16,384-byte data buffer held 4,096 input-dependent integers; every command applied 256 bounded arithmetic iterations per thread. CPU reference values were computed independently of Metal, including a Python-checked known vector, and every command's full output was compared with them. No pre-existing user process was signalled or instrumented, and no provider, task port, private framework, root access or system security-configuration change was used.
+
+Each batch stopped at 128 completed submissions or 200 ms of valid accumulated command elapsed time, whichever came first. All three hit the submission cap: **384 commands total**, with successful completion, no command errors, verified outputs, no invalid GPU timestamps and no timestamp overlaps. Summed command durations equalled their interval unions. The worker and observations took **3.107 seconds**, including a **0.278-second setup**, delayed reads and a one-second no-submit cooldown. The external 20-second watchdog did not trigger. The explicit buffer bound does not bound compiler/framework/driver allocations, and a watchdog cannot cancel GPU work already submitted.
+
+The CPU-only observer recorded 32 reads, with same-user process birth checked before and after each traversal and creator PID rechecked around each client's property read. It retained only the owned worker's client IDs and individual counters in bounded memory, emitting aggregate counts and values. Samples bracketed device/queue creation, first commands, each batch and reference release; immediate, nominal 50 ms and 200 ms samples have their actual read start/end times in the [sanitized result](gpu-calibration-2026-10-29.json). The initial restricted-environment attempt returned no Metal device and submitted no GPU work; the authorized retry outside that execution sandbox succeeded without elevated UID. This is not app-sandbox compatibility evidence.
+
+Environment: Apple M1, macOS 27.0.1 build `26A434`, SDK 27.0, Swift 6.4 (`swiftlang-6.4.0.34.1`, `clang-2100.3.34.1`), arm64, optimized standalone Swift fixture. The successful run ended at **17:38:37 UTC**. This is a single bounded run, not a sustained workload or cost acceptance test.
+
+### Queue release removes previously accumulated work
+
+| Observation | Clients | Metal records | Aggregate raw counter |
+| --- | ---: | ---: | ---: |
+| Before creating a Metal device | 0 | 0 | 0 |
+| Device created | 1 | 0 | 0 |
+| Queue A created, before work | 1 | 1 | 0 |
+| A first batch completed | 1 | 1 | 31,715,000 |
+| Queue B created, before work | 1 | 2 | 31,715,000 |
+| B batch completed | 1 | 2 | 63,096,500 |
+| B application references released | 1 | 1 | 31,715,000 |
+| A second batch completed | 1 | 1 | 59,188,083 |
+| After no-submit cooldown | 1 | 1 | 59,188,083 |
+
+The same client registry identity remained present after device creation; no client departure or replacement was observed. `AppUsage` exposed only `API`, `accumulatedGPUTime` and `lastSubmittedTime`, without a stable record ID. Record count followed queue creation/release in this fixture. B's release reduced the aggregate by exactly **31,381,500**, equal to the increase during B's isolated batch. The immediate, 50 ms and 200 ms readings agreed at each of these checkpoints, including release, and no deferred increase appeared during cooldown. “Immediate” means the first completed registry read after the worker checkpoint, not zero reporting latency. Reference release did not force or independently verify driver destruction.
+
+A deterministic replay using actual endpoint observations reproduces a second manifestation of the same mechanism: compare the end of A's first batch with the end of A's second. Both have one record, one unchanged client and verified worker lifetime; the total rises from 31,715,000 to 59,188,083. Endpoint subtraction reports **27,473,083**, although the separately observed B and second-A increments sum to **58,854,583**. It misses B's entire 31,381,500 without a negative delta or record-count change at either endpoint. This replay is not another native trial; it demonstrates how a reader with a longer interval can miss the retirement seen by the tightly coordinated observer.
+
+Keeping per-client baselines prevents cross-client cancellation but cannot fix this within-client loss. Clamping a decrease to zero or rebaselining on a detected count change cannot detect the replay above. Stable accounting-record identity could preserve previously observed contributions, but it would still leave final increments and records born and removed between observations unmeasured. The existing product coverage priority prevents describing those unknown losses as complete agent/session GPU use.
+
+### Raw driver increments do not calibrate Metal elapsed time
+
+| Batch | Verified commands | Raw driver increment | Metal command elapsed/union | Batch wall time including first-command observation |
+| --- | ---: | ---: | ---: | ---: |
+| A first | 128 | 31,715,000 | 2.834 ms | 38.907 ms |
+| B | 128 | 31,381,500 | 2.825 ms | 41.903 ms |
+| A second | 128 | 27,473,083 | 2.694 ms | 34.131 ms |
+
+If the raw units were nanoseconds, these increments would represent 31.715, 31.382 and 27.473 ms, substantially greater than the Metal elapsed times. That is a conditional comparison, not a unit determination or evidence that either measurement is wrong. The workload does not establish what the driver charges, a conversion factor, GPU occupancy or percentage of capacity. These very short cap-limited batches also do not characterize arbitrary workloads or concurrent execution. The observer's 32 registry traversals took 0.995–2.589 ms wall time each, median 1.425 ms, 49.139 ms total; reader CPU and sustained overhead were not measured.
+
+### Reproducibility, validation and next decision
+
+The [exact Swift fixture](gpu-calibration-2026-10-29.swift), [CPU-only supervisor](gpu-calibration-2026-10-29.py) and [aggregate result](gpu-calibration-2026-10-29.json) are dated experimental evidence, not production collectors or a supported probe command. SHA-256 values are `3a8da63f5b9dd047c2ce61be27fa98780b5adf5ea63a7edcf410e2d558033907` for Swift, `1c2f89dae20807bde7f877eb70ee0deeb344cf8f676f4d403cfdfb0b529818e8` for Python and `0082b7e37f6acab5a0b8e765a2baef8a854a1f7100a9cd857b5d4587895da797` for the JSON. No PID, process birth, registry ID or individual record values were persisted. Only the disposable worker's aggregate counters were retained.
+
+Swift 6 type checking, Python syntax checking and eight offline numeric/reference checks passed before successful execution. Independent result assertions verified the 384-command cap, output and timing results, unchanged client membership, observed decrease and the actual-endpoint replay. Temporary executables and compilation logs were removed by the scratch wrapper. No production code or permanent test-suite additions were needed. Physical app interaction, other hardware/OS versions, late attachment to existing processes, shared-client ownership, overlapping work, exit tails, graphics memory and sustained cost remain untested.
+
+The retained Python source expects a sibling named `calibration.swift`; reproduce offline preflight by copying both dated sources into the wrapper's scratch directory under their original names. Its default mode compiles and runs only numeric/reference checks; `--authorized-calibration` starts native work. The authorization was consumed by this completed calibration, so the following command intentionally performs **no native observation or GPU workload**:
+
+```sh
+python3 scripts/clean-build.py run -- bash -c 'cp docs/research/gpu-calibration-2026-10-29.swift "$AGENT_MONITOR_SCRATCH/calibration.swift" && cp docs/research/gpu-calibration-2026-10-29.py "$AGENT_MONITOR_SCRATCH/run.py" && python3 "$AGENT_MONITOR_SCRATCH/run.py"'
+```
+
+**Recommendation:** reject the cumulative-client-total design for contributor rates on the observed schema. A replacement requires evidence of suitable accounting identity and retention semantics, or a different accounting source, before further load calibration or production implementation. The generic creator/lifetime problem remains open but solving it alone cannot repair this demonstrated loss. Device-level activity remains a separate possible context feature; it must not be presented as agent GPU attribution or silently substituted for the user's accountability request. [GPU-01](../../PLAN.md#deferred-features) tracks that decision, and the [proposal](../proposals/gpu-resource-visibility.md) remains unapproved for production.

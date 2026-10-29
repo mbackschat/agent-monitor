@@ -1,0 +1,840 @@
+{
+  "compiler": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+  "completedUTC": "2026-10-29T17:38:37Z",
+  "events": [
+    {
+      "label": "before_device"
+    },
+    {
+      "device": "Apple M1",
+      "label": "after_device"
+    },
+    {
+      "explicitDataBufferBytes": 16384,
+      "label": "after_queue_a",
+      "setupSeconds": 0.27825387520715594
+    },
+    {
+      "label": "before_a1"
+    },
+    {
+      "label": "first_a1"
+    },
+    {
+      "batchWallSeconds": 0.038907041773200035,
+      "invalidTimings": 0,
+      "label": "after_a1",
+      "metalElapsedSeconds": 0.0028338334523141384,
+      "metalUnionSeconds": 0.0028338334523141384,
+      "outputsVerified": true,
+      "overlaps": 0,
+      "submissions": 128
+    },
+    {
+      "label": "after_queue_b_before_work"
+    },
+    {
+      "label": "before_b"
+    },
+    {
+      "label": "first_b"
+    },
+    {
+      "batchWallSeconds": 0.041902999859303236,
+      "invalidTimings": 0,
+      "label": "after_b",
+      "metalElapsedSeconds": 0.002824665978550911,
+      "metalUnionSeconds": 0.002824665978550911,
+      "outputsVerified": true,
+      "overlaps": 0,
+      "submissions": 128
+    },
+    {
+      "label": "b_application_references_released"
+    },
+    {
+      "label": "before_a2"
+    },
+    {
+      "label": "first_a2"
+    },
+    {
+      "batchWallSeconds": 0.03413100028410554,
+      "invalidTimings": 0,
+      "label": "after_a2",
+      "metalElapsedSeconds": 0.002693791873753071,
+      "metalUnionSeconds": 0.002693791873753071,
+      "outputsVerified": true,
+      "overlaps": 0,
+      "submissions": 128
+    },
+    {
+      "label": "before_cooldown"
+    },
+    {
+      "label": "after_cooldown"
+    }
+  ],
+  "hardware": "Apple M1",
+  "limits": [
+    "Only the disposable worker is associated with counters; creator strings are not general ownership proof.",
+    "Aggregate raw counters have no established unit or capacity denominator.",
+    "No raw process birth, PID, registry identity or individual record is emitted.",
+    "Batch wall time includes the first-command observation pause.",
+    "B application references were released; driver destruction was not forced.",
+    "One run is not sustained cost, exit coverage, overlapping-work or cross-version acceptance."
+  ],
+  "observations": [
+    {
+      "aggregateRawCounter": 0,
+      "clients": 0,
+      "fields": [],
+      "label": "before_device@0ms",
+      "lifetimeVerified": true,
+      "missingUsage": 0,
+      "readEndSeconds": 0.0023660417646169662,
+      "readStartSeconds": 0.0011601666919887066,
+      "recordCountsPerClient": [],
+      "records": 0
+    },
+    {
+      "aggregateRawCounter": 0,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [],
+      "label": "after_device@0ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 1,
+      "readEndSeconds": 0.03539587510749698,
+      "readStartSeconds": 0.03422687482088804,
+      "recordCountsPerClient": [
+        0
+      ],
+      "records": 0
+    },
+    {
+      "aggregateRawCounter": 0,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [],
+      "label": "after_device@50ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 0.090359041467309,
+      "readStartSeconds": 0.08926870813593268,
+      "recordCountsPerClient": [
+        0
+      ],
+      "records": 0
+    },
+    {
+      "aggregateRawCounter": 0,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [],
+      "label": "after_device@200ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 0.2403372498229146,
+      "readStartSeconds": 0.23922779178246856,
+      "recordCountsPerClient": [
+        0
+      ],
+      "records": 0
+    },
+    {
+      "aggregateRawCounter": 0,
+      "changedRecordArrays": 1,
+      "changedRecordCounts": 1,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_queue_a@0ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 0.5226639164611697,
+      "readStartSeconds": 0.5216117082163692,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 0,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_queue_a@50ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 0.5780391665175557,
+      "readStartSeconds": 0.5766510413959622,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 0,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_queue_a@200ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 0.7257385416887701,
+      "readStartSeconds": 0.7244140417315066,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 0,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "before_a1@0ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 0.7276440830901265,
+      "readStartSeconds": 0.7266489998437464,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 276375,
+      "changedRecordArrays": 1,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "first_a1@0ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 276375,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 0.7315788748674095,
+      "readStartSeconds": 0.7305218330584466,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 31715000,
+      "changedRecordArrays": 1,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_a1@0ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 31438625,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 0.7690420830622315,
+      "readStartSeconds": 0.7677629166282713,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 31715000,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_a1@50ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 0.8211001665331423,
+      "readStartSeconds": 0.8199930833652616,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 31715000,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_a1@200ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 0.974777374882251,
+      "readStartSeconds": 0.9728312497027218,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 31715000,
+      "changedRecordArrays": 1,
+      "changedRecordCounts": 1,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_queue_b_before_work@0ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 0.9780026664957404,
+      "readStartSeconds": 0.9763680417090654,
+      "recordCountsPerClient": [
+        2
+      ],
+      "records": 2
+    },
+    {
+      "aggregateRawCounter": 31715000,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_queue_b_before_work@50ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.0334098334424198,
+      "readStartSeconds": 1.0314410417340696,
+      "recordCountsPerClient": [
+        2
+      ],
+      "records": 2
+    },
+    {
+      "aggregateRawCounter": 31715000,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_queue_b_before_work@200ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.1839659581892192,
+      "readStartSeconds": 1.181446791626513,
+      "recordCountsPerClient": [
+        2
+      ],
+      "records": 2
+    },
+    {
+      "aggregateRawCounter": 31715000,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "before_b@0ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.1875387914478779,
+      "readStartSeconds": 1.1857238332740963,
+      "recordCountsPerClient": [
+        2
+      ],
+      "records": 2
+    },
+    {
+      "aggregateRawCounter": 32059708,
+      "changedRecordArrays": 1,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "first_b@0ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 344708,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.1915646665729582,
+      "readStartSeconds": 1.1897404580377042,
+      "recordCountsPerClient": [
+        2
+      ],
+      "records": 2
+    },
+    {
+      "aggregateRawCounter": 63096500,
+      "changedRecordArrays": 1,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_b@0ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 31036792,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.2331797080114484,
+      "readStartSeconds": 1.2313425834290683,
+      "recordCountsPerClient": [
+        2
+      ],
+      "records": 2
+    },
+    {
+      "aggregateRawCounter": 63096500,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_b@50ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.2856969581916928,
+      "readStartSeconds": 1.2831079997122288,
+      "recordCountsPerClient": [
+        2
+      ],
+      "records": 2
+    },
+    {
+      "aggregateRawCounter": 63096500,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_b@200ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.435096291359514,
+      "readStartSeconds": 1.4333382500335574,
+      "recordCountsPerClient": [
+        2
+      ],
+      "records": 2
+    },
+    {
+      "aggregateRawCounter": 31715000,
+      "changedRecordArrays": 1,
+      "changedRecordCounts": 1,
+      "clients": 1,
+      "decreasedClientTotals": 1,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "b_application_references_released@0ms",
+      "lifetimeVerified": true,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.4378938749432564,
+      "readStartSeconds": 1.4365877914242446,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 31715000,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "b_application_references_released@50ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.4935070415958762,
+      "readStartSeconds": 1.4916417081840336,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 31715000,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "b_application_references_released@200ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.6410292498767376,
+      "readStartSeconds": 1.639568291604519,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 31715000,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "before_a2@0ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.6433115000836551,
+      "readStartSeconds": 1.6421047914773226,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 32191583,
+      "changedRecordArrays": 1,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "first_a2@0ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 476583,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.6460342914797366,
+      "readStartSeconds": 1.6448146249167621,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 59188083,
+      "changedRecordArrays": 1,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_a2@0ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 26996500,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.6800165832974017,
+      "readStartSeconds": 1.6787705831229687,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 59188083,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_a2@50ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.7354839583858848,
+      "readStartSeconds": 1.7338264165446162,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 59188083,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_a2@200ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.884026125073433,
+      "readStartSeconds": 1.881967999972403,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 59188083,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "before_cooldown@0ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 1.8872489165514708,
+      "readStartSeconds": 1.8854563334025443,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 59188083,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_cooldown@0ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 2.8950068750418723,
+      "readStartSeconds": 2.893688749987632,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 59188083,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_cooldown@50ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 2.9504941664636135,
+      "readStartSeconds": 2.948750749696046,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    },
+    {
+      "aggregateRawCounter": 59188083,
+      "changedRecordArrays": 0,
+      "changedRecordCounts": 0,
+      "clients": 1,
+      "decreasedClientTotals": 0,
+      "departedClients": 0,
+      "fields": [
+        "API",
+        "accumulatedGPUTime",
+        "lastSubmittedTime"
+      ],
+      "label": "after_cooldown@200ms",
+      "lifetimeVerified": true,
+      "matchedClientRawDelta": 0,
+      "missingUsage": 0,
+      "newClients": 0,
+      "readEndSeconds": 3.0995194581337273,
+      "readStartSeconds": 3.097925083246082,
+      "recordCountsPerClient": [
+        1
+      ],
+      "records": 1
+    }
+  ],
+  "osBuild": "26A434",
+  "sdk": "27.0",
+  "sourceSHA256": "3a8da63f5b9dd047c2ce61be27fa98780b5adf5ea63a7edcf410e2d558033907",
+  "supervisorSHA256": "1c2f89dae20807bde7f877eb70ee0deeb344cf8f676f4d403cfdfb0b529818e8",
+  "unprivileged": true,
+  "watchdogSeconds": 20,
+  "watchdogTriggered": false,
+  "workerAndObservationWallSeconds": 3.1072162915952504
+}
