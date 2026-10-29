@@ -20,17 +20,6 @@ private final class FakeActions: ProcessActions {
         calls.withLock { $0.append("terminate \(process.process.pid)") }
         if let failure { throw failure }
     }
-    func prepareMessage(for process: HeavyProcess) async throws -> MessageDraft {
-        MessageDraft(
-            process: process,
-            recipients: MessageRecipients(
-                root: AgentRecipient(id: rootID, label: "Root agent"),
-                selected: AgentRecipient(id: childID, label: "Selected agent")))
-    }
-    func send(_ draft: MessageDraft, text: String, recipient: String) async throws {
-        calls.withLock { $0.append("send \(recipient) \(text)") }
-        if let failure { throw failure }
-    }
     func focusTerminal(of process: HeavyProcess) async throws -> FocusOutcome {
         calls.withLock { $0.append("focus \(process.process.pid)") }
         if let failure { throw failure }
@@ -42,6 +31,7 @@ private final class Console: Sendable {
     let output = Mutex<[String]>([])
     let errors = Mutex<[String]>([])
     let prompts = Mutex<[String]>([])
+    let lookups = Mutex<[Int32]>([])
     let styles = Mutex<[String: ReportLine.Style]>([:])
 }
 
@@ -51,6 +41,7 @@ private func runner(
     ActionRunner(
         actions: actions,
         lookup: { pid in
+            console.lookups.withLock { $0.append(pid) }
             guard pid == 42 else { throw ActionFailure("No process with PID \(pid).") }
             return HeavyProcess(
                 process: ProcessIdentity(pid: 42, startMicroseconds: 1), executable: "/fixture/worker",
@@ -103,34 +94,15 @@ private func runner(
     #expect(actions.calls.withLock { $0 }.isEmpty)
     #expect(console.errors.withLock { $0.joined() }.contains("--yes"))
     let accepted = await runner(actions, console: console, interactive: false)
-        .message(pid: 42, text: "Look", to: .root, yes: true)
+        .terminate(pid: 42, yes: true)
     #expect(accepted == .accepted)
     #expect(console.prompts.withLock { $0 }.isEmpty)
 }
 
-@Test(arguments: [(RecipientChoice.root, rootID), (.selected, childID)])
-func messageGoesToTheChosenVerifiedRecipientWithTheReviewedText(choice: RecipientChoice, recipient: String)
-    async
-{
-    let actions = FakeActions()
+@Test func uncertainActionHasItsOwnExitCode() async {
+    let actions = FakeActions(failure: .uncertain("The action may have been accepted."))
     let console = Console()
-    let exit = await runner(actions, console: console).message(
-        pid: 42, text: "Please check.", to: choice, yes: false)
-    #expect(exit == .accepted)
-    #expect(actions.calls.withLock { $0 } == ["send \(recipient) Please check."])
-    let review = console.output.withLock { $0.joined(separator: "\n") }
-    #expect(review.contains("[Agent Monitor: selected process PID 42 (worker)]"))
-    #expect(review.contains("Sample time: unavailable"))
-    #expect(review.contains("CPU:"))
-    #expect(review.contains("Memory footprint:"))
-    #expect(review.contains("\n\nPlease check."))
-    #expect(review.contains(recipient))
-}
-
-@Test func uncertainSendHasItsOwnExitCode() async {
-    let actions = FakeActions(failure: .uncertain("The message may have been accepted."))
-    let console = Console()
-    let exit = await runner(actions, console: console).message(pid: 42, text: "Hi", to: .root, yes: true)
+    let exit = await runner(actions, console: console).terminate(pid: 42, yes: true)
     #expect(exit == .uncertain)
     #expect(exit.rawValue == 2)
     #expect(console.errors.withLock { $0.joined() }.contains("may have been accepted"))
@@ -150,11 +122,10 @@ func messageGoesToTheChosenVerifiedRecipientWithTheReviewedText(choice: Recipien
 @Test func subcommandsParseAndKeepTheReportAsDefault() throws {
     #expect(try AgentMonitorCommand.parseAsRoot(["kill", "--pid", "42"]) is KillCommand)
     #expect(try AgentMonitorCommand.parseAsRoot(["focus", "--pid", "42"]) is FocusCommand)
-    let message = try #require(
-        try AgentMonitorCommand.parseAsRoot(["message", "--pid", "42", "--text", "Hi", "--to", "selected"])
-            as? MessageCommand)
-    #expect(message.to == .selected)
-    #expect(throws: (any Error).self) { try AgentMonitorCommand.parseAsRoot(["message", "--pid", "42"]) }
+    #expect(try AgentMonitorCommand.parseAsRoot(["message"]) is MessageCommand)
+    #expect(throws: (any Error).self) {
+        try AgentMonitorCommand.parseAsRoot(["message", "--pid", "42", "--text", "Unsent"])
+    }
     #expect(try AgentMonitorCommand.parseAsRoot(["--cpu", "10"]) is AgentMonitorCommand)
     let help = AgentMonitorCommand.helpMessage()
     for name in ["kill", "message", "focus"] { #expect(help.contains(name)) }
@@ -170,6 +141,18 @@ func messageGoesToTheChosenVerifiedRecipientWithTheReviewedText(choice: Recipien
     #expect(
         console.styles.withLock { $0 }.first { $0.key.contains("No process with PID 7") }?.value == .failure)
     _ = await runner(FakeActions(failure: .uncertain("May have been accepted.")), console: console)
-        .message(pid: 42, text: "Hi", to: .root, yes: true)
+        .terminate(pid: 42, yes: true)
     #expect(console.styles.withLock { $0 }["May have been accepted."] == .warning)
+}
+
+@Test func unavailableMessageRefusesBeforeLookupOrConfirmation() async {
+    let actions = FakeActions()
+    let console = Console()
+    let exit = runner(actions, console: console).message()
+    #expect(exit == .notDone)
+    #expect(console.errors.withLock { $0 } == [ProviderRuntimeAvailability.messagingUnavailableReason])
+    #expect(console.lookups.withLock { $0.isEmpty })
+    #expect(console.output.withLock { $0.isEmpty })
+    #expect(console.prompts.withLock { $0.isEmpty })
+    #expect(actions.calls.withLock { $0.isEmpty })
 }

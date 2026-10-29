@@ -5,7 +5,7 @@ import Testing
 
 @testable import AgentMonitorCore
 
-@Test func actionSelectionIsFrozenAndTypingDoesNotTriggerCommands() throws {
+@Test func terminationConfirmationKeepsTheSelectedIdentity() throws {
     var state = LiveReportState()
     let first = panelRow(42)
     state.receive(panelSnapshot([first, panelRow(84)]))
@@ -13,49 +13,9 @@ import Testing
     #expect(state.actionPanel?.process == first)
     state.receive(panelSnapshot([panelRow(84)]))
     #expect(state.actionPanel?.process == first)
-    #expect(state.actionInput(.text("qky")) == nil)
     #expect(state.actionPanel?.phase == .confirmTermination)
     #expect(state.actionInput(.confirm) == .terminate(first))
     #expect(state.actionInput(.confirm) == nil)
-}
-
-@Test func composerRequiresReviewAndExplicitConfirmation() throws {
-    var state = LiveReportState()
-    let row = panelRow(42)
-    state.receive(panelSnapshot([row]))
-    #expect(state.beginAction(.message) == .prepare(row))
-    let recipients = MessageRecipients(
-        root: AgentRecipient(id: "root", label: "Root agent"),
-        selected: AgentRecipient(id: "child", label: "Selected agent"))
-    let draft = MessageDraft(process: row, recipients: recipients)
-    state.messagePrepared(draft)
-    #expect(state.actionInput(.confirm) == nil)
-    #expect(state.actionInput(.text("q\nkill it?")) == nil)
-    #expect(state.actionPanel?.text == "q\nkill it?")
-    #expect(state.actionInput(.review) == nil)
-    #expect(state.actionPanel?.recipient?.id == "root")
-    #expect(state.actionInput(.text("y")) == nil)
-    let prepared = try #require(state.actionPanel?.draft)
-    #expect(state.actionInput(.confirm) == .send(prepared, "q\nkill it?", "root"))
-}
-
-@Test(arguments: [40, 60, 120, 200])
-func actionPanelsFitAndAllowFullMessageReview(width: Int) throws {
-    var state = LiveReportState()
-    let row = panelRow(42)
-    state.receive(panelSnapshot([row]))
-    _ = state.beginAction(.message)
-    let recipient = AgentRecipient(id: "root", label: "Root agent")
-    state.messagePrepared(
-        MessageDraft(process: row, recipients: MessageRecipients(root: recipient, selected: recipient)))
-    _ = state.actionInput(.text(String(repeating: "Long message ", count: 80)))
-    _ = state.actionInput(.review)
-    let before = LiveReportLayout.lines(state: state, width: width, height: 12)
-    #expect(before.count == 12)
-    #expect(before.allSatisfy { $0.text.count <= width })
-    #expect(before.map(\.text).joined().contains("Ctrl-Y send"))
-    _ = state.actionInput(.scroll(100))
-    #expect(LiveReportLayout.lines(state: state, width: width, height: 12) != before)
 }
 
 private func panelRow(_ pid: Int32, provider: AgentProvider = .codex) -> HeavyProcess {
@@ -77,59 +37,6 @@ private func panelSnapshot(_ rows: [HeavyProcess]) -> MonitoringSnapshot {
         timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 1,
         cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
         sampledProcessCount: rows.count, unreadableProcessCount: 0, findings: rows)
-}
-
-@Test func messageReviewWrapsWideCharactersWithoutHidingText() throws {
-    var state = LiveReportState()
-    let row = panelRow(42)
-    state.receive(panelSnapshot([row]))
-    _ = state.beginAction(.message)
-    let recipient = AgentRecipient(id: "root", label: "Root agent")
-    state.messagePrepared(
-        MessageDraft(process: row, recipients: MessageRecipients(root: recipient, selected: recipient)))
-    _ = state.actionInput(.text(String(repeating: "調査", count: 35)))
-    _ = state.actionInput(.review)
-    let lines = LiveReportLayout.lines(state: state, width: 40, height: 24)
-    let messageLines = lines.map(\.text).filter { $0.contains("調") || $0.contains("査") }
-    #expect(messageLines.joined() == String(repeating: "調査", count: 35))
-    #expect(messageLines.allSatisfy { $0.count * 2 <= 40 })
-}
-
-@Test(arguments: ["é", "─", "→"])
-func messageReviewUsesRendererCellsForNarrowUnicode(glyph: String) throws {
-    var state = LiveReportState()
-    let row = panelRow(42)
-    state.receive(panelSnapshot([row]))
-    _ = state.beginAction(.message)
-    let recipient = AgentRecipient(id: "root", label: "Root agent")
-    state.messagePrepared(
-        MessageDraft(process: row, recipients: MessageRecipients(root: recipient, selected: recipient)))
-    let message = String(repeating: glyph, count: 30)
-    _ = state.actionInput(.text(message))
-    _ = state.actionInput(.review)
-    let lines = LiveReportLayout.lines(state: state, width: 40, height: 24)
-    let messageLines = lines.map(\.text).filter { $0.hasPrefix(glyph) }
-    #expect(messageLines == [message])
-}
-
-// Codex queues a request; Claude's inbox may still hold or refuse a peer message.
-@Test(arguments: [
-    (AgentProvider.codex, "Queued acceptance does not mean delivery", "Message queued for root."),
-    (.claude, "may hold or refuse", "Message handed to the inbox of Claude session root."),
-])
-func acceptanceWordingFollowsTheProviderTransport(provider: AgentProvider, note: String, result: String)
-    throws
-{
-    var state = LiveReportState()
-    let row = panelRow(42, provider: provider)
-    state.receive(panelSnapshot([row]))
-    _ = state.beginAction(.message)
-    let recipient = AgentRecipient(id: "root", label: "Root agent")
-    let draft = MessageDraft(
-        process: row, recipients: MessageRecipients(root: recipient, selected: recipient))
-    state.messagePrepared(draft)
-    #expect(LiveReportLayout.lines(state: state, width: 200, height: 24).map(\.text).joined().contains(note))
-    #expect(MessageWording.accepted(draft, recipient: "root").hasPrefix(result))
 }
 
 @Test func focusStartsImmediatelyAndWaitsForTheResult() throws {
@@ -164,17 +71,11 @@ func focusWordingSeparatesExactAndAppOnlyResults(outcome: FocusOutcome, expected
     var state = LiveReportState()
     let row = panelRow(42)
     state.receive(panelSnapshot([row]))
-    _ = state.beginAction(.message)
-    let root = AgentRecipient(id: "root", label: "Root agent", unavailableReason: "Root is not loaded.")
-    state.messagePrepared(
-        MessageDraft(
-            process: row,
-            recipients: MessageRecipients(
-                root: root, selected: AgentRecipient(id: "child", label: "Selected agent"))))
+    _ = state.beginAction(.terminate)
     let lines = LiveReportLayout.lines(state: state, width: 200, height: 24)
     #expect(lines.first?.style == .title)
-    #expect(lines.first { $0.text.hasPrefix("Unavailable:") }?.style == .warning)
-    #expect(lines.first { $0.text.contains("Queued acceptance") }?.style == .muted)
+    #expect(lines.first { $0.text.hasPrefix("Send SIGTERM") }?.style == .warning)
+    #expect(lines.first { $0.text.contains("No process group") }?.style == .muted)
     #expect(lines.last?.style == .muted)
     #expect(lines.first { $0.text.hasPrefix("Process PID 42") }?.style == .normal)
 }
@@ -182,7 +83,7 @@ func focusWordingSeparatesExactAndAppOnlyResults(outcome: FocusOutcome, expected
 @Test(arguments: [
     (ActionResult.accepted("SIGTERM accepted."), ReportLine.Style.success),
     (.failed("Process exited."), .failure),
-    (.uncertain("The message may have been accepted."), .warning),
+    (.uncertain("Termination may have been accepted."), .warning),
 ])
 func actionResultsAreColoredByOutcome(result: ActionResult, style: ReportLine.Style) throws {
     var state = LiveReportState()
@@ -206,7 +107,7 @@ private func sessionRow(_ pid: Int32, runtime: Int32?) -> HeavyProcess {
             terminal: nil, runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []))
 }
 
-// A launch group identifies one session, which is all focus needs; k and s keep requiring a process.
+// A launch group identifies one session for focus; termination still requires a process.
 @Test func focusOnACollapsedGroupTargetsItsOneRuntime() throws {
     var state = LiveReportState(grouping: .session)
     let rows = [sessionRow(42, runtime: nil), sessionRow(43, runtime: 700)]
@@ -246,72 +147,10 @@ func focusOnAGroupWithoutOneRuntimeExplains(runtimes: [Int32?]) throws {
             == "SIGTERM accepted for PID 42. Exit is not yet confirmed.")
 }
 
-// The composer, the send check and the CLI help use one limit.
-@Test func messageLengthLimitHasOneSource() throws {
-    #expect(MessageDraft.maximumLength == 4000)
+@Test func unavailableMessageNeverCreatesAnActionPanel() {
     var state = LiveReportState()
-    let row = panelRow(42)
-    state.receive(panelSnapshot([row]))
-    _ = state.beginAction(.message)
-    let recipient = AgentRecipient(id: "root", label: "Root agent")
-    state.messagePrepared(
-        MessageDraft(process: row, recipients: MessageRecipients(root: recipient, selected: recipient)))
-    _ = state.actionInput(.text(String(repeating: "x", count: MessageDraft.maximumLength + 10)))
-    #expect(state.actionPanel?.text.count == MessageDraft.maximumLength)
-}
-
-@Test func messageObservationRemainsTheSelectedSampleWhilePreparationReceivesNewReports() throws {
-    var state = LiveReportState()
-    let row = panelRow(42)
-    state.receive(panelSnapshot([row]))
-    _ = state.beginAction(.message)
-    state.receive(
-        MonitoringSnapshot(
-            cpuAccounting: CPUAccounting(
-                hostBusyPercent: nil, logicalCPUCount: 8, measuredUserPercent: 0,
-                unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
-            timestamp: Date(timeIntervalSince1970: 60), intervalSeconds: 1,
-            cpuThresholdPercent: 25, memoryThresholdBytes: 1_000_000_000,
-            sampledProcessCount: 1, unreadableProcessCount: 0, findings: [row]))
-    let recipient = AgentRecipient(id: "root", label: "Root agent")
-    state.messagePrepared(
-        MessageDraft(process: row, recipients: MessageRecipients(root: recipient, selected: recipient)))
-    #expect(state.actionPanel?.draft?.sampledAt == Date(timeIntervalSince1970: 0))
-}
-
-@Test(arguments: [false, true])
-func composerBytesAreBoundedForSingleAndIncrementalGraphemes(incremental: Bool) throws {
-    var state = LiveReportState()
-    let row = panelRow(42)
-    state.receive(panelSnapshot([row]))
-    _ = state.beginAction(.message)
-    let recipient = AgentRecipient(id: "root", label: "Root")
-    state.messagePrepared(
-        MessageDraft(process: row, recipients: MessageRecipients(root: recipient, selected: recipient)))
-    if incremental {
-        _ = state.actionInput(.text("a"))
-        for _ in 0..<20 { _ = state.actionInput(.text(String(repeating: "\u{0301}", count: 2048))) }
-    } else {
-        _ = state.actionInput(.text("a" + String(repeating: "\u{0301}", count: 40_000)))
-    }
-    let panel = try #require(state.actionPanel)
-    #expect(panel.text.utf8.count <= 64 * 1024)
-    if !incremental { #expect(panel.text.isEmpty) }
-    #expect(
-        LiveReportLayout.lines(state: state, width: 80, height: 16).contains { $0.text.contains("64 KiB") })
-    _ = state.actionInput(.backspace)
-    #expect(state.actionPanel?.text.isEmpty == true)
-}
-
-@Test func messageAdmissionPreservesUnicodeAndWholeGraphemesAtTheByteBoundary() {
-    let boundary = "é" + String(repeating: "\u{0301}", count: 32_767)
-    #expect(boundary.utf8.count == MessageDraft.maximumUTF8Bytes)
-    let admitted = MessageDraft.appending(boundary, to: "")
-    #expect(admitted.text == boundary && admitted.notice == nil)
-    let overflow = MessageDraft.appending("🙂", to: admitted.text)
-    #expect(overflow.text == boundary && overflow.notice != nil)
-    let ordinary = MessageDraft.appending("Hello 👍🏽\nGrüße\u{1b}", to: "")
-    #expect(ordinary.text == "Hello 👍🏽\nGrüße" && ordinary.notice == nil)
-    let characters = MessageDraft.appending(String(repeating: "🙂", count: 4001), to: "")
-    #expect(characters.text.count == 4000 && characters.notice != nil)
+    state.receive(panelSnapshot([panelRow(42)]))
+    #expect(state.beginAction(.message) == nil)
+    #expect(state.actionPanel == nil)
+    #expect(state.notice == ProviderRuntimeAvailability.messagingUnavailableReason)
 }

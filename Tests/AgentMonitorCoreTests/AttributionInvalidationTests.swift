@@ -13,11 +13,6 @@ private struct ResolutionOracle {
         #expect(
             cached.attributionObservationTimes(for: rows) == uncached.attributionObservationTimes(),
             "\(context)")
-        for row in rows {
-            #expect(
-                cached.attributingMarker(for: row.process) == uncached.attributingMarker(for: row.process),
-                "\(context), process \(row.process)")
-        }
     }
 
     mutating func ingest(_ samples: [ProcessSample], _ context: String) {

@@ -161,15 +161,7 @@ private actor OwnershipGate {
 
 private struct BlockedActions: ProcessActions {
     let gate: OwnershipGate
-    func prepareMessage(for process: HeavyProcess) async throws -> MessageDraft {
-        Issue.record("Unexpected recipient preparation")
-        throw ActionFailure(ProviderRuntimeAvailability.messagingUnavailableReason)
-    }
     func terminate(_ process: HeavyProcess) async throws { await gate.wait() }
-    func send(_ draft: MessageDraft, text: String, recipient: String) async throws {
-        Issue.record("Unexpected send")
-        throw ActionFailure(ProviderRuntimeAvailability.messagingUnavailableReason)
-    }
     func focusTerminal(of process: HeavyProcess) async throws -> FocusOutcome {
         await gate.wait()
         return .session(application: "Fixture", tty: "fixture")

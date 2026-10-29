@@ -4,13 +4,13 @@ Status: **on hold**, 2026-10-26. Waiting for an upstream solution or a verified 
 
 ## Purpose and scope
 
-Keep TUI input memory bounded during a slow renderer without losing accepted command order or treating paste as commands. The [source audit](../research/terminal-ui.md#ordered-input-and-retention-boundary--2026-10-26) establishes that the pinned reader, partial decoder and event pump can each accumulate input; Agent Monitor's paste callback can also overtake queued keys. Composer limits alone cannot fix either mechanism.
+Keep TUI input memory bounded during a slow renderer without losing accepted command order or treating paste as commands. The [source audit](../research/terminal-ui.md#ordered-input-and-retention-boundary--2026-10-26) establishes that the pinned reader, partial decoder and event pump can each accumulate input; the current host discards paste only after that upstream storage. Removing the composer eliminates its producer-side state mutation, but cannot bound the reader or runtime.
 
 Required: a focused extension of SwiftTUI's existing input reader and custom-host runtime. Agent Monitor keeps the current renderer, state model, keyboard controls and explicit action confirmations. Mac input and resource accounting are unchanged.
 
 ## Required contract
 
-Input remains typed until dispatch. Keys and paste are consumed in the same FIFO order, with the host's paste callback invoked at that dispatch boundary. Pasted Return, Escape, Ctrl-Y and other command-looking content remain text; they never synthesize review, confirmation, focus or process actions. Agent Monitor applies paste only to an active composer.
+Accepted keys remain typed and are consumed in FIFO order. Agent Monitor discards paste; pasted Return, Escape, Ctrl-Y and other command-looking content must never become confirmation, focus or process actions. Paste rejection must preserve the order of surrounding accepted keys.
 
 A shared reservation covers each accepted event until handling completes, including reader delivery, queued events and drained-but-undispatched batches. Admission suspends before exhausting either event count or payload bytes; it never drops an accepted key or confirmation. Pulling from the reader stops when there is no capacity. No side queue or unstructured task may retain uncharged events. A stalled consumer therefore stops upstream advancement after the declared in-flight allowance; dequeuing alone does not release its reservation.
 
@@ -28,7 +28,7 @@ struct TerminalInputLimits: Sendable {
 
 These are proposed logical admission limits, not measured allocator sizes. Reader scratch and incomplete decoding have separate bounded storage; the public contract states their maximum in-flight counts. Native read turns yield at their byte allowance rather than draining indefinitely. The parser cannot emit an arbitrarily large local event array before admission. The existing AsyncStream-based reader interface may remain if its production honors these requirements.
 
-An oversized paste is rejected as a whole with one ordered, visible notice; the existing draft stays unchanged. After the limit, the parser retains only bounded framing state and discards through the paste end marker. It must not reinterpret discarded bytes as commands, even when markers span reads. EOF with an incomplete paste rejects it. Oversized control sequences likewise cannot escape into command input. An unterminated rejected paste remains in discard mode until its terminator, input termination or cancellation; cancellation must not wait for more input.
+An oversized paste is discarded as a whole with one ordered, visible notice. After the limit, the parser retains only bounded framing state and discards through the paste end marker. It must not reinterpret discarded bytes as commands, even when markers span reads. EOF with an incomplete paste rejects it. Oversized control sequences likewise cannot escape into command input. An unterminated rejected paste remains in discard mode until its terminator, input termination or cancellation; cancellation must not wait for more input.
 
 Cancellation wakes suspended admission and native reads, deregisters read sources before terminal restoration, and prevents late dispatch into a replacement input session. Runtime shutdown must remain possible while the consumer is stalled; it must not depend on making queue space or receiving a paste terminator. The host's existing termination path remains independent of input admission.
 
@@ -38,7 +38,7 @@ The guarantee begins with bytes admitted by the reader. It does not claim that t
 
 Optional: scalar diagnostics for current/peak reservations, rejected paste count and producer suspension count. No pasted text or key history is recorded.
 
-Excluded: dropping old/new keyboard events to achieve a cap; manufacturing key events to carry paste; replacing the TUI renderer; new input recording; private runtime hooks; dependency changes unrelated to ordered input, bounded storage and cancellation. Streaming arbitrarily large paste is excluded from this delivery because the composer already has a finite text allowance.
+Excluded: dropping old/new keyboard events to achieve a cap; manufacturing key events to carry paste; replacing the TUI renderer; new input recording; private runtime hooks; dependency changes unrelated to ordered input, bounded storage and cancellation. Paste editing and message composition are excluded; the monitor has no text-input consumer.
 
 ## Decision and feasibility
 

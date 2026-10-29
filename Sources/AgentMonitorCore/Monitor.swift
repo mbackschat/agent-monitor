@@ -708,17 +708,6 @@ public struct Monitor: Sendable {
         return result
     }
 
-    /// The session marker behind a live process's resolved attribution. Action routing reads
-    /// provider details such as Claude's inbox here so they stay out of JSONL snapshots.
-    public func attributingMarker(for identity: ProcessIdentity) -> SessionMarker? {
-        guard live.contains(identity) else { return nil }
-        let resolved = resolve(identity)
-        switch resolved.attribution.evidence {
-        case .marker, .inheritedMarker: return resolved.marker
-        case .writerLock, .sessionRegistry, .runtimeOnly, .ambiguous, .unknown: return nil
-        }
-    }
-
     private func heavyIdentities(thresholds: Thresholds) -> [ProcessIdentity] {
         live.filter { identity in
             guard let node = nodes[identity] else { return false }

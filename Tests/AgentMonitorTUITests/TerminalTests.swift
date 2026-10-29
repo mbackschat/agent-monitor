@@ -397,17 +397,29 @@ private func expectSourceSamplingSettings(at url: URL, maximum: Double) async th
     Issue.record("Fake source did not observe visible maximum \(maximum) within four seconds")
 }
 
-@Test func terminalActionsRequireConfirmationAndPasteCannotSubmit() async throws {
+@Test(arguments: [false, true])
+func terminalActionsRequireConfirmationAndPasteCannotSubmit(quitWhileUndersized: Bool) async throws {
     let binary =
         ProcessInfo.processInfo.environment["AGENT_MONITOR_TUI_FIXTURE"]
         ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         .deletingLastPathComponent().appendingPathComponent(".build/debug/monitor-tui-fixture").path
     let terminal = try RealTerminalPTYPair.open(size: .init(width: 100, height: 24), stallBudget: nil)
     defer { terminal.close() }
-    let pid = try launch(binary, terminal: terminal.slave)
+    var original = termios()
+    try #require(tcgetattr(terminal.slave, &original) == 0)
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let termination = directory.appendingPathComponent("termination.txt")
+    let pid = try launch(
+        binary, terminal: terminal.slave,
+        environment: ["AGENT_MONITOR_TERMINATION_FIXTURE": termination.path])
+    var reaped = false
     defer {
-        kill(pid, SIGKILL)
-        waitpid(pid, nil, 0)
+        if !reaped {
+            kill(pid, SIGKILL)
+            waitpid(pid, nil, 0)
+        }
     }
     var screen = ANSIVisibleScreen(size: .init(width: 100, height: 24))
     _ = try await waitForScreen(
@@ -421,6 +433,17 @@ private func expectSourceSamplingSettings(at url: URL, maximum: Double) async th
     ) {
         $0.contains("Terminate selected process?") && $0.contains("PID 42")
     }
+    // Escape acknowledges the preceding paste at a fixed size; a leaked confirmation
+    // is detected by the owned action record even if its result was dismissed.
+    try writeAllBytes(Array("\u{1b}[200~\u{19}q\u{1b}[201~\u{1b}".utf8), to: terminal.master)
+    _ = try await waitForScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("Stable order") && !$0.contains("Terminate selected process?") }
+    #expect(!FileManager.default.fileExists(atPath: termination.path))
+    try writeAllBytes(Array("k".utf8), to: terminal.master)
+    _ = try await waitForScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("Terminate selected process?") }
     var small = winsize(ws_row: 7, ws_col: 30, ws_xpixel: 0, ws_ypixel: 0)
     try #require(ioctl(terminal.slave, TIOCSWINSZ, &small) == 0)
     screen = ANSIVisibleScreen(size: .init(width: 30, height: 7))
@@ -430,8 +453,14 @@ private func expectSourceSamplingSettings(at url: URL, maximum: Double) async th
     ) {
         $0.contains("Resize to 40x8")
     }
-    try writeAllBytes([25], to: terminal.master)
-    try await Task.sleep(for: .milliseconds(100))
+    if quitWhileUndersized {
+        // Keep the viewport small until shutdown: a sleep before resizing cannot prove
+        // that the confirmation key has already passed the runtime's dispatch queue.
+        try writeAllBytes([25, 3], to: terminal.master)
+        try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
+        #expect(!FileManager.default.fileExists(atPath: termination.path))
+        return
+    }
     var restored = winsize(ws_row: 24, ws_col: 100, ws_xpixel: 0, ws_ypixel: 0)
     try #require(ioctl(terminal.slave, TIOCSWINSZ, &restored) == 0)
     screen = ANSIVisibleScreen(size: .init(width: 100, height: 24))
@@ -447,6 +476,7 @@ private func expectSourceSamplingSettings(at url: URL, maximum: Double) async th
     ) {
         $0.contains("SIGTERM accepted for PID 42")
     }
+    #expect(try String(contentsOf: termination, encoding: .utf8) == "42")
     try writeAllBytes([27], to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
@@ -456,34 +486,8 @@ private func expectSourceSamplingSettings(at url: URL, maximum: Double) async th
     try writeAllBytes(Array("s".utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
-    ) {
-        $0.contains("Message agent") && $0.contains("Recipient: Root agent")
-    }
-    try writeAllBytes(Array("\u{1b}[200~q\nPlease investigate\u{19}\u{1b}[201~".utf8), to: terminal.master)
-    _ = try await waitForScreen(
-        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
-    ) {
-        $0.contains("Message agent") && $0.contains("Please investigate") && !$0.contains("Message queued")
-    }
-    try writeAllBytes([9, 13], to: terminal.master)
-    _ = try await waitForScreen(
-        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
-    ) {
-        $0.contains("Review exact message") && $0.contains("Recipient: Selected agent")
-            && $0.contains("selected process PID 42 (fixture-42)")
-    }
-    try writeAllBytes([25], to: terminal.master)
-    _ = try await waitForScreen(
-        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
-    ) {
-        $0.contains("Message queued for 11111111") && $0.contains("not confirmed")
-    }
-    try writeAllBytes([27], to: terminal.master)
-    _ = try await waitForScreen(
-        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
-    ) {
-        $0.contains("Stable order") && !$0.contains("Action result")
-    }
+    ) { $0.contains("Messaging is unavailable") }
+    try writeAllBytes(Array("\u{1b}[200~qks\u{19}\u{1b}[201~".utf8), to: terminal.master)
     try writeAllBytes(Array("f".utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
@@ -517,6 +521,9 @@ private func expectSourceSamplingSettings(at url: URL, maximum: Double) async th
     ) {
         $0.contains("every 0.5 s") && !$0.contains("PAUSED")
     }
+    try writeAllBytes([3], to: terminal.master)
+    try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
+
 }
 
 @Test func terminalDiagnosisUsesFakesAndPreservesPausedReportAcrossCancelAndResize() async throws {

@@ -2,10 +2,9 @@ import Darwin
 import Foundation
 
 /// A helper confined to one serial owner, with deadlines and output limits.
-/// Production runs fixed local Terminal automation; provider transports use disposable test fixtures.
+/// Production runs fixed local Terminal automation; provider listing fixtures use disposable test programs.
 package final class BoundedCommand {
     private let process = Process()
-    private let input = Pipe()
     private let output = Pipe()
     private let deadline: ContinuousClock.Instant
     private var pending = Data()
@@ -28,7 +27,7 @@ package final class BoundedCommand {
         if !environment.isEmpty {
             process.environment = ProcessInfo.processInfo.environment.merging(environment) { _, new in new }
         }
-        process.standardInput = input
+        process.standardInput = FileHandle.nullDevice
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
         try checkCancellation()
@@ -36,44 +35,12 @@ package final class BoundedCommand {
             throw BoundedCommandFailure("Cannot start \(tool). Ensure its CLI is on PATH.")
         }
         try? output.fileHandleForWriting.close()
-        try? input.fileHandleForReading.close()
-        _ = fcntl(input.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
         let descriptor = output.fileHandleForReading.fileDescriptor
         _ = fcntl(descriptor, F_SETFL, fcntl(descriptor, F_GETFL) | O_NONBLOCK)
     }
 
-    package func receive(count: Int) throws -> Data {
-        while pending.count < count {
-            guard try read() else { throw BoundedCommandFailure("\(tool) connection closed.") }
-        }
-        let data = Data(pending.prefix(count))
-        pending.removeFirst(count)
-        return data
-    }
-
-    package func receive(until delimiter: Data, limit: Int) throws -> Data {
-        while true {
-            if let range = pending.range(of: delimiter) {
-                let size = pending.distance(from: pending.startIndex, to: range.upperBound)
-                guard size <= limit else {
-                    throw BoundedCommandFailure("\(tool) handshake exceeded the size limit.")
-                }
-                return try receive(count: size)
-            }
-            guard pending.count < limit else {
-                throw BoundedCommandFailure("\(tool) handshake exceeded the size limit.")
-            }
-            guard try read() else { throw BoundedCommandFailure("\(tool) connection closed.") }
-        }
-    }
-
-    package func finish() throws {
-        _ = try readOutput()
-    }
-
     /// Standard output after successful exit, within the same deadline and size bound.
     package func readOutput() throws -> Data {
-        try? input.fileHandleForWriting.close()
         while try read() {}
         while process.isRunning {
             try checkDeadline()
@@ -83,11 +50,6 @@ package final class BoundedCommand {
         guard process.terminationStatus == 0 else { throw BoundedCommandFailure("\(tool) command failed.") }
         defer { pending.removeAll() }
         return pending
-    }
-
-    package func write(_ data: Data) throws {
-        try checkDeadline()
-        try input.fileHandleForWriting.write(contentsOf: data)
     }
 
     private func checkDeadline() throws {
@@ -125,7 +87,6 @@ package final class BoundedCommand {
     package func close() {
         guard !closed else { return }
         closed = true
-        try? input.fileHandleForWriting.close()
         if process.isRunning {
             process.terminate()
             let end = ContinuousClock.now.advanced(by: .milliseconds(200))

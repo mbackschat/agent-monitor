@@ -6,8 +6,7 @@ import Testing
 @Suite struct ActionColorOptionsTests {
     @Test(arguments: ["kill", "message", "focus"], [true, false])
     func colorFlagSurvivesRootParsing(command: String, beforeCommand: Bool) throws {
-        var arguments = [command, "--pid", "42"]
-        if command == "message" { arguments += ["--text", "parser fixture"] }
+        var arguments = command == "message" ? [command] : [command, "--pid", "42"]
         arguments.insert("--no-color", at: beforeCommand ? 0 : arguments.count)
         let parsed = try AgentMonitorCommand.parseAsRoot(arguments)
         switch parsed {

@@ -162,10 +162,10 @@ The following options control reports; diagnosis has fixed defaults and its own 
 | `diagnose cpu [--json]` | Baseline plus three one-second waits; top ten by CPU-seconds. Text by default; JSON is one diagnosis v1 document. |
 | `diagnose cpu --json-schema` | Print the separate diagnosis schema without collection. |
 | `kill --pid <pid> [--yes] [--no-color]` | Review and send SIGTERM to one process. |
-| `message --pid <pid> --text <text> [--to root\|selected] [--yes] [--no-color]` | Review and message the process's Codex or Claude Code session. |
+| `message [--no-color]` | Explain why provider messaging is unavailable; exit without inspecting processes or sending. |
 | `focus --pid <pid> [--no-color]` | Bring the terminal hosting the process's agent session to the front. |
 
-The `kill` and `message` commands ask for confirmation in a terminal and need `--yes` in scripts; see [actions from the command line](docs/usage.md#actions-from-the-command-line) for exit statuses.
+The `kill` command asks for confirmation in a terminal and needs `--yes` in scripts; see [actions from the command line](docs/usage.md#actions-from-the-command-line) for exit statuses.
 
 Choose only one of `--tui`, `--json`, or `--json-schema`. Session grouping is available for text and TUI output; `--group session` cannot be combined with `--json` or `--json-schema`.
 

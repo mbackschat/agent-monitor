@@ -228,7 +228,7 @@ func sample(
     #expect(row.attribution.terminal == "ttys016")
 }
 
-@Test func attributingMarkerExposesClaudeInboxOnlyOutsideSnapshots() throws {
+@Test func claudeInboxEvidenceAttributesWorkersWithoutEnteringSnapshots() throws {
     let socket = "/tmp/cc-socks/10.sock"
     let runtime = sample(10, executable: "/Users/test/.local/share/claude/versions/2.1.300", memory: 1)
     let shell = sample(20, parent: 10, memory: 1)
@@ -240,20 +240,10 @@ func sample(
             argumentBuffer(environment: [
                 "CLAUDE_CODE_SESSION_ID=\(sessionA)", "CLAUDE_CODE_MESSAGING_SOCKET=\(socket)",
             ])), for: shell.identity)
-    #expect(monitor.attributingMarker(for: worker.identity)?.inboxSocket == socket)
-    #expect(monitor.attributingMarker(for: runtime.identity) == nil)
-    let json = try JSONEncoder().encode(monitor.findings())
+    let rows = monitor.accountingFindings(sorted: true)
+    #expect(rows.first { $0.process == worker.identity }?.attribution.threadID == sessionA)
+    let json = try JSONEncoder().encode(rows)
     #expect(!String(decoding: json, as: UTF8.self).contains("cc-socks"))
-}
-
-@Test func unresolvedAttributionHasNoAttributingMarker() {
-    let runtime = sample(10, executable: "/usr/local/bin/claude", memory: 1)
-    let worker = sample(20, parent: 10)
-    var monitor = Monitor()
-    monitor.ingest([runtime, worker])
-    monitor.enrich(
-        ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)]), for: worker.identity)
-    #expect(monitor.attributingMarker(for: worker.identity) == nil)
 }
 
 // A shell that exits after starting a background job reparents the job to launchd; its marker

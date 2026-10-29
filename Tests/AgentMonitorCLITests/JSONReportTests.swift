@@ -189,7 +189,6 @@ private func jsonProcess() -> HeavyProcess {
     state.receive(snapshot)
     #expect(state.beginAction(.terminate) == nil)
     #expect(state.actionPanel == nil)
-    #expect(state.beginMessage(for: row) == nil)
     #expect(
         LiveReportLayout.lines(state: state, width: 120, height: 24).contains { $0.text.contains("[past]") })
     if let path = ProcessInfo.processInfo.environment["JSON_WINDOW_FIXTURE_PATH"] {

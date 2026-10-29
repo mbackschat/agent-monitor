@@ -1,11 +1,7 @@
 import SwiftTUIRuntime
 
-/// Treat bracketed paste as text, never as confirmation or report commands.
+/// Ignore bracketed paste so pasted keys cannot confirm actions or become report commands.
 final class ActionInputReader: TerminalInputReading, Sendable {
-    private let paste: @MainActor @Sendable (String) -> Void
-
-    init(paste: @escaping @MainActor @Sendable (String) -> Void) { self.paste = paste }
-
     func inputEvents() -> AsyncStream<InputEvent> {
         AsyncStream { continuation in
             let task = Task { @MainActor in
@@ -13,7 +9,7 @@ final class ActionInputReader: TerminalInputReading, Sendable {
                 for await event in reader.inputEvents() {
                     if Task.isCancelled { break }
                     switch event {
-                    case .paste(let event): paste(event.content)
+                    case .paste: break
                     default: continuation.yield(event)
                     }
                 }

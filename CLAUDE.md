@@ -42,14 +42,14 @@ Agent Monitor must not initiate Internet connections, directly or through helper
 | `AgentMonitor` | CLI arguments and output selection; Argument Parser stays in CLI targets. |
 | `AgentMonitorPresentation` | Neutral grouping, selection, disclosure, pins, history and action-review state. |
 | `AgentMonitorTUI` | SwiftTUI rendering and terminal input. |
-| `AgentMonitorActions` | Verified termination, provider messaging and terminal-focus adapters. |
+| `AgentMonitorActions` | Verified termination and terminal-focus adapters. |
 | `AgentMonitorMenuBar` | AppKit lifecycle and SwiftUI presentation; reuse shared services, never SwiftTUI. |
 
-Harness-specific recognition, marker validation, descriptor/inbox interpretation, runtime classification and listing declarations/parsing belong in [attribution adapters](Sources/AgentMonitorCore/AttributionAdapters/). Hosts own native access, allowlisting and command execution; adapters declare and interpret observations. Never add provider heuristics to the sampler, reader, parser, models or UI. Preserve all recognition claims and uncertainty; adapter order cannot select an owner. Messaging and focus keep separate action adapters.
+Harness-specific recognition, marker validation, descriptor/inbox interpretation, runtime classification and listing declarations/parsing belong in [attribution adapters](Sources/AgentMonitorCore/AttributionAdapters/). Hosts own native access, allowlisting and command execution; adapters declare and interpret observations. Never add provider heuristics to the sampler, reader, parser, models or UI. Preserve all recognition claims and uncertainty; adapter order cannot select an owner. Terminal focus uses separate action adapters.
 
 Use exact process lifetimes, not PID alone. Never infer ownership from cwd or treat a protocol process handle as an OS PID. Grouping preserves provider/session identity and leaves JSONL flat; [observed session totals](docs/architecture.md#current-implementation) include filtered members and must stay qualified for missed observations. Project labels use workload directories, never a shared runtime's launch directory. Shared presentation owns sticky disclosure without stale measurements or overriding explicit inspection changes.
 
-Actions require frozen identity, fresh same-user/recipient verification and explicit confirmation where applicable. Acceptance is not delivery or completion; never automatically retry uncertain actions. Never read transcripts or a Claude messaging token. Tests and research probes use fake providers and disposable owned processes, never real harness listings, live messages or signals to user workloads; keep a probe script only when its measurement is retained.
+Actions require frozen identity, fresh same-user/target verification and explicit confirmation where applicable. Acceptance is not delivery or completion; never automatically retry uncertain actions. Never read transcripts or a Claude messaging token. Tests and research probes use fake providers and disposable owned processes, never real harness listings, live messages or signals to user workloads; keep a probe script only when its measurement is retained.
 
 ## Read only the contracts relevant to the change
 

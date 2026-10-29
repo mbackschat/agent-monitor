@@ -133,7 +133,7 @@ func focusNeedsARuntimeWithATerminal(context: RuntimeContext) async throws {
             runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []))
     let adapter = FakeAdapter()
     let actions = SessionActions(
-        inspect: { $0 }, terminate: { _ in }, codex: CodexMessaging(), claude: ClaudeMessaging(),
+        inspect: { $0 }, terminate: { _ in },
         focus: makeFocus(host: terminalApp, adapter: adapter))
     await #expect(throws: ActionFailure.self) { try await actions.focusTerminal(of: row) }
     #expect(adapter.requests.withLock { $0 }.isEmpty)

@@ -2,6 +2,8 @@
 
 Deferred follow-up, recorded 2026-10-26 at the user's request. Prepare reviewable GitHub issue drafts later; do not open issues, contact maintainers, change the dependency or create a fork as part of this task. No issues have been filed. [PLAN.md](../PLAN.md#existing-validation-follow-ups) owns scheduling; the [no-fork decision](decisions/swifttui-fork.md) remains binding.
 
+Current scope after messaging removal (2026-10-29): Agent Monitor discards paste and has no composer or producer-side paste mutation. The historical ordering candidate below is not an active monitor-state defect; re-evaluate its relevance before any later issue preparation. Reader/parser/runtime storage bounds remain open. This correction does not resume the deferred issue work.
+
 ## Preserve these inputs
 
 - [Source findings](research/terminal-ui.md#ordered-input-and-retention-boundary--2026-10-26): native read accumulation, partial decoding, reader/wrapper streams, queued and drained events, and paste/key ordering.

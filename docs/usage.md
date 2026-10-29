@@ -134,7 +134,7 @@ agent-monitor kill --pid 42001
 agent-monitor focus --pid 42001
 ```
 
-Each command reads the process's current lifetime and attribution, independently of the display thresholds. `kill` prints the target and asks `[y/N]`; without interactive stdin it refuses unless `--yes` is supplied. `focus` needs no confirmation. The retained `message` command refuses before provider execution, including with `--yes`.
+`kill` and `focus` read the process's current lifetime and attribution, independently of the display thresholds. `kill` prints the target and asks `[y/N]`; without interactive stdin it refuses unless `--yes` is supplied. `focus` needs no confirmation. `agent-monitor message [--no-color]` reports the offline limitation and exits with status 1 before process lookup or confirmation. It accepts no PID, message text or recipient options.
 
 | Exit status | Meaning |
 | --- | --- |

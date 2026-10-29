@@ -43,9 +43,6 @@ private func sharesAncestry(_ left: HeavyProcess, _ right: HeavyProcess) -> Bool
         let rows = cached.accountingFindings(sorted: true)
         #expect(rows == oracle.findings())
         #expect(cached.attributionObservationTimes(for: rows) == oracle.attributionObservationTimes())
-        for row in rows {
-            #expect(cached.attributingMarker(for: row.process) == oracle.attributingMarker(for: row.process))
-        }
     }
     func ingest(_ samples: [ProcessSample]) {
         cached.ingest(samples)

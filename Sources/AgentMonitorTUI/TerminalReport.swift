@@ -63,9 +63,7 @@ public enum TerminalReport {
         let runtime = RunLoop(
             rootIdentity: identity,
             presentationSurface: host,
-            terminalInputReader: ActionInputReader { text in
-                state.mutate { _ = $0.actionInput(.text(text)) }
-            },
+            terminalInputReader: ActionInputReader(),
             signalReader: SignalReader(),
             stateContainer: state,
             focusTracker: FocusTracker(invalidationIdentities: [identity]),
@@ -278,15 +276,10 @@ public enum TerminalReport {
         guard key.modifiers.isEmpty || key.modifiers == .shift else { return nil }
         switch key.key {
         case .escape: return .escape
-        case .return: return .review
-        case .tab: return .recipient
-        case .backspace: return .backspace
         case .arrowUp: return .scroll(-1)
         case .arrowDown: return .scroll(1)
         case .pageUp: return .scroll(-10)
         case .pageDown: return .scroll(10)
-        case .space: return .text(" ")
-        case .character(let character): return .text(String(character))
         default: return nil
         }
     }
@@ -305,21 +298,12 @@ private final class TerminalOutcome {
         actionTask = Task {
             do {
                 switch effect {
-                case .prepare(let process):
-                    let draft = try await actions.prepareMessage(for: process)
-                    try Task.checkCancellation()
-                    state.mutate { $0.messagePrepared(draft) }
                 case .terminate(let process):
                     try await actions.terminate(process)
                     state.mutate {
                         $0.actionFinished(
                             .accepted(ActionWording.terminationAccepted(pid: process.process.pid))
                         )
-                    }
-                case .send(let draft, let text, let recipient):
-                    try await actions.send(draft, text: text, recipient: recipient)
-                    state.mutate {
-                        $0.actionFinished(.accepted(MessageWording.accepted(draft, recipient: recipient)))
                     }
                 case .focus(let process):
                     let result = try await actions.focusTerminal(of: process)

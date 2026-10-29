@@ -83,16 +83,11 @@ enum TUIFixture {
 }
 
 private struct FixtureActions: ProcessActions {
-    func terminate(_ process: HeavyProcess) async throws {}
-    func prepareMessage(for process: HeavyProcess) async throws -> MessageDraft {
-        MessageDraft(
-            process: process,
-            recipients: MessageRecipients(
-                root: AgentRecipient(id: "22222222-2222-4222-8222-222222222222", label: "Root agent"),
-                selected: AgentRecipient(id: "11111111-1111-4111-8111-111111111111", label: "Selected agent"))
-        )
+    func terminate(_ process: HeavyProcess) async throws {
+        if let path = ProcessInfo.processInfo.environment["AGENT_MONITOR_TERMINATION_FIXTURE"] {
+            try String(process.process.pid).write(toFile: path, atomically: true, encoding: .utf8)
+        }
     }
-    func send(_ draft: MessageDraft, text: String, recipient: String) async throws {}
     func focusTerminal(of process: HeavyProcess) async throws -> FocusOutcome {
         .session(application: "Terminal", tty: "/dev/ttys001")
     }

@@ -59,7 +59,6 @@ func overlappingRuntimeRecognitionNeverChoosesByRegistrationOrder(reversed: Bool
     #expect(row.attribution.provider == nil)
     #expect(row.attribution.threadID == nil)
     #expect(row.attribution.evidence == .ambiguous)
-    #expect(monitor.attributingMarker(for: child.identity) == nil)
 }
 
 @Test func sharedPipelineUsesAdapterRecognitionMarkersAndDetachedEvidence() throws {

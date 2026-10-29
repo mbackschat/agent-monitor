@@ -139,7 +139,6 @@ func filteredLookupKeepsFullTotalsWithoutEnablingHiddenProcessActions(sessionCou
     let id = LiveReportRowID.process(try #require(snapshot.findings.first).process)
     #expect(model.visibleRowIDs.contains(id))
     let historical = try #require(snapshot.findings.first)
-    #expect(!SessionActions.canMessage(historical))
     #expect(!SessionActions.canFocusTerminal(historical))
     #expect(!model.canBegin(.terminate, row: id))
     #expect(!model.canBegin(.message, row: id))

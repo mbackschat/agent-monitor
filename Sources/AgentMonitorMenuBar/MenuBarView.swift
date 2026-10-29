@@ -461,10 +461,6 @@ struct MenuBarView: View {
                     .controlSize(.small)
                 Text("Closing this panel cancels pending work.").font(.caption).foregroundStyle(
                     .secondary)
-            case .loading, .compose, .review:
-                Text(ProviderRuntimeAvailability.messagingUnavailableReason)
-                Button("Done") { model.input(.escape) }
-                    .focused($focus, equals: .inspection)
             case .result:
                 Text(panel.result?.text ?? "Action finished").textSelection(.enabled)
                 Button("Done") { model.input(.escape) }

@@ -262,7 +262,7 @@ final class MenuBarModel {
             switch kind {
             case .terminate: return true
             case .focus: return SessionActions.canFocusTerminal(process)
-            case .message: return SessionActions.canMessage(process)
+            case .message: return false
             }
         }
     }
@@ -347,8 +347,6 @@ final class MenuBarModel {
             do {
                 let result: ActionResult
                 switch effect {
-                case .prepare, .send:
-                    throw ActionFailure(ProviderRuntimeAvailability.messagingUnavailableReason)
                 case .terminate(let process):
                     try Task.checkCancellation()
                     try await actions.terminate(process)
@@ -360,11 +358,11 @@ final class MenuBarModel {
                 finish(result, generation: token)
             } catch is CancellationError {
                 switch effect {
-                case .send, .terminate:
+                case .terminate:
                     finish(
                         .uncertain("Action interrupted. Check its outcome before trying again."),
                         generation: token)
-                case .prepare, .focus: break
+                case .focus: break
                 }
             } catch {
                 finish(

@@ -58,7 +58,7 @@ extension MenuBarModel {
         switch kind {
         case .terminate: return true
         case .focus: return SessionActions.canFocusTerminal(target)
-        case .message: return SessionActions.canMessage(target)
+        case .message: return false
         }
     }
 

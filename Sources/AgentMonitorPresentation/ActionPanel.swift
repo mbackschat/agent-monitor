@@ -4,35 +4,12 @@ import Foundation
 
 public enum ProcessActionKind: Sendable { case terminate, message, focus }
 public enum ActionInput: Sendable {
-    case text(String)
-    case backspace, review, confirm, escape, recipient
+    case confirm, escape
     case scroll(Int)
 }
 public enum ActionEffect: Equatable, Sendable {
-    case prepare(HeavyProcess)
     case terminate(HeavyProcess)
-    case send(MessageDraft, String, String)
     case focus(HeavyProcess)
-}
-
-/// Acceptance means different things per transport: Codex accepts a queue request, while a Claude
-/// inbox applies the session's peer controls after the handoff (docs/research/claude-session-messaging.md).
-public enum MessageWording {
-    public static func note(_ provider: AgentProvider?) -> String {
-        switch provider {
-        case .codex, nil: "Queued acceptance does not mean delivery or action."
-        case .claude:
-            "Inbox acceptance does not mean delivery: the session may hold or refuse messages from other processes."
-        }
-    }
-
-    public static func accepted(_ draft: MessageDraft, recipient: String) -> String {
-        switch draft.process.attribution.provider {
-        case .codex, nil: "Message queued for \(recipient). Delivery and action are not confirmed."
-        case .claude:
-            "Message handed to the inbox of Claude session \(recipient). Delivery and action are not confirmed."
-        }
-    }
 }
 
 /// Target and result wording shared by the TUI panel and the command-line actions.
@@ -64,7 +41,7 @@ public enum FocusWording {
     }
 }
 
-/// Accepted means a signal or message was handed over, never that it took effect.
+/// Signal acceptance does not confirm process exit.
 public enum ActionResult: Equatable, Sendable {
     case accepted(String)
     case failed(String)
@@ -80,64 +57,19 @@ public enum ActionResult: Equatable, Sendable {
 
 public struct ActionPanel: Equatable, Sendable {
     public enum Phase: Sendable {
-        case confirmTermination, loading, compose, review, working, focusing, result
+        case confirmTermination, working, focusing, result
     }
     public let process: HeavyProcess
     public var phase: Phase
-    public var draft: MessageDraft?
-    public var sampledAt: Date?
-    public private(set) var text = ""
-    public private(set) var inputNotice: String?
-    public var recipientIndex = 0
     public var offset = 0
     public var result: ActionResult?
-    public var recipient: AgentRecipient? {
-        guard let choices = draft?.recipients.choices, choices.indices.contains(recipientIndex) else {
-            return nil
-        }
-        return choices[recipientIndex]
-    }
-
-    public mutating func replaceText(_ value: String) {
-        let admitted = MessageDraft.appending(value, to: "")
-        text = admitted.text
-        inputNotice = admitted.notice
-        offset = 0
-    }
-
     public mutating func input(_ input: ActionInput) -> ActionEffect? {
         switch input {
-        case .text(let text) where phase == .compose:
-            let admitted = MessageDraft.appending(text, to: self.text)
-            self.text = admitted.text
-            inputNotice = admitted.notice
-            offset = 0
-        case .backspace where phase == .compose:
-            if !text.isEmpty { text.removeLast() }
-            inputNotice = nil
-        case .recipient where phase == .compose:
-            if let choices = draft?.recipients.choices {
-                recipientIndex = (recipientIndex + 1) % choices.count
-            }
-        case .review where phase == .compose:
-            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                recipient?.unavailableReason == nil
-            else { return nil }
-            phase = .review
-            offset = 0
-        case .escape where phase == .review:
-            phase = .compose
-            offset = 0
         case .confirm where phase == .confirmTermination:
             phase = .working
             return .terminate(process)
-        case .confirm where phase == .review:
-            guard let draft, let recipient, recipient.unavailableReason == nil else { return nil }
-            phase = .working
-            return .send(draft, text, recipient.id)
         case .scroll(let delta):
-            offset =
-                phase == .compose ? min(0, max(-10_000, offset + delta)) : max(0, min(10_000, offset + delta))
+            offset = max(0, min(10_000, offset + delta))
         default: break
         }
         return nil
@@ -145,14 +77,10 @@ public struct ActionPanel: Equatable, Sendable {
 
     func lines(width: Int, height: Int) -> [ReportLine] {
         let (title, content, controls) = phaseContent()
-        let notices = phase == .compose ? inputNotice.map { [ReportLine($0, style: .warning)] } ?? [] : []
-        let footer = Self.wrap(notices + [ReportLine(controls, style: .muted)], width: width)
+        let footer = Self.wrap([ReportLine(controls, style: .muted)], width: width)
         let capacity = max(1, height - 1 - footer.count)
         let rows = Self.wrap(content, width: width)
-        // Editing follows the insertion point; review starts at the target and is scrollable.
-        let start =
-            phase == .compose
-            ? max(0, rows.count - capacity + offset) : min(offset, max(0, rows.count - capacity))
+        let start = min(offset, max(0, rows.count - capacity))
         let visible = Array(rows.dropFirst(start).prefix(capacity))
         let heading = String((title + " [\(start + 1)-\(start + visible.count)/\(rows.count)]").prefix(width))
         return [ReportLine(heading, style: .title)] + visible
@@ -175,16 +103,6 @@ public struct ActionPanel: Equatable, Sendable {
                     style: .muted),
             ]
             controls = "Ctrl-Y terminate | Esc cancel | ↑/↓ scroll"
-        case .loading:
-            title = "Checking live recipients…"
-            controls = "Ctrl-C quit"
-        case .compose, .review:
-            title = phase == .compose ? "Message agent" : "Review exact message"
-            content += messageContent()
-            controls =
-                phase == .compose
-                ? "Enter review | Tab recipient | Esc cancel | ↑/↓ scroll"
-                : "Ctrl-Y send | Esc edit | ↑/↓ scroll"
         case .working:
             title = "Submitting action…"
             controls = "Ctrl-C quit"
@@ -210,25 +128,6 @@ public struct ActionPanel: Equatable, Sendable {
         return (title, content, controls)
     }
 
-    private func messageContent() -> [ReportLine] {
-        var content: [ReportLine] = []
-        if let recipient {
-            content += [ReportLine("Recipient: \(recipient.label) / \(recipient.id)")]
-            if let reason = recipient.unavailableReason {
-                content += [ReportLine("Unavailable: \(reason)", style: .warning)]
-            }
-        }
-        if draft?.recipients.choices.count == 2 {
-            content += [ReportLine("Tab chooses root or selected agent while editing.", style: .muted)]
-        }
-        content += [
-            ReportLine(MessageWording.note(process.attribution.provider), style: .muted), ReportLine(""),
-        ]
-        var message = (draft?.message(text) ?? text).components(separatedBy: "\n")
-        if phase == .compose { message[message.count - 1] += "▏" }
-        return content + message.map { ReportLine($0) }
-    }
-
     private static func wrap(_ lines: [ReportLine], width: Int) -> [ReportLine] {
         lines.flatMap { line in
             TerminalCells.wrapped(line.text, to: width).map { ReportLine($0, style: line.style) }
@@ -238,6 +137,10 @@ public struct ActionPanel: Equatable, Sendable {
 
 extension LiveReportState {
     public mutating func beginAction(_ kind: ProcessActionKind) -> ActionEffect? {
+        if case .message = kind {
+            setActionNotice(ProviderRuntimeAvailability.messagingUnavailableReason)
+            return nil
+        }
         guard !showsOverview else { return nil }
         guard actionPanel == nil else { return nil }
         if visibleRows.contains(where: {
@@ -279,18 +182,12 @@ extension LiveReportState {
             actionPanel = ActionPanel(process: row, phase: .confirmTermination)
             return nil
         case .message:
-            return beginMessage(for: row, sampledAt: snapshot?.timestamp)
+            setActionNotice(ProviderRuntimeAvailability.messagingUnavailableReason)
+            return nil
         case .focus:
             actionPanel = ActionPanel(process: row, phase: .focusing)
             return .focus(row)
         }
-    }
-
-    /// Starts fresh recipient verification for a frozen target, including a restored UI draft.
-    public mutating func beginMessage(for process: HeavyProcess, sampledAt: Date? = nil) -> ActionEffect? {
-        guard actionPanel == nil, !process.isHistorical else { return nil }
-        actionPanel = ActionPanel(process: process, phase: .loading, sampledAt: sampledAt)
-        return .prepare(process)
     }
 
     /// A launch group names one session, which is all focus needs: it targets the group's runtime
@@ -314,23 +211,15 @@ extension LiveReportState {
         guard var panel = actionPanel else { return nil }
         if case .escape = input {
             switch panel.phase {
-            case .confirmTermination, .compose, .result:
+            case .confirmTermination, .result:
                 actionPanel = nil
                 return nil
-            case .loading, .working, .focusing, .review: break
+            case .working, .focusing: break
             }
         }
         let effect = panel.input(input)
         actionPanel = panel
         return effect
-    }
-
-    public mutating func messagePrepared(_ draft: MessageDraft) {
-        guard actionPanel?.phase == .loading, actionPanel?.process == draft.process else { return }
-        let prepared = MessageDraft(
-            process: draft.process, recipients: draft.recipients, sampledAt: actionPanel?.sampledAt)
-        actionPanel?.draft = prepared
-        actionPanel?.phase = .compose
     }
 
     public mutating func actionFinished(_ result: ActionResult) {

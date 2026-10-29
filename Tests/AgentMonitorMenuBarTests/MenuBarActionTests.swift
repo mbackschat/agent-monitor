@@ -16,14 +16,6 @@ private final class FakeActions: ProcessActions, Sendable {
     func terminate(_ process: HeavyProcess) async throws {
         calls.withLock { $0.append("terminate \(process.process.pid)") }
     }
-    func prepareMessage(for process: HeavyProcess) async throws -> MessageDraft {
-        Issue.record("Unavailable messaging must not prepare a recipient")
-        throw ActionFailure(ProviderRuntimeAvailability.messagingUnavailableReason)
-    }
-    func send(_ draft: MessageDraft, text: String, recipient: String) async throws {
-        Issue.record("Unavailable messaging must not submit a message")
-        throw ActionFailure(ProviderRuntimeAvailability.messagingUnavailableReason)
-    }
     func focusTerminal(of process: HeavyProcess) async throws -> FocusOutcome {
         calls.withLock { $0.append("focus \(process.process.pid)") }
         try await focus?()

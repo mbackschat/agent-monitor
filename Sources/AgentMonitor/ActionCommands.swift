@@ -11,12 +11,8 @@ enum ActionExit: Int32 {
     case uncertain = 2
 }
 
-enum RecipientChoice: String, ExpressibleByArgument, CaseIterable {
-    case root, selected
-}
-
-/// The TUI's action contract for one PID: the same fresh identity and recipient checks, a review
-/// of the exact target or message, and explicit confirmation, which a script gives with `--yes`.
+/// CLI actions share fresh identity checks and target wording with the TUI.
+/// Termination requires explicit confirmation, which scripts give with `--yes`.
 struct ActionRunner {
     let actions: any ProcessActions
     let lookup: @Sendable (Int32) throws -> HeavyProcess
@@ -59,29 +55,9 @@ struct ActionRunner {
         }
     }
 
-    func message(pid: Int32, text: String, to choice: RecipientChoice, yes: Bool) async -> ActionExit {
-        await perform {
-            let process = try lookup(pid)
-            let draft = try await actions.prepareMessage(for: process)
-            let recipient =
-                switch choice {
-                case .root: draft.recipients.root
-                case .selected: draft.recipients.selected
-                }
-            if let reason = recipient.unavailableReason {
-                throw ActionFailure("Recipient unavailable: \(reason)")
-            }
-            describe(process)
-            out(ReportLine("Recipient: \(recipient.label) / \(recipient.id)"))
-            out(ReportLine(MessageWording.note(process.attribution.provider), style: .muted))
-            out(ReportLine(""))
-            for line in draft.message(text).components(separatedBy: "\n") { out(ReportLine(line)) }
-            out(ReportLine(""))
-            guard approved("Send this message? [y/N] ", yes: yes) else { return .notDone }
-            try await actions.send(draft, text: text, recipient: recipient.id)
-            out(ReportLine(MessageWording.accepted(draft, recipient: recipient.id), style: .success))
-            return .accepted
-        }
+    func message() -> ActionExit {
+        err(ReportLine(ProviderRuntimeAvailability.messagingUnavailableReason, style: .failure))
+        return .notDone
     }
 
     func focus(pid: Int32) async -> ActionExit {
@@ -159,23 +135,10 @@ struct MessageCommand: AsyncParsableCommand {
         abstract: "Unavailable: provider messaging cannot be guaranteed offline.",
         discussion: "No provider helper is started and no message is sent. Exit status: 1.")
 
-    @Option(help: "PID of the process whose session receives the message.")
-    var pid: Int32
-
-    @Option(help: "Message text, 1-\(MessageDraft.maximumLength) characters and at most 64 KiB UTF-8.")
-    var text: String
-
-    @Option(help: "Codex recipient: root (default) or selected, the agent that launched the process.")
-    var to: RecipientChoice = .root
-
-    @Flag(help: "Confirm without a prompt; required when stdin is not a terminal.")
-    var yes = false
-
     @OptionGroup var color: ColorOption
 
     func run() async throws {
-        try finish(
-            await ActionRunner.local(noColor: color.noColor).message(pid: pid, text: text, to: to, yes: yes))
+        try finish(ActionRunner.local(noColor: color.noColor).message())
     }
 }
 
