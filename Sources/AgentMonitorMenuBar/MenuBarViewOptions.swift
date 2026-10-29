@@ -25,7 +25,7 @@ struct MenuBarViewOptions: NSViewRepresentable {
 }
 
 enum MenuBarOption: Equatable {
-    case grouping(ReportGrouping)
+    case view(ReportView)
     case sort(ReportSort)
     case contributorSort
     case ascending
@@ -39,7 +39,7 @@ enum MenuBarOption: Equatable {
     case historyMetric(HistoryMetric)
     case historyWindow(HistoryWindow)
     case reference(MenuBarReferencePage)
-    case liveIcon, overview, allContributors, unpinAll
+    case liveIcon, unpinAll
 
     func samplingSettings(from current: SamplingSettings) -> SamplingSettings? {
         var settings = current
@@ -133,42 +133,39 @@ enum MenuBarOption: Equatable {
             return
         case .submenu: break
         }
-        menu.addItem(.sectionHeader(title: "Show"))
-        add(model.report.overview.title, .overview, checked: model.report.overview.enabled, to: menu)
-        add(
-            "Show all contributors (\(model.report.overview.population.total))", .allContributors,
-            checked: model.report.overview.showAll, to: menu)
-        add(
-            "Group by agent session", .grouping(.session),
-            checked: !model.report.overview.enabled && model.report.grouping == .session,
-            to: menu)
-        add(
-            "Processes", .grouping(.none),
-            checked: !model.report.overview.enabled && model.report.grouping == .none, to: menu)
+        menu.addItem(.sectionHeader(title: "View"))
+        for view in ReportView.allCases {
+            add(
+                model.report.title(for: view), .view(view), checked: model.report.view == view,
+                enabled: !view.isOverview || model.report.canSelectOverview, to: menu)
+        }
         menu.addItem(.separator())
         add("Unpin all", .unpinAll, checked: false, to: menu)
         menu.items.last?.isEnabled =
             model.report.hasPins && model.report.actionPanel == nil && !model.diagnosis.state.isVisible
         menu.addItem(.separator())
         menu.addItem(.sectionHeader(title: "Sort by"))
-        if model.report.showsOverview {
+        let overview = model.report.view.isOverview
+        if overview {
             add(
                 "Contributor", .contributorSort, checked: model.report.overview.order == .contributor,
                 to: menu)
         }
-        for sort in ReportSort.allCases {
+        for sort in ReportSort.allCases where !overview || sort != .pid {
             add(
                 sort.rawValue, .sort(sort),
-                checked: model.report.showsOverview
-                    ? (sort == .cpu && model.report.overview.order == .cpu
+                checked: overview
+                    ? (sort == .stable && model.report.overview.order == .stable
+                        || sort == .cpu && model.report.overview.order == .cpu
                         || sort == .memory && model.report.overview.order == .memory)
                     : model.report.sortKey == sort, to: menu)
         }
         add(
             "Ascending", .ascending,
-            checked: model.report.showsOverview ? model.report.overview.ascending : model.report.ascending,
+            checked: overview ? model.report.overview.ascending : model.report.ascending,
             to: menu)
-        menu.items.last?.isEnabled = model.report.showsOverview || model.report.sortKey != .stable
+        menu.items.last?.isEnabled =
+            overview ? model.report.overview.order != .stable : model.report.sortKey != .stable
         menu.addItem(.separator())
         menu.addItem(.sectionHeader(title: "Display filters"))
         let filterHelp = "Changes process rows; observed totals and recent activity stay unchanged."
@@ -263,28 +260,11 @@ enum MenuBarOption: Equatable {
         guard let option = item.representedObject as? MenuBarOption else { return }
         switch option {
         case .unpinAll: model.unpinAll()
-        case .overview: model.report.overview.enabled = true
-        case .allContributors:
-            model.report.overview.enabled = true
-            model.report.overview.showAll.toggle()
-        case .grouping(let grouping):
-            model.report.overview.enabled = false
-            if model.report.grouping != grouping { model.report.toggleGrouping() }
-        case .sort(let sort):
-            if model.report.showsOverview, sort == .cpu || sort == .memory {
-                model.report.overview.sort(by: sort == .cpu ? .cpu : .memory)
-            } else {
-                model.report.overview.enabled = false
-                if model.report.sortKey != sort { model.report.sort(by: sort) }
-            }
-        case .contributorSort: model.report.overview.sort(by: .contributor, ascending: true)
-        case .ascending:
-            if model.report.showsOverview {
-                model.report.overview.sort(
-                    by: model.report.overview.order, ascending: !model.report.overview.ascending)
-            } else {
-                model.report.reverseSort()
-            }
+        case .view(let view): model.report.view = view
+        case .sort(let sort): model.report.sortCurrentView(by: sort)
+        case .contributorSort:
+            if model.report.view.isOverview { model.report.overview.sort(by: .contributor, ascending: true) }
+        case .ascending: model.report.reverseCurrentSort()
         case .cpu(let value):
             model.report.setThresholds(
                 Thresholds(cpuPercent: value, memoryBytes: model.report.thresholds.memoryBytes))

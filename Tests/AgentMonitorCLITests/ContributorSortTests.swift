@@ -84,9 +84,8 @@ extension ContributorSortTests {
         .session(provider: "claude", session: name, root: nil)
     }
 
-    /// Locks the refresh rule shared by every level: survivors keep their order only while no
-    /// contributor below exceeds one above it by more than the 1.2× ranking band.
-    @Test func refreshPromotesContributorsBeyondTheRankingBandAtEveryLevel() throws {
+    @Test(arguments: [false, true])
+    func refreshPreservesStableOrderOrPromotesBeyondTheRankingBand(stable: Bool) throws {
         var feed = OverviewFeed()
         var overview = ContributorOverview()
         func tick(_ a: Double, _ b: Double, java: Double, rustc: Double) throws {
@@ -103,18 +102,32 @@ extension ContributorSortTests {
         let java = ContributorID.executable(parent: session("alpha"), name: "java", cwd: "/fixture")
         let rustc = ContributorID.executable(parent: session("alpha"), name: "rustc", cwd: "/fixture")
         #expect(overview.nodes[session("alpha")]?.children == [java, rustc])
+        if stable {
+            var state = LiveReportState()
+            state.overview = overview
+            state.apply(.stable)
+            overview = state.overview
+        }
 
         try tick(0.4, 3, java: 0.1, rustc: 0.9)
-        #expect(overview.main == [session("beta"), session("alpha")])
-        #expect(overview.nodes[session("alpha")]?.children == [rustc, java])
+        let roots = stable ? [session("alpha"), session("beta")] : [session("beta"), session("alpha")]
+        let children = stable ? [java, rustc] : [rustc, java]
+        #expect(overview.main == roots)
+        #expect(overview.nodes[session("alpha")]?.children == children)
 
         // Within the band, a refresh must not reshuffle rows under the user's selection.
         try tick(3.3, 3, java: 0.52, rustc: 0.48)
-        #expect(overview.main == [session("beta"), session("alpha")])
-        #expect(overview.nodes[session("alpha")]?.children == [rustc, java])
+        #expect(overview.main == roots)
+        #expect(overview.nodes[session("alpha")]?.children == children)
+        var state = LiveReportState()
+        state.overview = overview
+        state.apply(.cpu)
+        #expect(state.overview.main == [session("alpha"), session("beta")])
+        #expect(state.overview.nodes[session("alpha")]?.children == [java, rustc])
     }
 
-    @Test func largerNewcomerIsNotAppendedBelowSmallerIncumbents() throws {
+    @Test(arguments: [false, true])
+    func newcomerPositionUsesSelectedOrder(stable: Bool) throws {
         var feed = OverviewFeed()
         var overview = ContributorOverview()
         func tick(_ workers: [OverviewFeed.Worker]) throws { overview.receive(try feed.advance(workers)) }
@@ -124,10 +137,15 @@ extension ContributorSortTests {
         ]
         try tick(incumbents)
         try tick(incumbents)
+        if stable { overview.sort(by: .stable) }
         let gamma = OverviewFeed.Worker(session: "gamma", executable: "rustc", pid: 3, cpuPerSecond: 8)
         // The first reading of a lifetime born before the listing only establishes its baseline.
         try tick(incumbents + [gamma])
         try tick(incumbents + [gamma])
-        #expect(overview.main == [session("gamma"), session("alpha"), session("beta")])
+        #expect(
+            overview.main
+                == (stable
+                    ? [session("alpha"), session("beta"), session("gamma")]
+                    : [session("gamma"), session("alpha"), session("beta")]))
     }
 }

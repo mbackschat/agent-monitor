@@ -80,12 +80,12 @@ public enum ReportReferenceLayout {
     private static let keyboardHelp: [ReportLine] = [
         ReportLine("Keyboard controls", style: .heading),
         ReportLine("? help & glossary · D passive diagnostics · Esc back · q/Ctrl-C quit"),
-        ReportLine("v overview/processes · a recent/remainder · ↑/↓ select · ←/→ collapse/expand"),
+        ReportLine("v overview/processes · a main/all contributors · ↑/↓ select · ←/→ collapse/expand"),
         ReportLine(
             "Process view: Shift+←/→ collapse/expand session groups · Enter inspect current overview process"),
         ReportLine("i details · Tab rows/details · Esc close · PgUp/PgDn scroll · [/] one line"),
         ReportLine(
-            "c/m CPU/memory order · n/o enter process PID/Stable order · r reverse process numeric order · g process groups"
+            "c/m/o CPU/memory/Stable order · r reverse · n PID in process views · g process groups"
         ),
         ReportLine(". pin/unpin owning overview session or selected process/session · u unpin all"),
         ReportLine("p pause/resume · h history metric · t history range"),

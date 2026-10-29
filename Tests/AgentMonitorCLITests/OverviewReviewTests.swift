@@ -185,6 +185,17 @@ import Testing
         state.apply(.cpu)
         #expect(state.showsOverview)
         #expect(state.overview.main == [session(2), session(3), session(1)])
+        state.apply(.reverse)
+        #expect(state.overview.main == [session(1), session(3), session(2)])
+        let rows = state.overview.visibleRows
+        state.apply(.stable)
+        #expect(state.showsOverview)
+        #expect(state.overview.order.rawValue == "stable")
+        #expect(state.overview.visibleRows == rows)
+        state.apply(.reverse)
+        state.apply(.pid)
+        #expect(state.showsOverview)
+        #expect(state.overview.visibleRows == rows)
     }
 
     @Test func memoryOnlyArrivalsUseMemoryOrderAfterCPUContributors() throws {

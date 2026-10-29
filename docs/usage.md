@@ -57,7 +57,7 @@ Adaptive sampling defaults off. With `--adaptive-sampling`, acquisition starts a
 
 | Key | Action |
 | --- | --- |
-| `v` / `a` | Switch overview/process view / open recent and remainder sections |
+| `v` / `a` | Switch overview/process view / select All or Main contributors |
 | Return | Inspect the selected current overview process in the action-capable process view |
 | `i` | Show/hide selected details in either view without folding children |
 | Page Up / Page Down | Scroll visible details in either view by five lines |
@@ -71,9 +71,9 @@ Adaptive sampling defaults off. With `--adaptive-sampling`, acquisition starts a
 | `k` | Review SIGTERM for the selected process |
 | `s` | Explain why messaging is unavailable in local-only operation |
 | `f` | Bring the terminal hosting the selected process's or group's agent session to the front |
-| `c` / `m` / `n` | Sort by CPU, memory footprint, or PID |
-| `o` | Stable order: keep existing positions and append arrivals (default) |
-| `r` | Reverse CPU, footprint or PID sort direction |
+| `c` / `m` / `n` | Sort the current view by CPU or memory; PID applies only in process views |
+| `o` | Stable order in the current view: keep surviving sibling positions and append arrivals (process-view default) |
+| `r` | Reverse the current view’s sort direction; no effect in Stable order |
 | `h` | Cycle history: CPU (default), memory, heavy-process count |
 | `t` | Switch history between the last 10 minutes (default) and one hour |
 | `1` / `2` | Lower/raise the CPU threshold by 10 percentage points |
@@ -242,6 +242,8 @@ History records **every collected report**, using that report's observations. Ac
 
 ## Menu bar app
 
+The Mac **View options → View** section offers four mutually exclusive choices: **Main contributors (X/Y)**, **All contributors (Y)**, **Processes by session**, and **Processes**. Exactly one is checked; selecting it again leaves it selected. The Sort by section applies only to that chosen view, even before its first sample. PID is available only in process views. If a received snapshot has no contributor history, the controls reflect the rendered process view and contributor-view menu choices are unavailable.
+
 **View options** separates **Display filters** (CPU and footprint thresholds) from **Sampling** (mode, maximum interval, advanced settings and live icon). Filter tooltips explain their scope: visible process rows change, while observed totals and recent activity stay unchanged.
 
 Sampling choices last until quit. Adaptation defaults off, with a 100 ms minimum/visible maximum and closed-panel multiplier one.
@@ -264,7 +266,7 @@ The main contributor table has aligned **Contributor**, **CPU** and **Memory** c
 
 The secondary process view retains expandable session/process rows and separate pin controls. Expand a process for attribution and contextual actions. **Terminal** uses local terminal-focus adapters; macOS may ask to let Agent Monitor control Terminal. **Terminate…** reviews one frozen lifetime before sending SIGTERM. **Message…** remains disabled because its provider helpers cannot be guaranteed offline. Acceptance does not confirm termination or physical focus, and no action automatically retries.
 
-**Stable order** is the default in the process view in both GUI and TUI: existing rows keep their relative order as values change, new identities append, and departed rows disappear. Pins stay at the top. In the native app choose **View options → Stable order**; in the TUI press **o**. CPU, footprint and PID remain available (`c`, `m`, `n` in TUI). Switching back to Stable order retains the current order; reverse/Ascending does not apply. The first batch and simultaneous arrivals start in descending CPU order. Native reopening preserves surviving rows’ order.
+**Stable order** is available in both views and is the default in the process view in both GUI and TUI: existing rows keep their relative order as values change, new identities append, and departed rows disappear. Pins stay at the top. In the native app choose **View options → Stable order**; in the TUI press **o**. CPU, footprint and PID remain available (`c`, `m`, `n` in TUI). Switching back to Stable order retains the current order; reverse/Ascending does not apply. The process view starts initial and simultaneous arrivals in descending CPU order. The contributor overview preserves the current sibling order when Stable is selected and appends simultaneous newcomers in identity order. Its relevance groups and retained population continue updating; Stable does not freeze measurements or membership. Sorting never switches views: `o`, `c`, `m` and `r` act on the current view, and `n` is inert in the overview. Native reopening preserves surviving rows’ order.
 
 New process rows and their parent session headers receive a system-adaptive gray background for three seconds, followed by a brief fade (no animation with Reduce Motion). Parent headers highlight even when collapsed, so arrivals are visible without expanding. Initial loading and reopening do not highlight the whole list. Reordering, pinning and expanding rows do not restart the highlight. A returning identity counts as a new arrival; while paused, arrivals are highlighted only when Resume applies the latest sample.
 

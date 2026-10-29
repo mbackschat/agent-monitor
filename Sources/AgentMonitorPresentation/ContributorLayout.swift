@@ -15,11 +15,12 @@ public enum ContributorLayout {
         var footer = footerLines(state: state, width: width)
         let status = state.displayCoverageStatus
         let coverage = ReportLine(status.terminalSummary(width: width), style: status.lineStyle)
-        let title = (state.frozen ? "PAUSED · p resume" : "Agent Monitor") + " | " + overview.title
+        let heading = overview.title + (overview.order == .stable ? " · Stable" : "")
+        let title = (state.frozen ? "PAUSED · p resume" : "Agent Monitor") + " | " + heading
         var header = [
             ReportLine(
                 TerminalCells.width(title) <= width
-                    ? title : (state.frozen ? "PAUSED | " : "") + overview.title,
+                    ? title : (state.frozen ? "PAUSED | " : "") + heading,
                 style: .title),
             ReportLine(overview.totals.summary(duration: overview.duration)),
             coverage,
@@ -192,7 +193,7 @@ public enum ContributorLayout {
             ReportLine(
                 state.overview.detailsVisible
                     ? "Tab rows/details · ↑/↓ scroll · PgUp/PgDn page · Esc close · Enter inspect process"
-                    : "↑/↓ select · ←/→ fold · i details · c/m sort · . pin · a show all · v processes",
+                    : "↑/↓ select · ←/→ fold · i details · c/m/o sort · . pin · a main/all · v processes",
                 style: .muted),
             ReportLine("? help | " + diagnosis + " | " + pause + " | q quit", style: .muted),
         ]

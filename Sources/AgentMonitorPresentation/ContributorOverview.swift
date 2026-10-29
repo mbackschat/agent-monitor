@@ -137,7 +137,7 @@ public struct ContributorRow: Equatable, Sendable, Identifiable {
     public var id: ContributorID { node.id }
 }
 
-public enum ContributorOrder: String, Sendable { case contributor, cpu, memory }
+public enum ContributorOrder: String, Sendable { case stable, contributor, cpu, memory }
 
 /// One immutable-category projection and disclosure policy for native and terminal hosts.
 public struct ContributorOverview: Equatable, Sendable {
@@ -179,7 +179,8 @@ public struct ContributorOverview: Equatable, Sendable {
 
     public mutating func sort(by order: ContributorOrder, ascending: Bool = false) {
         self.order = order
-        self.ascending = ascending
+        self.ascending = order == .stable ? false : ascending
+        guard order != .stable else { return }
         expandRemainders()
         main = contributionOrder(main)
         sortChildren()
@@ -195,12 +196,13 @@ public struct ContributorOverview: Equatable, Sendable {
     private func value(_ id: ContributorID, _ metric: ContributorOrder) -> Double {
         let stats = nodes[id]?.stats
         switch metric {
-        case .contributor: return 0
+        case .stable, .contributor: return 0
         case .cpu: return stats?.currentCPU ?? 0
         case .memory: return Double(stats?.memoryBytes ?? 0)
         }
     }
     private func contributionOrder(_ ids: [ContributorID]) -> [ContributorID] {
+        if order == .stable { return ids.sorted { identity($0) < identity($1) } }
         let secondary: ContributorOrder = order == .cpu ? .memory : .cpu
         return ids.sorted {
             if order == .contributor {
@@ -226,6 +228,9 @@ public struct ContributorOverview: Equatable, Sendable {
         let present = Set(ids)
         let survivors = previous.filter { present.contains($0) }
         let known = Set(survivors)
+        if order == .stable {
+            return survivors + contributionOrder(ids.filter { !known.contains($0) })
+        }
         var result: [ContributorID] = []
         for id in survivors + contributionOrder(ids.filter { !known.contains($0) }) {
             let metric = value(id, order)
@@ -253,11 +258,15 @@ public struct ContributorOverview: Equatable, Sendable {
     }
 
     public var title: String {
-        let counts = population
-        return showAll
-            ? "All contributors (\(counts.total))"
-            : "Main contributors (\(counts.main)/\(counts.total))"
+        showAll ? allTitle : mainTitle
     }
+
+    public var mainTitle: String {
+        let counts = population
+        return "Main contributors (\(counts.main)/\(counts.total))"
+    }
+
+    public var allTitle: String { "All contributors (\(population.total))" }
 
     public var populationHelp: String {
         "Main or pinned / all retained session groups. A root and its threads count once. Shared, unresolved and released-detail work are shown separately."

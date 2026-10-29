@@ -644,6 +644,13 @@ private func expectSourceSamplingSettings(at url: URL, maximum: Double) async th
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) { $0.contains("Exact session:") && $0.contains("DETAILS ●") }
+    try writeAllBytes(Array("orn".utf8), to: terminal.master)
+    _ = try await waitForANSIVisibleScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("Main contributors") && $0.contains(" · Stable")
+            && $0.contains("Exact session:") && $0.contains("DETAILS ●")
+    }
     try writeAllBytes([9], to: terminal.master)
     _ = try await waitForANSIVisibleScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)

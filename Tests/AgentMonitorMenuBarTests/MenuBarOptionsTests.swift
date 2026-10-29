@@ -19,11 +19,11 @@ import Testing
     #expect(button.pullsDown)
     #expect(menu.item(withTitle: model.report.overview.title)?.state == .on)
     #expect(menu.item(withTitle: "Processes")?.state == .off)
-    #expect(menu.item(withTitle: "Stable order")?.state == .on)
-    #expect(menu.item(withTitle: "CPU")?.state == .off)
-    #expect(menu.item(withTitle: "Ascending")?.isEnabled == false)
+    #expect(menu.item(withTitle: "Stable order")?.state == .off)
+    #expect(menu.item(withTitle: "CPU")?.state == .on)
+    #expect(menu.item(withTitle: "Ascending")?.isEnabled == true)
     #expect(menu.item(withTitle: "Footprint")?.state == .off)
-    #expect(menu.item(withTitle: "PID")?.state == .off)
+    #expect(menu.item(withTitle: "PID") == nil)
     #expect(menu.items.filter { $0.submenu != nil }.count == 5)
     #expect(menu.item(withTitle: "CPU filter: Off")?.submenu?.item(withTitle: "Off")?.state == .on)
     #expect(menu.item(withTitle: "Footprint filter: Off")?.submenu?.item(withTitle: "Off")?.state == .on)
@@ -349,5 +349,56 @@ func selectedThresholdRejectsNegativeOrNonFiniteCPU(value: Double) {
     menu.performActionForItem(at: menu.index(of: alphabetical))
     #expect(model.report.overview.order == .contributor)
     #expect(model.report.overview.ascending)
+    let rows = model.report.overview.visibleRows
+    let stable = try #require(menu.item(withTitle: "Stable order"))
+    menu.performActionForItem(at: menu.index(of: stable))
+    controller.menuNeedsUpdate(menu)
+    #expect(model.report.showsOverview)
+    #expect(model.report.overview.order.rawValue == "stable")
+    #expect(model.report.overview.visibleRows == rows)
+    #expect(menu.item(withTitle: "Stable order")?.state == .on)
+    #expect(menu.item(withTitle: "Ascending")?.isEnabled == false)
+    #expect(menu.item(withTitle: "PID") == nil)
     await model.stop()
+}
+
+@Test @MainActor func viewChoicesAreExclusiveAndSelectingAgainIsIdempotent() throws {
+    _ = NSApplication.shared
+    let model = MenuBarModel { _, _, _ in }
+    model.report.receive(try nativeOverviewFixture())
+    let counts = model.report.overview.population
+    let titles = [
+        "Main contributors (\(counts.main)/\(counts.total))",
+        "All contributors (\(counts.total))", "Processes by session", "Processes",
+    ]
+    let controller = MenuBarOptionsController(model: model)
+    let menu = controller.makeMenu()
+    for title in titles + titles.reversed() {
+        for _ in 0..<2 {
+            let item = try #require(menu.item(withTitle: title))
+            menu.performActionForItem(at: menu.index(of: item))
+            controller.menuNeedsUpdate(menu)
+            #expect(titles.filter { menu.item(withTitle: $0)?.state == .on } == [title])
+            #expect(model.report.overview.enabled == title.contains("contributors"))
+        }
+    }
+    model.report.view = .processes
+    controller.menuNeedsUpdate(menu)
+    let stalePID = try #require(menu.item(withTitle: "PID"))
+    model.report.view = .allContributors
+    let held = model.report.overview
+    menu.performActionForItem(at: menu.index(of: stalePID))
+    #expect(model.report.overview == held)
+    controller.menuNeedsUpdate(menu)
+    let staleContributor = try #require(menu.item(withTitle: "Contributor"))
+    model.report.view = .processes
+    let processViewOverview = model.report.overview
+    menu.performActionForItem(at: menu.index(of: staleContributor))
+    #expect(model.report.overview == processViewOverview)
+    model.report.view = .allContributors
+    model.report.receive(try menuBarFixture())
+    controller.menuNeedsUpdate(menu)
+    #expect(menu.item(withTitle: "Processes")?.state == .on)
+    #expect(menu.item(withTitle: model.report.overview.allTitle)?.isEnabled == false)
+    #expect(menu.item(withTitle: "PID")?.isEnabled == true)
 }

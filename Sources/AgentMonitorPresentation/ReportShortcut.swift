@@ -26,21 +26,16 @@ extension LiveReportState {
         guard actionPanel == nil, referencePage == nil else { return }
         switch shortcut {
         case .overview: overview.enabled.toggle()
-        case .allContributors: overview.showAll.toggle()
+        case .allContributors:
+            view = view == .allContributors ? .mainContributors : .allContributors
         case .pause: toggleFreeze()
         case .pin: toggleSelectedPin()
         case .unpinAll: unpinAll()
-        case .stable:
-            overview.enabled = false
-            sort(by: .stable)
-        case .cpu:
-            if showsOverview { overview.sort(by: .cpu) } else { sort(by: .cpu) }
-        case .memory:
-            if showsOverview { overview.sort(by: .memory) } else { sort(by: .memory) }
-        case .pid:
-            overview.enabled = false
-            sort(by: .pid)
-        case .reverse: reverseSort()
+        case .stable: sortCurrentView(by: .stable)
+        case .cpu: sortCurrentView(by: .cpu)
+        case .memory: sortCurrentView(by: .memory)
+        case .pid: sortCurrentView(by: .pid)
+        case .reverse: reverseCurrentSort()
         case .grouping:
             overview.enabled = false
             toggleGrouping()

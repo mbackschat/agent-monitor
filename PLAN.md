@@ -26,6 +26,10 @@ The completed short-worker fixture confirms substantial loss despite timely poll
 
 ### Existing validation follow-ups
 
+- [ ] **UX-SCALE-01 — Verify hardware-informed fixed chart bounds.** The user accepted the [fixed-range direction](docs/proposals/fixed-cpu-chart-range.md): performance plus super cores determine the initial range, activity never rescales it, and explicit manual selection overrides it. The current implementation still uses all logical CPUs. Verify core-type discovery for three-tier CPUs before implementation; preserve explicit overflow and inspectable historical values.
+
+- [ ] **UX-ORDER-01 — Preserve sort direction across collection resets.** Source review found that `ContributorOverview.receive` restores the chosen order but drops Ascending when the run or scope changes. This is separate from the corrected sort-triggered view switch; reproduce and correct direction retention at the reset boundary.
+
 - [ ] **TUI-INPUT-01 — Bound ordered input end to end.** The [proposal](docs/proposals/bounded-terminal-input.md) is on hold for an official upstream fix or verified supported-public-API solution. Reader/parser/runtime queues and producer-side paste ordering remain open. The [no-fork decision](docs/decisions/swifttui-fork.md) prohibits forks, vendored changes and checkout patches.
 - [ ] **TUI-UPSTREAM-01 — Prepare GitHub issue drafts later.** Deferred at the user's request. Preserve the two candidate reports and reproduction requirements in the [dedicated follow-up](docs/swifttui-upstream-follow-up.md). Do not prepare/file issues or contact maintainers now.
 - [ ] **MENUBAR-01 — Complete the user-run native smoke and energy checks.** Follow the [manual checklist](docs/development.md#manual-macos-smoke-test), including responsibility labels, five-second display, recent workers, coverage, live/static close/reopen, focus and menus. Measure closed-panel cost and inspect App Nap separately. Physical checks remain pending until the user reports them; Computer Use stays disabled.

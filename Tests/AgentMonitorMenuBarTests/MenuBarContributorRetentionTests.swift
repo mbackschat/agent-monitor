@@ -91,6 +91,18 @@ import Testing
         #expect((0..<original.numberOfRows).map { original.level(forRow: $0) } == rows.map(\.depth))
         #expect(original.selectedRow == rows.firstIndex { $0.id == process })
     }
+    let controller = MenuBarOptionsController(model: model)
+    let menu = controller.makeMenu()
+    let stable = try #require(menu.item(withTitle: "Stable order"))
+    let stableRows = model.report.overview.visibleRows
+    let stableOpen = model.report.overview.open
+    menu.performActionForItem(at: menu.index(of: stable))
+    _ = try await retentionFrame(host)
+    #expect(model.report.showsOverview)
+    #expect(contributorOutline(in: host) === original)
+    #expect(model.report.overview.visibleRows == stableRows)
+    #expect(model.report.overview.open == stableOpen)
+    #expect(model.report.overview.selection == process)
     for _ in 0..<2 {
         let changed = model.report.overview.togglePin()
         try #require(changed)
