@@ -1,0 +1,1330 @@
+{
+  "applicationReferenceIntents": [
+    {
+      "driverDestructionAsserted": false,
+      "intendedHeldApplicationQueues": [],
+      "releasedApplicationQueues": []
+    },
+    {
+      "driverDestructionAsserted": false,
+      "intendedHeldApplicationQueues": [
+        "A"
+      ],
+      "releasedApplicationQueues": []
+    },
+    {
+      "driverDestructionAsserted": false,
+      "intendedHeldApplicationQueues": [
+        "A",
+        "B"
+      ],
+      "releasedApplicationQueues": []
+    },
+    {
+      "driverDestructionAsserted": false,
+      "intendedHeldApplicationQueues": [
+        "A"
+      ],
+      "releasedApplicationQueues": [
+        "B"
+      ]
+    },
+    {
+      "driverDestructionAsserted": false,
+      "intendedHeldApplicationQueues": [
+        "A",
+        "Bprime"
+      ],
+      "releasedApplicationQueues": [
+        "B"
+      ]
+    },
+    {
+      "driverDestructionAsserted": false,
+      "intendedHeldApplicationQueues": [
+        "A"
+      ],
+      "releasedApplicationQueues": [
+        "B",
+        "Bprime"
+      ]
+    },
+    {
+      "driverDestructionAsserted": false,
+      "intendedHeldApplicationQueues": [
+        "A",
+        "C"
+      ],
+      "releasedApplicationQueues": [
+        "B",
+        "Bprime"
+      ]
+    }
+  ],
+  "batchTimings": [
+    {
+      "batchWallSecondsIncludingFirstRead": 0.03281974978744984,
+      "gpu": {
+        "firstCommandSeconds": 2.024974673986435e-05,
+        "invalidCount": 0,
+        "maximumSeconds": 2.024974673986435e-05,
+        "minimumSeconds": 1.8875114619731903e-05,
+        "status": "available",
+        "sumSeconds": 0.0012392913922667503,
+        "validCount": 64
+      },
+      "gpuTimestampOverlaps": 0,
+      "gpuUnionStatus": "available",
+      "gpuValidIntervalUnionSeconds": 0.0012392913922667503,
+      "hostCommitToCompletionHandler": {
+        "firstCommandSeconds": 0.0005777501501142979,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0005777501501142979,
+        "minimumSeconds": 0.0001688334159553051,
+        "status": "available",
+        "sumSeconds": 0.012345750350505114,
+        "validCount": 64
+      },
+      "hostCommitToWaitReturn": {
+        "firstCommandSeconds": 0.0005847918801009655,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0005847918801009655,
+        "minimumSeconds": 0.0001743333414196968,
+        "status": "available",
+        "sumSeconds": 0.012804542668163776,
+        "validCount": 64
+      },
+      "kernel": {
+        "firstCommandSeconds": 0.0003231246955692768,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0003231246955692768,
+        "minimumSeconds": 1.0624993592500687e-05,
+        "status": "available",
+        "sumSeconds": 0.0011795386672019958,
+        "validCount": 64
+      },
+      "label": "after_a1",
+      "outputsVerified": true,
+      "submissions": 64
+    },
+    {
+      "batchWallSecondsIncludingFirstRead": 0.034702624659985304,
+      "gpu": {
+        "firstCommandSeconds": 1.9624829292297363e-05,
+        "invalidCount": 0,
+        "maximumSeconds": 7.787486538290977e-05,
+        "minimumSeconds": 1.8916558474302292e-05,
+        "status": "available",
+        "sumSeconds": 0.0012913751415908337,
+        "validCount": 64
+      },
+      "gpuTimestampOverlaps": 0,
+      "gpuUnionStatus": "available",
+      "gpuValidIntervalUnionSeconds": 0.0012913751415908337,
+      "hostCommitToCompletionHandler": {
+        "firstCommandSeconds": 0.000509750097990036,
+        "invalidCount": 0,
+        "maximumSeconds": 0.000509750097990036,
+        "minimumSeconds": 0.0001670829951763153,
+        "status": "available",
+        "sumSeconds": 0.012834873050451279,
+        "validCount": 64
+      },
+      "hostCommitToWaitReturn": {
+        "firstCommandSeconds": 0.0005260002799332142,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0005260002799332142,
+        "minimumSeconds": 0.00017250003293156624,
+        "status": "available",
+        "sumSeconds": 0.013412915635854006,
+        "validCount": 64
+      },
+      "kernel": {
+        "firstCommandSeconds": 0.00017816666513681412,
+        "invalidCount": 0,
+        "maximumSeconds": 0.00017816666513681412,
+        "minimumSeconds": 1.0166782885789871e-05,
+        "status": "available",
+        "sumSeconds": 0.0011550416238605976,
+        "validCount": 64
+      },
+      "label": "after_b1",
+      "outputsVerified": true,
+      "submissions": 64
+    },
+    {
+      "batchWallSecondsIncludingFirstRead": 0.029815958347171545,
+      "gpu": {
+        "firstCommandSeconds": 1.9458122551441193e-05,
+        "invalidCount": 0,
+        "maximumSeconds": 2.237502485513687e-05,
+        "minimumSeconds": 1.8999911844730377e-05,
+        "status": "available",
+        "sumSeconds": 0.001280123833566904,
+        "validCount": 64
+      },
+      "gpuTimestampOverlaps": 0,
+      "gpuUnionStatus": "available",
+      "gpuValidIntervalUnionSeconds": 0.001280123833566904,
+      "hostCommitToCompletionHandler": {
+        "firstCommandSeconds": 0.00044962484389543533,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0005004582926630974,
+        "minimumSeconds": 0.000171625055372715,
+        "status": "available",
+        "sumSeconds": 0.012990663759410381,
+        "validCount": 64
+      },
+      "hostCommitToWaitReturn": {
+        "firstCommandSeconds": 0.0004543331451714039,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0005098334513604641,
+        "minimumSeconds": 0.000176125206053257,
+        "status": "available",
+        "sumSeconds": 0.013619082048535347,
+        "validCount": 64
+      },
+      "kernel": {
+        "firstCommandSeconds": 5.137501284480095e-05,
+        "invalidCount": 0,
+        "maximumSeconds": 5.475012585520744e-05,
+        "minimumSeconds": 1.020822674036026e-05,
+        "status": "available",
+        "sumSeconds": 0.0008966238237917423,
+        "validCount": 64
+      },
+      "label": "after_a2",
+      "outputsVerified": true,
+      "submissions": 64
+    },
+    {
+      "batchWallSecondsIncludingFirstRead": 0.03129533352330327,
+      "gpu": {
+        "firstCommandSeconds": 1.9750092178583145e-05,
+        "invalidCount": 0,
+        "maximumSeconds": 6.987480446696281e-05,
+        "minimumSeconds": 1.895846799015999e-05,
+        "status": "available",
+        "sumSeconds": 0.0012848745100200176,
+        "validCount": 64
+      },
+      "gpuTimestampOverlaps": 0,
+      "gpuUnionStatus": "available",
+      "gpuValidIntervalUnionSeconds": 0.0012848745100200176,
+      "hostCommitToCompletionHandler": {
+        "firstCommandSeconds": 0.0005599167197942734,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0005599167197942734,
+        "minimumSeconds": 0.00017070816829800606,
+        "status": "available",
+        "sumSeconds": 0.013075709342956543,
+        "validCount": 64
+      },
+      "hostCommitToWaitReturn": {
+        "firstCommandSeconds": 0.0005719168111681938,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0005719168111681938,
+        "minimumSeconds": 0.00017675012350082397,
+        "status": "available",
+        "sumSeconds": 0.013536459766328335,
+        "validCount": 64
+      },
+      "kernel": {
+        "firstCommandSeconds": 0.0002470002509653568,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0002470002509653568,
+        "minimumSeconds": 1.0250136256217957e-05,
+        "status": "available",
+        "sumSeconds": 0.001178625039756298,
+        "validCount": 64
+      },
+      "label": "after_bprime",
+      "outputsVerified": true,
+      "submissions": 64
+    },
+    {
+      "batchWallSecondsIncludingFirstRead": 0.030808916315436363,
+      "gpu": {
+        "firstCommandSeconds": 1.950003206729889e-05,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0001965416595339775,
+        "minimumSeconds": 1.8875114619731903e-05,
+        "status": "available",
+        "sumSeconds": 0.0014143348671495914,
+        "validCount": 64
+      },
+      "gpuTimestampOverlaps": 0,
+      "gpuUnionStatus": "available",
+      "gpuValidIntervalUnionSeconds": 0.0014143348671495914,
+      "hostCommitToCompletionHandler": {
+        "firstCommandSeconds": 0.0004769167862832546,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0004769167862832546,
+        "minimumSeconds": 0.00016854144632816315,
+        "status": "available",
+        "sumSeconds": 0.012940248008817434,
+        "validCount": 64
+      },
+      "hostCommitToWaitReturn": {
+        "firstCommandSeconds": 0.0004832916893064976,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0004832916893064976,
+        "minimumSeconds": 0.0001727081835269928,
+        "status": "available",
+        "sumSeconds": 0.013330913614481688,
+        "validCount": 64
+      },
+      "kernel": {
+        "firstCommandSeconds": 5.958322435617447e-05,
+        "invalidCount": 0,
+        "maximumSeconds": 5.958322435617447e-05,
+        "minimumSeconds": 1.0541640222072601e-05,
+        "status": "available",
+        "sumSeconds": 0.0009498763829469681,
+        "validCount": 64
+      },
+      "label": "after_a3",
+      "outputsVerified": true,
+      "submissions": 64
+    },
+    {
+      "batchWallSecondsIncludingFirstRead": 0.03280945820733905,
+      "gpu": {
+        "firstCommandSeconds": 1.9624829292297363e-05,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0011944998987019062,
+        "minimumSeconds": 1.8875114619731903e-05,
+        "status": "available",
+        "sumSeconds": 0.002587041351944208,
+        "validCount": 64
+      },
+      "gpuTimestampOverlaps": 0,
+      "gpuUnionStatus": "available",
+      "gpuValidIntervalUnionSeconds": 0.002587041351944208,
+      "hostCommitToCompletionHandler": {
+        "firstCommandSeconds": 0.0005117086693644524,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0013840002939105034,
+        "minimumSeconds": 0.00017349980771541595,
+        "status": "available",
+        "sumSeconds": 0.01471875049173832,
+        "validCount": 64
+      },
+      "hostCommitToWaitReturn": {
+        "firstCommandSeconds": 0.0005212500691413879,
+        "invalidCount": 0,
+        "maximumSeconds": 0.0013902918435633183,
+        "minimumSeconds": 0.00018791668117046356,
+        "status": "available",
+        "sumSeconds": 0.015180168207734823,
+        "validCount": 64
+      },
+      "kernel": {
+        "firstCommandSeconds": 0.00017795804888010025,
+        "invalidCount": 0,
+        "maximumSeconds": 0.00017795804888010025,
+        "minimumSeconds": 1.0124873369932175e-05,
+        "status": "available",
+        "sumSeconds": 0.0009990837424993515,
+        "validCount": 64
+      },
+      "label": "after_c1",
+      "outputsVerified": true,
+      "submissions": 64
+    }
+  ],
+  "derivedAnalysis": {
+    "batches": [
+      {
+        "conditionalRawNanosecondsToGPUElapsedRatio": 8.674748382086728,
+        "conditionalRawNanosecondsToHostHandlerRatio": 0.8707887892419721,
+        "firstCommandRawIncrement": 244958,
+        "matchingRemaining63TimingSeconds": {
+          "gpu": 0.001219041645526886,
+          "hostCommitToCompletionHandler": 0.011768000200390816,
+          "hostCommitToWaitReturn": 0.012219750788062811,
+          "kernel": 0.000856413971632719
+        },
+        "name": "a1",
+        "propertyReadIntervalBoundsRemaining63Seconds": [
+          0.013373000081628561,
+          0.05079120863229036
+        ],
+        "rawIncrement64": 10750541,
+        "rawIncrementRemaining63": 10505583
+      },
+      {
+        "conditionalRawNanosecondsToGPUElapsedRatio": 8.935016346826899,
+        "conditionalRawNanosecondsToHostHandlerRatio": 0.8989927640612155,
+        "firstCommandRawIncrement": 284583,
+        "matchingRemaining63TimingSeconds": {
+          "gpu": 0.0012717503122985363,
+          "hostCommitToCompletionHandler": 0.012325122952461243,
+          "hostCommitToWaitReturn": 0.012886915355920792,
+          "kernel": 0.0009768749587237835
+        },
+        "name": "b1",
+        "propertyReadIntervalBoundsRemaining63Seconds": [
+          0.014088083058595657,
+          0.05250437464565039
+        ],
+        "rawIncrement64": 11538458,
+        "rawIncrementRemaining63": 11253875
+      },
+      {
+        "conditionalRawNanosecondsToGPUElapsedRatio": 8.90389171822594,
+        "conditionalRawNanosecondsToHostHandlerRatio": 0.8774058209106733,
+        "firstCommandRawIncrement": 392792,
+        "matchingRemaining63TimingSeconds": {
+          "gpu": 0.0012606657110154629,
+          "hostCommitToCompletionHandler": 0.012541038915514946,
+          "hostCommitToWaitReturn": 0.013164748903363943,
+          "kernel": 0.0008452488109469414
+        },
+        "name": "a2",
+        "propertyReadIntervalBoundsRemaining63Seconds": [
+          0.01425054157152772,
+          0.04993566684424877
+        ],
+        "rawIncrement64": 11398084,
+        "rawIncrementRemaining63": 11005292
+      },
+      {
+        "conditionalRawNanosecondsToGPUElapsedRatio": 8.619907947140652,
+        "conditionalRawNanosecondsToHostHandlerRatio": 0.8470286169190515,
+        "firstCommandRawIncrement": 244000,
+        "matchingRemaining63TimingSeconds": {
+          "gpu": 0.0012651244178414345,
+          "hostCommitToCompletionHandler": 0.01251579262316227,
+          "hostCommitToWaitReturn": 0.012964542955160141,
+          "kernel": 0.0009316247887909412
+        },
+        "name": "bprime",
+        "propertyReadIntervalBoundsRemaining63Seconds": [
+          0.014152124989777803,
+          0.047164208721369505
+        ],
+        "rawIncrement64": 11075500,
+        "rawIncrementRemaining63": 10831500
+      },
+      {
+        "conditionalRawNanosecondsToGPUElapsedRatio": 7.910107613020274,
+        "conditionalRawNanosecondsToHostHandlerRatio": 0.8645538317640322,
+        "firstCommandRawIncrement": 399083,
+        "matchingRemaining63TimingSeconds": {
+          "gpu": 0.0013948348350822926,
+          "hostCommitToCompletionHandler": 0.01246333122253418,
+          "hostCommitToWaitReturn": 0.01284762192517519,
+          "kernel": 0.0008902931585907936
+        },
+        "name": "a3",
+        "propertyReadIntervalBoundsRemaining63Seconds": [
+          0.01392341684550047,
+          0.04698162479326129
+        ],
+        "rawIncrement64": 11187541,
+        "rawIncrementRemaining63": 10788458
+      },
+      {
+        "conditionalRawNanosecondsToGPUElapsedRatio": 4.207702359229531,
+        "conditionalRawNanosecondsToHostHandlerRatio": 0.7395668542727227,
+        "firstCommandRawIncrement": 275708,
+        "matchingRemaining63TimingSeconds": {
+          "gpu": 0.0025674165226519108,
+          "hostCommitToCompletionHandler": 0.014207041822373867,
+          "hostCommitToWaitReturn": 0.014658918138593435,
+          "kernel": 0.0008211256936192513
+        },
+        "name": "c1",
+        "propertyReadIntervalBoundsRemaining63Seconds": [
+          0.015771708451211452,
+          0.04892850015312433
+        ],
+        "rawIncrement64": 10885500,
+        "rawIncrementRemaining63": 10609792
+      }
+    ],
+    "denseConditionalMatchingLedger": 66835624,
+    "denseGuardedAggregateLedger": 66835624,
+    "endpointReplays": [
+      {
+        "after": [
+          22148625
+        ],
+        "aggregateDelta": -140374,
+        "before": [
+          10750541,
+          11538458
+        ],
+        "conditionalBoundShortfall": 787917,
+        "controlledIsolatedRawIncrements": 11398084,
+        "countGuardWouldReject": true,
+        "end": "after_b_release@200ms",
+        "matchingLowerBound": 10610167,
+        "question": "surviving A gain with B retirement",
+        "start": "after_b1@200ms"
+      },
+      {
+        "after": [
+          33336166,
+          10885500
+        ],
+        "aggregateDelta": 10997541,
+        "before": [
+          22148625,
+          11075500
+        ],
+        "conditionalBoundShortfall": 0,
+        "controlledIsolatedRawIncrements": 22073041,
+        "countGuardWouldReject": false,
+        "end": "after_c1@200ms",
+        "matchingLowerBound": 22073041,
+        "question": "Bprime retirement and C creation while A advances; equal record count is to be observed, not assumed",
+        "start": "after_bprime@200ms"
+      }
+    ],
+    "guardedExcludedTransitionsAfterBaseline": 6,
+    "interpretation": "Raw driver increments are not independently calibrated GPU work; conditional matching premises remain unproved outside this fixture.",
+    "isolatedDriverIncrementSum": 66835624,
+    "readerWallMilliseconds": {
+      "maximum": 33.45566662028432,
+      "median": 17.66077079810202,
+      "minimum": 15.18866652622819,
+      "sum": 1178.5450410097837
+    }
+  },
+  "firstCommandEventReduction": "Each first-event timing had one valid sample; sum/min/max equal the retained firstCommandSeconds.",
+  "inventorySets": [
+    [],
+    [
+      {
+        "className": "AGXDeviceUserClient",
+        "classReturnCode": 0,
+        "clientOrdinal": 1,
+        "propertyKeys": [
+          "AppUsage",
+          "IOUserClientCreator"
+        ],
+        "propertyKeysReturnCode": 0,
+        "propertyKeysStatus": "available",
+        "usageStatus": "available"
+      },
+      {
+        "className": "IOSurfaceRootUserClient",
+        "classReturnCode": 0,
+        "clientOrdinal": 2,
+        "propertyKeys": [
+          "IOUserClientCreator",
+          "IOUserClientDefaultLocking",
+          "IOUserClientDefaultLockingSetProperties",
+          "IOUserClientDefaultLockingSingleThreadExternalMethod",
+          "IOUserClientEntitlements"
+        ],
+        "propertyKeysReturnCode": 0,
+        "propertyKeysStatus": "available",
+        "usageStatus": "not_requested_for_other_class"
+      }
+    ],
+    [
+      {
+        "className": "AGXDeviceUserClient",
+        "classReturnCode": 0,
+        "clientOrdinal": 1,
+        "propertyKeys": [
+          "AppUsage",
+          "CommandQueueCount",
+          "CommandQueueCountMax",
+          "IOUserClientCreator"
+        ],
+        "propertyKeysReturnCode": 0,
+        "propertyKeysStatus": "available",
+        "usageStatus": "available"
+      },
+      {
+        "className": "IOSurfaceRootUserClient",
+        "classReturnCode": 0,
+        "clientOrdinal": 2,
+        "propertyKeys": [
+          "IOUserClientCreator",
+          "IOUserClientDefaultLocking",
+          "IOUserClientDefaultLockingSetProperties",
+          "IOUserClientDefaultLockingSingleThreadExternalMethod",
+          "IOUserClientEntitlements"
+        ],
+        "propertyKeysReturnCode": 0,
+        "propertyKeysStatus": "available",
+        "usageStatus": "not_requested_for_other_class"
+      }
+    ]
+  ],
+  "limits": [
+    "Endpoint replays omit retained intermediate checkpoints; this is not an independent polling census.",
+    "Client ordinals identify registry objects within this run; record arrayIndex is order, not stable identity.",
+    "Only creator-associated owned-worker clients in the IOService plane are inventoried; exclusive ownership is unproved.",
+    "Missing fields/timings/task measurements are unavailable, never measured idle.",
+    "Numeric values preserve their observed encodings; units and charging meanings are not assumed equal.",
+    "Task query is worker-self only; no task port for another process is requested.",
+    "Explicit data-buffer size does not bound compiler/framework/registry allocations.",
+    "The watchdog cannot cancel already-submitted GPU work or establish native reader preemption.",
+    "Host callback time includes handler scheduling; wait-return time is separate."
+  ],
+  "observationColumns": [
+    "label",
+    "readStartSeconds",
+    "readEndSeconds",
+    "inventorySetIndex",
+    "tupleSetIndex",
+    "referenceIntentIndex"
+  ],
+  "observations": [
+    [
+      "before_device@0ms",
+      0.004431499633938074,
+      0.02239058306440711,
+      0,
+      0,
+      0
+    ],
+    [
+      "after_device@0ms",
+      0.06539041642099619,
+      0.08609520830214024,
+      1,
+      0,
+      0
+    ],
+    [
+      "after_device@50ms",
+      0.12045941641554236,
+      0.14104262460023165,
+      1,
+      0,
+      0
+    ],
+    [
+      "after_device@200ms",
+      0.2691181246191263,
+      0.29098299983888865,
+      1,
+      0,
+      0
+    ],
+    [
+      "before_queue_a_creation@0ms",
+      0.6041174163110554,
+      0.6295758332125843,
+      1,
+      0,
+      0
+    ],
+    [
+      "after_queue_a_before_work@0ms",
+      0.6312973331660032,
+      0.6568275829777122,
+      2,
+      1,
+      1
+    ],
+    [
+      "after_queue_a_before_work@50ms",
+      0.6814182912930846,
+      0.7037069164216518,
+      2,
+      1,
+      1
+    ],
+    [
+      "after_queue_a_before_work@200ms",
+      0.8348079165443778,
+      0.8521346664056182,
+      2,
+      1,
+      1
+    ],
+    [
+      "before_a1@0ms",
+      0.8525672913528979,
+      0.8684785831719637,
+      2,
+      1,
+      1
+    ],
+    [
+      "first_a1@0ms",
+      0.8713492914102972,
+      0.8883605413138866,
+      2,
+      2,
+      1
+    ],
+    [
+      "after_a1@0ms",
+      0.9017335413955152,
+      0.9221405000425875,
+      2,
+      3,
+      1
+    ],
+    [
+      "after_a1@50ms",
+      0.9527429998852313,
+      0.9689605413004756,
+      2,
+      3,
+      1
+    ],
+    [
+      "after_a1@200ms",
+      1.1027587079443038,
+      1.119147874880582,
+      2,
+      3,
+      1
+    ],
+    [
+      "before_queue_b_creation@0ms",
+      1.119456124957651,
+      1.1355287497863173,
+      2,
+      3,
+      1
+    ],
+    [
+      "after_queue_b_before_work@0ms",
+      1.1359824165701866,
+      1.152477916330099,
+      2,
+      4,
+      2
+    ],
+    [
+      "after_queue_b_before_work@50ms",
+      1.1867813747376204,
+      1.205212333239615,
+      2,
+      4,
+      2
+    ],
+    [
+      "after_queue_b_before_work@200ms",
+      1.3399695414118469,
+      1.3571018748916686,
+      2,
+      4,
+      2
+    ],
+    [
+      "before_b1@0ms",
+      1.3573725000023842,
+      1.3734906665049493,
+      2,
+      4,
+      2
+    ],
+    [
+      "first_b1@0ms",
+      1.3744558333419263,
+      1.3945568748749793,
+      2,
+      5,
+      2
+    ],
+    [
+      "after_b1@0ms",
+      1.408644957933575,
+      1.4269602079875767,
+      2,
+      6,
+      2
+    ],
+    [
+      "after_b1@50ms",
+      1.458778666332364,
+      1.4764493331313133,
+      2,
+      6,
+      2
+    ],
+    [
+      "after_b1@200ms",
+      1.6097784163430333,
+      1.6323180831968784,
+      2,
+      6,
+      2
+    ],
+    [
+      "before_a2@0ms",
+      1.6325874999165535,
+      1.6542015415616333,
+      2,
+      6,
+      2
+    ],
+    [
+      "first_a2@0ms",
+      1.6550109582021832,
+      1.6701996247284114,
+      2,
+      7,
+      2
+    ],
+    [
+      "after_a2@0ms",
+      1.6844501662999392,
+      1.704946625046432,
+      2,
+      8,
+      2
+    ],
+    [
+      "after_a2@50ms",
+      1.7349309166893363,
+      1.752581791486591,
+      2,
+      8,
+      2
+    ],
+    [
+      "after_a2@200ms",
+      1.885758166667074,
+      1.9192138332873583,
+      2,
+      8,
+      2
+    ],
+    [
+      "after_b_release@0ms",
+      1.9198424583300948,
+      1.9425665414892137,
+      2,
+      9,
+      3
+    ],
+    [
+      "after_b_release@50ms",
+      1.9703107913956046,
+      1.9897376666776836,
+      2,
+      9,
+      3
+    ],
+    [
+      "after_b_release@200ms",
+      2.120969374664128,
+      2.137878166511655,
+      2,
+      9,
+      3
+    ],
+    [
+      "before_queue_bprime_creation@0ms",
+      2.1381819997914135,
+      2.1547141247428954,
+      2,
+      9,
+      3
+    ],
+    [
+      "after_queue_bprime_before_work@0ms",
+      2.1551250000484288,
+      2.172138666268438,
+      2,
+      10,
+      4
+    ],
+    [
+      "after_queue_bprime_before_work@50ms",
+      2.205790666397661,
+      2.2224801247939467,
+      2,
+      10,
+      4
+    ],
+    [
+      "after_queue_bprime_before_work@200ms",
+      2.3557503330521286,
+      2.372996333055198,
+      2,
+      10,
+      4
+    ],
+    [
+      "before_bprime@0ms",
+      2.3732752916403115,
+      2.3894527913071215,
+      2,
+      10,
+      4
+    ],
+    [
+      "first_bprime@0ms",
+      2.3904180829413235,
+      2.4069885830394924,
+      2,
+      11,
+      4
+    ],
+    [
+      "after_bprime@0ms",
+      2.42114070802927,
+      2.437582291662693,
+      2,
+      12,
+      4
+    ],
+    [
+      "after_bprime@50ms",
+      2.47174512501806,
+      2.488021666649729,
+      2,
+      12,
+      4
+    ],
+    [
+      "after_bprime@200ms",
+      2.621784166432917,
+      2.638687249738723,
+      2,
+      12,
+      4
+    ],
+    [
+      "before_a3@0ms",
+      2.6389650413766503,
+      2.6551628331653774,
+      2,
+      12,
+      4
+    ],
+    [
+      "first_a3@0ms",
+      2.6560311666689813,
+      2.672472416423261,
+      2,
+      13,
+      4
+    ],
+    [
+      "after_a3@0ms",
+      2.6863958332687616,
+      2.7030127914622426,
+      2,
+      14,
+      4
+    ],
+    [
+      "after_a3@50ms",
+      2.7405091249383986,
+      2.7626244998537004,
+      2,
+      14,
+      4
+    ],
+    [
+      "after_a3@200ms",
+      2.891428124625236,
+      2.9170569996349514,
+      2,
+      14,
+      4
+    ],
+    [
+      "after_bprime_release@0ms",
+      2.9177088332362473,
+      2.94206599984318,
+      2,
+      15,
+      5
+    ],
+    [
+      "after_bprime_release@50ms",
+      2.970843874849379,
+      2.99454891635105,
+      2,
+      15,
+      5
+    ],
+    [
+      "after_bprime_release@200ms",
+      3.1178179997950792,
+      3.1360240830108523,
+      2,
+      15,
+      5
+    ],
+    [
+      "before_queue_c_creation@0ms",
+      3.1362816249020398,
+      3.1530714579857886,
+      2,
+      15,
+      5
+    ],
+    [
+      "after_queue_c_before_work@0ms",
+      3.153600541409105,
+      3.186599458102137,
+      2,
+      16,
+      6
+    ],
+    [
+      "after_queue_c_before_work@50ms",
+      3.2044632914476097,
+      3.236028291285038,
+      2,
+      16,
+      6
+    ],
+    [
+      "after_queue_c_before_work@200ms",
+      3.3586480412632227,
+      3.3798708748072386,
+      2,
+      16,
+      6
+    ],
+    [
+      "before_c1@0ms",
+      3.380229958333075,
+      3.3968249997124076,
+      2,
+      16,
+      6
+    ],
+    [
+      "first_c1@0ms",
+      3.3977575413882732,
+      3.4143194165080786,
+      2,
+      17,
+      6
+    ],
+    [
+      "after_c1@0ms",
+      3.43009112495929,
+      3.4466860415413976,
+      2,
+      18,
+      6
+    ],
+    [
+      "after_c1@50ms",
+      3.4807479581795633,
+      3.5013591665774584,
+      2,
+      18,
+      6
+    ],
+    [
+      "after_c1@200ms",
+      3.6330193332396448,
+      3.656590166501701,
+      2,
+      18,
+      6
+    ],
+    [
+      "before_cooldown@0ms",
+      3.6568929166533053,
+      3.673861457966268,
+      2,
+      18,
+      6
+    ],
+    [
+      "after_cooldown@0ms",
+      4.675001249648631,
+      4.703912707976997,
+      2,
+      18,
+      6
+    ],
+    [
+      "after_cooldown@50ms",
+      4.725907874759287,
+      4.742877708282322,
+      2,
+      18,
+      6
+    ],
+    [
+      "after_cooldown@200ms",
+      4.8769944999367,
+      4.895066374912858,
+      2,
+      18,
+      6
+    ]
+  ],
+  "provenance": {
+    "analysisSourceSHA256": "e8cb0897644352099e60c564df8d7f012e51bf395438a6eeaf66df57f479b25a",
+    "compiler": "swift-driver version: 1.168.6 Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+    "completedUTC": "2026-10-29T19:35:23Z",
+    "deviceFromWorkerEvent": "Apple M1",
+    "environmentAfterRun": {
+      "architecture": "arm64",
+      "basis": "parent separately read sw_vers/uname after the run; not emitted by worker",
+      "build": "26A434",
+      "macOS": "27.0.1"
+    },
+    "modelSHA256": "3aa01b818d7e2282d55623ae4add46f08b2597ff5f5c21790e170195d651871e",
+    "rawResultSHA256": "768b2c468355663a3599c02cfe9355c21b9eb7553885d4d08bc619faf59e95ae",
+    "sdk": "27.0",
+    "sourceSHA256": "2382396916dcbc8e3fce3e3b3a7b6e983723ea3dbb5ab07fc240b856828169a3",
+    "supervisorSHA256": "cc3187fb86a085bbe3ff364a1b3c370f0b113857a2c04e77c0aaa55b43244499"
+  },
+  "recordEncoding": {
+    "API": "Metal",
+    "arrayOrder": "tuples retain original arrayIndex by position; no persistent record identity implied",
+    "fieldNames": [
+      "API",
+      "accumulatedGPUTime",
+      "lastSubmittedTime"
+    ],
+    "numericEncoding": {
+      "objcType": "q",
+      "status": "available",
+      "valueFormat": "exact decimal string"
+    },
+    "tupleColumns": [
+      "accumulatedGPUTime",
+      "lastSubmittedTime"
+    ],
+    "tupleSetIndexMeaning": "compression reference to a complete tuple array, not a record identity"
+  },
+  "run": {
+    "allCommandsCompletedWithoutErrorAndVerifiedByWorker": true,
+    "allObserverReadsAvailableAndLifetimeVerified": true,
+    "commands": 384,
+    "explicitDataBufferBytes": 16384,
+    "observations": 60,
+    "setupSeconds": 0.31268733367323875,
+    "watchdogSeconds": 20,
+    "watchdogTriggered": false,
+    "workerAndObservationWallSeconds": 4.906876541208476,
+    "workerCheckpoints": 32
+  },
+  "selectedEndpointReplays": [
+    {
+      "end": "after_b_release@200ms",
+      "question": "surviving A gain with B retirement",
+      "start": "after_b1@200ms"
+    },
+    {
+      "end": "after_c1@200ms",
+      "question": "Bprime retirement and C creation while A advances; equal record count is to be observed, not assumed",
+      "start": "after_bprime@200ms"
+    }
+  ],
+  "selfTaskGPU": {
+    "allSamplesIdentical": {
+      "kernReturn": 0,
+      "requestedWordCount": 26,
+      "returnedWordCount": 26,
+      "scope": "worker_self",
+      "status": "available",
+      "taskGPUUtilisationRaw": "0"
+    },
+    "labels": "workerEventLabels",
+    "sampleCount": 32
+  },
+  "tupleSets": [
+    [],
+    [
+      [
+        "0",
+        "0"
+      ]
+    ],
+    [
+      [
+        "244958",
+        "2578882343820708"
+      ]
+    ],
+    [
+      [
+        "10750541",
+        "2578882374243208"
+      ]
+    ],
+    [
+      [
+        "10750541",
+        "2578882374243208"
+      ],
+      [
+        "0",
+        "0"
+      ]
+    ],
+    [
+      [
+        "10750541",
+        "2578882374243208"
+      ],
+      [
+        "284583",
+        "2578882846886666"
+      ]
+    ],
+    [
+      [
+        "10750541",
+        "2578882374243208"
+      ],
+      [
+        "11538458",
+        "2578882881122000"
+      ]
+    ],
+    [
+      [
+        "11143333",
+        "2578883127404083"
+      ],
+      [
+        "11538458",
+        "2578882881122000"
+      ]
+    ],
+    [
+      [
+        "22148625",
+        "2578883156919791"
+      ],
+      [
+        "11538458",
+        "2578882881122000"
+      ]
+    ],
+    [
+      [
+        "22148625",
+        "2578883156919791"
+      ]
+    ],
+    [
+      [
+        "22148625",
+        "2578883156919791"
+      ],
+      [
+        "0",
+        "0"
+      ]
+    ],
+    [
+      [
+        "22148625",
+        "2578883156919791"
+      ],
+      [
+        "244000",
+        "2578883862916916"
+      ]
+    ],
+    [
+      [
+        "22148625",
+        "2578883156919791"
+      ],
+      [
+        "11075500",
+        "2578883893655291"
+      ]
+    ],
+    [
+      [
+        "22547708",
+        "2578884128402208"
+      ],
+      [
+        "11075500",
+        "2578883893655291"
+      ]
+    ],
+    [
+      [
+        "33336166",
+        "2578884158913791"
+      ],
+      [
+        "11075500",
+        "2578883893655291"
+      ]
+    ],
+    [
+      [
+        "33336166",
+        "2578884158913791"
+      ]
+    ],
+    [
+      [
+        "33336166",
+        "2578884158913791"
+      ],
+      [
+        "0",
+        "0"
+      ]
+    ],
+    [
+      [
+        "33336166",
+        "2578884158913791"
+      ],
+      [
+        "275708",
+        "2578884870206875"
+      ]
+    ],
+    [
+      [
+        "33336166",
+        "2578884158913791"
+      ],
+      [
+        "10885500",
+        "2578884901378583"
+      ]
+    ]
+  ],
+  "workerEventLabels": [
+    "before_device",
+    "after_device",
+    "before_queue_a_creation",
+    "after_queue_a_before_work",
+    "before_a1",
+    "first_a1",
+    "after_a1",
+    "before_queue_b_creation",
+    "after_queue_b_before_work",
+    "before_b1",
+    "first_b1",
+    "after_b1",
+    "before_a2",
+    "first_a2",
+    "after_a2",
+    "after_b_release",
+    "before_queue_bprime_creation",
+    "after_queue_bprime_before_work",
+    "before_bprime",
+    "first_bprime",
+    "after_bprime",
+    "before_a3",
+    "first_a3",
+    "after_a3",
+    "after_bprime_release",
+    "before_queue_c_creation",
+    "after_queue_c_before_work",
+    "before_c1",
+    "first_c1",
+    "after_c1",
+    "before_cooldown",
+    "after_cooldown"
+  ]
+}

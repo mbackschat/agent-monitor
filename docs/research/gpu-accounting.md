@@ -160,7 +160,7 @@ The external review and independent replays use the retained calibration JSON an
 
 In pinned [XNU `f6217f8`, task aggregation](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/osfmk/kern/task.c#L6785-L6851), `TASK_POWER_INFO_V2` derives GPU time from saved task totals plus live threads' `ml_gpu_stat`; [thread reaping](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/osfmk/kern/thread.c#L1061-L1080) retains that supplied statistic. The [arm64 getter returns zero](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/osfmk/arm64/machine_routines.c#L2762-L2776). Its update path instead routes [`gpu_accumulate_time` deltas](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/osfmk/kern/energy_perf.c#L46-L52) to the [resource coalition](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/osfmk/kern/coalition.c#L1622-L1638). This predicts an unhelpful task field on that source revision, not the installed macOS 27 kernel; neither field naming nor coalition retention establishes complete driver charging, compatible `AppUsage` units or agent/session ownership.
 
-SDK 27 declares the flavor and `task_info(task_name_t, …)`. The pinned [dispatch accepts a task-name port](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/osfmk/kern/task.c#L6445-L6478), without requiring task read/control rights for this flavor. Obtaining another process's name port remains a separate [identity and MAC-policy check](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/kern/kern_proc.c#L5846-L5944); debugger-entitlement requirements for `task_for_pid` must not be transferred to this path. A future self-task query could test the installed behavior without an external-access confounder, but none was performed here. A rising self counter would still need units, ownership, queue-lifecycle and external-access validation; zero during verified work would mean unavailable measurement, not idle GPU use.
+SDK 27 declares the flavor and `task_info(task_name_t, …)`. The pinned [dispatch accepts a task-name port](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/osfmk/kern/task.c#L6445-L6478), without requiring task read/control rights for this flavor. Obtaining another process's name port remains a separate [identity and MAC-policy check](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/kern/kern_proc.c#L5846-L5944); debugger-entitlement requirements for `task_for_pid` must not be transferred to this path. No self-task query was made during this source review; the [later lifecycle experiment](#record-lifecycle-and-aligned-timing-calibration--2026-10-29) checks the installed behavior. A rising self counter would still need units, ownership, queue-lifecycle and external-access validation; zero during verified work means unavailable measurement, not idle GPU use.
 
 ### Minimum-delta matching needs an explicit history model
 
@@ -197,3 +197,60 @@ The exact [source](gpu-matching-model-2026-10-29.py) has SHA-256 `3aa01b818d7e22
 ```sh
 python3 scripts/clean-build.py run -- bash -c 'python3 docs/research/gpu-matching-model-2026-10-29.py --output "$AGENT_MONITOR_SCRATCH/result.json"'
 ```
+
+## Record lifecycle and aligned timing calibration — 2026-10-29
+
+The user's instruction to resolve the reviewed GPU research autonomously authorized this next bounded experiment. It completed **384 verified serial commands and 60 registry reads in 4.907 seconds**, ending at **19:35:23 UTC**; the 20-second watchdog did not trigger. One owned worker used a 16,384-byte explicit buffer and six 64-command batches: A1, B1, A2 before B release, fresh Bprime, A3 before Bprime release, then fresh C1. A and C remained held through the final no-submit cooldown. The [exact fixture](gpu-record-lifecycle-2026-10-29.swift) and [supervisor](gpu-record-lifecycle-2026-10-29.py) retain the method. This authorization covered research, not production collection or UI changes; no existing user workload was manipulated and no root, private API or external task port was used.
+
+### Native tuples support the exercised paths, not general admission
+
+All reads verified the worker lifetime and were available. A, B, Bprime and C each first exposed `(accumulatedGPUTime, lastSubmittedTime) = (0, 0)` before submission; their selected numeric fields used signed Objective-C encoding `q`, retained exactly as decimal strings. Working records changed while idle held records stayed unchanged; released B/Bprime records disappeared. Queue-to-record association is inferred from this controlled sequence, not supplied as driver identity. `lastSubmittedTime` changes during a retained queue's work, and array index 1 is reused by distinct queues: neither is a stable record ID. The 14 immediate/nominal-50/nominal-200 ms triplets agreed, including releases, but application reference release does not prove driver destruction. These observations support zero-at-creation and survivor stability only on the exercised paths; they do not establish no imported/reappearing history, reset behavior, disjoint charging or exclusive ownership generally. [Retained tuples and observation bounds](gpu-record-lifecycle-2026-10-29.json).
+
+The full-plane inventory found associated `AGXDeviceUserClient` and `IOSurfaceRootUserClient` entries. AGX initially exposed `AppUsage` and `IOUserClientCreator`; `CommandQueueCount` and `CommandQueueCountMax` appeared after A creation. Only those property names were inventoried, not their values or semantics. All **32** worker-self `TASK_POWER_INFO_V2` queries returned **KERN_SUCCESS**, word counts **26/26**, and GPU field **0** despite verified work. That field was unhelpful in this fixture, not evidence of GPU idleness or a permission failure; external-process accessibility and coalition accounting were not tested.
+
+### Actual retirement and replacement permit useful conditional matching
+
+Dense guarded aggregation and the retained anonymous matcher both preserve **66,835,624 raw units**, equal to the six isolated driver increments. The guarded replay excludes six zero-submission creation/release transitions after its baseline. Two selected-endpoint replays use the actual ordered counters; the independent exhaustive oracle agrees with the matcher:
+
+| Selected interval | Opening → closing counters | Aggregate delta | Conditional lower bound | Isolated driver increments |
+| --- | --- | ---: | ---: | ---: |
+| B completed → B released after A2 | `[10,750,541, 11,538,458] → [22,148,625]` | −140,374 | **10,610,167** | A2: **11,398,084** |
+| Bprime completed → C completed after A3 and Bprime release | `[22,148,625, 11,075,500] → [33,336,166, 10,885,500]` | 10,997,541 | **22,073,041** | A3 + C: **22,073,041** |
+
+The first bound loses **787,917** to anonymous matching ambiguity: the larger old counter can match the surviving endpoint, although the fixture knows it belonged to B. The second recovers all isolated increments because C's final value is below Bprime's old value, excluding that false persistence edge. Different numeric ordering could yield a smaller conservative result; this is not general replacement recovery. The supervisor deliberately held queues around diagnostic checkpoints. These are replays omitting intermediate observations, **not independent 100 ms polling or a real queue census**. The comparison oracle is isolated driver increments, not calibrated physical GPU time, and none of the closed-history admission premises follows globally from this success. [Reproducible analysis](gpu-record-lifecycle-2026-10-29-analysis.py).
+
+### Timing comparisons now align command populations
+
+Each batch has 64 verified outputs, successful completion, no command errors and valid GPU/kernel/host timing summaries. GPU interval unions equal their sums with no overlap, as expected from serial waits. The following durations cover the same 64 commands; they are different measurements, not exclusive stages to add together.
+
+| Batch | Raw increment | GPU elapsed ms | Metal kernel API ms | Commit → handler ms | Commit → wait return ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| A1 | 10,750,541 | 1.239291 | 1.179539 | 12.345750 | 12.804543 |
+| B1 | 11,538,458 | 1.291375 | 1.155042 | 12.834873 | 13.412916 |
+| A2 | 11,398,084 | 1.280124 | 0.896624 | 12.990664 | 13.619082 |
+| Bprime | 11,075,500 | 1.284875 | 1.178625 | 13.075709 | 13.536460 |
+| A3 | 11,187,541 | 1.414335 | 0.949876 | 12.940248 | 13.330914 |
+| C1 | 10,885,500 | 2.587041 | 0.999084 | 14.718750 | 15.180168 |
+
+First-command durations are retained separately, allowing aligned **63-command** counter/timing differences without mixing denominators; those values and property-read interval bounds are in the compact result. Assuming nanoseconds for comparison only, raw/GPU ratios are **4.208–8.935**, while raw/host-handler ratios are **0.740–0.899**. Raw values are nearer host completion durations here but not identical; this neither proves units nor defines a charging rule or GPU capacity share. The full-plane inventory reader took **15.189–33.456 ms per read**, median **17.661 ms**, total **1,178.545 ms**. This diagnostic observer is broader than the earlier narrow AGX reader; it supplies neither a production cost budget nor measured CPU overhead.
+
+### Compact evidence and offline verification
+
+The [compact result](gpu-record-lifecycle-2026-10-29.json) preserves all 60 labels/read bounds/ordered tuple arrays through 19 tuple-state and three inventory catalogs, all six timing summaries, and all 32 self-task readings as their asserted-identical result plus ordered checkpoint labels. Catalog references are compression indices, not record identities. Selected tuples belong only to the owned worker; no raw PID, registry ID, birth, creator string or user path was retained. The compact artifact is 32,222 bytes, derived from a 189,893-byte original result whose SHA-256 is `768b2c468355663a3599c02cfe9355c21b9eb7553885d4d08bc619faf59e95ae`.
+
+Device Apple M1 comes from the worker; Swift 6.4/SDK 27.0 come from preflight. macOS **27.0.1**, build **26A434**, arm64 were separately queried after execution, not emitted by the worker. Both source defaults run offline preflight checks rather than native worker/observer modes; the exact supervisor expects its Swift sibling under the original name `calibration.swift`, not the dated archive name. Preflight passed Swift type checking and pure numeric/schema/lifetime-intent checks; independent analyses verified compact data and matching/timing arithmetic without another native run. Exact retained hashes are:
+
+| Evidence | SHA-256 |
+| --- | --- |
+| [Swift fixture](gpu-record-lifecycle-2026-10-29.swift) | `2382396916dcbc8e3fce3e3b3a7b6e983723ea3dbb5ab07fc240b856828169a3` |
+| [Supervisor](gpu-record-lifecycle-2026-10-29.py) | `cc3187fb86a085bbe3ff364a1b3c370f0b113857a2c04e77c0aaa55b43244499` |
+| [Compact result](gpu-record-lifecycle-2026-10-29.json) | `f058af5f8fe480efd0d3285ea36e22f8c0c1a75829c007a8117f4961a0434ffc` |
+| [Analyzer](gpu-record-lifecycle-2026-10-29-analysis.py) | `e8cb0897644352099e60c564df8d7f012e51bf395438a6eeaf66df57f479b25a` |
+
+The analyzer verifies the compact result against the retained matching model without the original output, native calls or a new workload:
+
+```sh
+python3 scripts/clean-build.py run -- python3 -B docs/research/gpu-record-lifecycle-2026-10-29-analysis.py --compact docs/research/gpu-record-lifecycle-2026-10-29.json --model docs/research/gpu-matching-model-2026-10-29.py
+```
+
+The evidence supports continued bounded observed-contribution research for characterized paths. Native history admission beyond those paths, actual counter units/charging, exclusive process ownership, real queue-lifetime coverage and sustained collector cost remain unresolved. Repeating this same held-queue fixture cannot settle those gaps; production remains unapproved.
