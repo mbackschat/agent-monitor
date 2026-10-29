@@ -1,8 +1,57 @@
+import AgentMonitorCore
 import AgentMonitorPresentation
 import Foundation
+import Synchronization
 import Testing
 
 @testable import monitor_preview
+
+@Test(.timeLimit(.minutes(1))) func ledgerPreviewKeepsOwnershipAndHistoryWithDelayedMetadata() async throws {
+    let held = DispatchSemaphore(value: 0)
+    defer { held.signal() }
+    let firstMetadata = Mutex(true)
+    let started = DispatchSemaphore(value: 0)
+    let snapshots = Mutex<[MonitoringSnapshot]>([])
+    let delayed = try await Preview.ledgerState(
+        beforeMetadata: {
+            if firstMetadata.withLock({ value in
+                defer { value = false }
+                return value
+            }) {
+                started.signal()
+                #expect(held.wait(timeout: .now() + 10) == .success)
+            }
+        },
+        receive: { snapshot in
+            if snapshots.withLock({ $0.isEmpty }) {
+                #expect(started.wait(timeout: .now() + 5) == .success)
+            }
+            snapshots.withLock { $0.append(snapshot) }
+            if snapshot.cpuAccounting.acquisition?.scanSequence == 12 { held.signal() }
+        })
+    let reports = snapshots.withLock { $0 }
+    #expect(reports.compactMap { $0.cpuAccounting.acquisition?.scanSequence } == Array(1...12))
+    let first = try #require(reports.first)
+    #expect(first.observedFindings.count == 7)
+    for index in 0..<7 {
+        let row = try #require(first.observedFindings.first { $0.process.pid == Int32(42000 + index) })
+        #expect(row.attribution.threadID == String(format: "%08d-1111-4111-8111-111111111111", index + 1))
+    }
+    let history = try #require(delayed.snapshot?.recentActivity)
+    #expect(history.units.count == 12)
+    #expect(history.startedAt == 0)
+    #expect(history.endedAt == 12)
+    let departed = history.units.flatMap(\.records).filter { $0.category.process.pid == 42006 }
+    #expect(!history.present.contains { $0.pid == 42006 })
+    #expect(departed.reduce(0) { $0 + $1.cpuSeconds } > 0)
+    #expect(departed.allSatisfy { $0.category.owner.sessionID == "00000007-1111-4111-8111-111111111111" })
+    let immediate = try await Preview.ledgerState()
+    let delayedLines = LiveReportLayout.lines(state: delayed, width: 120, height: 32)
+    let immediateLines = LiveReportLayout.lines(state: immediate, width: 120, height: 32)
+    #expect(
+        Preview.svg(lines: delayedLines, width: 120, height: 32)
+            == Preview.svg(lines: immediateLines, width: 120, height: 32))
+}
 
 @Test func previewAdvancesByWideGlyphCells() {
     let svg = Preview.svg(lines: [ReportLine("编译 x")], width: 40, height: 8)
