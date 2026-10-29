@@ -82,14 +82,14 @@ private struct ResolutionState: Sendable {
         LiveInterval.Value(settings: SamplingSettings(), panelVisible: true), at: 0)
 }
 
-private struct ReportEndpoint: Sendable {
+struct ReportEndpoint: Sendable {
     let timestamp: Date
     let interval: Double
     let sampledCount: Int
     let unreadableCount: Int
 }
 
-private struct ResolvedScan: Sendable {
+struct ResolvedScan: Sendable {
     var acquired: ReportEndpoint
     var accounting: CPUAccounting
     let findings: [HeavyProcess]

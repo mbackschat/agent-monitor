@@ -10,9 +10,13 @@ private let measuresOwnershipAllocations =
     ProcessInfo.processInfo.environment["AGENT_MONITOR_OWNERSHIP_ALLOCATOR"] == "1"
 
 @Suite struct SimultaneousOwnershipTests {
-    @Test(.enabled(if: !measuresOwnershipAllocations), .timeLimit(.minutes(1)), arguments: [90, 613])
-    func pausedHistoryPendingPublicationAndEnrichmentCoexistWithDiagnosis(population: Int) async throws {
-        try await exerciseHolders(population: population)
+    @Test(
+        .enabled(if: !measuresOwnershipAllocations), .timeLimit(.minutes(1)), arguments: [90, 613],
+        [MergeAdmission.accept, .reject])
+    func pendingMergeCoexistsWithPausedHistoryEnrichmentAndDiagnosis(
+        population: Int, admission: MergeAdmission
+    ) async throws {
+        try await exerciseHolders(population: population, admission: admission)
     }
 
     @Test(.enabled(if: measuresOwnershipAllocations), .timeLimit(.minutes(1)))
@@ -22,24 +26,46 @@ private let measuresOwnershipAllocations =
         allocationReading("afterRelease", population: 613)
     }
 
-    private func exerciseHolders(population: Int, measure: Bool = false) async throws {
+    enum MergeAdmission: Sendable { case accept, reject }
+
+    private func exerciseHolders(
+        population: Int, admission: MergeAdmission = .accept, measure: Bool = false
+    ) async throws {
         let fixture = OwnershipFixture(population: population)
         let store = RecentActivityStore()
-        let channel = MonitoringChannel<AccountingWindow>(
-            stage: .publication, limits: MonitoringPipelineLimits(), coalesce: nil)
         var ledger = CounterLedger()
         var previous = ledger.ingest(fixture.samples(at: 0), listedAt: 0)
         var state = LiveReportState(grouping: .session)
         var reports: [MonitoringSnapshot] = []
-        for tick in 1...3 {
+        var pending: [ResolvedScan] = []
+        for tick in 1...4 {
             let samples = fixture.samples(at: Double(tick))
-            let scan = ledger.ingest(samples, listedAt: Double(tick))
+            let source = ProcessSnapshot(
+                samples: samples, enumeratedCount: population + (tick >= 3 ? 1 : 0),
+                unreadableCount: tick >= 3 ? 1 : 0,
+                listedAt: Double(tick), scanSeconds: 0, hostCounters: nil, logicalCPUCount: 8,
+                nativeOutcomes: tick >= 3
+                    ? [
+                        NativeCounterOutcome(
+                            pid: Int32(10_000 + tick), identity: nil, operation: .bsdInfo,
+                            status: .permissionDenied, failure: nil, observedAtTicks: UInt64(tick))
+                    ] : [])
+            let scan = ledger.ingest(samples, listedAt: Double(tick), source: source)
             var window = AccountingWindow(baseline: previous)
             let rows = samples.map(fixture.row)
             try window.append(scan, rows: rows)
             previous = scan
-            if tick == 3 {
-                try await channel.send(window, size: window.payloadSize, sequence: scan.id.sequence)
+            if tick >= 3 {
+                pending.append(
+                    ResolvedScan(
+                        acquired: ReportEndpoint(
+                            timestamp: Date(timeIntervalSince1970: Double(tick)), interval: 1,
+                            sampledCount: population, unreadableCount: 1),
+                        accounting: CPUAccounting(
+                            hostBusyPercent: nil, logicalCPUCount: 8,
+                            measuredUserPercent: Double(population) * 25,
+                            unmeasuredLifetimeCount: 1, previousScanSeconds: nil),
+                        findings: rows, window: window))
             } else {
                 store.append(
                     window.seal(scope: .agentsOnly), current: window.current, present: window.present)
@@ -52,6 +78,41 @@ private let measuresOwnershipAllocations =
         let frozenProjection = state.projection
         let frozenHistory = try #require(state.snapshot?.recentActivity)
         let currentHistory = try #require(reports.last?.recentActivity)
+        let accepted = pending.removeFirst()
+        let incoming = pending.removeFirst()
+        let acceptedWindow = try #require(accepted.window)
+        let incomingWindow = try #require(incoming.window)
+        let limits: MonitoringPipelineLimits =
+            switch admission {
+            case .accept: MonitoringPipelineLimits()
+            case .reject:
+                MonitoringPipelineLimits(pendingObservations: acceptedWindow.payloadSize.observations)
+            }
+        #expect(incomingWindow.payloadSize.observations <= limits.pendingObservations)
+        #expect(incomingWindow.payloadSize.textBytes <= limits.pendingTextBytes)
+        let mergeCalls = Mutex(0)
+        let channel = MonitoringChannel<ResolvedScan>(
+            stage: .presentation, limits: limits,
+            coalesce: { old, new in
+                #expect(fixture.metadataCalls.withLock { $0 } == 1)
+                #expect(fixture.diagnosisScans.withLock { $0 } == 4)
+                #expect(!fixture.gateTimedOut.withLock { $0 })
+                let size = try ResolvedScan.coalesced(&old, new, limits: limits)
+                #expect(fixture.metadataCalls.withLock { $0 } == 1)
+                #expect(fixture.diagnosisScans.withLock { $0 } == 4)
+                #expect(!fixture.gateTimedOut.withLock { $0 })
+                #expect(
+                    old.window?.summary.contributions.reduce(0) { $0 + $1.cpuSeconds } == Double(population)
+                        / 2)
+                #expect(
+                    new.window?.summary.contributions.reduce(0) { $0 + $1.cpuSeconds } == Double(population)
+                        / 4)
+                #expect((size.observations > limits.pendingObservations) == (admission == .reject))
+                if measure { allocationReading("coexistence", population: population) }
+                mergeCalls.withLock { $0 += 1 }
+                return size
+            })
+        try await channel.send(accepted, size: acceptedWindow.payloadSize, sequence: 3)
         let enrichment = PipelineEnrichment()
         let metadata = Task {
             try await enrichment.refreshMetadata(
@@ -73,7 +134,15 @@ private let measuresOwnershipAllocations =
             // the executing requests remain alive while the UI and publication holders are inspected.
             #expect(fixture.metadataCalls.withLock { $0 } == 1)
             #expect(fixture.diagnosisScans.withLock { $0 } == 4)
-            if measure { allocationReading("coexistence", population: population) }
+            switch admission {
+            case .accept:
+                try await channel.send(incoming, size: incomingWindow.payloadSize, sequence: 4)
+            case .reject:
+                await #expect(throws: MonitoringError.overloaded(stage: .presentation, rejectedScan: 4)) {
+                    try await channel.send(incoming, size: incomingWindow.payloadSize, sequence: 4)
+                }
+            }
+            #expect(mergeCalls.withLock { $0 } == 1)
             #expect(store.diagnostics.leases == 2)
             #expect(state.frozen)
             #expect(state.snapshot?.recentActivity?.id == frozenHistory.id)
@@ -98,11 +167,38 @@ private let measuresOwnershipAllocations =
             #expect(returned.allSatisfy { $0.sample.sampledAt == 0 })
             #expect(returned.allSatisfy { $0.metadata.command?.count == 2 })
 
-            let queued = try #require(await channel.next())
+            let delivered = try #require(await channel.next())
+            let queued = try #require(delivered.window)
+            let finalScan: UInt64 = admission == .accept ? 4 : 3
+            let expectedCPU = Double(population) * (admission == .accept ? 0.5 : 0.25)
             #expect(queued.baseline.id.sequence == 2)
-            #expect(queued.final.id.sequence == 3)
-            #expect(queued.summary.contributions.reduce(0) { $0 + $1.cpuSeconds } == Double(population) / 4)
+            #expect(queued.final.id.sequence == finalScan)
+            #expect(delivered.acquired.timestamp == Date(timeIntervalSince1970: Double(finalScan)))
+            #expect(queued.summary.contributions.reduce(0) { $0 + $1.cpuSeconds } == expectedCPU)
+            #expect(queued.summary.contributions.count == population)
+            #expect(Set(queued.summary.contributions.map(\.process)) == fixture.identities)
+            for contribution in queued.summary.contributions {
+                #expect(contribution.cpuSeconds == (admission == .accept ? 0.5 : 0.25))
+                let session =
+                    contribution.process.pid.isMultiple(of: 2)
+                    ? "11111111-1111-1111-1111-111111111111" : "22222222-2222-2222-2222-222222222222"
+                #expect(contribution.attribution.provider == .codex)
+                #expect(contribution.attribution.threadID == session)
+            }
             #expect(queued.present == fixture.identities)
+            #expect(queued.payloadSize == queued.recountedPayloadSize)
+            #expect(
+                queued.summary.readCoverage.deniedPIDs
+                    == (admission == .accept ? [10_003, 10_004] : [10_003]))
+            #expect(accepted.window?.summary == acceptedWindow.summary)
+            #expect(incoming.window?.summary == incomingWindow.summary)
+            if admission == .reject {
+                #expect(queued.summary == acceptedWindow.summary)
+                #expect(queued.payloadSize == acceptedWindow.payloadSize)
+                try await channel.send(incoming, size: incomingWindow.payloadSize, sequence: 4)
+                let retried = try #require(await channel.next())
+                #expect(retried.window?.summary == incomingWindow.summary)
+            }
             state.toggleFreeze()
             #expect(state.snapshot?.recentActivity?.id == currentHistory.id)
             #expect(state.overview.totals.recentCPU == Double(population) / 2)
