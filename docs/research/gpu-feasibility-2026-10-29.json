@@ -1,0 +1,159 @@
+{
+  "checkedUTC": "2026-10-29T03:51:47Z",
+  "hardware": "Apple M1",
+  "osVersion": "Version 27.0.1 (Build 26A434)",
+  "osBuild": "26A434",
+  "toolchain": {
+    "sdk": "27.0",
+    "swift": "6.4 (swiftlang-6.4.0.34.1, clang-2100.3.34.1)"
+  },
+  "unprivileged": true,
+  "sampleCount": 12,
+  "durationSeconds": 11.152704416774213,
+  "probeSource": "gpu-feasibility-2026-10-29.swift",
+  "probeSHA256": "e70df006799e389fb4777154b08ec74a7af2d97406de0278dd30cffb93f047e5",
+  "originalAggregateSHA256": "1aef97f5e93054ee323e41e622dbdf4bd2d3886965af02bdefd9041fbbe7516d",
+  "constantPerSnapshot": {
+    "counts": {
+      "accelerators": 1,
+      "ambiguousAPIRecordGroups": 11,
+      "clientEntries": 87,
+      "descendantsVisited": 87,
+      "hostStatisticsDictionaries": 1,
+      "lifetimeReadFailures": 6,
+      "recordsInAmbiguousGroups": 32,
+      "usageRecords": 47,
+      "verifiedSameUserClientEntries": 81
+    },
+    "uniqueRegistryEntries": 87,
+    "uniqueCreatorPIDs": 86,
+    "uniqueAPICountersWithVerifiedLifetime": 14
+  },
+  "usageFieldTypes": [
+    "API:NSTaggedPointerString",
+    "accumulatedGPUTime:__NSCFNumber",
+    "lastSubmittedTime:__NSCFNumber"
+  ],
+  "apiLabels": [
+    "Metal"
+  ],
+  "matchedCounterIntervals": 154,
+  "risingCounterIntervals": 1,
+  "positiveRawDeltaAdmittedSubset": 761791,
+  "decreasingCounterIntervals": 0,
+  "counterLifetimeChanges": 0,
+  "newRegistryEntries": 0,
+  "disappearedRegistryEntries": 0,
+  "samples": [
+    {
+      "sample": 0,
+      "offsetSeconds": 0.007173291873186827,
+      "readerWallMilliseconds": 7.1730418130755424,
+      "readerCPUMilliseconds": 4.963,
+      "deviceUtilizationProperty": 3
+    },
+    {
+      "sample": 1,
+      "offsetSeconds": 1.0174400000832975,
+      "readerWallMilliseconds": 8.572999853640795,
+      "readerCPUMilliseconds": 5.660999999999998,
+      "deviceUtilizationProperty": 4
+    },
+    {
+      "sample": 2,
+      "offsetSeconds": 2.034828500356525,
+      "readerWallMilliseconds": 13.835916761308908,
+      "readerCPUMilliseconds": 3.7760000000000016,
+      "deviceUtilizationProperty": 19
+    },
+    {
+      "sample": 3,
+      "offsetSeconds": 3.049094708636403,
+      "readerWallMilliseconds": 4.647291731089354,
+      "readerCPUMilliseconds": 3.7230000000000008,
+      "deviceUtilizationProperty": 11
+    },
+    {
+      "sample": 4,
+      "offsetSeconds": 4.07164291664958,
+      "readerWallMilliseconds": 6.480333395302296,
+      "readerCPUMilliseconds": 5.5959999999999965,
+      "deviceUtilizationProperty": 6
+    },
+    {
+      "sample": 5,
+      "offsetSeconds": 5.082447708584368,
+      "readerWallMilliseconds": 3.403708338737488,
+      "readerCPUMilliseconds": 3.381000000000002,
+      "deviceUtilizationProperty": 15
+    },
+    {
+      "sample": 6,
+      "offsetSeconds": 6.096845333464444,
+      "readerWallMilliseconds": 4.7760833986103535,
+      "readerCPUMilliseconds": 4.119999999999998,
+      "deviceUtilizationProperty": 9
+    },
+    {
+      "sample": 7,
+      "offsetSeconds": 7.105190583504736,
+      "readerWallMilliseconds": 3.30258347094059,
+      "readerCPUMilliseconds": 3.251000000000004,
+      "deviceUtilizationProperty": 12
+    },
+    {
+      "sample": 8,
+      "offsetSeconds": 8.116211000364274,
+      "readerWallMilliseconds": 7.2534168139100075,
+      "readerCPUMilliseconds": 5.792999999999999,
+      "deviceUtilizationProperty": 8
+    },
+    {
+      "sample": 9,
+      "offsetSeconds": 9.120759291574359,
+      "readerWallMilliseconds": 2.750041428953409,
+      "readerCPUMilliseconds": 2.683999999999999,
+      "deviceUtilizationProperty": 8
+    },
+    {
+      "sample": 10,
+      "offsetSeconds": 10.123733666725457,
+      "readerWallMilliseconds": 2.5640414096415043,
+      "readerCPUMilliseconds": 2.553,
+      "deviceUtilizationProperty": 8
+    },
+    {
+      "sample": 11,
+      "offsetSeconds": 11.13202629191801,
+      "readerWallMilliseconds": 3.257125150412321,
+      "readerCPUMilliseconds": 3.1060000000000048,
+      "deviceUtilizationProperty": 9
+    }
+  ],
+  "readerCost": {
+    "readerWallMilliseconds": {
+      "minimum": 2.5640414096415043,
+      "median": 4.7116875648498535,
+      "maximum": 13.835916761308908,
+      "sum": 68.01658356562257
+    },
+    "readerCPUMilliseconds": {
+      "minimum": 2.553,
+      "median": 3.749500000000001,
+      "maximum": 5.792999999999999,
+      "sum": 48.607000000000006
+    }
+  },
+  "limits": [
+    "Raw counters have no independently verified unit or GPU capacity semantics in this probe.",
+    "Only one record per API per registry entry is matched; repeated API groups are excluded because array identity is ambiguous.",
+    "No attribution to agent/session is attempted.",
+    "No raw PID, registry ID, lifetime, name, path or per-process counter is emitted.",
+    "No synthetic GPU workload, provider query, task port, private framework, root or permission change is used.",
+    "Source is retained as exact historical evidence, not a production decoder or reusable supported collector.",
+    "The 28-second between-read check is not a preemptive deadline for native API calls.",
+    "Before/after process birth checks do not establish the lifetime originally attached to a stale registry creator PID.",
+    "Lifetime-read errors were not captured; the six failures have unknown causes.",
+    "Single-record/API matching does not prove accounting-record continuity; no load, churn, unit or accuracy oracle was exercised."
+  ]
+}
