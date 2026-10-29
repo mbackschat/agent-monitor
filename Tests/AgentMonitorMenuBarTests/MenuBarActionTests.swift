@@ -209,3 +209,29 @@ func menuBarFixture(
     #expect(actions.calls.withLock { $0.isEmpty })
     await model.stop()
 }
+
+@Test @MainActor func contributorActionsRequireConfirmationWithoutNavigatingAway() async throws {
+    let actions = FakeActions()
+    let snapshot = try nativeOverviewFixture()
+    let model = MenuBarModel(actions: actions) { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let owner = try #require(model.report.overview.main.first)
+    let target = try #require(model.report.contributorProcesses(for: owner).first)
+    #expect(!model.canBegin(.message, contributor: owner, process: target.process))
+    model.report.inspectContributorProcess(target.process, contributor: owner)
+    model.begin(.terminate, contributor: owner, process: target.process)
+    #expect(model.report.showsOverview)
+    #expect(model.report.overview.inspectedProcess == target.process)
+    #expect(actions.calls.withLock { $0.isEmpty })
+    model.report.receive(snapshot)
+    #expect(model.report.actionPanel?.process == target)
+    model.input(.confirm)
+    await model.waitForAction()
+    #expect(actions.calls.withLock { $0 } == ["terminate \(target.process.pid)"])
+    model.input(.escape)
+    #expect(model.report.showsOverview)
+    #expect(model.report.contributorProcessTarget?.process == target.process)
+    await model.stop()
+    #expect(!model.canBegin(.terminate, contributor: owner, process: target.process))
+}

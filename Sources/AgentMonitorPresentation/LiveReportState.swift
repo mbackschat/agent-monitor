@@ -346,6 +346,9 @@ public struct LiveReportState: Equatable, Sendable {
         }
         self.snapshot = snapshot
         overview.receive(snapshot)
+        if overview.inspectedProcess != nil, contributorProcessTarget == nil {
+            overview.showContributorSummary()
+        }
         if sortKey == .stable { rememberOrder() }
         updates += 1
         if let selected, !snapshot.findings.contains(where: { $0.process == selected }) {

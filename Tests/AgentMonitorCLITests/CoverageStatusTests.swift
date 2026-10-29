@@ -5,6 +5,14 @@ import Testing
 @testable import AgentMonitorCore
 
 @Suite struct CoverageStatusTests {
+    @Test func compactStatusNamesTheLimitationInsteadOfCountingWarnings() {
+        let status = CoverageStatus(notes: [
+            .init("CPU unavailable: 3 lifetimes", .warning, help: "CPU could not be measured."),
+            .init("History combined", .notice, help: "Reduced time resolution."),
+        ])
+        #expect(status.summaryText == "CPU unavailable: 3 lifetimes · +1 more")
+    }
+
     private func snapshot(
         _ statuses: [NativeCounterStatus] = [], achievedPeriod: Double = 0.1,
         unmeasured: Int = 0, unmeasuredRange: LifetimeCountRange? = nil

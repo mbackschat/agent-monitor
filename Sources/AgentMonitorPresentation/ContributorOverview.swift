@@ -171,8 +171,27 @@ public struct ContributorOverview: Equatable, Sendable {
     public private(set) var detailOffset = 0
     public enum Focus: Sendable { case rows, details }
     public private(set) var focus: Focus = .rows
+    public private(set) var inspectedProcess: ProcessIdentity?
     public private(set) var detailsVisible = false {
-        didSet { if !detailsVisible { focus = .rows } }
+        didSet {
+            if !detailsVisible {
+                focus = .rows
+                inspectedProcess = nil
+            }
+        }
+    }
+
+    mutating func inspectProcess(_ identity: ProcessIdentity, contributor: ContributorID) {
+        select(contributor)
+        detailsVisible = true
+        inspectedProcess = identity
+        focus = .details
+        detailOffset = 0
+    }
+
+    public mutating func showContributorSummary() {
+        inspectedProcess = nil
+        detailOffset = 0
     }
 
     public init(topology: ProcessorTopology? = nil) {
@@ -391,6 +410,11 @@ public struct ContributorOverview: Equatable, Sendable {
         }
     }
     @discardableResult public mutating func togglePin() -> Bool {
+        guard let selection else { return false }
+        return togglePin(for: selection)
+    }
+
+    public func pinTarget(for target: ContributorID) -> ContributorID? {
         func session(_ id: ContributorID) -> ContributorID? {
             switch id {
             case .session(let provider, let id, let root):
@@ -400,7 +424,13 @@ public struct ContributorOverview: Equatable, Sendable {
             case .provider, .section, .collapsed: return nil
             }
         }
-        guard let selection, let id = session(selection) else { return false }
+        return session(target)
+    }
+
+    @discardableResult public mutating func togglePin(for target: ContributorID) -> Bool {
+        guard nodes[target] != nil, let id = pinTarget(for: target) else {
+            return false
+        }
         if let index = pinned.firstIndex(of: id) {
             pinned.remove(at: index)
             if unavailablePins.remove(id) != nil { nodes.removeValue(forKey: id) }

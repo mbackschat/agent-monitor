@@ -5,6 +5,71 @@ import Testing
 @testable import AgentMonitorCore
 
 @Suite struct OverviewReviewTests {
+    @Test func contributorInspectionAndActionsKeepTheOverviewAndRejectStaleTargets() throws {
+        let snapshot = try reviewSnapshot(cpu: [90, 40], memory: [200, 400], sameSession: true)
+        var report = LiveReportState()
+        report.receive(snapshot)
+        let owner = session(1)
+        report.overview.select(owner)
+        report.overview.setDisclosure(expanded: true, for: owner)
+        let open = report.overview.open
+        let target = try #require(report.contributorProcesses(for: owner).last)
+        report.inspectContributorProcess(target.process, contributor: owner)
+        #expect(report.showsOverview)
+        #expect(report.overview.detailsVisible)
+        #expect(report.contributorProcessTarget?.process == target.process)
+        #expect(report.commandInspectionTarget?.process == target.process)
+        #expect(report.overview.open == open)
+        _ = report.beginContributorAction(.terminate, contributor: owner, process: target.process)
+        #expect(report.actionPanel?.process == target)
+        #expect(report.actionPanel?.phase == .confirmTermination)
+        #expect(report.showsOverview)
+        #expect(report.commandInspectionTarget == nil)
+        _ = report.actionInput(.escape)
+        let reused = ProcessIdentity(pid: target.process.pid, startMicroseconds: 99)
+        _ = report.beginContributorAction(.terminate, contributor: owner, process: reused)
+        #expect(report.actionPanel == nil)
+        report.overview.toggleDetails()
+        #expect(report.contributorProcessTarget == nil)
+        #expect(report.overview.open == open)
+    }
+
+    @Test @MainActor func contributorInspectionUsesUnfilteredObservationsAndDiscardsArgumentsOnBack()
+        async throws
+    {
+        let snapshot = try reviewSnapshot(
+            cpu: [90, 40], memory: [200, 400], sameSession: true, hideFindings: true)
+        var report = LiveReportState()
+        report.receive(snapshot)
+        let owner = session(1)
+        let targets = report.contributorProcesses(for: owner)
+        #expect(targets.count == 2)
+        #expect(snapshot.findings.isEmpty)
+        let target = try #require(targets.first)
+        let gate = AsyncStream<Void>.makeStream()
+        let commands = CommandInspectionController { _ in
+            for await _ in gate.stream { break }
+            return ["private argument"]
+        }
+        report.inspectContributorProcess(target.process, contributor: owner)
+        #expect(commands.start(try #require(report.commandInspectionTarget)))
+        report.overview.showContributorSummary()
+        commands.reconcile(with: report)
+        gate.continuation.finish()
+        await commands.wait()
+        #expect(commands.state == nil)
+        #expect(report.overview.detailsVisible)
+        #expect(report.overview.selection == owner)
+        #expect(report.contributorProcessTarget == nil)
+        report.inspectContributorProcess(target.process, contributor: owner)
+        report.receive(
+            try reviewSnapshot(cpu: [90, 40], memory: [200, 400], sameSession: true, collapse: true))
+        #expect(report.contributorProcessTarget == nil)
+        #expect(report.overview.inspectedProcess == nil)
+        _ = report.beginContributorAction(.terminate, contributor: owner, process: target.process)
+        #expect(report.actionPanel == nil)
+    }
+
     @Test func explicitOverviewSortingOrdersBothDirectionsAndSurvivesRefresh() throws {
         let snapshot = try reviewSnapshot(
             cpu: [90, 40, 70], memory: [200_000_000, 400_000_000, 300_000_000])
@@ -34,6 +99,23 @@ import Testing
         }
     }
 
+    @Test func pinningAnotherRowPreservesSelectionAndDisclosure() throws {
+        var overview = ContributorOverview()
+        overview.receive(try reviewSnapshot(cpu: [90, 40], memory: [200_000_000, 400_000_000]))
+        overview.select(session(1))
+        overview.setDisclosure(expanded: true, for: session(1))
+        overview.toggleDetails()
+        let admitted = overview.togglePin(for: session(2))
+        #expect(admitted)
+        #expect(overview.pinned == [session(2)])
+        #expect(overview.selection == session(1))
+        #expect(overview.isExpanded(session(1)))
+        #expect(overview.detailsVisible)
+        let removed = overview.togglePin(for: session(2))
+        #expect(removed)
+        #expect(overview.pinned.isEmpty)
+    }
+
     @Test func overviewSortDirectionsReachNestedProcessSiblings() throws {
         var overview = ContributorOverview()
         overview.receive(
@@ -53,7 +135,7 @@ import Testing
         }
     }
 
-    @Test func rowActivationTogglesVisibleGroupsButLeavesLeafDisclosureEmpty() throws {
+    @Test func disclosureActivationTogglesVisibleGroupsButLeavesLeafDisclosureEmpty() throws {
         var overview = ContributorOverview()
         overview.receive(try reviewSnapshot(cpu: [90], memory: [200_000_000]))
         let parent = session(1)
@@ -267,7 +349,8 @@ private func session(_ id: Int) -> ContributorID {
 
 private func reviewSnapshot(
     cpu: [Double], memory: [UInt64], unreadable: Int = 0,
-    sameSession: Bool = false, directories: [String]? = nil, collapse: Bool = false
+    sameSession: Bool = false, directories: [String]? = nil, collapse: Bool = false,
+    hideFindings: Bool = false
 ) throws -> MonitoringSnapshot {
     var ledger = CounterLedger()
     func samples(_ time: Double) -> [ProcessSample] {
@@ -319,6 +402,7 @@ private func reviewSnapshot(
             hostBusyPercent: nil, logicalCPUCount: 8,
             measuredUserPercent: cpu.reduce(0, +), unmeasuredLifetimeCount: 0, previousScanSeconds: nil),
         timestamp: Date(), intervalSeconds: 0.1, cpuThresholdPercent: 0, memoryThresholdBytes: 0,
-        sampledProcessCount: rows.count, unreadableProcessCount: unreadable, findings: collapse ? [] : rows,
+        sampledProcessCount: rows.count, unreadableProcessCount: unreadable,
+        findings: collapse || hideFindings ? [] : rows, observedFindings: collapse ? [] : rows,
         window: collapse ? activity.summary : nil, recentActivity: store.snapshot())
 }

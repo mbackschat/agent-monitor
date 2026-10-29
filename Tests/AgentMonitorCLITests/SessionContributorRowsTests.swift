@@ -26,6 +26,22 @@ import Testing
             runtime: runtime)
     }
 
+    @Test func workloadExecutableRolesDoNotMistakeDirectoryTextForNames() throws {
+        let value = try overview([
+            worker("java", pid: 1, cpu: 1, cwd: "/work/java"),
+            worker("node", pid: 2, cpu: 0.5, cwd: "/work/node"),
+        ])
+        let node = try #require(value.nodes[session])
+        let parts = value.workloadParts(for: node)
+        #expect(
+            parts.compactMap { part -> String? in
+                if case .executable(let name) = part { return name }
+                return nil
+            } == ["java", "node"])
+        #expect(parts.map(\.text).joined() == value.workloadContext(for: node))
+        #expect(parts.contains { $0.text.contains("/work/java") })
+    }
+
     @Test func sessionTitleLeadsWithIdentityBeforeItsDirectory() throws {
         let single = try overview([worker("cargo", pid: 1, cpu: 1)])
         #expect(single.nodes[session]?.title == "codex · 11111111 · /work/api")

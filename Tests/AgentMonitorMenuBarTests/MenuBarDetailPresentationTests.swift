@@ -43,7 +43,7 @@ import Testing
     }
 }
 
-@Test @MainActor func contributorLedgerHeaderAndEmptyTablePreserveBackdrop() async throws {
+@Test @MainActor func contributorLedgerKeepsChromeLightAndContentReadableOverBackdrop() async throws {
     _ = NSApplication.shared
     let model = MenuBarModel { _, _, _ in }
     let host = NSHostingView(rootView: ContributorTableBackdrop(model: model))
@@ -56,9 +56,13 @@ import Testing
         let x = Int(point.x * CGFloat(bitmap.pixelsWide) / host.bounds.width)
         let y = Int(point.y * CGFloat(bitmap.pixelsHigh) / host.bounds.height)
         let color = try #require(bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
-        #expect(
-            color.blueComponent > 0.8 && color.redComponent < 0.2,
-            "Opaque table surface at \(point): \(color)")
+        if point.y < 30 {
+            #expect(color.blueComponent > 0.8 && color.redComponent < 0.2, "Chrome lost its backdrop")
+        } else {
+            #expect(
+                color.redComponent > 0.7 && color.greenComponent > 0.7,
+                "Reading surface must suppress the saturated backdrop")
+        }
     }
     if let output = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(

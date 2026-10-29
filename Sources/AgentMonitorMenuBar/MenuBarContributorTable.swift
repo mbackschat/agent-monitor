@@ -3,6 +3,7 @@ import AppKit
 import SwiftUI
 
 struct MenuBarContributorTable: View {
+    @State private var hovered: ContributorID?
     @Bindable var model: MenuBarModel
     var focus: FocusState<MenuBarFocus?>.Binding
 
@@ -19,8 +20,22 @@ struct MenuBarContributorTable: View {
         let rows = overview.visibleRows
         let positions = Dictionary(uniqueKeysWithValues: rows.enumerated().map { ($0.element.id, $0.offset) })
         var group = -1
+        var currentSection = MenuBarContributorSection.sessions
+        var lastSection: MenuBarContributorSection?
+        var sections: [ContributorID: MenuBarContributorSection] = [:]
+        var headings: [ContributorID: MenuBarContributorSection] = [:]
         let groupIndices = rows.map { row in
-            if row.depth == 0 { group += 1 }
+            if row.depth == 0 {
+                group += 1
+                currentSection =
+                    overview.pinned.contains(row.id)
+                    ? .pinned : (row.id.summarySymbol == nil ? .sessions : .other)
+                if lastSection != currentSection {
+                    headings[row.id] = currentSection
+                }
+                lastSection = currentSection
+            }
+            sections[row.id] = currentSection
             return group
         }
         VStack(spacing: 0) {
@@ -42,54 +57,73 @@ struct MenuBarContributorTable: View {
                 TableColumn("Contributor") { node in
                     let index = positions[node.id] ?? 0
                     let depth = positions[node.id].map { rows[$0].depth } ?? 0
-                    Button {
-                        if acceptsInteraction { model.report.overview.activateRow(node.id) }
-                    } label: {
-                        MenuBarContributorRow(node: node, overview: overview, depth: depth)
-                            .padding(.horizontal, 8).padding(.vertical, 4).padding(
-                                .leading, CGFloat(depth) * 18
-                            )
-                            .background(
-                                Color.primary.opacity(
-                                    (groupIndices.indices.contains(index)
-                                        && groupIndices[index].isMultiple(of: 2)) ? 0.055 : 0.015),
-                                in: RoundedRectangle(cornerRadius: 7)
-                            )
-                            .overlay(alignment: .leading) {
-                                if depth > 0 {
-                                    MenuBarContributorBranch(
-                                        last: positions[node.id].map { rows[$0].isLastSibling } ?? true
-                                    )
-                                    .frame(width: 14)
-                                    .padding(.leading, CGFloat(depth) * 18 - 12)
-                                    .allowsHitTesting(false).accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 6) {
+                        if let heading = headings[node.id] {
+                            MenuBarContributorHeading(section: heading)
+                                .padding(.top, index > 0 ? 10 : 2)
+                        }
+                        MenuBarContributorRow(
+                            node: node, overview: overview, depth: depth,
+                            toggleDisclosure: node.children.isEmpty
+                                ? nil
+                                : {
+                                    if acceptsInteraction { model.report.overview.activateRow(node.id) }
                                 }
-                            }
-                            .padding(.top, depth == 0 && index > 0 ? 10 : 0)
-                            .contentShape(Rectangle())
-                    }.buttonStyle(.plain)
-                        .accessibilityHint(
-                            node.children.isEmpty ? "Select row" : "Select row and toggle children"
                         )
-                        .overlay(alignment: .bottomTrailing) {
-                            if overview.selection == node.id {
-                                Button {
-                                    guard acceptsInteraction else { return }
-                                    model.report.overview.toggleDetails()
-                                } label: {
-                                    Image(systemName: "info.circle").padding(6)
-                                }
-                                .buttonStyle(.plain).help("Contributor details (i)")
-                                .accessibilityLabel("Details for " + node.label.headline)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .padding(.leading, CGFloat(depth) * 18)
+                        .background(
+                            (sections[node.id] == .pinned ? Color.accentColor : Color.primary).opacity(
+                                sections[node.id] == .other
+                                    ? 0.075
+                                    : ((groupIndices.indices.contains(index)
+                                        && groupIndices[index].isMultiple(of: 2)) ? 0.055 : 0.025)),
+                            in: Rectangle()
+                        )
+                        .overlay(alignment: .leading) {
+                            if depth > 0 {
+                                MenuBarContributorBranch(last: rows[index].isLastSibling)
+                                    .frame(width: 14).padding(.leading, CGFloat(depth) * 18 - 12)
+                                    .allowsHitTesting(false).accessibilityHidden(true)
+                            } else if sections[node.id] == .pinned {
+                                RoundedRectangle(cornerRadius: 2).fill(Color.accentColor)
+                                    .frame(width: 3).padding(.vertical, 8).accessibilityHidden(true)
                             }
                         }
+                        .overlay(alignment: .bottomTrailing) {
+                            HStack(spacing: 2) {
+                                if let target = overview.pinTarget(for: node.id), target == node.id {
+                                    MenuBarContributorPin(
+                                        pinned: overview.pinned.contains(target),
+                                        revealed: hovered == node.id
+                                    ) {
+                                        guard acceptsInteraction else { return }
+                                        model.report.overview.togglePin(for: node.id)
+                                    }
+                                }
+                                MenuBarContributorActions(model: model, node: node)
+                                Button {
+                                    guard acceptsInteraction else { return }
+                                    model.report.overview.select(node.id)
+                                    model.report.overview.toggleDetails()
+                                } label: {
+                                    Image(systemName: "info.circle").frame(width: 24, height: 28)
+                                }
+                                .buttonStyle(.borderless).help("Contributor details (i)")
+                                .accessibilityLabel("Details for " + node.label.headline)
+                            }.padding(.trailing, 4).padding(.bottom, 4)
+                        }
+                    }.background(MenuBarRowBackground()).onHover { inside in
+                        if inside { hovered = node.id } else if hovered == node.id { hovered = nil }
+                    }.padding(.top, depth == 0 && index > 0 && headings[node.id] == nil ? 8 : 0)
                 }.width(min: 280, ideal: 560)
             } rows: {
                 MenuBarContributorRows(
                     model: model, ids: overview.topLevel, acceptsInteraction: acceptsInteraction)
             }
             .tableColumnHeaders(.hidden)
-            .tableStyle(.inset(alternatesRowBackgrounds: false))
+            .tableStyle(.inset)
+            .alternatingRowBackgrounds(.enabled)
             .scrollContentBackground(.hidden)
             .accessibilityLabel(overview.title)
             .frame(minHeight: 0, maxHeight: .infinity)
@@ -112,15 +146,22 @@ struct MenuBarContributorTable: View {
                 }
                 return model.handleShortcut(key.characters, row: nil) ? .handled : .ignored
             }
+            .background(
+                Color(nsColor: .windowBackgroundColor).opacity(0.92), in: RoundedRectangle(cornerRadius: 8)
+            )
             .contextMenu(forSelectionType: ContributorID.self) { ids in
                 if acceptsInteraction, let id = ids.first {
                     Button("Details…") {
                         model.report.overview.select(id)
                         if !model.report.overview.detailsVisible { model.report.overview.toggleDetails() }
                     }
-                    Button("Pin / unpin session") {
-                        model.report.overview.select(id)
-                        model.report.overview.togglePin()
+                    if let target = overview.pinTarget(for: id) {
+                        Button(
+                            overview.pinned.contains(target) ? "Unpin session" : "Pin session",
+                            systemImage: "pin"
+                        ) {
+                            model.report.overview.togglePin(for: id)
+                        }
                     }
                 }
             }
@@ -193,6 +234,24 @@ struct MenuBarContributorRow: View {
     let node: ContributorNode
     let overview: ContributorOverview
     var depth = 0
+    var toggleDisclosure: (() -> Void)? = nil
+
+    private var processCountHelp: String {
+        guard node.stats.currentAvailable else { return "Current process count unavailable" }
+        let count = node.stats.current.count
+        return "\(count) currently observed \(count == 1 ? "process" : "processes") in this contributor"
+    }
+
+    private var workloadText: AttributedString {
+        overview.workloadParts(for: node).reduce(into: AttributedString()) { result, part in
+            var text = AttributedString(TextReport.safe(part.text))
+            if case .executable = part {
+                text.font = .system(size: 13, weight: .bold)
+                text.foregroundColor = prominence == .increased ? .white : .primary
+            }
+            result += text
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -202,16 +261,16 @@ struct MenuBarContributorRow: View {
                         systemName: node.id.summarySymbol
                             ?? (node.process == nil ? "bubble.left" : "terminal")
                     )
-                    .foregroundStyle(.secondary).accessibilityHidden(true)
+                    .foregroundStyle(node.id == .section(.uncertain) ? Color.orange : Color.secondary)
+                    .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(TextReport.safe(node.label.headline))
                             .font(
-                                .system(size: depth == 0 ? 15 : 13, weight: depth == 0 ? .semibold : .medium))
+                                .system(size: depth == 0 ? 15 : 14, weight: .semibold))
                         if let name = node.label.sessionName {
                             Text(TextReport.safe(name)).font(.system(size: 12))
                         }
                     }.lineLimit(1).truncationMode(.middle)
-                    if overview.pinned.contains(node.id) { Image(systemName: "pin.fill").font(.caption) }
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 MenuBarContributorLane(activity: overview.activity, id: node.id).frame(width: 100, height: 32)
                 Text(node.stats.cpuText(duration: overview.duration)).font(
@@ -224,19 +283,34 @@ struct MenuBarContributorRow: View {
                         "Memory: " + node.stats.currentMemoryText)
             }.monospacedDigit()
             HStack(spacing: 6) {
-                Text(TextReport.safe(overview.workloadContext(for: node)))
+                Text(workloadText)
                     .lineLimit(2).truncationMode(.middle).frame(maxWidth: .infinity, alignment: .leading)
-                Text(node.stats.currentAvailable ? "\(node.stats.current.count)" : "—")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .padding(.horizontal, 7).padding(.vertical, 2)
-                    .background(.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 5))
-                    .accessibilityLabel(
-                        node.stats.currentAvailable
-                            ? "Processes now: " + String(node.stats.current.count)
-                            : "Current process count unavailable")
-            }.font(.system(size: 12)).foregroundStyle(
+                if let toggleDisclosure {
+                    Button(action: toggleDisclosure) {
+                        HStack(spacing: 5) {
+                            Text(node.stats.currentAvailable ? "\(node.stats.current.count)" : "—")
+                            Image(systemName: overview.isExpanded(node.id) ? "chevron.down" : "chevron.right")
+                        }.font(.system(size: 13, weight: .semibold)).frame(minWidth: 44, minHeight: 32)
+                            .background(.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
+                    }.buttonStyle(.borderless).accessibilityIdentifier("contributor-disclosure")
+                        .accessibilityLabel(
+                            (overview.isExpanded(node.id) ? "Collapse " : "Expand ") + node.label.headline
+                        )
+                        .help(
+                            processCountHelp
+                                + (overview.isExpanded(node.id)
+                                    ? " — click to collapse" : " — click to expand")
+                        )
+                        .accessibilityValue(processCountHelp)
+                } else {
+                    Text(node.stats.currentAvailable ? "\(node.stats.current.count)" : "—")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .frame(minWidth: 32, minHeight: 32)
+                        .accessibilityLabel(processCountHelp).help(processCountHelp)
+                }
+            }.font(.system(size: 13)).foregroundStyle(
                 prominence == .increased ? Color.white.opacity(0.85) : Color.secondary
-            ).padding(.trailing, 24)
+            ).padding(.trailing, 84)
         }.foregroundStyle(prominence == .increased ? Color.white : Color.primary).help(
             node.title + ". " + node.stats.census)
     }
@@ -266,8 +340,6 @@ struct MenuBarContributorLane: View {
     var body: some View {
         Canvas { context, size in
             let color: Color = prominence == .increased ? .white : .accentColor
-            let bounds = Path(CGRect(x: 0, y: 0, width: size.width, height: size.height))
-            context.stroke(bounds, with: .color(color.opacity(0.25)), lineWidth: 1)
             guard !activity.spans.isEmpty else { return }
             // Whole intervals are ordinal bars, with pixel-aligned equal widths; unequal durations
             // remain explicit in the caption (architecture.md, Resource history).
@@ -313,5 +385,51 @@ extension ContributorID {
         case .provider: "square.stack.3d.up"
         case .session, .executable, .process: nil
         }
+    }
+}
+
+private enum MenuBarContributorSection: String {
+    case pinned = "Pinned"
+    case sessions = "Sessions"
+    case other = "Other observed work"
+
+    var symbol: String {
+        switch self {
+        case .pinned: "pin.fill"
+        case .sessions: "bubble.left.and.bubble.right"
+        case .other: "square.stack.3d.up"
+        }
+    }
+}
+
+private struct MenuBarContributorPin: View {
+    @FocusState private var focused: Bool
+    let pinned: Bool
+    let revealed: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        Toggle(isOn: Binding(get: { pinned }, set: { if $0 != pinned { toggle() } })) {
+            Image(systemName: pinned ? "pin.fill" : "pin").frame(width: 24, height: 28)
+        }.toggleStyle(.button).buttonStyle(.borderless)
+            .focused($focused)
+            .opacity(pinned || revealed || focused ? 1 : 0)
+            .accessibilityLabel("Pin session").accessibilityIdentifier("contributor-pin")
+            .help(pinned ? "Unpin session" : "Pin session")
+    }
+}
+
+private struct MenuBarContributorHeading: View {
+    @Environment(\.backgroundProminence) private var prominence
+    let section: MenuBarContributorSection
+
+    var body: some View {
+        Label(section.rawValue, systemImage: section.symbol)
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(
+                prominence == .increased
+                    ? Color.white : (section == .pinned ? Color.accentColor : Color.secondary)
+            )
+            .accessibilityAddTraits(.isHeader)
     }
 }

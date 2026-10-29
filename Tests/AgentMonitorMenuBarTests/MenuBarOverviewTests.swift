@@ -40,6 +40,7 @@ import Testing
     window.contentView = host
     await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
     if let first = model.report.overview.main.first {
+        model.report.overview.togglePin(for: first)
         model.report.overview.setDisclosure(expanded: true, for: first)
         await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
         if let child = model.report.overview.nodes[first]?.children.first {
@@ -93,6 +94,19 @@ import Testing
                 + size.rawValue.lowercased() + ".png"
             try #require(details.representation(using: .png, properties: [:])).write(
                 to: URL(fileURLWithPath: detailsPath))
+            if let process = model.report.contributorProcesses(for: selected).first {
+                model.report.inspectContributorProcess(process.process, contributor: selected)
+                await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+                let inspection = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+                host.cacheDisplay(in: host.bounds, to: inspection)
+                let inspectionPath =
+                    URL(fileURLWithPath: detailsPath).deletingPathExtension().path + "-process.png"
+                try #require(inspection.representation(using: .png, properties: [:])).write(
+                    to: URL(fileURLWithPath: inspectionPath))
+                #expect(model.report.showsOverview)
+                #expect(contributorOutline(in: host) === outline)
+                model.report.overview.showContributorSummary()
+            }
         }
     }
     window.contentView = nil
@@ -230,7 +244,8 @@ func nativeOverviewFixture(unreadable: Int = 0, secondSampleTime: Double = 2) th
     let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
     let text = recognized.map(\.text)
         .joined(separator: " ")
-    #expect(text.contains("Coverage: 1 warning"))
+    #expect(text.contains("Read failures: 3 same-user PIDs"), "\(text)")
+    #expect(text.contains("See Diagnostics"))
     #expect(!text.contains("Details"))
     #expect(model.report.displayCoverageStatus.notes.contains { $0.text.contains("3 same-user") })
     await model.stop()

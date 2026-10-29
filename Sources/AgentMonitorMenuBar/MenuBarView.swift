@@ -10,6 +10,7 @@ struct MenuBarView: View {
     @State private var initialFocus = MenuBarInitialFocus()
     @State private var pendingPinFocus: LiveReportRowID?
     var maximumHeight: CGFloat = .infinity
+    var detached = false
     var onSizeChange: (CGSize) -> Void = { _ in }
 
     private var focusedRow: LiveReportRowID? {
@@ -69,9 +70,16 @@ struct MenuBarView: View {
             HStack {
                 MenuBarReferenceMenu(model: model)
                 Spacer()
-                Picker("Panel size", selection: $model.panelSize) {
+                Picker(
+                    "Panel size",
+                    selection: Binding<MenuBarPanelSize?>(
+                        get: { model.customPanelHeight == nil ? model.panelSize : nil },
+                        set: { if let size = $0 { model.panelSize = size } }
+                    )
+                ) {
+                    if model.customPanelHeight != nil { Text("Custom").tag(nil as MenuBarPanelSize?) }
                     ForEach(MenuBarPanelSize.allCases, id: \.self) { size in
-                        Text(size.rawValue).tag(size)
+                        Text(size.rawValue).tag(Optional(size))
                     }
                 }
                 .labelsHidden().frame(width: 100).controlSize(.small)
@@ -81,7 +89,12 @@ struct MenuBarView: View {
             }
             .padding(12)
         }
-        .frame(width: MenuBarLayout.width, height: min(model.panelSize.height, maximumHeight))
+        .frame(width: MenuBarLayout.width)
+        .frame(
+            minHeight: min(detached ? MenuBarPanelSize.compact.height : model.panelHeight, maximumHeight),
+            idealHeight: min(model.panelHeight, maximumHeight),
+            maxHeight: detached ? maximumHeight : min(model.panelHeight, maximumHeight)
+        )
         .onChange(of: model.diagnosis.state.isVisible || model.report.actionPanel != nil) { _, inspecting in
             if inspecting {
                 focus = .inspection
@@ -412,55 +425,8 @@ struct MenuBarView: View {
                 set: { model.setDetails(for: process.process, expanded: $0) }
             )
         ) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("PID: \(String(process.process.pid))").textSelection(.enabled)
-                    Button("Copy PID", systemImage: "doc.on.doc") {
-                        model.copyPID(row: .process(process.process))
-                    }.controlSize(.small).help("Copy this process ID (y when its row is focused)")
-                }
-                Text(process.executable)
-                ForEach(AccountingContext.process(process), id: \.self) { Text($0) }
-                if let window = model.report.snapshot?.window {
-                    Text(AccountingContext.evidence(process, in: window))
-                }
-                if let peak = FootprintContext.kernelPeak(process) { Text(peak) }
-                Text(
-                    "Session: \(process.sessionName.map { $0 + " · " } ?? "")\(process.attribution.threadID ?? (process.isSharedRuntime ? "shared runtime" : "unresolved"))"
-                )
-                Text("\(process.attribution.evidence.rawValue) · \(process.attribution.context.rawValue)")
-                Text("Directory: \(process.cwd ?? "unavailable")")
-                Text("Terminal: \(process.attribution.terminal ?? "unavailable")")
-                Text("Runtime: \(process.attribution.runtime.map { String($0.pid) } ?? "unresolved")")
-                Text("Runtime directory: \(process.attribution.runtimeDirectory ?? "unavailable")")
-                Text(
-                    "Observed chain: \(process.attribution.ancestry.map { String($0.pid) }.joined(separator: " ← "))"
-                )
-                if let root = process.attribution.rootSessionID { Text("Root session: " + root) }
-                MenuBarCommandInspection(process: process, controller: model.commands)
-                if !process.attribution.candidateThreadIDs.isEmpty {
-                    Text("Candidates: " + process.attribution.candidateThreadIDs.joined(separator: ", "))
-                }
-                Text("Launch origin does not prove current use of shared daemons.").foregroundStyle(
-                    .secondary)
-                HStack {
-                    Button("Terminal", systemImage: "terminal") {
-                        model.begin(.focus, row: .process(process.process))
-                    }
-                    .disabled(!model.canBegin(.focus, row: .process(process.process)))
-                    Button("Message…", systemImage: "bubble") {
-                        model.begin(.message, row: .process(process.process))
-                    }
-                    .disabled(!model.canBegin(.message, row: .process(process.process)))
-                    .help(ProviderRuntimeAvailability.messagingUnavailableReason)
-                    Spacer(minLength: 0)
-                    Button("Terminate…", role: .destructive) {
-                        model.begin(.terminate, row: .process(process.process))
-                    }
-                }
-                .controlSize(.small).padding(.top, 4)
-            }
-            .font(.caption).textSelection(.enabled).padding(.vertical, 6)
+            MenuBarProcessDetails(model: model, process: process)
+                .id(process.process)
         } label: {
             MenuBarProcessLabel(
                 process: process, placement: placement,

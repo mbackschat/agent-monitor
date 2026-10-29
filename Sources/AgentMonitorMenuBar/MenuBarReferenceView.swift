@@ -52,13 +52,15 @@ struct MenuBarCoverageStatus: View {
                     status.summaryText,
                     systemImage: status.severity == .warning ? "exclamationmark.triangle" : "info.circle"
                 )
-                .lineLimit(1)
+                .lineLimit(2)
                 .foregroundStyle(status.severity == .warning ? Color.orange : Color.secondary)
             }
             Spacer(minLength: 0)
+            Label("See Diagnostics", systemImage: "stethoscope").foregroundStyle(.secondary)
         }
         .font(.caption2)
-        .frame(height: 18)
+        .fixedSize(horizontal: false, vertical: true)
+        .help(status.help)
     }
 }
 

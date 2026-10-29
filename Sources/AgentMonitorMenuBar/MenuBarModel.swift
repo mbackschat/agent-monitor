@@ -27,7 +27,20 @@ final class MenuBarModel {
     private(set) var rowIndex = MenuBarRowIndex(state: LiveReportState(grouping: .session))
     let diagnosis: CPUDiagnosisController
     let commands = CommandInspectionController()
-    var panelSize: MenuBarPanelSize = .standard
+    var panelSize: MenuBarPanelSize = .standard {
+        didSet {
+            customPanelHeight = nil
+            onPanelSizeChange?()
+        }
+    }
+    private(set) var customPanelHeight: CGFloat?
+    var panelHeight: CGFloat { customPanelHeight ?? panelSize.height }
+    @ObservationIgnored var onPanelSizeChange: (() -> Void)?
+
+    func rememberPanelHeight(_ height: CGFloat) {
+        guard height.isFinite, height > 0 else { return }
+        customPanelHeight = abs(height - panelSize.height) < 1 ? nil : height
+    }
     var referencePage: MenuBarReferencePage?
     private(set) var arrivals = MenuBarArrivals()
     @ObservationIgnored private var arrivalExpiry: Task<Void, Never>?
@@ -321,7 +334,7 @@ final class MenuBarModel {
         perform(report.actionInput(input))
     }
 
-    private func perform(_ effect: ActionEffect?) {
+    func perform(_ effect: ActionEffect?) {
         guard let effect, !isPerformingAction else { return }
         isPerformingAction = true
         let token = generation

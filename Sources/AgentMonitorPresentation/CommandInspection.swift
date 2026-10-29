@@ -78,8 +78,9 @@ public final class CommandInspectionController {
 
 extension LiveReportState {
     public var commandInspectionTarget: HeavyProcess? {
-        guard !showsOverview, !diagnosis.isVisible, actionPanel == nil,
-            let selected, expanded == selected, detailsMode != .minimized
+        guard !diagnosis.isVisible, actionPanel == nil else { return nil }
+        if showsOverview { return contributorProcessTarget }
+        guard let selected, expanded == selected, detailsMode != .minimized
         else { return nil }
         return snapshot?.findings.first { $0.process == selected && !$0.isHistorical }
     }

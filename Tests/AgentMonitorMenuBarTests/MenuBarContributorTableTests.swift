@@ -36,7 +36,10 @@ import Testing
     #expect(levels == [0, 1, 2])
     #expect(contributorExpanded)
     #expect(!processExpandable)
-    #expect(!outline.usesAlternatingRowBackgroundColors)
+    #expect(outline.usesAlternatingRowBackgroundColors)
+    outline.enumerateAvailableRowViews { row, _ in
+        #expect(row.backgroundColor.alphaComponent == 0)
+    }
     let selectedRow = try #require(outline.rowView(atRow: outline.selectedRow, makeIfNecessary: true))
     #expect(selectedRow.isSelected)
     #expect(
@@ -85,8 +88,8 @@ import Testing
 @MainActor func settleContributorTable(in host: NSView, expectedRows: Int) async {
     for _ in 0..<20 {
         host.layoutSubtreeIfNeeded()
-        if contributorOutline(in: host)?.numberOfRows == expectedRows { return }
         await Task.yield()
+        if contributorOutline(in: host)?.numberOfRows == expectedRows { return }
     }
 }
 

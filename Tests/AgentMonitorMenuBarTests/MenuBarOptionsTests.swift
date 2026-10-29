@@ -429,3 +429,13 @@ func selectedThresholdRejectsNegativeOrNonFiniteCPU(value: Double) {
     controller.menuNeedsUpdate(menu)
     #expect(!menu.items.contains { $0.title.hasPrefix("CPU chart range:") })
 }
+
+@Test @MainActor func referenceMenuSymbolsExplicitlyRemainVisibleOnMacOS27() throws {
+    let model = MenuBarModel { _, _, _ in }
+    let menu = MenuBarOptionsController(model: model).makeMenu()
+    for page in [MenuBarReferencePage.glossary, .keyboard, .diagnostics] {
+        let item = try #require(menu.item(withTitle: page.title))
+        #expect(item.image != nil)
+        #expect(item.preferredImageVisibility == .visible)
+    }
+}

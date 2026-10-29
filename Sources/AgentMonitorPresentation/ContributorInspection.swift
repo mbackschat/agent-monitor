@@ -209,8 +209,23 @@ private func memory(_ reading: RecentMemoryReading) -> String {
         + " · scan \(reading.scan) · \(reading.evidence.rawValue)"
 }
 
+public enum ContributorWorkloadPart: Equatable, Sendable {
+    case executable(String)
+    case context(String)
+
+    public var text: String {
+        switch self {
+        case .executable(let value), .context(let value): value
+        }
+    }
+}
+
 extension ContributorOverview {
     public func workloadContext(for node: ContributorNode) -> String {
+        workloadParts(for: node).map(\.text).joined()
+    }
+
+    public func workloadParts(for node: ContributorNode) -> [ContributorWorkloadPart] {
         var workloads: [ContributorNode] = []
         func collect(_ id: ContributorID) {
             guard let child = nodes[id] else { return }
@@ -220,7 +235,7 @@ extension ContributorOverview {
             }
             for id in child.children { collect(id) }
         }
-        func retainedContext(_ value: String) -> String {
+        func retainedContext(_ value: [ContributorWorkloadPart]) -> [ContributorWorkloadPart] {
             guard node.stats.current.isEmpty, node.stats.hasContributions else { return value }
             let presence: String
             if !node.stats.currentAvailable {
@@ -230,25 +245,33 @@ extension ContributorOverview {
             } else {
                 presence = "Observed elsewhere"
             }
-            return value + " · " + presence + " · Recent CPU " + node.stats.recentCPUText
+            return value + [.context(" · " + presence + " · Recent CPU " + node.stats.recentCPUText)]
         }
         switch node.id {
         case .session:
             collect(node.id)
             let labels = workloadDirectoryLabels
-            let context = workloads.prefix(3).map { child in
+            var context: [ContributorWorkloadPart] = []
+            for child in workloads.prefix(3) {
+                if !context.isEmpty { context.append(.context("  +  ")) }
                 if case .executable(_, let name, let cwd) = child.id {
-                    return name + " · " + (cwd.map { labels[$0] ?? $0 } ?? "CWD unavailable") + " "
-                        + child.stats.cpuText(duration: duration)
+                    context.append(.executable(name))
+                    context.append(
+                        .context(
+                            " · " + (cwd.map { labels[$0] ?? $0 } ?? "CWD unavailable") + " "
+                                + child.stats.cpuText(duration: duration)))
+                } else {
+                    context.append(.context(child.label.headline))
                 }
-                return child.label.headline
-            }.joined(separator: "  +  ")
-            let remaining = workloads.count > 3 ? "  +\(workloads.count - 3) more workloads" : ""
-            if !context.isEmpty { return retainedContext(context + remaining) }
-        case .executable(_, _, let cwd): return retainedContext(cwd ?? "CWD unavailable")
+            }
+            if workloads.count > 3 { context.append(.context("  +\(workloads.count - 3) more workloads")) }
+            if !context.isEmpty { return retainedContext(context) }
+        case .executable(_, _, let cwd): return retainedContext([.context(cwd ?? "CWD unavailable")])
         case .process:
-            return retainedContext(
-                node.inspectionFields.first { $0.label == "Directory" }?.value ?? "CWD unavailable")
+            return retainedContext([
+                .context(
+                    node.inspectionFields.first { $0.label == "Directory" }?.value ?? "CWD unavailable")
+            ])
         case .section, .provider, .more, .collapsed: break
         }
         let population =
@@ -259,7 +282,7 @@ extension ContributorOverview {
             ? "" : " · \(node.stats.noLongerObserved.count) no longer observed"
         let released =
             node.stats.collapsedWorkers == nil ? "" : " · \(node.stats.workerCountText) observed workers"
-        return population + departed + released + " · Recent CPU " + node.stats.recentCPUText
+        return [.context(population + departed + released + " · Recent CPU " + node.stats.recentCPUText)]
     }
 }
 

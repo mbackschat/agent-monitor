@@ -88,6 +88,8 @@ Specialized native/terminal probes and restricted-environment workarounds are in
 
 ## Documentation and durable instructions
 
+Design-study images must never be added to Git. Always reuse the ignored `.build/design-studies/` directory for studies and their supporting render files; save review images there as PNG files. Do not create alternative study directories or put study images in `docs/assets/`. Track only written findings and decisions in documentation; this rule has no approval exception.
+
 Write one paragraph per physical Markdown line and regular links to other documents. The [product contract](docs/product.md) owns the central question and information requirements; the [README](README.md) serves users; [usage](docs/usage.md) owns controls, [architecture](docs/architecture.md) owns accepted contracts, [development](docs/development.md) owns repeatable checks/limits, and [PLAN.md](PLAN.md) owns unfinished work. Consult the [research index](docs/research/README.md) before investigating; extend the matching dated note and index new notes or retained measurements in the same commit. Keep evidence separate from open designs in [proposals](docs/proposals/README.md) and settled outcomes in [decisions](docs/decisions/README.md); every docs folder has a README index. Follow [documentation maintenance](docs/development.md#documentation-and-instruction-maintenance) for provenance and completion records.
 
 Add root instructions only for recurring agent decisions or essential invariants. Put detailed feature contracts in their owning guide and link the task trigger here; do not accumulate a second feature specification in this file.

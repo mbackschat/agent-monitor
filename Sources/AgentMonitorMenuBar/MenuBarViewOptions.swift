@@ -212,6 +212,7 @@ enum MenuBarOption: Equatable {
             add(page.title, .reference(page), checked: model.referencePage == page, to: menu)
             menu.items.last?.image = NSImage(
                 systemSymbolName: page.symbol, accessibilityDescription: page.title)
+            menu.items.last?.preferredImageVisibility = .visible
         }
     }
 

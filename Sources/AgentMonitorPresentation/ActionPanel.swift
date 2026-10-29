@@ -258,6 +258,22 @@ extension LiveReportState {
             setActionNotice("Historical contributors cannot initiate actions.")
             return nil
         }
+        return beginAction(kind, admitted: row)
+    }
+
+    public mutating func beginContributorAction(
+        _ kind: ProcessActionKind, contributor: ContributorID,
+        process: ProcessIdentity
+    ) -> ActionEffect? {
+        guard actionPanel == nil, !diagnosis.isVisible,
+            let row = contributorProcesses(for: contributor).first(where: { $0.process == process })
+        else { return nil }
+        overview.select(contributor)
+        return beginAction(kind, admitted: row)
+    }
+
+    private mutating func beginAction(_ kind: ProcessActionKind, admitted row: HeavyProcess) -> ActionEffect?
+    {
         switch kind {
         case .terminate:
             actionPanel = ActionPanel(process: row, phase: .confirmTermination)

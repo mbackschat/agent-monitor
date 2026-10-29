@@ -2,8 +2,7 @@ import AgentMonitorCore
 
 /// The one-row coverage status shared by the overview and process views of every host.
 ///
-/// Interactive hosts reserve an empty row when nothing is noted, so a gap appearing or clearing
-/// does not move the rows under selection. Warnings mark missing measurements or coverage risks;
+/// Warnings mark missing measurements or coverage risks;
 /// notices mark expected polling limits and reduced resolution.
 public struct CoverageStatus: Equatable, Sendable {
     public enum Severity: Equatable, Sendable { case warning, notice }
@@ -93,13 +92,7 @@ public struct CoverageStatus: Equatable, Sendable {
     public var text: String { notes.isEmpty ? Self.clearText : notes.map(\.text).joined(separator: " · ") }
     public var summaryText: String {
         guard !notes.isEmpty else { return Self.clearText }
-        let warnings = notes.filter { $0.severity == .warning }.count
-        let notices = notes.count - warnings
-        let counts = [
-            warnings > 0 ? "\(warnings) \(warnings == 1 ? "warning" : "warnings")" : nil,
-            notices > 0 ? "\(notices) \(notices == 1 ? "notice" : "notices")" : nil,
-        ].compactMap { $0 }.joined(separator: ", ")
-        return "Coverage: " + counts
+        return notes[0].text + (notes.count > 1 ? " · +\(notes.count - 1) more" : "")
     }
 
     public func terminalSummary(width: Int) -> String {

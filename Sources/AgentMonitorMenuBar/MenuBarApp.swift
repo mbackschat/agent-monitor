@@ -15,6 +15,7 @@ enum MenuBarApp {
 @MainActor
 final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var item: NSStatusItem?
+    private var windowSizing: MenuBarWindowSizing?
     private let popover = NSPopover()
     private lazy var statusMenu = MenuBarStatusMenu(model: model)
     private let model: MenuBarModel
@@ -37,7 +38,7 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
         popover.delegate = self
         let host = NSHostingController(
             rootView: MenuBarView(model: model) { [weak popover] size in
-                guard let popover, popover.contentSize != size else { return }
+                guard let popover, !popover.isDetached, popover.contentSize != size else { return }
                 popover.contentSize = size
             })
         host.sizingOptions = [.intrinsicContentSize]
@@ -111,6 +112,23 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
         model.close()
     }
     func popoverShouldDetach(_ popover: NSPopover) -> Bool { true }
+
+    func popoverDidDetach(_ popover: NSPopover) {
+        guard let host = popover.contentViewController as? NSHostingController<MenuBarView>,
+            let window = host.view.window
+        else { return }
+        windowSizing?.stop()
+        windowSizing = MenuBarWindowSizing(model: model, host: host, window: window)
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        guard
+            notification.userInfo?[NSPopover.closeReasonUserInfoKey] as? String
+                != NSPopover.CloseReason.detachToWindow.rawValue
+        else { return }
+        windowSizing?.stop()
+        windowSizing = nil
+    }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         Task {
