@@ -39,101 +39,6 @@ public struct ContinuousSamplingClock: SamplingClock {
     public func monotonicNow() -> Double { Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000 }
 }
 
-/// Runs a harness's declared session listing; injected so tests never start a provider CLI.
-package protocol SessionRegistryReading: Sendable {
-    var isAvailable: Bool { get }
-    func output(of query: SessionRegistryQuery) throws -> Data
-    func output(of query: SessionRegistryQuery, checking: @escaping @Sendable () throws -> Void) throws
-        -> Data
-}
-
-extension SessionRegistryReading {
-    package var isAvailable: Bool { true }
-
-    package func output(of query: SessionRegistryQuery, checking: @escaping @Sendable () throws -> Void)
-        throws -> Data
-    {
-        try checking()
-        let result = try output(of: query)
-        try checking()
-        return result
-    }
-}
-
-package struct OfflineSessionRegistryReader: SessionRegistryReading {
-    package init() {}
-
-    package var isAvailable: Bool { false }
-
-    package func output(of query: SessionRegistryQuery) throws -> Data {
-        throw BoundedCommandFailure(ProviderRuntimeAvailability.sessionListingUnavailableReason)
-    }
-}
-
-package struct CommandSessionRegistryReader: SessionRegistryReading {
-    private let executable: URL
-    private let prefix: [String]
-    private let timeout: TimeInterval
-
-    /// Explicit executable injection is reserved for disposable fixtures. Production uses
-    /// OfflineSessionRegistryReader because CLI startup has no offline guarantee
-    /// (docs/architecture.md#offline-runtime).
-    package init(
-        executable: URL, prefix: [String] = [], timeout: TimeInterval = 3
-    ) {
-        self.executable = executable
-        self.prefix = prefix
-        self.timeout = timeout
-    }
-
-    package func output(of query: SessionRegistryQuery) throws -> Data {
-        try output(of: query, checking: { try Task.checkCancellation() })
-    }
-
-    package func output(of query: SessionRegistryQuery, checking: @escaping @Sendable () throws -> Void)
-        throws -> Data
-    {
-        let command = try BoundedCommand(
-            executable: executable, arguments: prefix + query.command, environment: query.environment,
-            timeout: timeout, tool: query.tool, checkCancellation: checking)
-        defer { command.close() }
-        return try command.readOutput()
-    }
-}
-
-/// When each provider's listing is due: immediately for a runtime the previous listing did not
-/// cover, otherwise once a minute so bindings follow `/clear` or `/resume`. Failures wait the same
-/// minute because a listing costs a provider CLI start (docs/research/claude-runtime-attribution.md).
-struct SessionRegistryCadence: Sendable {
-    private var previous: [AgentProvider: (at: Date, runtimes: Set<ProcessIdentity>)] = [:]
-
-    mutating func due(
-        _ provider: AgentProvider, runtimes: Set<ProcessIdentity>, at now: Date,
-        profile: PipelineProfile? = nil
-    ) -> Bool {
-        if let last = previous[provider], runtimes.isSubset(of: last.runtimes), now >= last.at,
-            now.timeIntervalSince(last.at) < 60
-        {
-            return false
-        }
-        let reason: PipelineProfile.Counter
-        if let last = previous[provider] {
-            if now < last.at {
-                reason = .registryClockResetAdmissions
-            } else if now.timeIntervalSince(last.at) >= 60 {
-                reason = .registryPeriodicAdmissions
-            } else {
-                reason = .registryNewRuntimeAdmissions
-            }
-        } else {
-            reason = .registryInitialAdmissions
-        }
-        previous[provider] = (now, runtimes)
-        profile?.increment(reason)
-        return true
-    }
-}
-
 public enum MonitoringError: Error, Equatable, LocalizedError {
     case invalidConfiguration
     case overloaded(stage: MonitoringStage, rejectedScan: UInt64)
@@ -229,7 +134,6 @@ public struct MonitoringSession: Sendable {
     private let configuration: MonitoringConfiguration
     private let reader: any ProcessReading
     private let clock: any AcquisitionClock
-    private let registry: any SessionRegistryReading
     private let excluded: Set<Int32>
     private let recentActivity: RecentActivityStore?
     private var profile: PipelineProfile? = nil
@@ -239,21 +143,9 @@ public struct MonitoringSession: Sendable {
         clock: any AcquisitionClock = ContinuousSamplingClock(), excluding: Set<Int32> = [],
         recentActivity: RecentActivityStore? = nil
     ) {
-        self.init(
-            configuration: configuration, reader: reader, clock: clock,
-            registry: OfflineSessionRegistryReader(),
-            excluding: excluding, recentActivity: recentActivity)
-    }
-
-    package init(
-        configuration: MonitoringConfiguration, reader: any ProcessReading, clock: any AcquisitionClock,
-        registry: any SessionRegistryReading, excluding: Set<Int32> = [],
-        recentActivity: RecentActivityStore? = nil
-    ) {
         self.configuration = configuration
         self.reader = reader
         self.clock = clock
-        self.registry = registry
         self.excluded = excluding
         self.recentActivity = recentActivity
     }
@@ -276,7 +168,7 @@ public struct MonitoringSession: Sendable {
         _ receive: @Sendable (MonitoringSnapshot) async throws -> Void
     ) async throws {
         try await IndependentMonitoringPipeline(
-            configuration: configuration, reader: reader, clock: clock, registry: registry,
+            configuration: configuration, reader: reader, clock: clock,
             excluded: excluded, recentActivity: recentActivity, profile: profile, inspection: inspection
         ).run(thresholds: currentThresholds, interval: live, receive)
     }

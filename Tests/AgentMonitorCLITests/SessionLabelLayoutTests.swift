@@ -6,7 +6,6 @@ import Testing
     private let sessions = [
         "abcdabcd-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "12345678-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
     ]
-    private let name = "Build indexing and attribution for the shared application workspace"
 
     private func state(
         directories: [String] = ["/work/alpha/project", "/tmp/alpha/project"], memory: UInt64 = 320_000_000
@@ -17,7 +16,7 @@ import Testing
             OverviewFeed.Worker(
                 session: session, executable: "java", pid: Int32(index + 1),
                 cpuPerSecond: index == 0 ? 0.9 : 0.8, memory: memory,
-                cwd: directories[index], sessionName: name)
+                cwd: directories[index])
         }
         var feed = OverviewFeed()
         var state = LiveReportState()
@@ -27,13 +26,11 @@ import Testing
     }
 
     @Test(arguments: [40, 80, 100, 160], [UInt64(320_000_000), 1_500_000_000_000_000])
-    func longMatchingNamesKeepBothSessionIdentitiesAndContributionsVisible(width: Int, memory: UInt64) throws
-    {
+    func bothSessionIdentitiesAndContributionsStayVisible(width: Int, memory: UInt64) throws {
         var state = try state(memory: memory)
         let lines = ContributorLayout.lines(state: state, width: width, height: 40)
         let text = lines.map(\.text).joined(separator: "\n")
         #expect(text.contains("claude"))
-        #expect(text.contains("Build indexing"))
         for (index, session) in sessions.enumerated() {
             state.overview.select(.session(provider: "claude", session: session, root: nil))
             let selected = ContributorLayout.lines(state: state, width: width, height: 40)
@@ -111,7 +108,7 @@ import Testing
             OverviewFeed.Worker(
                 session: session, executable: "java", pid: Int32(index + 1),
                 cpuPerSecond: index == 0 ? 0.9 : 0.8, memory: 320_000_000,
-                cwd: "/work/backend", sessionName: name)
+                cwd: "/work/backend")
         }
         workers.append(
             OverviewFeed.Worker(

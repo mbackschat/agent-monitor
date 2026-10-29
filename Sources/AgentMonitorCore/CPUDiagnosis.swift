@@ -12,7 +12,7 @@ public protocol DiagnosisReading: Sendable {
 }
 
 public enum DiagnosisAttributionFailure: String, Sendable {
-    case notObservedAtEnrichment, metadataUnavailable, providerLookupFailed
+    case notObservedAtEnrichment, metadataUnavailable
 }
 
 public enum DiagnosisAttribution: Equatable, Sendable {
@@ -20,15 +20,9 @@ public enum DiagnosisAttribution: Equatable, Sendable {
     case unavailable(DiagnosisAttributionFailure)
 }
 
-public struct DiagnosisLookup: Equatable, Sendable {
-    public enum Status: String, Sendable { case succeeded, failed }
-    public let provider: AgentProvider
-    public let status: Status
-}
-
 public enum DiagnosisDiagnostic: String, CaseIterable, Sendable {
     case unmeasuredCPU, unreadableObservations, hostCoverageIncomplete, hostCapacityChanged
-    case attributionUnavailable, providerLookupFailed, noMeasuredLifetimes
+    case attributionUnavailable, noMeasuredLifetimes
 }
 
 public struct DiagnosisFootprint: Equatable, Sendable {
@@ -62,7 +56,6 @@ public struct CPUDiagnosis: Sendable {
     public let unreadableObservationCount: Int
     public let omittedContributorCount: Int
     public let contributors: [DiagnosisContributor]
-    public let providerLookups: [DiagnosisLookup]
 
     public var diagnostics: [DiagnosisDiagnostic] {
         DiagnosisDiagnostic.allCases.filter {
@@ -73,7 +66,6 @@ public struct CPUDiagnosis: Sendable {
             case .hostCapacityChanged: host.logicalCPUCount == nil
             case .attributionUnavailable:
                 contributors.contains { if case .unavailable = $0.attribution { true } else { false } }
-            case .providerLookupFailed: providerLookups.contains { $0.status == .failed }
             case .noMeasuredLifetimes: measuredLifetimeCount == 0
             }
         }
@@ -85,7 +77,6 @@ public enum CPUDiagnosisError: Error, Equatable { case collectionFailed }
 public struct CPUDiagnosisSession: Sendable {
     private let reader: any DiagnosisReading
     private let clock: any SamplingClock
-    private let registry: any SessionRegistryReading
     private let excluded: Set<Int32>
     private let monitorPID: Int32?
 
@@ -93,18 +84,8 @@ public struct CPUDiagnosisSession: Sendable {
         reader: any DiagnosisReading, clock: any SamplingClock = ContinuousSamplingClock(),
         excluding: Set<Int32> = [], monitorPID: Int32? = nil
     ) {
-        self.init(
-            reader: reader, clock: clock, registry: OfflineSessionRegistryReader(),
-            excluding: excluding, monitorPID: monitorPID)
-    }
-
-    package init(
-        reader: any DiagnosisReading, clock: any SamplingClock, registry: any SessionRegistryReading,
-        excluding: Set<Int32> = [], monitorPID: Int32? = nil
-    ) {
         self.reader = reader
         self.clock = clock
-        self.registry = registry
         excluded = excluding
         self.monitorPID = monitorPID
     }
@@ -141,10 +122,8 @@ public struct CPUDiagnosisSession: Sendable {
         let identities = selected.map(\.sample.identity)
         var observations: [ProcessIdentity: DiagnosisObservation] = [:]
         var observedAt: [ProcessIdentity: Date] = [:]
-        var targets: [ProcessIdentity: ProcessSample] = [:]
         try monitor.enrich(for: identities) { sample in
             try Task.checkCancellation()
-            targets[sample.identity] = sample
             let observation = reader.observation(for: sample)
             try Task.checkCancellation()
             observations[sample.identity] = observation
@@ -154,36 +133,6 @@ public struct CPUDiagnosisSession: Sendable {
             }
             return ProcessMetadata(status: .unavailable)
         }
-        let findings = identities.compactMap { identity -> HeavyProcess? in
-            guard case .observed = observations[identity] else { return nil }
-            return monitor.finding(for: identity)
-        }
-        var lookups: [DiagnosisLookup] = []
-        let needed = registry.isAvailable ? monitor.sessionRegistryRuntimes(in: findings) : [:]
-        for provider in needed.keys.sorted(by: { $0.rawValue < $1.rawValue }) {
-            guard let query = monitor.sessionRegistry(for: provider),
-                needed[provider]?.contains(where: {
-                    if case .observed = observations[$0] { true } else { false }
-                }) == true
-            else { continue }
-            try Task.checkCancellation()
-            let output: Data?
-            do { output = try registry.output(of: query) } catch is CancellationError {
-                throw CancellationError()
-            } catch { output = nil }
-            try Task.checkCancellation()
-            // Listings name PIDs, so recheck the observed runtime after the bounded command.
-            // A reused PID cannot supply a session for its predecessor's measured CPU.
-            let verified = Set(
-                targets.values.filter { sample in
-                    guard needed[provider]?.contains(sample.identity) == true,
-                        case .observed = observations[sample.identity]
-                    else { return false }
-                    return reader.isCurrent(sample)
-                }.map(\.identity))
-            let succeeded = monitor.bindSessions(output, provider: provider, restrictingTo: verified)
-            lookups.append(DiagnosisLookup(provider: provider, status: succeeded ? .succeeded : .failed))
-        }
         let contributors = selected.map { value in
             let identity = value.sample.identity
             let attribution: DiagnosisAttribution
@@ -191,18 +140,11 @@ public struct CPUDiagnosisSession: Sendable {
                 let finding = monitor.finding(for: identity), let timestamp = observedAt[identity],
                 reader.isCurrent(value.sample)
             {
-                if finding.attribution.evidence == .runtimeOnly,
-                    lookups.contains(where: {
-                        $0.provider == finding.attribution.provider && $0.status == .failed
-                    })
-                {
-                    attribution = .unavailable(.providerLookupFailed)
-                } else if metadata.status == .unavailable, finding.attribution.evidence == .unknown {
+                if metadata.status == .unavailable, finding.attribution.evidence == .unknown {
                     attribution = .unavailable(.metadataUnavailable)
                 } else {
                     attribution = .available(
-                        observedAt: finding.attribution.evidence == .sessionRegistry
-                            ? clock.now() : timestamp,
+                        observedAt: timestamp,
                         value: finding.attribution)
                 }
             } else {
@@ -227,6 +169,6 @@ public struct CPUDiagnosisSession: Sendable {
             unmeasuredObservationCount: window.unmeasuredObservationCount,
             unreadableObservationCount: window.unreadableObservationCount,
             omittedContributorCount: window.omittedContributorCount,
-            contributors: contributors, providerLookups: lookups)
+            contributors: contributors)
     }
 }

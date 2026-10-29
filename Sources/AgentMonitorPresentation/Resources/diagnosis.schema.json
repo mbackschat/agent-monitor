@@ -247,8 +247,7 @@
                   "reason": {
                     "enum": [
                       "notObservedAtEnrichment",
-                      "metadataUnavailable",
-                      "providerLookupFailed"
+                      "metadataUnavailable"
                     ]
                   }
                 },
@@ -273,31 +272,6 @@
         ]
       }
     },
-    "providerLookups": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "provider": {
-            "enum": [
-              "codex",
-              "claude"
-            ]
-          },
-          "status": {
-            "enum": [
-              "succeeded",
-              "failed"
-            ]
-          }
-        },
-        "required": [
-          "provider",
-          "status"
-        ]
-      }
-    },
     "diagnostics": {
       "type": "array",
       "uniqueItems": true,
@@ -308,7 +282,6 @@
           "hostCoverageIncomplete",
           "hostCapacityChanged",
           "attributionUnavailable",
-          "providerLookupFailed",
           "noMeasuredLifetimes"
         ]
       }
@@ -326,7 +299,6 @@
     "host",
     "measured",
     "contributors",
-    "providerLookups",
     "diagnostics"
   ],
   "$defs": {
@@ -365,7 +337,6 @@
             "marker",
             "inheritedMarker",
             "writerLock",
-            "sessionRegistry",
             "runtimeOnly",
             "ambiguous",
             "unknown"

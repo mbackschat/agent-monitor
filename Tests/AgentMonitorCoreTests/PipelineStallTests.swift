@@ -6,7 +6,7 @@ import Testing
 
 private enum CompletedStall: Error { case finished }
 
-private final class ChurningPipeline: ProcessReading, AcquisitionClock, SessionRegistryReading, Sendable {
+private final class ChurningPipeline: ProcessReading, AcquisitionClock, Sendable {
     struct State {
         var time = 0.0
         var tick = 0
@@ -69,7 +69,6 @@ private final class ChurningPipeline: ProcessReading, AcquisitionClock, SessionR
     func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
         metadata(for: sample, includeCommand: false)
     }
-    func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
     func wait(until deadline: Double, wake: AcquisitionWake) throws {
         let seconds = max(0, deadline - monotonicNow())
         if state.withLock({ $0.tick == 11 }) {
@@ -113,7 +112,7 @@ func productionConsumerStallPreservesChurningAccountingAndHistory() async throws
         configuration: try MonitoringConfiguration(
             intervalSeconds: 0.1, samples: 0,
             scope: .allProcesses, collectAgentLoad: true, pipelineLimits: limits, reportIntervalSeconds: 5),
-        reader: fixture, clock: fixture, registry: fixture, excluded: [], recentActivity: history,
+        reader: fixture, clock: fixture, excluded: [], recentActivity: history,
         profile: profile)
     let reports = Mutex<[MonitoringSnapshot]>([])
     try await #require(throws: CompletedStall.self) {

@@ -67,7 +67,7 @@ public enum ContributorLayout {
                     ReportLine(
                         columns.row(
                             String(repeating: " ", count: TerminalCells.width(prefix))
-                                + (row.node.label.sessionName ?? count),
+                                + count,
                             chart: lane,
                             cpu: overview.activity.samples[row.id]?.contains { $0?.qualified == true } == true
                                 ? "~ spans" : "", memory: ""), style: style))
@@ -82,12 +82,6 @@ public enum ContributorLayout {
             let context = populationPrefix + overview.workloadContext(for: row.node)
             let inset = String(repeating: " ", count: TerminalCells.width(prefix))
             let contextWidth = max(1, width - TerminalCells.width(inset))
-            if !columns.graphs, let name = row.node.label.sessionName {
-                lines.append(
-                    ReportLine(
-                        inset + TerminalCells.abbreviated(TextReport.safe(name), to: contextWidth),
-                        style: selected ? .selected : .muted))
-            }
             let headingContinuation =
                 TerminalCells.width(prefix + headline) > columns.name
                 ? [TerminalCells.abbreviated(headline, to: contextWidth)] : []

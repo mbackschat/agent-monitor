@@ -72,7 +72,7 @@ struct AdaptiveWorkloadScenario {
     var failedListingAt: Double?
 }
 
-final class AdaptiveWorkloadReader: ProcessReading, AcquisitionClock, SessionRegistryReading {
+final class AdaptiveWorkloadReader: ProcessReading, AcquisitionClock {
     struct Tick {
         var start: Double
         var end: Double
@@ -212,7 +212,6 @@ final class AdaptiveWorkloadReader: ProcessReading, AcquisitionClock, SessionReg
     func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
         metadata(for: sample, includeCommand: false)
     }
-    func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
 }
 
 struct AdaptiveWorkloadResult {
@@ -279,7 +278,7 @@ func runAdaptiveWorkload(
             intervalSeconds: reader.live.seconds, samples: 0, scope: .allProcesses, pipelineLimits: limits,
             promptCaptureLimits: PromptCaptureLimits(attempts: 512, bytes: 512 * 65_536),
             reportIntervalSeconds: 1, sampling: productionController ? reader.live.settings : nil),
-        reader: reader, clock: reader, registry: reader)
+        reader: reader, clock: reader)
     let windows = Mutex<[FrozenCPUContribution]>([])
     let sampling = Mutex(SamplingCoverage())
     do {

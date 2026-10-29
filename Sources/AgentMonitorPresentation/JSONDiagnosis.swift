@@ -13,7 +13,6 @@ public struct JSONDiagnosis: Encodable {
     let host: Host
     let measured: Measured
     public let contributors: [Contributor]
-    let providerLookups: [Lookup]
     let diagnostics: [String]
 
     struct Host: Encodable {
@@ -31,11 +30,6 @@ public struct JSONDiagnosis: Encodable {
         let unmeasuredObservationCount: Int
         let unreadableObservationCount: Int
         let omittedContributorCount: Int
-    }
-
-    struct Lookup: Encodable {
-        let provider: AgentProvider
-        let status: String
     }
 
     struct Footprint: Encodable {
@@ -104,9 +98,6 @@ public struct JSONDiagnosis: Encodable {
             unreadableObservationCount: value.unreadableObservationCount,
             omittedContributorCount: value.omittedContributorCount)
         contributors = value.contributors.map(Contributor.init)
-        providerLookups = value.providerLookups.map {
-            Lookup(provider: $0.provider, status: $0.status.rawValue)
-        }
         diagnostics = value.diagnostics.map(\.rawValue)
     }
 

@@ -74,7 +74,7 @@ func measureNativeAgentLoadSampling() async throws {
     let reader = try MeasuredProcessReader()
     let session = MonitoringSession(
         configuration: try MonitoringConfiguration(intervalSeconds: 15, samples: 4, collectAgentLoad: true),
-        reader: reader, clock: ContinuousSamplingClock(), registry: ProbeRegistry(),
+        reader: reader, clock: ContinuousSamplingClock(),
         excluding: [ProcessInfo.processInfo.processIdentifier])
     let start = ContinuousClock.now
     let cpuStart = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
@@ -135,8 +135,4 @@ private final class MeasuredProcessReader: ProcessReading, Sendable {
             $0["\(operation)Calls", default: 0] += 1
         }
     }
-}
-
-private struct ProbeRegistry: SessionRegistryReading {
-    func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
 }

@@ -4,15 +4,12 @@ import Testing
 
 @testable import AgentMonitorCore
 
-final class StalledEnrichment: ProcessReading, AcquisitionClock, SessionRegistryReading, Sendable {
-    enum Stage: CaseIterable, Sendable { case metadata, provider }
-    let stage: Stage
+final class StalledEnrichment: ProcessReading, AcquisitionClock, Sendable {
     let time = Mutex(0.0)
     let entered = ClockGate()
     let release = DispatchSemaphore(value: 0)
     let releasedByReport = Mutex(false)
     let metadataCalls = Mutex(0)
-    init(stage: Stage) { self.stage = stage }
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
         let at = monotonicNow()
         return diagnosisScan(
@@ -27,7 +24,7 @@ final class StalledEnrichment: ProcessReading, AcquisitionClock, SessionRegistry
     }
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
         metadataCalls.withLock { $0 += 1 }
-        if stage == .metadata { block() }
+        block()
         return ProcessMetadata(status: .markerRead, invocation: "claude")
     }
     func metadata(for sample: ProcessSample, includeCommand: Bool, capturedLaunch: ProcessMetadata?)
@@ -36,10 +33,7 @@ final class StalledEnrichment: ProcessReading, AcquisitionClock, SessionRegistry
         metadata(for: sample, includeCommand: includeCommand)
     }
     func isCurrent(_ sample: ProcessSample) -> Bool { true }
-    func output(of query: SessionRegistryQuery) throws -> Data {
-        if stage == .provider { block() }
-        return Data("[]".utf8)
-    }
+
     private func block() {
         entered.signal()
         let accepted = release.wait(timeout: .now() + 3) == .success
@@ -55,13 +49,13 @@ final class StalledEnrichment: ProcessReading, AcquisitionClock, SessionRegistry
 }
 
 @Suite struct PipelineEnrichmentTests {
-    @Test(arguments: StalledEnrichment.Stage.allCases)
-    func slowEnrichmentCannotHoldTheFirstAccountingReport(stage: StalledEnrichment.Stage) async throws {
-        let fixture = StalledEnrichment(stage: stage)
+    @Test
+    func slowEnrichmentCannotHoldTheFirstAccountingReport() async throws {
+        let fixture = StalledEnrichment()
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(
                 intervalSeconds: 0.1, samples: 1, scope: .allProcesses, reportIntervalSeconds: 5),
-            reader: fixture, clock: fixture, registry: fixture)
+            reader: fixture, clock: fixture)
         let reports = Mutex<[MonitoringSnapshot]>([])
         try await session.run { snapshot in
             reports.withLock { $0.append(snapshot) }
@@ -174,7 +168,7 @@ private final class MetadataBatchFixture: ProcessReading, SamplingClock, Sendabl
                 prompt: [:], requestedAt: Double(tick)))
         var completed = 0
         while completed < 2 {
-            completed += enrichment.takeResults().0.count
+            completed += enrichment.takeResults().count
             await Task.yield()
         }
     }
@@ -198,7 +192,7 @@ private final class MetadataBatchFixture: ProcessReading, SamplingClock, Sendabl
                 MetadataRefreshRequest(
                     samples: [sample(42, at: time)], prompt: [:], requestedAt: time))
             if tenth == 0 {
-                while enrichment.takeResults().0.isEmpty { await Task.yield() }
+                while enrichment.takeResults().isEmpty { await Task.yield() }
             }
         }
     }
@@ -218,7 +212,7 @@ private final class MetadataBatchFixture: ProcessReading, SamplingClock, Sendabl
             MetadataRefreshRequest(
                 samples: (1...100).map { sample(Int32($0), at: at) }, prompt: [:], requestedAt: at),
             cache: &cache, reader: fixture, clock: fixture, includeCommand: false, checking: {})
-        let results = enrichment.takeResults().0
+        let results = enrichment.takeResults()
         #expect(results.count == 100)
         #expect(fixture.calls.withLock { $0.count } == (second + 1) * 100)
         if let first = results.map(\.observedAt).min(), let last = results.map(\.observedAt).max() {

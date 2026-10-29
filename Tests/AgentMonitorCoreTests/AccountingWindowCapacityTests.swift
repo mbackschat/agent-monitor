@@ -87,7 +87,7 @@ import Testing
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(
                 intervalSeconds: 0.1, samples: 2, collectAgentLoad: true, reportIntervalSeconds: 5),
-            reader: fixture, clock: fixture, registry: fixture, recentActivity: RecentActivityStore())
+            reader: fixture, clock: fixture, recentActivity: RecentActivityStore())
         try await session.run { snapshot in reports.withLock { $0.append(snapshot) } }
         let delivered = reports.withLock { $0 }
         #expect(!delivered.isEmpty)
@@ -167,7 +167,7 @@ private struct CapacityPopulation {
     }
 }
 
-private final class PipelinePopulation: ProcessReading, AcquisitionClock, SessionRegistryReading, Sendable {
+private final class PipelinePopulation: ProcessReading, AcquisitionClock, Sendable {
     private let time = Mutex(0.0)
     let count: Int
     let sharedDepth: Int?
@@ -209,7 +209,6 @@ private final class PipelinePopulation: ProcessReading, AcquisitionClock, Sessio
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
         ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)], status: .markerRead)
     }
-    func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
     func wait(until deadline: Double, wake: AcquisitionWake) throws {
         let at = monotonicNow()
         if let publication, at + 1e-9 >= nextPublication.withLock({ $0 }) {
@@ -243,7 +242,7 @@ func productionPipelineSupportsThreeThousandLifetimesWithTenAncestors() async th
         configuration: try MonitoringConfiguration(
             intervalSeconds: 0.1, samples: 2, scope: .allProcesses,
             collectAgentLoad: true, reportIntervalSeconds: 5),
-        reader: fixture, clock: fixture, registry: fixture, excluded: [], recentActivity: history)
+        reader: fixture, clock: fixture, excluded: [], recentActivity: history)
     let reports = Mutex<[MonitoringSnapshot]>([])
     try await session.run(thresholds: nil, interval: nil) { value in reports.withLock { $0.append(value) } }
     let values = reports.withLock { $0 }
@@ -275,7 +274,7 @@ func capacityOracleIncludesCollapsedEarlierCategoriesOfCurrentWorkers() async th
             intervalSeconds: 0.1, samples: 2, scope: .allProcesses,
             collectAgentLoad: true, pipelineLimits: MonitoringPipelineLimits(pendingObservations: 1_000),
             reportIntervalSeconds: 5),
-        reader: fixture, clock: fixture, registry: fixture, excluded: [], recentActivity: history)
+        reader: fixture, clock: fixture, excluded: [], recentActivity: history)
     let reports = Mutex<[MonitoringSnapshot]>([])
     try await session.run(thresholds: nil, interval: nil) { value in reports.withLock { $0.append(value) } }
     let values = reports.withLock { $0 }

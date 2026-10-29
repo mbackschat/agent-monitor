@@ -19,9 +19,6 @@ struct MenuBarProcessLabel: View {
             if showsOwner {
                 HStack(spacing: 6) {
                     Text(ownerLabel).fixedSize()
-                    if exactSession, let name = process.sessionName {
-                        Text(TextReport.safe(name)).lineLimit(1).truncationMode(.tail)
-                    }
                     Spacer(minLength: 0)
                     if process.accounting?.labelChangedInWindow == true {
                         Text("Changed").fixedSize()
@@ -39,7 +36,7 @@ struct MenuBarProcessLabel: View {
                 + " · CWD: \(process.cwd ?? "unavailable")"
                 + " · \(ownerLabel)"
                 + (exactSession
-                    ? " · \(process.attribution.threadID ?? "") · \(process.sessionName ?? "")" : "")
+                    ? " · \(process.attribution.threadID ?? "")" : "")
                 + (process.isHistorical ? ". No longer observed; measured CPU remains in this window." : ""))
     }
 

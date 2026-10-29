@@ -106,25 +106,3 @@ private func sharesAncestry(_ left: HeavyProcess, _ right: HeavyProcess) -> Bool
     enrich(runtime.identity, ProcessMetadata(invocation: "not-an-agent"), at: 9)
     ingest([worker])
 }
-
-@Test func cachedRegistryBindingsRefreshAndDisappearWithoutReusingOldEvidence() throws {
-    var cached = Monitor()
-    var oracle = Monitor()
-    let runtime = sample(10, executable: "/usr/local/bin/claude")
-    let worker = sample(20, parent: 10)
-    cached.ingest([runtime, worker])
-    oracle.ingest([runtime, worker])
-    for (index, session) in [sessionA, sessionA, sessionB].enumerated() {
-        let data = try JSONSerialization.data(withJSONObject: [
-            ["pid": 10, "sessionId": session, "status": "busy", "kind": "interactive"]
-        ])
-        cached.bindSessions(data, provider: .claude, observedAt: Double(index + 1))
-        oracle.bindSessions(data, provider: .claude, observedAt: Double(index + 1))
-        #expect(cached.accountingFindings(sorted: true) == oracle.findings())
-        #expect(cached.attributionObservationTimes()[worker.identity] == Double(index + 1))
-    }
-    cached.ingest([worker])
-    oracle.ingest([worker])
-    #expect(cached.accountingFindings(sorted: true) == oracle.findings())
-    #expect(cached.finding(for: worker.identity)?.attribution.evidence == .runtimeOnly)
-}

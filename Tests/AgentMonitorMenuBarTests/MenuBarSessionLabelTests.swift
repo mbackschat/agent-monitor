@@ -8,11 +8,11 @@ import Testing
 @testable import AgentMonitorMenuBar
 
 @Test(arguments: [false, true])
-@MainActor func compactNativeSessionLabelsKeepMatchingNamesAndDistinctIdentitiesVisible(dark: Bool)
+@MainActor func compactNativeSessionLabelsKeepDistinctIdentitiesVisible(dark: Bool)
     async throws
 {
     _ = NSApplication.shared
-    let overview = try namedSessionOverview()
+    let overview = try sessionLabelOverview()
     for (index, id) in overview.main.enumerated() {
         let node = try #require(overview.nodes[id])
         let host = NSHostingView(
@@ -37,7 +37,6 @@ import Testing
             .joined(separator: " ").lowercased()
         #expect(text.contains(index == 0 ? "abcdabcd" : "12345678"), "\(text)")
         #expect(text.contains("claude"), "\(text)")
-        #expect(text.contains("build indexing"), "\(text)")
         #expect(text.contains(index == 0 ? "work" : "tmp"), "\(text)")
         #expect(text.contains("alpha/project"), "\(text)")
         #expect(host.bounds.height <= 90)
@@ -51,10 +50,9 @@ import Testing
 }
 
 @Test(arguments: [false, true])
-@MainActor func nativeProcessSessionHeadingsKeepLongNamesAndDistinctIdentitiesVisible(dark: Bool) async throws
-{
+@MainActor func nativeProcessSessionHeadingsKeepDistinctIdentitiesVisible(dark: Bool) async throws {
     _ = NSApplication.shared
-    let snapshot = try namedSessionSnapshot(workersPerSession: 2, directories: ["/work/backend", "/tmp/web"])
+    let snapshot = try sessionLabelSnapshot(workersPerSession: 2, directories: ["/work/backend", "/tmp/web"])
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
@@ -78,7 +76,6 @@ import Testing
         .joined(separator: " ").lowercased()
     #expect(text.contains("abcdabcd"), "\(text)")
     #expect(text.contains("12345678"), "\(text)")
-    #expect(text.contains("build indexing"), "\(text)")
     #expect(text.contains("backend"), "\(text)")
     #expect(text.contains("web"), "\(text)")
     if let output = ProcessInfo.processInfo.environment["MENUBAR_PROCESS_SESSION_LABEL_PREVIEW_PATH"] {
@@ -91,7 +88,7 @@ import Testing
 
 @Test @MainActor func nativeGroupedProcessRowsKeepTheirOwnDirectoriesVisible() async throws {
     _ = NSApplication.shared
-    let snapshot = try namedSessionSnapshot(
+    let snapshot = try sessionLabelSnapshot(
         workersPerSession: 2, directories: ["/work/api", "/tmp/web"], directoriesByWorker: true)
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
@@ -118,7 +115,7 @@ import Testing
 @Test(arguments: [0, 1])
 @MainActor func nativeLongProcessRowsKeepTheirOwnDirectoryAndValues(index: Int) async throws {
     _ = NSApplication.shared
-    let snapshot = try namedSessionSnapshot()
+    let snapshot = try sessionLabelSnapshot()
     let original = snapshot.findings[index]
     let process = HeavyProcess(
         process: ProcessIdentity(pid: Int32(42001 + index), startMicroseconds: 1),
@@ -151,7 +148,7 @@ import Testing
     async throws
 {
     _ = NSApplication.shared
-    let snapshot = try namedSessionSnapshot(directories: ["/work/api", "/tmp/web"])
+    let snapshot = try sessionLabelSnapshot(directories: ["/work/api", "/tmp/web"])
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
@@ -169,8 +166,7 @@ import Testing
     let output = ProcessInfo.processInfo.environment["MENUBAR_STANDALONE_PREVIEW_PATH"]
         .map { URL(fileURLWithPath: $0).deletingPathExtension().path + "-\(grouping.rawValue)-\(pinned).png" }
     let text = try await processDirectoryRenderText(host, output: output)
-    for expected in ["claude", "abcdabcd", "12345678", "indexing and attribution", "java", "work", "tmp/web"]
-    {
+    for expected in ["claude", "abcdabcd", "12345678", "java", "work", "tmp/web"] {
         #expect(text.contains(expected), "\(text)")
     }
     await model.stop()
@@ -208,8 +204,7 @@ private enum StandaloneEvidenceFixture: CaseIterable {
             provider: kind == .unknown ? nil : .codex, evidence: kind.evidence, context: .unverified,
             threadID: nil, rootSessionID: nil, runtime: kind == .shared ? identity : nil,
             terminal: nil, runtimeDirectory: nil, candidateThreadIDs: ["candidate-a", "candidate-b"],
-            ancestry: []),
-        sessionName: "Do not claim this name")
+            ancestry: []))
     let host = NSHostingView(
         rootView: MenuBarProcessLabel(
             process: process, placement: .standalone,
@@ -222,14 +217,13 @@ private enum StandaloneEvidenceFixture: CaseIterable {
     let text = try await processDirectoryRenderText(host, output: nil)
     #expect(text.contains(kind.label), "\(text)")
     #expect(text.contains(kind == .unknown ? "unknown" : "codex"), "\(text)")
-    #expect(!text.contains("do not claim"))
     #expect(!text.contains("candidate-a") && !text.contains("candidate-b"))
     #expect(text.contains("node") && text.contains("75%"), "\(text)")
 }
 
 @Test @MainActor func standaloneHistoricalLabelChangesStayVisibleBesideTheOwner() async throws {
     _ = NSApplication.shared
-    let original = try #require(try namedSessionSnapshot().findings.first)
+    let original = try #require(try sessionLabelSnapshot().findings.first)
     let process = HeavyProcess(
         process: original.process, executable: original.executable, name: original.name,
         cpuPercent: original.cpuPercent, footprintBytes: nil, cwd: original.cwd, command: nil,
@@ -237,8 +231,7 @@ private enum StandaloneEvidenceFixture: CaseIterable {
         accounting: ProcessWindowAccounting(
             cpuSeconds: 1, recoveredCPUSeconds: 0, pointCandidateCPUSeconds: 0.7,
             uncertainCPUSeconds: 0.3, isHistorical: true, lastObservedAt: 1,
-            lastObservedFootprintBytes: 320_000_000, labelChangedInWindow: true),
-        sessionName: original.sessionName)
+            lastObservedFootprintBytes: 320_000_000, labelChangedInWindow: true))
     let host = NSHostingView(
         rootView: MenuBarProcessLabel(
             process: process, placement: .standalone,
@@ -248,7 +241,8 @@ private enum StandaloneEvidenceFixture: CaseIterable {
     host.appearance = NSAppearance(named: .aqua)
     host.layoutSubtreeIfNeeded()
     host.frame.size = host.fittingSize
-    let text = try await processDirectoryRenderText(host, output: nil)
+    let text = try await processDirectoryRenderText(
+        host, output: ProcessInfo.processInfo.environment["MENUBAR_HISTORICAL_LABEL_PREVIEW_PATH"])
     for expected in ["claude", "abcdabcd", "changed", "past", "90%"] {
         #expect(text.contains(expected), "\(text)")
     }
@@ -256,6 +250,8 @@ private enum StandaloneEvidenceFixture: CaseIterable {
 }
 
 @MainActor private func processDirectoryRenderText(_ host: NSView, output: String?) async throws -> String {
+    let window = host.window == nil ? await mountOffscreenNativePreview(host) : nil
+    defer { window?.close() }
     let bitmap = try #require(
         NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: Int(host.bounds.width * 2),
@@ -277,7 +273,7 @@ private enum StandaloneEvidenceFixture: CaseIterable {
     _ = NSApplication.shared
     var overview = ContributorOverview()
     overview.receive(
-        try namedSessionSnapshot(
+        try sessionLabelSnapshot(
             workersPerSession: 2, directories: ["/work/app", "/tmp/web"], directoriesByWorker: true,
             executableName: "rust-analyzer-proc-macro-srv"))
     let session = try #require(overview.main.first)
@@ -308,7 +304,7 @@ private enum StandaloneEvidenceFixture: CaseIterable {
 @Test @MainActor func nativeRootGroupKeepsChildThreadIdentitiesVisible() async throws {
     _ = NSApplication.shared
     let sessions = ["abcdabcd-root", "12345678-child", "fedcfedc-child"]
-    let snapshot = try namedSessionSnapshot(
+    let snapshot = try sessionLabelSnapshot(
         directories: ["/work/api", "/work/api", "/work/api"], sessionIDs: sessions,
         rootSessionID: sessions[0])
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
@@ -331,13 +327,13 @@ private enum StandaloneEvidenceFixture: CaseIterable {
     await model.stop()
 }
 
-private func namedSessionOverview() throws -> ContributorOverview {
+private func sessionLabelOverview() throws -> ContributorOverview {
     var overview = ContributorOverview()
-    overview.receive(try namedSessionSnapshot())
+    overview.receive(try sessionLabelSnapshot())
     return overview
 }
 
-private func namedSessionSnapshot(
+private func sessionLabelSnapshot(
     workersPerSession: Int = 1, directories: [String] = ["/work/alpha/project", "/tmp/alpha/project"],
     directoriesByWorker: Bool = false, executableName: String = "java",
     sessionIDs: [String]? = nil, rootSessionID: String? = nil
@@ -373,8 +369,7 @@ private func namedSessionSnapshot(
                 provider: .claude, evidence: .marker, context: rootSessionID == nil ? .unverified : .terminal,
                 threadID: sessions[session], rootSessionID: rootSessionID,
                 runtime: rootSessionID == nil ? nil : values.first?.identity, terminal: nil,
-                runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []),
-            sessionName: "Build indexing and attribution for the shared application workspace")
+                runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []))
     }
     var window = AccountingWindow(baseline: baseline)
     try window.append(ledger.ingest(values, listedAt: 1), rows: rows)

@@ -90,10 +90,6 @@ private final class BlockedHistory: RecentActivityCollecting, Sendable {
     func snapshot() -> RecentActivitySnapshot? { store.snapshot() }
 }
 
-private struct NoPublicationRegistry: SessionRegistryReading {
-    func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
-}
-
 @Suite struct DisplayCadenceTests {
     @Test(.timeLimit(.minutes(1))) func blockedHistoryCannotStopScansAndBacklogKeepsExactUnits() async throws
     {
@@ -103,7 +99,7 @@ private struct NoPublicationRegistry: SessionRegistryReading {
         let pipeline = IndependentMonitoringPipeline(
             configuration: try MonitoringConfiguration(
                 intervalSeconds: 0.1, samples: 0, reportIntervalSeconds: 1),
-            reader: reader, clock: reader, registry: NoPublicationRegistry(), excluded: [],
+            reader: reader, clock: reader, excluded: [],
             recentActivity: history)
         let run = Task {
             await #expect(throws: WindowFixtureError.stopped) {

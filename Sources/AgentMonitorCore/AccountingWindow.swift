@@ -426,7 +426,6 @@ struct AccountingWindow: Sendable {
         left.executable.utf8.count == right.executable.utf8.count
             && left.name.utf8.count == right.name.utf8.count
             && left.invocationName?.utf8.count == right.invocationName?.utf8.count
-            && left.sessionName?.utf8.count == right.sessionName?.utf8.count
             && left.cwd?.utf8.count == right.cwd?.utf8.count
             && sameCommandCharge(left.command, right.command)
     }
@@ -450,7 +449,6 @@ struct AccountingWindow: Sendable {
     ) {
         let changed =
             runs[index].memory.name.utf8.count != row.name.utf8.count
-            || runs[index].memory.sessionName?.utf8.count != row.sessionName?.utf8.count
             || runs[index].memory.cwd?.utf8.count != row.cwd?.utf8.count
             || !Self.sameCommandCharge(runs[index].memory.command, row.command)
         let previous = changed ? runs[index].memory.payloadSize : nil
@@ -695,7 +693,7 @@ struct AccountingWindow: Sendable {
                     currentAttribution: historical ? nil : original.attribution,
                     labelChangedInWindow: changed,
                     lastObservedCorroboratedRootSessionID: runs[observation.run].key.category.owner
-                        .rootSessionID), sessionName: original.sessionName,
+                        .rootSessionID),
                 invocationName: original.invocationName)
         }.sorted {
             if $0.process.pid != $1.process.pid { return $0.process.pid < $1.process.pid }

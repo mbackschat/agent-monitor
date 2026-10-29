@@ -14,10 +14,10 @@ struct MenuBarContributorLabel<Resources: View>: View {
         switch label {
         case .text:
             singleRow(naturalTitle: false)
-        case .session(let identity, let name, let directory):
+        case .session(let identity, let directory):
             ViewThatFits(in: .horizontal) {
                 singleRow(naturalTitle: true)
-                sessionRows(identity: identity, name: name, directory: directory)
+                sessionRows(identity: identity, directory: directory)
             }
         case .workload(let name, let directory):
             HStack(spacing: 6) {
@@ -44,16 +44,10 @@ struct MenuBarContributorLabel<Resources: View>: View {
         }
     }
 
-    private func sessionRows(identity: String, name: String?, directory: String?) -> some View {
+    private func sessionRows(identity: String, directory: String?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 6) {
-                Text(TextReport.safe(identity)).font(.subheadline.weight(.medium)).fixedSize()
-                if let name {
-                    Text("· " + TextReport.safe(name)).font(.subheadline.weight(.medium))
-                        .lineLimit(1).truncationMode(.tail)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }.frame(maxWidth: .infinity, alignment: .leading)
+            Text(TextReport.safe(identity)).font(.subheadline.weight(.medium)).fixedSize()
+                .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 6) {
                 Text(directory.map(TextReport.safe) ?? "").font(.caption)
                     .lineLimit(1).truncationMode(.tail)

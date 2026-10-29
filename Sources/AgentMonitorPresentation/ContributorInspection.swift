@@ -3,18 +3,13 @@ import Foundation
 
 public enum ContributorLabel: Equatable, Sendable {
     case text(String)
-    case session(identity: String, name: String?, directory: String?)
+    case session(identity: String, directory: String?)
     case workload(name: String, directory: String?)
-
-    public var sessionName: String? {
-        if case .session(_, let name, _) = self { return name }
-        return nil
-    }
 
     public var headline: String {
         switch self {
         case .text(let title): title
-        case .session(let identity, _, _): identity
+        case .session(let identity, _): identity
         case .workload(let name, _): name
         }
     }
@@ -22,8 +17,8 @@ public enum ContributorLabel: Equatable, Sendable {
     public var title: String {
         switch self {
         case .text(let text): text
-        case .session(let identity, let name, let directory):
-            ([identity] + [name, directory].compactMap { $0 }).joined(separator: " · ")
+        case .session(let identity, let directory):
+            ([identity] + [directory].compactMap { $0 }).joined(separator: " · ")
         case .workload(let name, let directory):
             ([name] + [directory].compactMap { $0 }).joined(separator: " · ")
         }
@@ -173,7 +168,6 @@ struct ContributorEvidence: Equatable, Sendable {
                 kind: .evidence),
         ]
         if let name = key.invocationName { fields.insert(InspectionField("Invoked as", name), at: 4) }
-        if let name = record.sessionName { fields.insert(InspectionField("Listed name", name), at: 1) }
         if let maximum = stats.maximumWorkerFootprint {
             fields.append(InspectionField("Sampled maximum", memory(maximum), kind: .evidence))
         }

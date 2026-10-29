@@ -11,7 +11,6 @@ import Synchronization
     struct Provenance: Encodable {
         let commit: String
         let optimizedBuild = true
-        let providersEnabled: Bool
         let noConcurrentBuilds: Bool
         let requestedAcquisitionSeconds = 0.1
         let displaySeconds = 5
@@ -37,7 +36,6 @@ import Synchronization
         let historyCapacityEvictions: Int
         let historyDiscontinuities: Int
         let retentionLimitedWindows: Int
-        let providerCalls: Int
         let coverage: [WindowCoverage]
     }
     struct Distribution: Encodable {
@@ -90,7 +88,6 @@ import Synchronization
         let profile = PipelineProfile()
         let reader = try TimedNativeReader(profile: profile)
         let history = RecentActivityStore()
-        let registry = OfflineSessionRegistryReader()
         let cpuStart = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
         let childCPUStart = childCPUSeconds()
         let session = MonitoringSession(
@@ -98,7 +95,7 @@ import Synchronization
                 intervalSeconds: 0.1,
                 samples: CommandLine.arguments.dropFirst().first.flatMap(Int.init) ?? 121,
                 collectAgentLoad: true, reportIntervalSeconds: 5),
-            reader: reader, clock: ContinuousSamplingClock(), registry: registry,
+            reader: reader, clock: ContinuousSamplingClock(),
             excluding: [getpid()], recentActivity: history
         ).profiling(profile)
         var failure: String?
@@ -143,7 +140,7 @@ import Synchronization
         let measuredProfile = profile.snapshot()
         let result = Result(
             provenance: Provenance(
-                commit: commit, providersEnabled: registry.isAvailable, noConcurrentBuilds: true),
+                commit: commit, noConcurrentBuilds: true),
             startedAt: date, elapsedSeconds: elapsed, collectorCPUSeconds: cpu,
             reapedHelperCPUSeconds: childCPU,
             collectorAndHelperPercentOfOneCore: childCPU.map { 100 * (cpu + $0) / elapsed },
@@ -156,7 +153,7 @@ import Synchronization
             maximumHistoryChargedRecords: state.historyRecords,
             maximumHistoryChargedTextBytes: state.historyText, historyCapacityEvictions: state.evictions,
             historyDiscontinuities: state.discontinuities, retentionLimitedWindows: state.limited,
-            providerCalls: measuredProfile.stages["providerRequest"]?.count ?? 0, coverage: state.windows)
+            coverage: state.windows)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

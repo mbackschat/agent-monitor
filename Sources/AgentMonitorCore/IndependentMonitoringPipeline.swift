@@ -73,7 +73,6 @@ private struct AcquisitionState: Sendable {
 
 private struct ResolutionState: Sendable {
     var monitor = Monitor()
-    var cadence = SessionRegistryCadence()
     var window: AccountingWindow?
     var latest: ResolvedScan?
     var displayStartedAt: Double?
@@ -131,7 +130,6 @@ struct IndependentMonitoringPipeline: Sendable {
     let configuration: MonitoringConfiguration
     let reader: any ProcessReading
     let clock: any AcquisitionClock
-    let registry: any SessionRegistryReading
     let excluded: Set<Int32>
     var recentActivity: (any RecentActivityCollecting)? = nil
     var profile: PipelineProfile? = nil
@@ -209,13 +207,6 @@ struct IndependentMonitoringPipeline: Sendable {
                         try await enrichment.refreshMetadata(
                             reader: reader, clock: clock, includeCommand: configuration.includeCommands,
                             checking: cancellation.check)
-                    }
-                    if registry.isAvailable {
-                        group.addTask {
-                            try await enrichment.refreshRegistries(
-                                reader: reader, registry: registry, clock: clock, checking: cancellation.check
-                            )
-                        }
                     }
                     do {
                         while true {
@@ -534,7 +525,7 @@ struct IndependentMonitoringPipeline: Sendable {
             }
             let samples = Dictionary(
                 scan.snapshot.samples.map { ($0.identity, $0) }, uniquingKeysWith: { _, last in last })
-            let (metadata, registries) = enrichment.takeResults()
+            let metadata = enrichment.takeResults()
             for result in metadata {
                 guard let current = samples[result.sample.identity],
                     current.executable == result.sample.executable,
@@ -543,12 +534,6 @@ struct IndependentMonitoringPipeline: Sendable {
                 state.monitor.enrich(
                     result.metadata, for: result.sample.identity, observedAt: result.observedAt,
                     launchObservedAt: result.launchObservedAt, requestedAt: result.sample.sampledAt)
-            }
-            for result in registries {
-                state.monitor.bindSessions(
-                    result.output, provider: result.provider,
-                    restrictingTo: result.verified.intersection(samples.keys), observedAt: result.observedAt,
-                    requestedAt: result.requestedAt)
             }
             let findings = try state.monitor.accountingFindings(
                 sorted: configuration.reportIntervalSeconds == nil,
@@ -560,21 +545,6 @@ struct IndependentMonitoringPipeline: Sendable {
                         scan.snapshot.promptEvidence.filter { $0.status.hasMetadata }
                             .map { ($0.process, $0) }, uniquingKeysWith: { _, last in last }),
                     requestedAt: scan.finishedAt))
-            if registry.isAvailable {
-                var queries: [RegistryRefreshRequest] = []
-                for (provider, runtimes) in state.monitor.sessionRegistryRuntimes(
-                    in: findings, excludingChildrenOf: getpid())
-                where state.cadence.due(provider, runtimes: runtimes, at: scan.timestamp, profile: profile) {
-                    if let query = state.monitor.sessionRegistry(for: provider) {
-                        state.monitor.profileRegistryCandidates(runtimes)
-                        queries.append(
-                            RegistryRefreshRequest(
-                                provider: provider, query: query, samples: runtimes.compactMap { samples[$0] }
-                            ))
-                    }
-                }
-                enrichment.requestRegistries(queries)
-            }
             return (accounting, findings)
         }
         try state.sampling.synchronize(

@@ -45,7 +45,7 @@ import Testing
 }
 
 func overviewFixture(
-    sessionNames: [String?] = [], invocationName: String? = nil, includeProcesses: Bool = false
+    invocationName: String? = nil, includeProcesses: Bool = false
 ) throws -> MonitoringSnapshot {
     var ledger = CounterLedger()
     func samples(_ time: Double, includeBurst: Bool) -> [ProcessSample] {
@@ -71,8 +71,6 @@ func overviewFixture(
                     provider: .codex, evidence: .marker,
                     context: .unverified, threadID: "session-\(value.identity.pid)", rootSessionID: nil,
                     runtime: nil, terminal: nil, runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []),
-                sessionName: value.identity.pid == 1 && !sessionNames.isEmpty
-                    ? sessionNames[min(sessionNames.count - 1, max(0, Int(value.sampledAt) - 1))] : nil,
                 invocationName: value.identity.pid == 1 ? invocationName : nil)
         }
     }
@@ -286,21 +284,6 @@ extension ContributorOverviewTests {
         #expect(state.overview.order == .contributor)
         #expect(state.overview.ascending)
     }
-}
-
-@Test func overviewShowsLatestListedNameWithoutMovingFrozenCPUOrDirectory() throws {
-    let plain = try overviewFixture()
-    let named = try overviewFixture(sessionNames: ["Old title", "Index work"])
-    var reference = ContributorOverview()
-    var overview = ContributorOverview()
-    reference.receive(plain)
-    overview.receive(named)
-    #expect(overview.main == reference.main)
-    #expect(overview.totals == reference.totals)
-    let id = try #require(overview.main.first)
-    #expect(overview.nodes[id]?.title == "codex · session- · Index work · /fixture")
-    #expect(overview.nodes[id]?.details.contains("Listed name: Index work") == true)
-    #expect(overview.nodes[id]?.stats == reference.nodes[id]?.stats)
 }
 
 @Test(arguments: [60, 100, 160])

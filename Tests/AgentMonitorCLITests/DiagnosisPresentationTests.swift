@@ -51,7 +51,7 @@ func diagnosisPresentationFixture(
                     sample: second, cpuSeconds: 1.5, observedSeconds: 2, validIntervals: 2,
                     meanCPUPercent: 75, peakCPUPercent: 100, footprint: nil,
                     attribution: .unavailable(.notObservedAtEnrichment)),
-            ], providerLookups: available ? [DiagnosisLookup(provider: .claude, status: .failed)] : [])
+            ])
 }
 
 @Suite struct DiagnosisPresentationTests {
@@ -181,7 +181,7 @@ func diagnosisPresentationFixture(
             #expect(DiagnosisText.render(result).contains(code.explanation))
         }
         for evidence in [
-            "marker", "inheritedMarker", "writerLock", "sessionRegistry", "runtimeOnly", "ambiguous",
+            "marker", "inheritedMarker", "writerLock", "runtimeOnly", "ambiguous",
             "unknown",
         ] {
             #expect(AgentGuide.render(.semantics).contains(evidence))

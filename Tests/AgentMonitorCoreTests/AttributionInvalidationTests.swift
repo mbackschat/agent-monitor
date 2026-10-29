@@ -29,27 +29,10 @@ private struct ResolutionOracle {
         verify(context)
     }
 
-    mutating func bind(
-        _ runtime: ProcessIdentity, session: String?, name: String? = nil, at: Double, _ context: String
-    ) throws {
-        let entries: [[String: Any]] =
-            session.map {
-                [
-                    [
-                        "pid": runtime.pid, "sessionId": $0, "status": "busy", "kind": "interactive",
-                        "name": name ?? "",
-                    ]
-                ]
-            } ?? []
-        let data = try JSONSerialization.data(withJSONObject: entries)
-        cached.bindSessions(data, provider: .claude, observedAt: at)
-        uncached.bindSessions(data, provider: .claude, observedAt: at)
-        verify(context)
-    }
 }
 
 enum AncestorChange: CaseIterable {
-    case writer, terminal, execution, registryBinding, registryRemoval, reparent
+    case writer, terminal, execution, reparent
 }
 
 @Test(arguments: AncestorChange.allCases)
@@ -61,9 +44,6 @@ func cachedResolutionInvalidatesEveryDescendant(change: AncestorChange) throws {
     let branch = sample(30, parent: 20)
     let leaf = sample(40, parent: 30)
     oracle.ingest([runtime, other, middle, branch, leaf], "warm")
-    if change == .registryRemoval {
-        try oracle.bind(runtime.identity, session: sessionA, at: 1, "initial binding")
-    }
     let before = try #require(oracle.cached.finding(for: leaf.identity))
     runtime.sampledAt = 2
     switch change {
@@ -75,10 +55,6 @@ func cachedResolutionInvalidatesEveryDescendant(change: AncestorChange) throws {
     case .execution:
         runtime.executable = "/bin/codex"
         oracle.ingest([runtime, other, middle, branch, leaf], "exec")
-    case .registryBinding:
-        try oracle.bind(runtime.identity, session: sessionA, at: 2, "bind")
-    case .registryRemoval:
-        try oracle.bind(runtime.identity, session: nil, at: 2, "unbind")
     case .reparent:
         middle.parentPID = other.identity.pid
         oracle.ingest([runtime, other, middle, branch, leaf], "reparent middle")
@@ -99,7 +75,7 @@ private struct ResolutionRandom {
 
 private enum ResolutionOperation: CaseIterable {
     case spawn, exit, miss, reparent, exec, rename, peakReset, reuse
-    case marker, socket, writer, invocation, malformed, terminal, bind, unbind, copy
+    case marker, socket, writer, invocation, malformed, terminal, copy
 }
 
 @Test(arguments: 0..<200)
@@ -152,7 +128,7 @@ func generatedCachedResolutionMatchesUncachedState(seed: Int) throws {
         case .terminal:
             processes[runtime]?.terminal = random.index(2) == 0 ? nil : "ttys0\(step)"
             processes[runtime]?.terminalDevice = random.index(2) == 0 ? nil : UInt32(step)
-        case .miss, .marker, .socket, .writer, .invocation, .malformed, .bind, .unbind, .copy:
+        case .miss, .marker, .socket, .writer, .invocation, .malformed, .copy:
             break
         }
         oracle.ingest(processes.compactMap { $0 }, context)
@@ -183,9 +159,6 @@ func generatedCachedResolutionMatchesUncachedState(seed: Int) throws {
                 preconditionFailure("Not a metadata operation")
             }
             oracle.enrich(process.identity, metadata, at: time, context)
-        case .bind, .unbind:
-            let process = try #require(processes[runtime])
-            try oracle.bind(process.identity, session: operation == .bind ? session : nil, at: time, context)
         case .copy:
             let process = try #require(processes[runtime])
             let original = oracle.cached.findings()
@@ -197,17 +170,4 @@ func generatedCachedResolutionMatchesUncachedState(seed: Int) throws {
             break
         }
     }
-}
-
-@Test func warmAccountingCacheUsesLatestVerifiedSessionName() throws {
-    var oracle = ResolutionOracle()
-    let runtime = sample(10, executable: "/bin/claude")
-    let worker = sample(20, parent: 10)
-    oracle.ingest([runtime, worker], "initial")
-    try oracle.bind(runtime.identity, session: sessionA, name: "Original", at: 1, "warm named binding")
-    #expect(oracle.cached.accountingFindings().allSatisfy { $0.sessionName == "Original" })
-    try oracle.bind(runtime.identity, session: sessionA, name: "Renamed", at: 2, "same owner renamed")
-    #expect(oracle.cached.accountingFindings().allSatisfy { $0.sessionName == "Renamed" })
-    try oracle.bind(runtime.identity, session: sessionA, at: 3, "name removed")
-    #expect(oracle.cached.accountingFindings().allSatisfy { $0.sessionName == nil })
 }

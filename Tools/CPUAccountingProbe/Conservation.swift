@@ -96,7 +96,7 @@ private final class RecordingReader: ProcessReading, Sendable {
                 let session = MonitoringSession(
                     configuration: try MonitoringConfiguration(
                         intervalSeconds: interval, samples: interval < 1 ? 50 : 8, collectAgentLoad: true),
-                    reader: reader, clock: ContinuousSamplingClock(), registry: ProbeRegistry(),
+                    reader: reader, clock: ContinuousSamplingClock(),
                     excluding: [getpid()])
                 try await session.run({ _ in })
             }
@@ -130,8 +130,4 @@ private final class RecordingReader: ProcessReading, Sendable {
             try FileHandle.standardOutput.write(contentsOf: data)
         }
     }
-}
-
-private struct ProbeRegistry: SessionRegistryReading {
-    func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
 }

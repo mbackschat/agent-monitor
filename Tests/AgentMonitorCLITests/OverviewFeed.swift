@@ -14,7 +14,6 @@ struct OverviewFeed {
         var cpuPerSecond: Double
         var memory: UInt64? = 1_000_000
         var cwd: String? = "/fixture"
-        var sessionName: String? = nil
         var command: [String]? = nil
         var runtime = false
     }
@@ -63,8 +62,7 @@ struct OverviewFeed {
                         provider: worker.session == nil ? nil : worker.provider,
                         evidence: worker.session == nil ? .unknown : .marker, context: .unverified,
                         threadID: worker.session, rootSessionID: nil, runtime: nil, terminal: nil,
-                        runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []),
-                    sessionName: worker.sessionName)
+                        runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []))
             }, runtimes: Set(zip(workers, samples).filter { $0.0.runtime }.map(\.1.identity)),
             timing: overrun
                 ? AcquisitionTiming(

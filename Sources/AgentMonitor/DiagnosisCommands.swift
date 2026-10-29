@@ -38,7 +38,7 @@ struct DiagnoseCPUCommand: AsyncParsableCommand {
         commandName: "cpu",
         abstract: "Rank the top ten observed CPU contributors over three one-second waits.",
         discussion:
-            "Scans and bounded provider lookups add time. Includes readable current-user lifetimes, excluding this monitor. See agent-monitor guide semantics for coverage and attribution limits."
+            "Scans and native metadata reads add time. Includes readable current-user lifetimes, excluding this monitor. See agent-monitor guide semantics for coverage and attribution limits."
     )
 
     @OptionGroup var output: JSONOptions

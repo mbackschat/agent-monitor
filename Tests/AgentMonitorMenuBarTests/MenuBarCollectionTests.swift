@@ -26,19 +26,18 @@ func nativeDefaultCollectionPreservesResourcesWithoutProviderListings() async th
     #expect(snapshot.findings.count == 2)
     #expect(snapshot.findings.allSatisfy { $0.cpuPercent == 100 })
     #expect(snapshot.findings.allSatisfy { $0.attribution.evidence == .runtimeOnly })
-    #expect(snapshot.findings.allSatisfy { $0.attribution.threadID == nil && $0.sessionName == nil })
-    #expect(fixture.listings.withLock { $0 } == 0)
+    #expect(snapshot.findings.allSatisfy { $0.attribution.threadID == nil })
 }
 
 @Test(.timeLimit(.minutes(1)))
 @MainActor func nativeCollectionResolvesAndRefreshesSessionsWhilePanelIsClosed() async throws {
-    let fixture = NativeCollectionFixture()
+    let fixture = NativeCollectionFixture(hasWriterEvidence: true)
     let source = MenuBarCollection.source(
         reader: {
             fixture.readerCreations.withLock { $0 += 1 }
             return fixture
         },
-        clock: fixture, registry: fixture, excluding: [])
+        clock: fixture, excluding: [])
     let (snapshots, observed) = AsyncStream<MonitoringSnapshot>.makeStream()
     let model = MenuBarModel { thresholds, interval, receive in
         defer { observed.finish() }
@@ -69,8 +68,7 @@ func nativeDefaultCollectionPreservesResourcesWithoutProviderListings() async th
         let closed = try await nextResolved(NativeCollectionFixture.firstSession)
         #expect(closed.findings.count == 2)
         #expect(closed.window?.durationSeconds == 5)
-        expectListedSession(closed, session: NativeCollectionFixture.firstSession)
-        #expect(fixture.listings.withLock { $0 } == 1)
+        expectNativeSession(closed, session: NativeCollectionFixture.firstSession)
         #expect(model.report.snapshot == nil)
         #expect(model.indicator.processCount == 2)
 
@@ -79,25 +77,21 @@ func nativeDefaultCollectionPreservesResourcesWithoutProviderListings() async th
         #expect(opened.recentActivity?.runID == closed.recentActivity?.runID)
         #expect(try #require(opened.recentActivity?.duration) > #require(closed.recentActivity?.duration))
         #expect(opened.recentActivity?.baselineScan == closed.recentActivity?.baselineScan)
-        expectListedSession(opened, session: NativeCollectionFixture.firstSession)
+        expectNativeSession(opened, session: NativeCollectionFixture.firstSession)
         #expect(model.report.snapshot == opened)
         #expect(model.report.groups.count == 1)
-        #expect(fixture.listings.withLock { $0 } == 1)
 
         model.close()
         fixture.session.withLock { $0 = NativeCollectionFixture.secondSession }
-        fixture.elapsed.withLock { $0 += 61 }
         let closedAgain = try await nextResolved(NativeCollectionFixture.secondSession)
-        expectListedSession(closedAgain, session: NativeCollectionFixture.secondSession)
-        #expect(fixture.listings.withLock { $0 } == 2)
+        expectNativeSession(closedAgain, session: NativeCollectionFixture.secondSession)
         #expect(model.report.snapshot == nil)
 
         model.open()
         let reopened = try await nextResolved(NativeCollectionFixture.secondSession)
-        expectListedSession(reopened, session: NativeCollectionFixture.secondSession)
+        expectNativeSession(reopened, session: NativeCollectionFixture.secondSession)
         #expect(model.report.snapshot == reopened)
         #expect(model.report.groups.count == 1)
-        #expect(fixture.listings.withLock { $0 } == 2)
         #expect(fixture.readerCreations.withLock { $0 } == 1)
     } catch {
         await model.stop()
@@ -107,24 +101,25 @@ func nativeDefaultCollectionPreservesResourcesWithoutProviderListings() async th
     #expect(model.error == nil)
 }
 
-private func expectListedSession(_ snapshot: MonitoringSnapshot, session: String) {
+private func expectNativeSession(_ snapshot: MonitoringSnapshot, session: String) {
     #expect(Set(snapshot.findings.map(\.process.pid)) == [42_001, 42_002])
     for finding in snapshot.findings {
-        #expect(finding.attribution.provider == .claude)
-        #expect(finding.attribution.evidence == .sessionRegistry)
+        #expect(finding.attribution.provider == .codex)
+        #expect(finding.attribution.evidence == .writerLock)
         #expect(finding.attribution.threadID == session)
         #expect(finding.attribution.runtime == NativeCollectionFixture.runtime)
     }
 }
 
-private final class NativeCollectionFixture: ProcessReading, AcquisitionClock, SessionRegistryReading,
+private final class NativeCollectionFixture: ProcessReading, AcquisitionClock,
     Sendable
 {
     static let firstSession = "11111111-1111-4111-8111-111111111111"
     static let secondSession = "22222222-2222-4222-8222-222222222222"
     static let runtime = ProcessIdentity(pid: 42_001, startMicroseconds: 1_000)
+    let hasWriterEvidence: Bool
+    init(hasWriterEvidence: Bool = false) { self.hasWriterEvidence = hasWriterEvidence }
     let readerCreations = Mutex(0)
-    let listings = Mutex(0)
     let elapsed = Mutex(0.0)
     let session = Mutex(firstSession)
     let ticks = CollectionTicks()
@@ -136,7 +131,7 @@ private final class NativeCollectionFixture: ProcessReading, AcquisitionClock, S
         let samples = [
             ProcessSample(
                 identity: Self.runtime, parentPID: 1,
-                executable: "/Users/test/.local/share/claude/versions/2.1.301", name: "claude",
+                executable: "/usr/local/bin/codex", name: "codex",
                 terminal: "ttys001", sampledAt: at, cpuSeconds: at, footprintBytes: 2_000_000_000),
             ProcessSample(
                 identity: ProcessIdentity(pid: 42_002, startMicroseconds: 2_000), parentPID: Self.runtime.pid,
@@ -150,18 +145,13 @@ private final class NativeCollectionFixture: ProcessReading, AcquisitionClock, S
     }
 
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
-        ProcessMetadata(cwd: "/synthetic/project", invocation: sample.name)
+        ProcessMetadata(
+            cwd: "/synthetic/project", invocation: sample.name,
+            writerThreadIDs: hasWriterEvidence && sample.identity == Self.runtime
+                ? [session.withLock { $0 }] : [])
     }
 
-    func output(of query: SessionRegistryQuery) throws -> Data {
-        #expect(query.command == ["claude", "agents", "--json"])
-        listings.withLock { $0 += 1 }
-        return try JSONSerialization.data(withJSONObject: [
-            ["pid": Int(Self.runtime.pid), "sessionId": session.withLock { $0 }, "status": "busy"]
-        ])
-    }
-
-    func monotonicNow() -> Double { now().timeIntervalSinceReferenceDate }
+    func monotonicNow() -> Double { elapsed.withLock { $0 } }
     func now() -> Date { Date(timeIntervalSince1970: elapsed.withLock { $0 }) }
 
     func wait(until deadline: Double, wake: AcquisitionWake) throws {

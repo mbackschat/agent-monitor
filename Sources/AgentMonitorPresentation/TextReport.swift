@@ -98,10 +98,9 @@ public enum TextReport {
         lines += AccountingContext.process(row).map { ReportLine("  " + $0, style: .muted) }
         if let peak = FootprintContext.kernelPeak(row) { lines.append(ReportLine("  " + peak)) }
         if let thread = owner.threadID {
-            let relation = owner.evidence == .sessionRegistry ? "current" : "launch"
             lines.append(
                 ReportLine(
-                    "  \(provider) \(relation) session: \(thread) [\(owner.evidence.rawValue), \(owner.context.rawValue)]"
+                    "  \(provider) launch session: \(thread) [\(owner.evidence.rawValue), \(owner.context.rawValue)]"
                 ))
         } else {
             let label = owner.runtime == nil ? "Session" : "\(provider) logical thread"

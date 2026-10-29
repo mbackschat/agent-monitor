@@ -267,9 +267,6 @@ struct MenuBarContributorRow: View {
                         Text(TextReport.safe(node.label.headline))
                             .font(
                                 .system(size: depth == 0 ? 15 : 14, weight: .semibold))
-                        if let name = node.label.sessionName {
-                            Text(TextReport.safe(name)).font(.system(size: 12))
-                        }
                     }.lineLimit(1).truncationMode(.middle)
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 MenuBarContributorLane(activity: overview.activity, id: node.id).frame(width: 100, height: 32)

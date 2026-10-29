@@ -9,8 +9,7 @@ import Synchronization
             let session = MonitoringSession(
                 configuration: try MonitoringConfiguration(
                     intervalSeconds: interval, samples: samples, collectAgentLoad: true),
-                reader: try NativeProcessReader(), clock: ContinuousSamplingClock(),
-                registry: ProbeRegistry(), excluding: [getpid()])
+                reader: try NativeProcessReader(), clock: ContinuousSamplingClock(), excluding: [getpid()])
             let scanSeconds = Mutex<[Double]>([])
             let population = Mutex<[Int]>([])
             let cpu = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
@@ -39,8 +38,4 @@ import Synchronization
             try FileHandle.standardOutput.write(contentsOf: data)
         }
     }
-}
-
-private struct ProbeRegistry: SessionRegistryReading {
-    func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
 }

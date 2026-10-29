@@ -4,7 +4,7 @@ import Testing
 
 @testable import AgentMonitorCore
 
-private final class AdaptiveClockReader: ProcessReading, AcquisitionClock, SessionRegistryReading,
+private final class AdaptiveClockReader: ProcessReading, AcquisitionClock,
     InspectionReading
 {
     struct State {
@@ -57,7 +57,6 @@ private final class AdaptiveClockReader: ProcessReading, AcquisitionClock, Sessi
     func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
         ProcessMetadata()
     }
-    func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
     func inspectionPIDs(allowance: InspectionAllowance) throws -> [Int32] { [] }
     func inspectionRead(_ pid: Int32, allowance: InspectionAllowance) -> InspectionRead? { nil }
 }
@@ -74,7 +73,7 @@ private final class AdaptiveClockReader: ProcessReading, AcquisitionClock, Sessi
                 configuration: try MonitoringConfiguration(
                     samples: 4,
                     reportIntervalSeconds: 1, inspectionObservations: feature, sampling: settings),
-                reader: reader, clock: reader, registry: reader)
+                reader: reader, clock: reader)
             let result = Mutex<SamplingCoverage>(SamplingCoverage())
             try await session.run(interval: live, inspection: permission) { value in
                 if let coverage = value.window?.acquisitionCoverage.sampling {
@@ -96,7 +95,7 @@ private final class AdaptiveClockReader: ProcessReading, AcquisitionClock, Sessi
             configuration: try MonitoringConfiguration(
                 samples: 4,
                 reportIntervalSeconds: 1, inspectionObservations: true, sampling: settings),
-            reader: reader, clock: reader, registry: reader)
+            reader: reader, clock: reader)
         let result = Mutex<SamplingCoverage>(SamplingCoverage())
         try await session.run(interval: live, inspection: permission) { value in
             if let coverage = value.window?.acquisitionCoverage.sampling {
@@ -115,7 +114,7 @@ private final class AdaptiveClockReader: ProcessReading, AcquisitionClock, Sessi
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(
                 samples: 4,
-                reportIntervalSeconds: 1, sampling: settings), reader: reader, clock: reader, registry: reader
+                reportIntervalSeconds: 1, sampling: settings), reader: reader, clock: reader
         )
         try await session.run(interval: live) { _ in }
         let starts = reader.state.withLock { $0.starts }
@@ -132,7 +131,7 @@ private final class AdaptiveClockReader: ProcessReading, AcquisitionClock, Sessi
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(
                 samples: 1,
-                sampling: settings), reader: reader, clock: reader, registry: reader)
+                sampling: settings), reader: reader, clock: reader)
         try await session.run(interval: live) { _ in }
         #expect(reader.state.withLock { $0.starts } == [0, 0.5])
     }
@@ -143,7 +142,7 @@ private final class AdaptiveClockReader: ProcessReading, AcquisitionClock, Sessi
         let reader = AdaptiveClockReader(live, slowSettingsChange: true)
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(intervalSeconds: 0.1, samples: samples),
-            reader: reader, clock: reader, registry: reader)
+            reader: reader, clock: reader)
         let timings = Mutex<[AcquisitionTiming]>([])
         try await session.run(interval: live) { value in
             if let timing = value.cpuAccounting.acquisition { timings.withLock { $0.append(timing) } }
@@ -168,7 +167,7 @@ private final class AdaptiveClockReader: ProcessReading, AcquisitionClock, Sessi
         let reader = AdaptiveClockReader(live, shortenAt: 0.5)
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(intervalSeconds: 1, samples: 1),
-            reader: reader, clock: reader, registry: reader)
+            reader: reader, clock: reader)
         let timings = Mutex<[AcquisitionTiming]>([])
         try await session.run(interval: live) { value in
             if let timing = value.cpuAccounting.acquisition { timings.withLock { $0.append(timing) } }
@@ -191,7 +190,7 @@ private final class AdaptiveClockReader: ProcessReading, AcquisitionClock, Sessi
         let reader = AdaptiveClockReader(live, deferDueDeadline: true)
         let session = MonitoringSession(
             configuration: try MonitoringConfiguration(intervalSeconds: 0.1, samples: 1),
-            reader: reader, clock: reader, registry: reader)
+            reader: reader, clock: reader)
         let requested = Mutex<[Double]>([])
         try await session.run(interval: live) { value in
             requested.withLock { $0.append(value.intervalSeconds) }

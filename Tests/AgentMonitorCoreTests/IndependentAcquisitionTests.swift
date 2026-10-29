@@ -4,14 +4,10 @@ import Testing
 
 @testable import AgentMonitorCore
 
-private final class IndependentReader: ProcessReading, AcquisitionClock, SessionRegistryReading, Sendable {
-    enum BlockingStage { case metadata, provider }
-    let blockingStage: BlockingStage
-    let providerCalls = Mutex(0)
+private final class IndependentReader: ProcessReading, AcquisitionClock, Sendable {
     let waitForConsumer: Bool
     let consumerEntered = ClockGate()
-    init(blockingStage: BlockingStage = .metadata, waitForConsumer: Bool = false) {
-        self.blockingStage = blockingStage
+    init(waitForConsumer: Bool = false) {
         self.waitForConsumer = waitForConsumer
     }
     let scans = Mutex(0)
@@ -31,10 +27,8 @@ private final class IndependentReader: ProcessReading, AcquisitionClock, Session
         }
         if index == 2 { thirdScan.signal() }
         events.continuation.yield(index)
-        let executable =
-            blockingStage == .provider ? "/Users/test/.local/share/claude/versions/2.1.301" : "/bin/worker"
         return diagnosisScan(
-            [sample(42, executable: executable, at: Double(index), cpu: Double(index))], at: Double(index))
+            [sample(42, executable: "/bin/worker", at: Double(index), cpu: Double(index))], at: Double(index))
     }
 
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
@@ -42,12 +36,11 @@ private final class IndependentReader: ProcessReading, AcquisitionClock, Session
             defer { names.append(Thread.current.name ?? "unnamed") }
             return names.isEmpty
         }
-        if first, blockingStage == .metadata {
+        if first {
             blockingStarted.signal()
             let progressed = thirdScan.wait(timeout: .now() + 1) == .success
             progressedDuringMetadata.withLock { $0 = progressed }
         }
-        if blockingStage == .provider { return ProcessMetadata(status: .markerRead, invocation: "claude") }
         return ProcessMetadata(markers: [SessionMarker(threadID: sessionA, provider: .codex)])
     }
 
@@ -58,20 +51,10 @@ private final class IndependentReader: ProcessReading, AcquisitionClock, Session
     }
 
     func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
-        blockingStage == .provider
-            ? ProcessMetadata(status: .markerRead, invocation: "claude")
-            : ProcessMetadata(
-                markers: [SessionMarker(threadID: sessionA, provider: .codex)], status: .markerRead)
+        ProcessMetadata(
+            markers: [SessionMarker(threadID: sessionA, provider: .codex)], status: .markerRead)
     }
     func isCurrent(_ sample: ProcessSample) -> Bool { true }
-    func output(of query: SessionRegistryQuery) throws -> Data {
-        providerCalls.withLock { $0 += 1 }
-        blockingStarted.signal()
-        resolutionThreads.withLock { $0.append(Thread.current.name ?? "unnamed") }
-        let progressed = thirdScan.wait(timeout: .now() + 1) == .success
-        progressedDuringMetadata.withLock { $0 = progressed }
-        return Data("[{\"pid\":42,\"sessionId\":\"\(sessionB)\",\"status\":\"busy\"}]".utf8)
-    }
 
     func wait(until deadline: Double, wake: AcquisitionWake) throws {
         let seconds = max(0, deadline - monotonicNow())
@@ -100,23 +83,6 @@ private final class IndependentReader: ProcessReading, AcquisitionClock, Session
         #expect(results.withLock { $0.allSatisfy { $0.findings.first?.attribution.threadID == sessionA } })
         #expect(Set(fixture.acquisitionThreads.withLock { $0 }) == ["AgentMonitor acquisition"])
         #expect(Set(fixture.resolutionThreads.withLock { $0 }) == ["AgentMonitor metadata"])
-    }
-
-    @Test func blockedProviderCannotStopCountersOrAccounting() async throws {
-        let fixture = IndependentReader(blockingStage: .provider)
-        let session = MonitoringSession(
-            configuration: try MonitoringConfiguration(samples: 3), reader: fixture, clock: fixture,
-            registry: fixture)
-        let results = Mutex<[MonitoringSnapshot]>([])
-        try await session.run { snapshot in results.withLock { $0.append(snapshot) } }
-        #expect(fixture.progressedDuringMetadata.withLock { $0 })
-        #expect(fixture.scans.withLock { $0 } == 4)
-        #expect(fixture.providerCalls.withLock { $0 } == 1)
-        #expect(results.withLock { $0.count } == 3)
-        #expect(results.withLock { $0.allSatisfy { $0.cpuAccounting.measuredUserPercent == 100 } })
-        let threads = Set(fixture.resolutionThreads.withLock { $0 })
-        #expect(threads.contains("AgentMonitor providers"))
-        #expect(threads.isSubset(of: ["AgentMonitor metadata", "AgentMonitor providers"]))
     }
 
     private enum ConsumerFailure: Error { case timedOut }

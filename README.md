@@ -18,7 +18,7 @@ This README describes the current source build, which can be ahead of the [lates
 
 **Performance acceptance remains open:** bounded accounting and retention guards pass, but native collection cost, heavy-load short-worker coverage, a process-wide heap ceiling and the Mac smoke checks remain open. See [remaining acceptance work](PLAN.md#resource-accounting-priority) and [dated measurement evidence](docs/research/menu-bar-load-cost.md). Passing accounting tests does not establish acceptable cost or complete sampling coverage.
 
-**Local-only runtime:** Agent Monitor does not launch provider CLIs or initiate Internet connections. Automatic Claude session listings/names and Codex/Claude messaging are unavailable because those helpers lack an offline guarantee. Native process measurements and available local attribution continue; missing session identity stays explicit. Development-time downloads are separate from running the app.
+**Local-only runtime:** Agent Monitor does not launch provider CLIs or initiate Internet connections. Automatic Claude session listings/names and Codex/Claude messaging are unavailable because those helpers lack an offline guarantee; their execution paths are absent. Native process measurements and available local attribution continue; missing session identity stays explicit. Development-time downloads are separate from running the app.
 
 **No automatic recording:** normal monitoring uses bounded rolling history in memory, with no process-data log written to disk. [Diagnostic recording](docs/proposals/diagnostic-recording.md) is a separate, unimplemented opt-in proposal; live history and Pause do not enable it.
 

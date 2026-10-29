@@ -75,7 +75,6 @@ public struct RecentMemoryReading: Equatable, Codable, Sendable {
 
 public struct RecentWorkerRecord: Equatable, Sendable {
     public private(set) var category: RecentWorkerCategory
-    public private(set) var sessionName: String?
     public private(set) var name: String
     public var cwd: String? { category.cwd }
     public private(set) var command: [String]?
@@ -102,7 +101,6 @@ public struct RecentWorkerRecord: Equatable, Sendable {
     ) {
         self.category = category
         name = row.name
-        sessionName = row.sessionName
         command = row.command
         firstObservedAt = time
         lastObservedAt = time
@@ -116,7 +114,6 @@ public struct RecentWorkerRecord: Equatable, Sendable {
         _ row: HeavyProcess, scan: UInt64, time: Double, evidenceAt: Double?, atCensus: Bool = true
     ) {
         name = row.name
-        sessionName = row.sessionName
         command = row.command
         lastObservedAt = time
         lastScan = scan
@@ -155,7 +152,6 @@ public struct RecentWorkerRecord: Equatable, Sendable {
         firstObservedAt = min(firstObservedAt, other.firstObservedAt)
         if other.lastScan >= lastScan {
             name = other.name
-            sessionName = other.sessionName
             command = other.command
             lastObservedAt = other.lastObservedAt
             lastScan = other.lastScan
@@ -195,7 +191,6 @@ public struct RecentWorkerRecord: Equatable, Sendable {
     var payloadSize: MonitoringPayloadSize {
         let owner = category.owner
         var bytes = category.executable.utf8.count + category.executableName.utf8.count + name.utf8.count
-        bytes += sessionName?.utf8.count ?? 0
         bytes += category.invocationName?.utf8.count ?? 0
         bytes +=
             (cwd?.utf8.count ?? 0) + (owner.sessionID?.utf8.count ?? 0)

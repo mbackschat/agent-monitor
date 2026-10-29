@@ -30,7 +30,7 @@ public struct SessionCorroboration: Sendable {
 
     public static func isExact(_ owner: Attribution) -> Bool {
         switch owner.evidence {
-        case .marker, .inheritedMarker, .writerLock, .sessionRegistry: true
+        case .marker, .inheritedMarker, .writerLock: true
         case .unknown, .ambiguous, .runtimeOnly: false
         }
     }

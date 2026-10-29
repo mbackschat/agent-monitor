@@ -102,10 +102,8 @@ public struct ProcessMetadata: Equatable, Sendable {
     }
 }
 
-/// `sessionRegistry` names the session a runtime hosts at the time of its harness's listing,
-/// not launch origin; markers and writer descriptors take precedence over it.
 public enum AttributionEvidence: String, Codable, Sendable {
-    case marker, inheritedMarker, writerLock, sessionRegistry, runtimeOnly, ambiguous, unknown
+    case marker, inheritedMarker, writerLock, runtimeOnly, ambiguous, unknown
 }
 
 public enum RuntimeContext: String, Codable, Sendable {
@@ -140,7 +138,6 @@ public struct HeavyProcess: Equatable, Codable, Sendable {
     public let process: ProcessIdentity
     public let executable: String
     public let name: String
-    public let sessionName: String?
     public let invocationName: String?
     public var observedName: String { invocationName ?? name }
     public let cpuPercent: Double?
@@ -157,12 +154,11 @@ public struct HeavyProcess: Equatable, Codable, Sendable {
         process: ProcessIdentity, executable: String, name: String, cpuPercent: Double?,
         footprintBytes: UInt64?, kernelPeakFootprintBytes: UInt64? = nil, cwd: String?,
         command: [String]?, metadataStatus: MetadataStatus, attribution: Attribution,
-        accounting: ProcessWindowAccounting? = nil, sessionName: String? = nil, invocationName: String? = nil
+        accounting: ProcessWindowAccounting? = nil, invocationName: String? = nil
     ) {
         self.process = process
         self.executable = executable
         self.name = name
-        self.sessionName = sessionName
         self.invocationName = invocationName
         self.cpuPercent = cpuPercent
         self.footprintBytes = footprintBytes
@@ -180,9 +176,7 @@ public struct HeavyProcess: Equatable, Codable, Sendable {
             footprintBytes: footprintBytes, kernelPeakFootprintBytes: kernelPeakFootprintBytes,
             cwd: cwd, command: command, metadataStatus: metadataStatus, attribution: owner,
             accounting: accounting,
-            sessionName: SessionCorroboration.isExact(owner)
-                && owner.provider == attribution.provider && owner.threadID == attribution.threadID
-                ? sessionName : nil, invocationName: invocationName)
+            invocationName: invocationName)
     }
 
     /// Provider evidence identifies shared runtime usage without assigning it to one thread.

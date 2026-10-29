@@ -1,6 +1,6 @@
 # Claude detached-workload link through `CLAUDE_PID`
 
-Status: **deferred**, 2026-10-16. The implemented runtime-to-session binding is the [harness session registry](../architecture.md#harness-session-registries); this record keeps only the option left out of it.
+Status: **deferred**, 2026-10-16. The former runtime-to-session listing binding has been [retired under the offline contract](../architecture.md#harness-session-registries); this record keeps the option left out of that historical implementation.
 
 ## Decision
 

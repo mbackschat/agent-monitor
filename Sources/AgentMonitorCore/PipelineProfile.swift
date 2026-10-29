@@ -8,16 +8,12 @@ package final class PipelineProfile: Sendable {
     enum Stage: String, CaseIterable, Sendable {
         case nativeSampling, promptCapture, counterAccounting, attribution
         case windowAccounting, historyClosure, historyProjection, pendingMerge, reportProjection
-        case metadataBatch, providerRequest
+        case metadataBatch
     }
-    enum Worker: String, CaseIterable, Sendable { case acquisition, metadata, providers, publication }
+    enum Worker: String, CaseIterable, Sendable { case acquisition, metadata, publication }
     enum Counter: String, CaseIterable, Sendable {
-        case resolutionHits, resolutionMisses, detachedGenerationChanges, registryAncestorChecks
+        case resolutionHits, resolutionMisses, detachedGenerationChanges
         case argumentShortReads, argumentReadFallbacks
-        case registryInitialAdmissions, registryNewRuntimeAdmissions, registryPeriodicAdmissions
-        case registryClockResetAdmissions, registryRequestedCandidates, registryVerifiedCandidates
-        case registryCompletedListings, registryCandidatesWithInvocation, registryCandidatesWithoutInvocation
-        case registryMatchedBindings
     }
     struct Stamp {
         let cpu = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)

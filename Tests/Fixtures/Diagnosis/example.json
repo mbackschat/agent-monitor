@@ -13,6 +13,5 @@
     {"process": {"pid": 42001, "startMicroseconds": 1792151999000000}, "label": "compiler", "labelTruncated": false, "cpuSeconds": 2.4, "observedSeconds": 3, "validIntervals": 3, "meanCPUPercent": 80, "peakCPUPercent": 100, "attribution": {"status": "unavailable", "reason": "metadataUnavailable"}},
     {"process": {"pid": 42002, "startMicroseconds": 1792152000100000}, "label": "worker", "labelTruncated": false, "cpuSeconds": 1.5, "observedSeconds": 2, "validIntervals": 2, "meanCPUPercent": 75, "peakCPUPercent": 100, "attribution": {"status": "unavailable", "reason": "notObservedAtEnrichment"}}
   ],
-  "providerLookups": [],
   "diagnostics": ["unmeasuredCPU", "unreadableObservations", "attributionUnavailable"]
 }

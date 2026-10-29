@@ -729,7 +729,6 @@ public struct ContributorOverview: Equatable, Sendable {
             nodes[id] = node
             nodes[leafParent]?.children.append(id)
         }
-        let names = SessionDisplayNames(records: metadata.values)
         let directoryLabels = WorkloadDirectory.compactLabels(
             for: Set(entries.keys.filter { !$0.isAgentRuntime }.compactMap(\.cwd)))
         workloadDirectoryLabels = directoryLabels
@@ -737,15 +736,12 @@ public struct ContributorOverview: Equatable, Sendable {
             switch id {
             case .session(let provider, let session, let root):
                 let directories = projects[id] ?? []
-                let name = names.name(provider: provider, session: session)
                 nodes[id]?.label = .session(
                     identity: (root == nil ? "\(provider) · " : "Thread · ") + session.prefix(8),
-                    name: name,
                     directory: directories.isEmpty
                         ? nil : WorkloadDirectory.summary(directories, labels: directoryLabels))
                 nodes[id]?.labels =
                     [InspectionField("Exact session", "\(provider)/\(session)")]
-                    + (name.map { [InspectionField("Listed name", $0)] } ?? [])
                     + directories.map { $0 ?? "unavailable" }.sorted().map {
                         InspectionField("Directory", $0)
                     }
@@ -766,9 +762,6 @@ public struct ContributorOverview: Equatable, Sendable {
                 var labels: [InspectionField] = []
                 if case .session(let provider, let session, _) = owner {
                     labels = [InspectionField("Agent", provider), InspectionField("Session", session)]
-                    if let name = names.name(provider: provider, session: session) {
-                        labels.append(InspectionField("Listed name", name))
-                    }
                 }
                 labels.append(InspectionField("Directory", cwd ?? "Unavailable"))
                 labels.append(InspectionField("Executable group", name))

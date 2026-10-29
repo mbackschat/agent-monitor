@@ -42,7 +42,6 @@ public struct Monitor: Sendable {
             let previousParent: ProcessIdentity?
             let parent: ProcessIdentity?
             let invalidatesResolution: Bool
-            let executed: Bool
             let touchesRuntime: Bool
             let storageChange: MonitoringPayloadSize
         }
@@ -81,7 +80,7 @@ public struct Monitor: Sendable {
             return Update(
                 previousParent: previousParent, parent: parent,
                 invalidatesResolution: isNew || executed || parent != previousParent || terminalChanged,
-                executed: executed, touchesRuntime: wasRuntime || !runtimeProviders.isEmpty,
+                touchesRuntime: wasRuntime || !runtimeProviders.isEmpty,
                 storageChange: storageChange)
         }
     }
@@ -106,7 +105,6 @@ public struct Monitor: Sendable {
     private var nodePayload = MonitoringPayloadSize(observations: 0, textBytes: 0)
     private var resolutionPayload = MonitoringPayloadSize(observations: 0, textBytes: 0)
     private var childReferences = 0
-    private var listedTextBytes = 0
     private(set) var attributionStorageRecordVisits = 0
 
     private var counterLedger = CounterLedger()
@@ -115,10 +113,6 @@ public struct Monitor: Sendable {
     private var previousScanSeconds: Double?
     private var live: Set<ProcessIdentity> = []
     private var runtimes: [AgentProvider: Set<ProcessIdentity>] = [:]
-    /// Sessions that runtime lifetimes host according to their harness's latest listing.
-    private var listedSessions: [ProcessIdentity: String] = [:]
-    private var listedSessionNames: [ProcessIdentity: String] = [:]
-    private var registryObservedAt: [ProcessIdentity: Double] = [:]
     private let adapters: AttributionAdapters
     private let profile: PipelineProfile?
 
@@ -153,15 +147,6 @@ public struct Monitor: Sendable {
         }
     }
 
-    private mutating func setListedSession(_ session: String?, name: String?, for identity: ProcessIdentity) {
-        listedTextBytes -=
-            (listedSessions[identity]?.utf8.count ?? 0)
-            + (listedSessionNames[identity]?.utf8.count ?? 0)
-        listedSessions[identity] = session
-        listedSessionNames[identity] = name
-        listedTextBytes += (session?.utf8.count ?? 0) + (name?.utf8.count ?? 0)
-    }
-
     private mutating func removeChild(_ identity: ProcessIdentity, from parent: ProcessIdentity) {
         if children[parent]?.remove(identity) != nil { childReferences -= 1 }
         if children[parent]?.isEmpty == true { children[parent] = nil }
@@ -173,8 +158,6 @@ public struct Monitor: Sendable {
         size.observations +=
             live.count + children.count + childReferences
             + runtimes.values.reduce(0) { $0 + $1.count }
-            + listedSessions.count + listedSessionNames.count + registryObservedAt.count
-        size.textBytes += listedTextBytes
         return size
     }
 
@@ -184,7 +167,6 @@ public struct Monitor: Sendable {
             observations: nodes.count + live.count + children.count
                 + children.values.reduce(0) { $0 + $1.count }
                 + runtimes.values.reduce(0) { $0 + $1.count }
-                + listedSessions.count + listedSessionNames.count + registryObservedAt.count
                 + resolutions.count,
             textBytes: 0)
         func text(_ value: String?) { size.textBytes += value?.utf8.count ?? 0 }
@@ -230,8 +212,6 @@ public struct Monitor: Sendable {
             for value in owner.candidateThreadIDs { text(value) }
             if let value = resolution.marker { marker(value) }
         }
-        for value in listedSessions.values { text(value) }
-        for value in listedSessionNames.values { text(value) }
         return size
     }
 
@@ -313,9 +293,6 @@ public struct Monitor: Sendable {
                 sample, contribution: contributions[sample.identity], parent: byPID[sample.parentPID],
                 isNew: isNew, adapters: adapters)
             nodePayload.add(update.storageChange)
-            if update.executed {
-                setListedSession(nil, name: nil, for: sample.identity)
-            }
             if update.parent != update.previousParent {
                 if let previousParent = update.previousParent {
                     removeChild(sample.identity, from: previousParent)
@@ -334,12 +311,6 @@ public struct Monitor: Sendable {
         }
         runtimes = [:]
         for identity in live { indexRuntime(identity) }
-        for identity in listedSessions.keys where !live.contains(identity) {
-            setListedSession(nil, name: nil, for: identity)
-            invalidate(identity)
-            advanceDetachedGeneration()
-        }
-        registryObservedAt = registryObservedAt.filter { live.contains($0.key) }
 
         // Retain departed ancestors only while a live descendant needs them; see
         // docs/research/macos-process-attribution.md for reparenting and PID reuse.
@@ -435,88 +406,8 @@ public struct Monitor: Sendable {
         nodes[identity] = node
         if changed {
             for provider in runtimes.keys { runtimes[provider]?.remove(identity) }
-            setListedSession(nil, name: nil, for: identity)
             indexRuntime(identity)
         }
-    }
-
-    /// Live runtimes behind `findings` whose session only their harness's own listing can supply,
-    /// by provider. Bound runtimes are included so a listing can follow `/clear` or `/resume`.
-    public func sessionRegistryRuntimes(
-        in findings: [HeavyProcess], excludingChildrenOf collectorPID: Int32? = nil
-    ) -> [AgentProvider: Set<ProcessIdentity>] {
-        var result: [AgentProvider: Set<ProcessIdentity>] = [:]
-        var checked: [AgentProvider: Set<ProcessIdentity>] = [:]
-        for finding in findings {
-            let owner = finding.attribution
-            switch owner.evidence {
-            case .runtimeOnly, .sessionRegistry:
-                guard let provider = owner.provider, let runtime = owner.runtime, live.contains(runtime),
-                    adapters.sessionRegistry(for: provider) != nil
-                else { continue }
-                guard checked[provider, default: []].insert(runtime).inserted else { continue }
-                // A provider CLI spawned by the collector must not trigger its next listing.
-                // The 2026-10-24 live audit observed 12 helpers and 12 listings in six seconds.
-                if let collectorPID {
-                    profile?.increment(.registryAncestorChecks)
-                    if chain(from: runtime).contains(where: {
-                        nodes[$0]?.sample.parentPID == collectorPID
-                    }) {
-                        continue
-                    }
-                }
-                result[provider, default: []].insert(runtime)
-            case .marker, .inheritedMarker, .writerLock, .ambiguous, .unknown:
-                continue
-            }
-        }
-        return result
-    }
-
-    func profileRegistryCandidates(_ candidates: Set<ProcessIdentity>) {
-        guard let profile else { return }
-        let observed = candidates.reduce(0) { $0 + (nodes[$1]?.metadata.invocation == nil ? 0 : 1) }
-        profile.increment(.registryCandidatesWithInvocation, by: UInt64(observed))
-        profile.increment(.registryCandidatesWithoutInvocation, by: UInt64(candidates.count - observed))
-    }
-
-    package func sessionRegistry(for provider: AgentProvider) -> SessionRegistryQuery? {
-        adapters.sessionRegistry(for: provider)
-    }
-
-    /// Replaces the provider's bindings with its listing; nil (a failed listing) or an unparsable
-    /// one removes them. Each live runtime binds only to the single active entry naming its PID.
-    @discardableResult package mutating func bindSessions(
-        _ output: Data?, provider: AgentProvider, restrictingTo verified: Set<ProcessIdentity>? = nil,
-        observedAt: Double? = nil, requestedAt: [ProcessIdentity: Double]? = nil
-    ) -> Bool {
-        let parsed = output.flatMap { try? adapters.runtimeSessions(provider, fromRegistry: $0) }
-        let sessions = parsed ?? []
-        let byPID = Dictionary(grouping: sessions, by: \.runtimePID)
-        for runtime in runtimes[provider] ?? [] {
-            if let boundary = nodes[runtime]?.executionObservedAt,
-                [requestedAt?[runtime], observedAt].compactMap({ $0 }).contains(where: { $0 < boundary })
-            {
-                continue
-            }
-            let previous = listedSessions[runtime]
-            let listed = byPID[runtime.pid] ?? []
-            if verified?.contains(runtime) != false,
-                listed.count == 1, let session = listed.first, session.active, let id = session.sessionID
-            {
-                profile?.increment(.registryMatchedBindings)
-                setListedSession(id, name: session.name, for: runtime)
-                registryObservedAt[runtime] = observedAt
-            } else {
-                setListedSession(nil, name: nil, for: runtime)
-                registryObservedAt[runtime] = nil
-            }
-            if listedSessions[runtime] != previous {
-                invalidate(runtime)
-                advanceDetachedGeneration()
-            }
-        }
-        return parsed != nil
     }
 
     /// Only live processes claimed by exactly one provider can be detached-runtime candidates.
@@ -667,18 +558,12 @@ public struct Monitor: Sendable {
     }
 
     private func finding(_ node: Node, owner: Attribution) -> HeavyProcess {
-        let name = owner.runtime.flatMap { runtime -> String? in
-            guard let provider = owner.provider, runtimes[provider]?.contains(runtime) == true,
-                listedSessions[runtime] == owner.threadID, SessionCorroboration.isExact(owner)
-            else { return nil }
-            return listedSessionNames[runtime]
-        }
         return HeavyProcess(
             process: node.sample.identity, executable: node.sample.executable, name: node.sample.name,
             cpuPercent: node.cpuPercent, footprintBytes: node.sample.footprintBytes,
             kernelPeakFootprintBytes: node.sample.kernelPeakFootprintBytes,
             cwd: node.metadata.cwd, command: node.metadata.command, metadataStatus: node.metadata.status,
-            attribution: owner, sessionName: name, invocationName: node.invocationName)
+            attribution: owner, invocationName: node.invocationName)
     }
 
     /// The primary label's actual point-observation time, never a claim of interval support.
@@ -701,7 +586,6 @@ public struct Monitor: Sendable {
                 }
                 result[id] = source.flatMap { nodes[$0]?.markerObservedAt }
             case .writerLock: result[id] = owner.runtime.flatMap { nodes[$0]?.metadataObservedAt }
-            case .sessionRegistry: result[id] = owner.runtime.flatMap { registryObservedAt[$0] }
             case .runtimeOnly, .ambiguous, .unknown: break
             }
         }
@@ -893,8 +777,7 @@ public struct Monitor: Sendable {
         case 1: return (.writerLock, candidates[0])
         case 2...: return (.ambiguous, nil)
         default:
-            guard let runtime = walk.runtime else { return (.unknown, nil) }
-            if let session = listedSessions[runtime.sample.identity] { return (.sessionRegistry, session) }
+            guard walk.runtime != nil else { return (.unknown, nil) }
             return (.runtimeOnly, nil)
         }
     }

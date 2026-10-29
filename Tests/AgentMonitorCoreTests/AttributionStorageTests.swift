@@ -22,7 +22,7 @@ private enum ResolutionPopulation: CaseIterable {
     }
 }
 
-private final class ResolutionGrowthFixture: ProcessReading, AcquisitionClock, SessionRegistryReading,
+private final class ResolutionGrowthFixture: ProcessReading, AcquisitionClock,
     Sendable
 {
     private let tick = Mutex(0)
@@ -50,14 +50,12 @@ private final class ResolutionGrowthFixture: ProcessReading, AcquisitionClock, S
     func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
         metadata(for: sample, includeCommand: false)
     }
-    func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
     func wait(until deadline: Double, wake: AcquisitionWake) throws { time.withLock { $0 = deadline } }
     func monotonicNow() -> Double { time.withLock { $0 } }
     func now() -> Date { Date(timeIntervalSince1970: monotonicNow()) }
 }
 
-private final class AncestorHandoffFixture: ProcessReading, AcquisitionClock, SessionRegistryReading, Sendable
-{
+private final class AncestorHandoffFixture: ProcessReading, AcquisitionClock, Sendable {
     private struct State {
         var time = 0.0
         var nextScan = 0
@@ -87,8 +85,6 @@ private final class AncestorHandoffFixture: ProcessReading, AcquisitionClock, Se
     func captureLaunchEvidence(for sample: ProcessSample, maximumBytes: Int) -> ProcessMetadata? {
         metadata(for: sample, includeCommand: false)
     }
-
-    func output(of query: SessionRegistryQuery) throws -> Data { Data("[]".utf8) }
 
     func wait(until deadline: Double, wake: AcquisitionWake) throws {
         let completed = state.withLock { $0.nextScan - 1 }
@@ -186,7 +182,7 @@ private final class AncestorHandoffFixture: ProcessReading, AcquisitionClock, Se
                 intervalSeconds: 0.1, samples: 2, scope: .allProcesses,
                 pipelineLimits: MonitoringPipelineLimits(pendingObservations: 5_500)
             ),
-            reader: fixture, clock: fixture, registry: fixture)
+            reader: fixture, clock: fixture)
         let reports = Mutex<[MonitoringSnapshot]>([])
         try await session.run { value in reports.withLock { $0.append(value) } }
         let delivered = reports.withLock { $0 }
@@ -274,28 +270,6 @@ private final class AncestorHandoffFixture: ProcessReading, AcquisitionClock, Se
         #expect(monitor.attributionPayloadSize == monitor.recountedAttributionPayloadSize)
     }
 
-    @Test func listingRenamesAndRuntimeWithdrawalReleaseTheirCharges() throws {
-        let runtime = sample(20, executable: "/usr/bin/claude")
-        var monitor = Monitor()
-        monitor.ingest([runtime])
-        for name in ["caf\u{e9}", "cafe\u{301}", "A longer session name"] {
-            let output = try JSONSerialization.data(withJSONObject: [
-                [
-                    "pid": Int(runtime.identity.pid), "sessionId": sessionA, "status": "idle", "name": name,
-                ]
-            ])
-            let bound = monitor.bindSessions(output, provider: .claude, observedAt: 1)
-            #expect(bound)
-            _ = monitor.accountingFindings()
-            #expect(monitor.attributionPayloadSize == monitor.recountedAttributionPayloadSize)
-        }
-        monitor.enrich(ProcessMetadata(invocation: "ugrep"), for: runtime.identity)
-        _ = monitor.accountingFindings()
-        #expect(monitor.attributionPayloadSize == monitor.recountedAttributionPayloadSize)
-        monitor.ingest([])
-        #expect(monitor.attributionPayloadSize == MonitoringPayloadSize(observations: 0, textBytes: 0))
-    }
-
     @Test func threeThousandProcessesAtDepthTenFitWithoutRepeatedVariableStorageWalks() throws {
         let samples = (0..<3_000).map { index in
             let pid = Int32(10_000 + index)
@@ -341,7 +315,7 @@ private final class AncestorHandoffFixture: ProcessReading, AcquisitionClock, Se
             configuration: try MonitoringConfiguration(
                 intervalSeconds: 0.1, samples: 0, scope: .allProcesses,
                 pipelineLimits: limits, reportIntervalSeconds: 1),
-            reader: fixture, clock: fixture, registry: fixture)
+            reader: fixture, clock: fixture)
         let reports = Mutex<[MonitoringSnapshot]>([])
         var failure: MonitoringError?
         do {

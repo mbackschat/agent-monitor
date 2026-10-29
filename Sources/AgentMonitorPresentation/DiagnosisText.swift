@@ -80,14 +80,7 @@ public enum DiagnosisText {
                         ReportLine(line, style: index < 2 ? .normal : .muted)
                     }))
         }
-        var lines = [
-            "Provider lookups: "
-                + (report.providerLookups.isEmpty
-                    ? "none."
-                    : report.providerLookups.map { "\($0.provider.rawValue) \($0.status)" }.joined(
-                        separator: ", "))
-        ]
-        lines += value.diagnostics.map { "\($0.rawValue): \($0.explanation)" }
+        let lines = value.diagnostics.map { "\($0.rawValue): \($0.explanation)" }
         sections.append(
             DiagnosisReportSection(
                 kind: .notes, title: "Coverage and interpretation",

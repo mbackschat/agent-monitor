@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 
 /// A helper confined to one serial owner, with deadlines and output limits.
-/// Production runs fixed local Terminal automation; provider listing fixtures use disposable test programs.
+/// Production runs fixed local Terminal automation; command tests use disposable owned programs.
 package final class BoundedCommand {
     private let process = Process()
     private let output = Pipe()

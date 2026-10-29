@@ -5,7 +5,7 @@ import Testing
 @Suite struct ContributorInspectionTests {
     @Test func foldingAWorkerDoesNotOpenEvidenceAndExplicitDetailsAreStructured() throws {
         var state = LiveReportState()
-        state.receive(try overviewFixture(sessionNames: ["Index work"]))
+        state.receive(try overviewFixture())
         let session = try #require(state.overview.main.first)
         state.overview.toggle(session)
         let family = try #require(state.overview.nodes[session]?.children.first)

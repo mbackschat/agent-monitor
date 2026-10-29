@@ -12,30 +12,6 @@ import Testing
     #expect(profile.snapshot().counters == expected)
 }
 
-@Test func registryDiscoveryChecksEachRuntimeOnceAndExcludesNestedHelpers() {
-    let profile = PipelineProfile()
-    var monitor = Monitor(profile: profile)
-    let external = sample(10, executable: "/bin/claude")
-    let helper = sample(20, parent: 5, executable: "/bin/claude")
-    let nested = sample(30, parent: 25, executable: "/bin/claude")
-    var samples = [sample(5), external, helper, sample(25, parent: 20), nested]
-    for index in 0..<60 {
-        let parent: Int32 = index < 20 ? 10 : (index < 40 ? 20 : 30)
-        samples.append(sample(Int32(index + 40), parent: parent))
-    }
-    monitor.ingest(samples)
-    let findings = monitor.accountingFindings()
-    #expect(
-        monitor.sessionRegistryRuntimes(in: findings)[.claude] == [
-            external.identity, helper.identity, nested.identity,
-        ])
-    #expect(profile.snapshot().counters["registryAncestorChecks"] == 0)
-    #expect(
-        monitor.sessionRegistryRuntimes(in: findings + findings, excludingChildrenOf: 5)
-            == [.claude: [external.identity]])
-    #expect(profile.snapshot().counters["registryAncestorChecks"] == 3)
-}
-
 @Test func profileCountsResolutionReuseAndInvalidationWithoutResourceChanges() {
     let profile = PipelineProfile()
     var monitor = Monitor(profile: profile)
@@ -100,9 +76,9 @@ import Testing
 @Test func profileRetainsWorkerCPUWithoutJobs() async throws {
     let profile = PipelineProfile()
     let worker = SerialBlockingWorker(
-        name: "idle profile fixture", initial: 0, profile: profile, role: .providers)
+        name: "idle profile fixture", initial: 0, profile: profile, role: .metadata)
     await worker.close()
-    let statistics = try #require(profile.snapshot().workers["providers"])
+    let statistics = try #require(profile.snapshot().workers["metadata"])
     #expect(statistics.threadCPUSeconds != nil)
     #expect(statistics.jobs.count == 0)
     #expect(statistics.jobs.wall.p50Seconds == nil)

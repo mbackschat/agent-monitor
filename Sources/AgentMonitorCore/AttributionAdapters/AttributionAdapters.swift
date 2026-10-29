@@ -83,16 +83,6 @@ package struct AttributionAdapters: Sendable {
         return plan.evidence(from: read(plan.requests))
     }
 
-    package func sessionRegistry(for provider: AgentProvider) -> SessionRegistryQuery? {
-        adapter(for: provider)?.sessionRegistry
-    }
-
-    package func runtimeSessions(_ provider: AgentProvider, fromRegistry output: Data) throws
-        -> [RuntimeSession]
-    {
-        try adapter(for: provider)?.runtimeSessions(fromRegistry: output) ?? []
-    }
-
     private func adapter(for provider: AgentProvider) -> (any AgentAttributionAdapter)? {
         adapters.first { $0.provider == provider }
     }

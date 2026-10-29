@@ -321,7 +321,6 @@ public enum LiveReportLayout {
             "\(marker)\(disclosure) \(group.provider?.rawValue ?? "unknown")/\(identity)"
             + " · \(group.observedCount) \(group.observedCount == 1 ? "process" : "processes")"
             + (group.isRoot ? " root" : "")
-            + (group.sessionName.map { " · " + $0 } ?? "")
         let style: ReportLine.Style = selected ? .selected : .heading
         let prefix = groupPrefix(group, selected: selected, state: state, table: table)
         return [
@@ -501,7 +500,7 @@ public enum LiveReportLayout {
         let attribution = row.attribution
         var values = [
             "PID \(row.process.pid) | \(row.executable)",
-            "Session: \(row.sessionName.map { $0 + " · " } ?? "")\(row.sessionDescription) [\(attribution.evidence.rawValue), \(attribution.context.rawValue)]",
+            "Session: \(row.sessionDescription) [\(attribution.evidence.rawValue), \(attribution.context.rawValue)]",
             "Runtime: \(attribution.runtime.map { String($0.pid) } ?? "unresolved") | TTY: \(attribution.terminal ?? "unavailable")",
             "Work directory: \(row.cwd ?? "unavailable")",
             "Runtime directory: \(attribution.runtimeDirectory ?? "unavailable")",

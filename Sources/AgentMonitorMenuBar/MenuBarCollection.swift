@@ -6,7 +6,6 @@ enum MenuBarCollection {
     static func source(
         reader: @escaping @Sendable () throws -> any ProcessReading = { try NativeProcessReader() },
         clock: any AcquisitionClock = ContinuousSamplingClock(),
-        registry: any SessionRegistryReading = OfflineSessionRegistryReader(),
         excluding: Set<Int32> = [ProcessInfo.processInfo.processIdentifier]
     ) -> MenuBarSource {
         let history = RecentActivityStore()
@@ -15,7 +14,7 @@ enum MenuBarCollection {
                 configuration: try MonitoringConfiguration(
                     thresholds: await thresholds(), intervalSeconds: interval.seconds, samples: 0,
                     collectAgentLoad: true, reportIntervalSeconds: LiveReportState.displayIntervalSeconds),
-                reader: try reader(), clock: clock, registry: registry, excluding: excluding,
+                reader: try reader(), clock: clock, excluding: excluding,
                 recentActivity: history)
             try await session.run(
                 thresholds: thresholds, interval: interval, receive)

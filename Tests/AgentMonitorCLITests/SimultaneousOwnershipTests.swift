@@ -126,7 +126,7 @@ private let measuresOwnershipAllocations =
         enrichment.requestMetadata(
             MetadataRefreshRequest(samples: fixture.samples(at: 2), prompt: [:], requestedAt: 2))
         let diagnosis = Task {
-            try await CPUDiagnosisSession(reader: fixture, clock: fixture, registry: fixture).run()
+            try await CPUDiagnosisSession(reader: fixture, clock: fixture).run()
         }
         do {
             #expect(await events.next() == .diagnosis)
@@ -161,7 +161,7 @@ private let measuresOwnershipAllocations =
 
             fixture.firstMetadata.signal()
             #expect(await events.next() == .secondMetadata)
-            let returned = enrichment.takeResults().0
+            let returned = enrichment.takeResults()
             #expect(returned.count == population)
             #expect(Set(returned.map { $0.sample.identity }) == fixture.identities)
             #expect(returned.allSatisfy { $0.sample.sampledAt == 0 })
@@ -217,10 +217,9 @@ private let measuresOwnershipAllocations =
             #expect(result.cpuSeconds == Double(population) * 3 / 4)
             #expect(result.contributors.map { $0.sample.identity.pid } == Array(1...10).map(Int32.init))
             #expect(result.omittedContributorCount == population - 10)
-            #expect(fixture.providerCalls.withLock { $0 } == 0)
             #expect(!fixture.gateTimedOut.withLock { $0 })
             #expect(fixture.metadataCalls.withLock { $0 } == population * 2)
-            let newest = enrichment.takeResults().0
+            let newest = enrichment.takeResults()
             #expect(newest.count == population)
             #expect(newest.allSatisfy { $0.sample.sampledAt == 2 })
             await channel.finish()
@@ -249,7 +248,7 @@ private func allocationReading(_ stage: String, population: Int) {
             + "allocatedBytesInUse=\(value.size_in_use) reservedBytes=\(value.size_allocated)")
 }
 
-private final class OwnershipFixture: ProcessReading, DiagnosisReading, SamplingClock, SessionRegistryReading,
+private final class OwnershipFixture: ProcessReading, DiagnosisReading, SamplingClock,
     Sendable
 {
     enum Event: Sendable { case firstMetadata, secondMetadata, metadataFinished, diagnosis }
@@ -260,7 +259,6 @@ private final class OwnershipFixture: ProcessReading, DiagnosisReading, Sampling
     let diagnosisRelease = DispatchSemaphore(value: 0)
     let metadataCalls = Mutex(0)
     let diagnosisScans = Mutex(0)
-    let providerCalls = Mutex(0)
     let diagnosisReads = Mutex(0)
     let gateTimedOut = Mutex(false)
     let time = Mutex(0.0)
@@ -349,10 +347,7 @@ private final class OwnershipFixture: ProcessReading, DiagnosisReading, Sampling
     }
 
     func isCurrent(_ sample: ProcessSample) -> Bool { true }
-    func output(of query: SessionRegistryQuery) throws -> Data {
-        providerCalls.withLock { $0 += 1 }
-        return Data("[]".utf8)
-    }
+
     func wait(seconds: Double) async throws { time.withLock { $0 += seconds } }
     func monotonicNow() -> Double { time.withLock { $0 } }
     func now() -> Date { Date(timeIntervalSince1970: monotonicNow()) }
