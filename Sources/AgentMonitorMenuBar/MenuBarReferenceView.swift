@@ -28,6 +28,10 @@ struct MenuBarReferenceMenu: View {
         HStack(spacing: 8) {
             referenceButton(.glossary)
             referenceButton(.diagnostics)
+            if !model.report.displayCoverageStatus.notes.isEmpty {
+                MenuBarCoverageStatus(model: model)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .controlSize(.small)
         .popover(item: $model.referencePage) { page in
@@ -55,8 +59,6 @@ struct MenuBarCoverageStatus: View {
                 .lineLimit(2)
                 .foregroundStyle(status.severity == .warning ? Color.orange : Color.secondary)
             }
-            Spacer(minLength: 0)
-            Label("See Diagnostics", systemImage: "stethoscope").foregroundStyle(.secondary)
         }
         .font(.caption2)
         .fixedSize(horizontal: false, vertical: true)

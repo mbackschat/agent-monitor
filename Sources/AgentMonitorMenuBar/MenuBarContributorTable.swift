@@ -146,9 +146,9 @@ struct MenuBarContributorTable: View {
                 }
                 return model.handleShortcut(key.characters, row: nil) ? .handled : .ignored
             }
-            .background(
-                Color(nsColor: .windowBackgroundColor).opacity(0.92), in: RoundedRectangle(cornerRadius: 8)
-            )
+            .background {
+                MenuBarReadingSurface()
+            }
             .contextMenu(forSelectionType: ContributorID.self) { ids in
                 if acceptsInteraction, let id = ids.first {
                     Button("Details…") {
@@ -242,8 +242,16 @@ struct MenuBarContributorRow: View {
         return "\(count) currently observed \(count == 1 ? "process" : "processes") in this contributor"
     }
 
+    private var presenceHelp: String? {
+        node.retainedStatus
+            ?? (node.stats.noLongerObserved.isEmpty
+                ? nil
+                : "\(node.stats.noLongerObserved.count) workers no longer observed; exit unconfirmed")
+    }
+
     private var workloadText: AttributedString {
         overview.workloadParts(for: node).reduce(into: AttributedString()) { result, part in
+            if case .status = part { return }
             var text = AttributedString(TextReport.safe(part.text))
             if case .executable = part {
                 text.font = .system(size: 13, weight: .bold)
@@ -279,9 +287,18 @@ struct MenuBarContributorRow: View {
                     .frame(width: 88, alignment: .trailing).accessibilityLabel(
                         "Memory: " + node.stats.currentMemoryText)
             }.monospacedDigit()
+                .opacity(node.stats.isNoLongerObserved ? (prominence == .increased ? 0.85 : 0.66) : 1)
             HStack(spacing: 6) {
                 Text(workloadText)
                     .lineLimit(2).truncationMode(.middle).frame(maxWidth: .infinity, alignment: .leading)
+                if let status = presenceHelp {
+                    Image(
+                        systemName: node.stats.isNoLongerObserved
+                            ? "clock.arrow.circlepath" : "questionmark.circle"
+                    )
+                    .help(status + ". Recent CPU " + node.stats.recentCPUText)
+                    .accessibilityLabel(status + ". Recent CPU " + node.stats.recentCPUText)
+                }
                 if let toggleDisclosure {
                     Button(action: toggleDisclosure) {
                         HStack(spacing: 5) {
@@ -308,8 +325,9 @@ struct MenuBarContributorRow: View {
             }.font(.system(size: 13)).foregroundStyle(
                 prominence == .increased ? Color.white.opacity(0.85) : Color.secondary
             ).padding(.trailing, 84)
-        }.foregroundStyle(prominence == .increased ? Color.white : Color.primary).help(
-            node.title + ". " + node.stats.census)
+        }.foregroundStyle(prominence == .increased ? Color.white : Color.primary)
+            .help(
+                node.title + ". " + node.stats.census)
     }
 }
 
@@ -412,7 +430,10 @@ private struct MenuBarContributorPin: View {
             .focused($focused)
             .opacity(pinned || revealed || focused ? 1 : 0)
             .accessibilityLabel("Pin session").accessibilityIdentifier("contributor-pin")
-            .help(pinned ? "Unpin session" : "Pin session")
+            .help(
+                pinned
+                    ? "Unpin this session. Select its row, then . for the keyboard shortcut."
+                    : "Pin this session. Select its row, then . for the keyboard shortcut.")
     }
 }
 

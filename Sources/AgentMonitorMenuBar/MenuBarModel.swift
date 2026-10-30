@@ -347,23 +347,15 @@ final class MenuBarModel {
             do {
                 let result: ActionResult
                 switch effect {
-                case .terminate(let process):
-                    try Task.checkCancellation()
-                    try await actions.terminate(process)
-                    result = .accepted(ActionWording.terminationAccepted(pid: process.process.pid))
+                case .terminate(let processes):
+                    result = await TerminationExecution.perform(processes, using: actions)
                 case .focus(let process):
                     try Task.checkCancellation()
                     result = .accepted(FocusWording.result(try await actions.focusTerminal(of: process)))
                 }
                 finish(result, generation: token)
             } catch is CancellationError {
-                switch effect {
-                case .terminate:
-                    finish(
-                        .uncertain("Action interrupted. Check its outcome before trying again."),
-                        generation: token)
-                case .focus: break
-                }
+                return
             } catch {
                 finish(
                     (error as? ActionFailure)?.uncertain == true

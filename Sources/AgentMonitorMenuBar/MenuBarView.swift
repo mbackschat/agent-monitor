@@ -230,9 +230,6 @@ struct MenuBarView: View {
                 }
                 MenuBarViewOptions(model: model)
             }
-            if !overview, model.report.snapshot != nil {
-                MenuBarCoverageStatus(model: model)
-            }
             if let error = model.error, model.report.snapshot != nil {
                 Text(error).font(.caption).foregroundStyle(.orange)
             }
@@ -441,20 +438,35 @@ struct MenuBarView: View {
 
     private func actionPanel(_ panel: ActionPanel) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(panel.process.observedName).font(.headline)
-            ForEach(ActionWording.target(panel.process), id: \.self) { Text($0).font(.caption) }
+            Text(
+                panel.processes.count == 1
+                    ? "Selected process" : "\(panel.processes.count) selected processes"
+            )
+            .font(.headline)
+            ForEach(panel.processes, id: \.process) { process in
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(ActionWording.target(process), id: \.self) { Text($0).font(.caption) }
+                    Text("Directory: " + (process.cwd ?? "Unavailable")).font(.caption)
+                }.textSelection(.enabled)
+            }
             Divider()
             switch panel.phase {
             case .confirmTermination:
-                Text("Terminate this process?").font(.headline)
                 Text(
-                    "Send SIGTERM to PID \(panel.process.process.pid) only. This may stop work or lose unsaved changes."
+                    panel.processes.count == 1 ? "Terminate this process?" : "Terminate all listed processes?"
+                )
+                .font(.headline)
+                Text(
+                    "Send SIGTERM only to the listed processes. This may stop work or lose unsaved changes. Each identity and owner is checked again; stops on failure or uncertain outcome. New arrivals are excluded."
                 )
                 HStack {
                     Button("Cancel") { model.input(.escape) }
                         .focused($focus, equals: .inspection)
+                        .keyboardShortcut(.cancelAction)
                     Spacer()
-                    Button("Terminate", role: .destructive) { model.input(.confirm) }
+                    Button(panel.processes.count == 1 ? "Terminate" : "Terminate all", role: .destructive) {
+                        model.input(.confirm)
+                    }.keyboardShortcut("y", modifiers: .control).help("Confirm reviewed termination (⌃Y)")
                 }
             case .working, .focusing:
                 ProgressView("Working…")

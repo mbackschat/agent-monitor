@@ -24,7 +24,6 @@ struct MenuBarContributorOverview: View {
                 )
                 .font(.caption).foregroundStyle(.secondary)
             }.monospacedDigit().accessibilityLabel("Measured total")
-            if !model.report.displayCoverageStatus.notes.isEmpty { MenuBarCoverageStatus(model: model) }
             if let notice = overview.pinNotice { Text(notice).font(.caption).foregroundStyle(.orange) }
             GeometryReader { geometry in
                 VStack(alignment: .leading, spacing: 6) {
@@ -70,7 +69,7 @@ struct MenuBarContributorOverview: View {
                             }
                         }
                         .frame(height: min(260, geometry.size.height * 0.48))
-                        .background(.background.opacity(0.92), in: RoundedRectangle(cornerRadius: 8))
+                        .background { MenuBarReadingSurface() }
                         .onKeyPress(.escape) {
                             closeDetails()
                             return .handled
@@ -91,4 +90,13 @@ struct MenuBarContributorOverview: View {
         focus.wrappedValue = .overview
     }
 
+}
+
+struct MenuBarReadingSurface: View {
+    var body: some View {
+        Color(nsColor: .windowBackgroundColor)
+            .overlay(Color.primary.opacity(0.14))
+            .opacity(0.92)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
 }

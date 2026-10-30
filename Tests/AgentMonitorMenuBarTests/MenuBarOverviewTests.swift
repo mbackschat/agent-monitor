@@ -147,7 +147,9 @@ import Testing
     #expect(widths[0] == widths[1])
 }
 
-func nativeOverviewFixture(unreadable: Int = 0, secondSampleTime: Double = 2) throws -> MonitoringSnapshot {
+func nativeOverviewFixture(
+    unreadable: Int = 0, secondSampleTime: Double = 2, historicalDirectory: String = "/demo/worker-burst"
+) throws -> MonitoringSnapshot {
     var ledger = CounterLedger()
     func values(_ tick: Int) -> [ProcessSample] {
         var result: [ProcessSample] = []
@@ -171,7 +173,9 @@ func nativeOverviewFixture(unreadable: Int = 0, secondSampleTime: Double = 2) th
                 process: sample.identity, executable: sample.executable, name: sample.name,
                 cpuPercent: index == 1 ? 63.7 : 0, footprintBytes: sample.footprintBytes,
                 cwd: index == 1
-                    ? "/demo/sample-graph" : (index == 2 ? "/demo/agent-monitor" : "/demo/worker-burst"),
+                    ? "/demo/sample-graph"
+                    : (index == 2
+                        ? "/demo/agent-monitor" : (index == 3 ? historicalDirectory : "/demo/worker-burst")),
                 command: nil, metadataStatus: .markerRead,
                 attribution: Attribution(
                     provider: .codex,
@@ -245,7 +249,9 @@ func nativeOverviewFixture(unreadable: Int = 0, secondSampleTime: Double = 2) th
     let text = recognized.map(\.text)
         .joined(separator: " ")
     #expect(text.contains("Read failures: 3 same-user PIDs"), "\(text)")
-    #expect(text.contains("See Diagnostics"))
+    #expect(!text.contains("See Diagnostics"))
+    let warning = try #require(recognized.first { $0.text.contains("Read failures") })
+    #expect(warning.bounds.maxY < 0.2, "Coverage belongs beside the footer Diagnostics control")
     #expect(!text.contains("Details"))
     #expect(model.report.displayCoverageStatus.notes.contains { $0.text.contains("3 same-user") })
     await model.stop()

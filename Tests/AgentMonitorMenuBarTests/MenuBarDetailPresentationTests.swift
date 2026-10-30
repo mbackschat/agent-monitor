@@ -43,16 +43,24 @@ import Testing
     }
 }
 
-@Test @MainActor func contributorLedgerKeepsChromeLightAndContentReadableOverBackdrop() async throws {
+@Test(arguments: [false, true]) @MainActor
+func contributorLedgerKeepsChromeLightAndContentReadableOverBackdrop(dark: Bool) async throws {
     _ = NSApplication.shared
-    let model = MenuBarModel { _, _, _ in }
+    let snapshot = try nativeOverviewFixture()
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let pinned = try #require(model.report.overview.main.first)
+    model.report.overview.togglePin(for: pinned)
+    model.report.overview.select(pinned)
     let host = NSHostingView(rootView: ContributorTableBackdrop(model: model))
-    host.appearance = NSAppearance(named: .aqua)
-    host.frame.size = NSSize(width: 420, height: 300)
+    host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+    host.frame.size = NSSize(width: 620, height: 300)
     let window = await mountOffscreenNativePreview(host)
     defer { window.close() }
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
     let bitmap = try detailBitmap(host)
-    for point in [NSPoint(x: 410, y: 12), NSPoint(x: 210, y: 150)] {
+    for point in [NSPoint(x: 610, y: 12), NSPoint(x: 3, y: 100)] {
         let x = Int(point.x * CGFloat(bitmap.pixelsWide) / host.bounds.width)
         let y = Int(point.y * CGFloat(bitmap.pixelsHigh) / host.bounds.height)
         let color = try #require(bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
@@ -60,14 +68,21 @@ import Testing
             #expect(color.blueComponent > 0.8 && color.redComponent < 0.2, "Chrome lost its backdrop")
         } else {
             #expect(
-                color.redComponent > 0.7 && color.greenComponent > 0.7,
+                abs(color.blueComponent - color.redComponent) < 0.15,
                 "Reading surface must suppress the saturated backdrop")
+            #expect(
+                dark
+                    ? color.redComponent < 0.4
+                    : (0.7...0.86).contains(color.redComponent),
+                "Reading surface must stay subdued rather than form a bright white surround: \(color)")
         }
     }
     if let output = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
-            to: URL(fileURLWithPath: output).appendingPathComponent("table-backdrop.png"))
+            to: URL(fileURLWithPath: output).appendingPathComponent(
+                dark ? "table-backdrop-dark.png" : "table-backdrop-light.png"))
     }
+    await model.stop()
 }
 
 private struct ContributorTableBackdrop: View {
@@ -127,6 +142,41 @@ private struct ContributorTableBackdrop: View {
     if let directory = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: directory).appendingPathComponent("compact-process-inspector.png"))
+    }
+    await model.stop()
+}
+
+@Test(arguments: [false, true]) @MainActor
+func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool) async throws {
+    let path =
+        "/Users/fixture/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/very-long-workspace/jsonschema-0.58.6"
+    let snapshot = try nativeOverviewFixture(historicalDirectory: path)
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let node = try #require(
+        model.report.overview.nodes.values.first {
+            if case .executable = $0.id { return $0.stats.isNoLongerObserved }
+            return false
+        })
+    #expect(node.inspectionFields.contains { $0.label == "Directory" && $0.value == path })
+    let host = NSHostingView(
+        rootView:
+            MenuBarContributorRow(node: node, overview: model.report.overview)
+            .padding(12).frame(width: 590, height: 180).background { MenuBarReadingSurface() })
+    host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+    host.frame.size = host.fittingSize
+    let window = await mountOffscreenNativePreview(host)
+    defer { window.close() }
+    let bitmap = try detailBitmap(host)
+    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
+    let text = recognized.map(\.text).joined(separator: " ")
+    #expect(text.contains("java"), "\(text)")
+    #expect(!text.contains("observed"), "Presence must not form part of a truncated path: \(text)")
+    if let directory = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: directory).appendingPathComponent(
+                dark ? "historical-path-dark.png" : "historical-path-light.png"))
     }
     await model.stop()
 }

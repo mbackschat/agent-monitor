@@ -21,7 +21,7 @@ import Testing
         #expect(report.commandInspectionTarget?.process == target.process)
         #expect(report.overview.open == open)
         _ = report.beginContributorAction(.terminate, contributor: owner, process: target.process)
-        #expect(report.actionPanel?.process == target)
+        #expect(report.actionPanel?.processes == [target])
         #expect(report.actionPanel?.phase == .confirmTermination)
         #expect(report.showsOverview)
         #expect(report.commandInspectionTarget == nil)

@@ -149,3 +149,39 @@ import Testing
         #expect(value.visibleRows.compactMap { $0.node.title }.contains("f"))
     }
 }
+
+@Test func retainedPathAndPresenceRemainSeparateAndUnknownPresenceIsNotPast() throws {
+    var overview = ContributorOverview()
+    overview.receive(try overviewFixture())
+    let past = try #require(overview.nodes.values.first { $0.stats.isNoLongerObserved && $0.process != nil })
+    let parts = overview.workloadParts(for: past)
+    #expect(
+        parts.contains {
+            if case .status(let text) = $0 { return text.contains("No longer observed") }
+            return false
+        })
+    #expect(
+        !parts.contains {
+            if case .context(let text) = $0 { return text.contains("No longer observed") }
+            return false
+        })
+    var stats = past.stats
+    stats.currentAvailable = false
+    #expect(!stats.isNoLongerObserved)
+    stats.currentAvailable = true
+    let identity = try #require(stats.processes.first)
+    stats.current.insert(identity)
+    #expect(!stats.isNoLongerObserved)
+    stats.current.removeAll()
+    stats.membershipChanged.insert(identity)
+    #expect(!stats.isNoLongerObserved)
+}
+
+@Test func releasedIdentityDetailDoesNotInventAnOwnershipChange() throws {
+    var overview = ContributorOverview()
+    overview.receive(try overviewFixture())
+    var node = try #require(overview.nodes.values.first { $0.stats.isNoLongerObserved })
+    node.stats.processes.removeAll()
+    #expect(node.stats.membershipChanged.isEmpty)
+    #expect(node.retainedStatus == nil)
+}

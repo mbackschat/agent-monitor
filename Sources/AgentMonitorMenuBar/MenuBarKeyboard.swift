@@ -63,7 +63,32 @@ extension MenuBarModel {
             }
             return true
         }
-        guard !report.showsOverview, let row else { return false }
+        if report.showsOverview {
+            guard let contributor = report.overview.selection else { return false }
+            if report.overview.detailsVisible, report.overview.inspectedProcess != nil {
+                guard let process = report.contributorProcessTarget else { return false }
+                let kind: ProcessActionKind
+                switch key {
+                case "k": kind = .terminate
+                case "f": kind = .focus
+                default: return false
+                }
+                guard canBegin(kind, contributor: contributor, process: process.process) else { return false }
+                begin(kind, contributor: contributor, process: process.process)
+                return true
+            }
+            if key == "k", canBeginContributorTermination(contributor) {
+                beginContributorTermination(contributor)
+                return true
+            }
+            let targets = report.contributorProcesses(for: contributor)
+            guard key == "f", targets.count == 1, let process = targets.first,
+                canBegin(.focus, contributor: contributor, process: process.process)
+            else { return false }
+            begin(.focus, contributor: contributor, process: process.process)
+            return true
+        }
+        guard let row else { return false }
         let kind: ProcessActionKind
         switch key {
         case "y": return copyPID(row: row, using: writeClipboard)

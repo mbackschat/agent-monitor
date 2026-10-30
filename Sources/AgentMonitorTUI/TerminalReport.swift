@@ -298,13 +298,9 @@ private final class TerminalOutcome {
         actionTask = Task {
             do {
                 switch effect {
-                case .terminate(let process):
-                    try await actions.terminate(process)
-                    state.mutate {
-                        $0.actionFinished(
-                            .accepted(ActionWording.terminationAccepted(pid: process.process.pid))
-                        )
-                    }
+                case .terminate(let processes):
+                    let result = await TerminationExecution.perform(processes, using: actions)
+                    state.mutate { $0.actionFinished(result) }
                 case .focus(let process):
                     let result = try await actions.focusTerminal(of: process)
                     state.mutate { $0.actionFinished(.accepted(FocusWording.result(result))) }

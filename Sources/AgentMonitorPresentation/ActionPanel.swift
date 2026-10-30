@@ -8,7 +8,7 @@ public enum ActionInput: Sendable {
     case scroll(Int)
 }
 public enum ActionEffect: Equatable, Sendable {
-    case terminate(HeavyProcess)
+    case terminate([HeavyProcess])
     case focus(HeavyProcess)
 }
 
@@ -59,7 +59,7 @@ public struct ActionPanel: Equatable, Sendable {
     public enum Phase: Sendable {
         case confirmTermination, working, focusing, result
     }
-    public let process: HeavyProcess
+    public let processes: [HeavyProcess]
     public var phase: Phase
     public var offset = 0
     public var result: ActionResult?
@@ -67,7 +67,7 @@ public struct ActionPanel: Equatable, Sendable {
         switch input {
         case .confirm where phase == .confirmTermination:
             phase = .working
-            return .terminate(process)
+            return .terminate(processes)
         case .scroll(let delta):
             offset = max(0, min(10_000, offset + delta))
         default: break
@@ -90,16 +90,18 @@ public struct ActionPanel: Equatable, Sendable {
     private func phaseContent() -> (title: String, content: [ReportLine], controls: String) {
         let title: String
         let controls: String
-        var content = ActionWording.target(process).map { ReportLine($0) }
+        var content = processes.flatMap { ActionWording.target($0).map { ReportLine($0) } }
         switch phase {
         case .confirmTermination:
-            title = "Terminate selected process?"
+            title =
+                processes.count == 1
+                ? "Terminate selected process?" : "Terminate \(processes.count) processes?"
             content += [
                 ReportLine(
-                    "Send SIGTERM to this process only. It may stop work or lose unsaved changes.",
+                    "Send SIGTERM only to the listed processes. It may stop work or lose unsaved changes.",
                     style: .warning),
                 ReportLine(
-                    "No process group or session-wide signal. Process identity and owner will be checked again.",
+                    "Each identity and owner will be checked again. Stops on failure or uncertain outcome; no automatic retry.",
                     style: .muted),
             ]
             controls = "Ctrl-Y terminate | Esc cancel | ↑/↓ scroll"
@@ -175,17 +177,25 @@ extension LiveReportState {
         return beginAction(kind, admitted: row)
     }
 
+    public mutating func beginContributorTermination(_ contributor: ContributorID) {
+        guard actionPanel == nil, !diagnosis.isVisible else { return }
+        let targets = contributorProcesses(for: contributor)
+        guard !targets.isEmpty else { return }
+        overview.select(contributor)
+        actionPanel = ActionPanel(processes: targets, phase: .confirmTermination)
+    }
+
     private mutating func beginAction(_ kind: ProcessActionKind, admitted row: HeavyProcess) -> ActionEffect?
     {
         switch kind {
         case .terminate:
-            actionPanel = ActionPanel(process: row, phase: .confirmTermination)
+            actionPanel = ActionPanel(processes: [row], phase: .confirmTermination)
             return nil
         case .message:
             setActionNotice(ProviderRuntimeAvailability.messagingUnavailableReason)
             return nil
         case .focus:
-            actionPanel = ActionPanel(process: row, phase: .focusing)
+            actionPanel = ActionPanel(processes: [row], phase: .focusing)
             return .focus(row)
         }
     }
@@ -203,7 +213,7 @@ extension LiveReportState {
                     : "This group spans several runtimes; expand it and select a process.")
             return nil
         }
-        actionPanel = ActionPanel(process: row, phase: .focusing)
+        actionPanel = ActionPanel(processes: [row], phase: .focusing)
         return .focus(row)
     }
 

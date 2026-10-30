@@ -32,10 +32,14 @@ struct MenuBarProcessDetails: View {
             }
             HStack {
                 Button("Terminal", systemImage: "terminal") { begin(.focus) }.disabled(!canBegin(.focus))
+                    .help("Show terminal (f from the selected row or contributor process inspector)")
                 Button("Message…", systemImage: "bubble") { begin(.message) }.disabled(!canBegin(.message))
                     .help(ProviderRuntimeAvailability.messagingUnavailableReason)
                 Spacer(minLength: 0)
                 Button("Terminate…", role: .destructive) { begin(.terminate) }.disabled(!canBegin(.terminate))
+                    .help(
+                        "Review this process for termination (k from the selected row or contributor process inspector)"
+                    )
             }.controlSize(.small)
             path("Working directory", process.cwd ?? "Unavailable")
             path("Executable", process.executable)

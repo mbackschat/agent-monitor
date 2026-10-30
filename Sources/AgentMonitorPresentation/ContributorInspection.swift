@@ -206,10 +206,11 @@ private func memory(_ reading: RecentMemoryReading) -> String {
 public enum ContributorWorkloadPart: Equatable, Sendable {
     case executable(String)
     case context(String)
+    case status(String)
 
     public var text: String {
         switch self {
-        case .executable(let value), .context(let value): value
+        case .executable(let value), .context(let value), .status(let value): value
         }
     }
 }
@@ -230,16 +231,9 @@ extension ContributorOverview {
             for id in child.children { collect(id) }
         }
         func retainedContext(_ value: [ContributorWorkloadPart]) -> [ContributorWorkloadPart] {
-            guard node.stats.current.isEmpty, node.stats.hasContributions else { return value }
-            let presence: String
-            if !node.stats.currentAvailable {
-                presence = "Current presence unavailable"
-            } else if !node.stats.noLongerObserved.isEmpty {
-                presence = "No longer observed"
-            } else {
-                presence = "Observed elsewhere"
-            }
-            return value + [.context(" · " + presence + " · Recent CPU " + node.stats.recentCPUText)]
+            guard let status = node.retainedStatus else { return value }
+            let compactStatus = node.stats.isNoLongerObserved ? "No longer observed" : status
+            return value + [.status(" · " + compactStatus + " · Recent CPU " + node.stats.recentCPUText)]
         }
         switch node.id {
         case .session:
@@ -276,12 +270,28 @@ extension ContributorOverview {
             ? "" : " · \(node.stats.noLongerObserved.count) no longer observed"
         let released =
             node.stats.collapsedWorkers == nil ? "" : " · \(node.stats.workerCountText) observed workers"
-        return [.context(population + departed + released + " · Recent CPU " + node.stats.recentCPUText)]
+        return [
+            .context(population), .status(departed),
+            .context(released + " · Recent CPU " + node.stats.recentCPUText),
+        ]
     }
 }
 
 extension ContributorStats {
+    public var isNoLongerObserved: Bool {
+        currentAvailable && current.isEmpty && !processes.isEmpty && membershipChanged.isEmpty
+    }
+
     public var currentMemoryText: String {
         currentAvailable && !current.isEmpty ? memoryText : "—"
+    }
+}
+
+extension ContributorNode {
+    public var retainedStatus: String? {
+        guard stats.current.isEmpty, stats.hasContributions else { return nil }
+        if !stats.currentAvailable { return "Current presence unavailable" }
+        if stats.isNoLongerObserved { return "No longer observed; exit unconfirmed" }
+        return stats.membershipChanged.isEmpty ? nil : "No current members; ownership changed"
     }
 }

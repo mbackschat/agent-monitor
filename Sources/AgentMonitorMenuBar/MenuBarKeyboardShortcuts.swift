@@ -19,9 +19,9 @@ struct MenuBarKeyboardShortcuts: View {
             shortcut("3 / 4", "Memory threshold −/+")
             shortcut("< / >", "Slower / faster acquisition maximum")
             shortcut("y", "Copy PID")
-            shortcut("k", "Review termination")
+            shortcut("k", "Review termination of selected current process(es)")
             shortcut("s", "Messaging unavailable in local-only mode")
-            shortcut("f", "Focus terminal")
+            shortcut("f", "Focus terminal (one current target)")
             shortcut("q / ⌘Q", "Quit")
         }.font(.caption)
     }

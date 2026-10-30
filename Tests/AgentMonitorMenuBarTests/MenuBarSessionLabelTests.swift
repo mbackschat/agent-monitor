@@ -303,7 +303,7 @@ private enum StandaloneEvidenceFixture: CaseIterable {
 
 @Test @MainActor func nativeRootGroupKeepsChildThreadIdentitiesVisible() async throws {
     _ = NSApplication.shared
-    let sessions = ["abcdabcd-root", "12345678-child", "fedcfedc-child"]
+    let sessions = ["abcdabcd-root", "12345678-child", "87654321-child"]
     let snapshot = try sessionLabelSnapshot(
         directories: ["/work/api", "/work/api", "/work/api"], sessionIDs: sessions,
         rootSessionID: sessions[0])

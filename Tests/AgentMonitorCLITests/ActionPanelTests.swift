@@ -10,11 +10,11 @@ import Testing
     let first = panelRow(42)
     state.receive(panelSnapshot([first, panelRow(84)]))
     #expect(state.beginAction(.terminate) == nil)
-    #expect(state.actionPanel?.process == first)
+    #expect(state.actionPanel?.processes == [first])
     state.receive(panelSnapshot([panelRow(84)]))
-    #expect(state.actionPanel?.process == first)
+    #expect(state.actionPanel?.processes == [first])
     #expect(state.actionPanel?.phase == .confirmTermination)
-    #expect(state.actionInput(.confirm) == .terminate(first))
+    #expect(state.actionInput(.confirm) == .terminate([first]))
     #expect(state.actionInput(.confirm) == nil)
 }
 
@@ -75,7 +75,7 @@ func focusWordingSeparatesExactAndAppOnlyResults(outcome: FocusOutcome, expected
     let lines = LiveReportLayout.lines(state: state, width: 200, height: 24)
     #expect(lines.first?.style == .title)
     #expect(lines.first { $0.text.hasPrefix("Send SIGTERM") }?.style == .warning)
-    #expect(lines.first { $0.text.contains("No process group") }?.style == .muted)
+    #expect(lines.first { $0.text.contains("Each identity and owner") }?.style == .muted)
     #expect(lines.last?.style == .muted)
     #expect(lines.first { $0.text.hasPrefix("Process PID 42") }?.style == .normal)
 }
@@ -153,4 +153,65 @@ func focusOnAGroupWithoutOneRuntimeExplains(runtimes: [Int32?]) throws {
     #expect(state.beginAction(.message) == nil)
     #expect(state.actionPanel == nil)
     #expect(state.notice == ProviderRuntimeAvailability.messagingUnavailableReason)
+}
+
+@Test(arguments: [false, true]) func terminationBatchKeepsAcceptedResultsAndStopsOnFailure(uncertain: Bool)
+    async
+{
+    let targets = [panelRow(42), panelRow(84), panelRow(126)]
+    let actions = BatchFailureActions(uncertain: uncertain)
+    let result = await TerminationExecution.perform(targets, using: actions)
+    #expect(await actions.calls == [targets[0], targets[1]])
+    #expect(result.text.contains("SIGTERM accepted for PID 42"))
+    #expect(result.text.contains("PID 84: fixture failure"))
+    #expect(result.text.contains("Not attempted: PID 126"))
+    switch result {
+    case .uncertain: #expect(uncertain)
+    case .failed: #expect(!uncertain)
+    case .accepted: Issue.record("A partially attempted batch cannot claim success")
+    }
+}
+
+private actor BatchFailureActions: ProcessActions {
+    let uncertain: Bool
+    var calls: [HeavyProcess] = []
+    init(uncertain: Bool) { self.uncertain = uncertain }
+    func terminate(_ process: HeavyProcess) throws {
+        calls.append(process)
+        if calls.count == 2 {
+            throw uncertain ? ActionFailure.uncertain("fixture failure") : ActionFailure("fixture failure")
+        }
+    }
+    func focusTerminal(of process: HeavyProcess) throws -> FocusOutcome { throw ActionFailure("Unused") }
+}
+
+@Test func terminationBatchCancellationRetainsAcceptedPrefixAndNeverCallsLaterTargets() async {
+    let targets = [panelRow(42), panelRow(84), panelRow(126)]
+    let actions = BatchCancellationActions()
+    let result = await TerminationExecution.perform(targets, using: actions)
+    #expect(await actions.calls == [42, 84])
+    #expect(result.text.contains("SIGTERM accepted for PID 42"))
+    #expect(result.text.contains("PID 84: Interrupted"))
+    #expect(result.text.contains("Not attempted: PID 126"))
+    guard case .uncertain = result else {
+        Issue.record("Interrupted active call is uncertain")
+        return
+    }
+    let cancelledActions = BatchCancellationActions()
+    let task = Task {
+        withUnsafeCurrentTask { $0?.cancel() }
+        return await TerminationExecution.perform(targets, using: cancelledActions)
+    }
+    let cancelled = await task.value
+    #expect(await cancelledActions.calls.isEmpty)
+    #expect(cancelled.text.contains("PID 42: Not attempted"))
+}
+
+private actor BatchCancellationActions: ProcessActions {
+    var calls: [Int32] = []
+    func terminate(_ process: HeavyProcess) throws {
+        calls.append(process.process.pid)
+        if calls.count == 2 { throw CancellationError() }
+    }
+    func focusTerminal(of process: HeavyProcess) throws -> FocusOutcome { throw ActionFailure("Unused") }
 }
