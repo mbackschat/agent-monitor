@@ -173,24 +173,12 @@ struct MenuBarGlossaryEntry: View {
 
 struct MenuBarGroupHelp: View {
     let entry: ReportGlossary.Entry
-    @State private var isPresented = false
 
     var body: some View {
-        Button {
-            isPresented.toggle()
-        } label: {
-            Image(systemName: "questionmark.circle")
-                .font(.system(size: 11)).frame(width: 24, height: 24).contentShape(Rectangle())
-        }
-        .buttonStyle(.borderless)
-        .help("About " + entry.title)
-        .accessibilityLabel("About " + entry.title)
-        .popover(isPresented: $isPresented) {
-            VStack(alignment: .leading, spacing: 12) {
-                MenuBarGlossaryEntry(entry: entry)
-                Button("Close") { isPresented = false }
-                    .help("Close explanation (Esc)").keyboardShortcut(.cancelAction)
-            }.padding(14).frame(width: 320)
-        }
+        Image(systemName: "questionmark.circle")
+            .font(.system(size: 11)).frame(width: 24, height: 24).contentShape(Rectangle())
+            .help(entry.definition)
+            .accessibilityLabel("About " + entry.title)
+            .accessibilityHint(entry.definition)
     }
 }
