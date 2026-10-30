@@ -49,8 +49,11 @@ struct MenuBarContributorOverview: View {
                                             .labelStyle(.iconOnly).help("Close details (Esc)")
                                     }
                                     ScrollView {
-                                        MenuBarProcessDetails(model: model, process: process, contributor: id)
-                                            .id(process.process)
+                                        MenuBarProcessDetails(
+                                            model: model, process: process, contributor: id,
+                                            keyboardTarget: .process(process.process)
+                                        )
+                                        .id(process.process)
                                     }
                                 }.padding(10)
                             } else {
@@ -93,10 +96,13 @@ struct MenuBarContributorOverview: View {
 }
 
 struct MenuBarReadingSurface: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
+        // The popover already supplies native material; the 2026-10-30 surface review
+        // in native-menu-design.md rejects a second opaque fill over that background.
         Color(nsColor: .windowBackgroundColor)
-            .overlay(Color.primary.opacity(0.14))
-            .opacity(0.92)
+            .opacity(reduceTransparency ? 1 : 0)
             .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }

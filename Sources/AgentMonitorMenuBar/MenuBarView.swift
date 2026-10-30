@@ -324,9 +324,11 @@ struct MenuBarView: View {
                     Text("Not in current results").foregroundStyle(.secondary)
                 }.font(.caption)
                 Spacer()
-                MenuBarPinButton(pinned: true) { model.togglePin(pin.id) }
-                    .focused($focus, equals: .row(pin.id))
-                    .pinShortcut { togglePinFromKeyboard(pin.id) }
+                MenuBarPinButton(pinned: true, shortcutAvailable: focusedRow == pin.id) {
+                    model.togglePin(pin.id)
+                }
+                .focused($focus, equals: .row(pin.id))
+                .pinShortcut { togglePinFromKeyboard(pin.id) }
             }.padding(6)
                 .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
                 .contextMenu { rowCommands(pin.id) }
@@ -354,24 +356,29 @@ struct MenuBarView: View {
 
     private func pinCommand(_ id: LiveReportRowID) -> some View {
         Button(model.report.isPinned(id) ? "Unpin" : "Pin", systemImage: "pin") { model.togglePin(id) }
-            .help("Pin or unpin this row. Select the row and press . for the keyboard action.")
+            .help("Pin or unpin this row" + (focusedRow == id ? " (.)" : ""))
     }
 
     @ViewBuilder private func rowCommands(_ id: LiveReportRowID) -> some View {
         pinCommand(id)
         Button("Copy PID", systemImage: "doc.on.doc") { model.copyPID(row: id) }
             .disabled(model.pidToCopy(for: id) == nil)
-            .help("Copy this process ID. Select the process row and press y for the keyboard action.")
+            .help(
+                "Copy this process ID" + (focusedRow == id && model.pidToCopy(for: id) != nil ? " (y)" : ""))
         Divider()
         Button("Focus terminal", systemImage: "terminal") { model.begin(.focus, row: id) }
             .disabled(!model.canBegin(.focus, row: id))
-            .help("Show this process's terminal. Select the row and press f for the keyboard action.")
+            .help("Show this process's terminal" + actionShortcut("f", kind: .focus, row: id))
         Button("Message…", systemImage: "bubble") { model.begin(.message, row: id) }
             .disabled(!model.canBegin(.message, row: id))
             .help(ProviderRuntimeAvailability.messagingUnavailableReason)
         Button("Terminate…", systemImage: "stop", role: .destructive) { model.begin(.terminate, row: id) }
             .disabled(!model.canBegin(.terminate, row: id))
-            .help("Review termination of this process. Select the row and press k for the keyboard action.")
+            .help("Review termination of this process" + actionShortcut("k", kind: .terminate, row: id))
+    }
+
+    private func actionShortcut(_ key: String, kind: ProcessActionKind, row: LiveReportRowID) -> String {
+        focusedRow == row && model.canBegin(kind, row: row) ? " (" + key + ")" : ""
     }
 
     private func moveFocus(by delta: Int) -> KeyPress.Result {
@@ -399,7 +406,8 @@ struct MenuBarView: View {
                     .controlSize(.small)
                     .disabled(!model.canBegin(.focus, row: .group(group.id)))
                     .help(
-                        "Show this session's terminal. Select this session row, then f for the keyboard action."
+                        "Show this session's terminal"
+                            + actionShortcut("f", kind: .focus, row: .group(group.id))
                     )
                 LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(model.rowIndex.projection.childrenByGroup[group.id] ?? [], id: \.process) {
@@ -430,7 +438,7 @@ struct MenuBarView: View {
                 set: { model.setDetails(for: process.process, expanded: $0) }
             )
         ) {
-            MenuBarProcessDetails(model: model, process: process)
+            MenuBarProcessDetails(model: model, process: process, keyboardTarget: focusedRow)
                 .id(process.process)
         } label: {
             MenuBarProcessLabel(

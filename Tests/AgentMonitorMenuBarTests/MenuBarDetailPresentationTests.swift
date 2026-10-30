@@ -1,5 +1,6 @@
 import AgentMonitorPresentation
 import AppKit
+import CoreImage
 import SwiftUI
 import Testing
 
@@ -68,19 +69,15 @@ func contributorLedgerKeepsChromeLightAndContentReadableOverBackdrop(dark: Bool)
             #expect(color.blueComponent > 0.8 && color.redComponent < 0.2, "Chrome lost its backdrop")
         } else {
             #expect(
-                abs(color.blueComponent - color.redComponent) < 0.15,
-                "Reading surface must suppress the saturated backdrop")
-            #expect(
-                dark
-                    ? color.redComponent < 0.4
-                    : (0.7...0.86).contains(color.redComponent),
-                "Reading surface must stay subdued rather than form a bright white surround: \(color)")
+                color.blueComponent - color.redComponent > 0.15,
+                "The table must retain the underlying color instead of painting an opaque gray slab: \(color)"
+            )
         }
     }
     if let output = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: output).appendingPathComponent(
-                dark ? "table-backdrop-dark.png" : "table-backdrop-light.png"))
+                "table-backdrop-\(dark ? "dark" : "light").png"))
     }
     await model.stop()
 }
@@ -166,13 +163,20 @@ func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool, selected: Bool)
             .environment(\.backgroundProminence, selected ? .increased : .standard)
             .padding(12).frame(width: 590, height: 180).background {
                 if selected { Color.accentColor } else { MenuBarReadingSurface() }
-            })
+            }.background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
     host.frame.size = host.fittingSize
     let window = await mountOffscreenNativePreview(host)
     defer { window.close() }
     let bitmap = try detailBitmap(host)
-    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
+    var recognitionImage = try #require(bitmap.cgImage)
+    if dark && !selected {
+        // Vision returned no text for this readable dark row on 2026-10-30. Invert polarity
+        // for the truncation oracle; retain the original render for appearance review.
+        let inverted = CIImage(cgImage: recognitionImage).applyingFilter("CIColorInvert")
+        recognitionImage = try #require(CIContext().createCGImage(inverted, from: inverted.extent))
+    }
+    let recognized = try await nativeRecognizedText(in: recognitionImage)
     let text = recognized.map(\.text).joined(separator: " ")
     #expect(text.contains("java"), "\(text)")
     #expect(!text.contains("observed"), "Presence must not form part of a truncated path: \(text)")

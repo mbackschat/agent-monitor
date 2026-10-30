@@ -242,12 +242,14 @@ func menuBarFixture(
     let menu = MenuBarContributorActions(
         model: model, node: try #require(model.report.overview.nodes[contributor]))
     for key in ["k", "f"] {
-        #expect(menu.shortcut(key, process: inspected.process) == " (\(key) after inspection)")
+        #expect(menu.shortcut(key, process: inspected.process) == "")
     }
     model.report.inspectContributorProcess(inspected.process, contributor: contributor)
+    #expect(menu.shortcut("k", process: inspected.process) == " (k)")
+    #expect(!model.canBegin(.focus, contributor: contributor, process: inspected.process))
+    #expect(menu.shortcut("f", process: inspected.process) == "")
     for key in ["k", "f"] {
-        #expect(menu.shortcut(key, process: inspected.process) == " (\(key))")
-        #expect(menu.shortcut(key, process: targets[1].process) == " (\(key) after inspection)")
+        #expect(menu.shortcut(key, process: targets[1].process) == "")
     }
     #expect(model.handleShortcut("k", row: nil))
     #expect(model.report.actionPanel?.processes == [inspected])
@@ -257,7 +259,7 @@ func menuBarFixture(
     try #require(model.report.actionPanel != nil)
     #expect(actions.calls.withLock { $0.isEmpty })
     model.report.overview.select(.section(.recent))
-    #expect(menu.shortcut("k", process: inspected.process) == " (k after inspection)")
+    #expect(menu.shortcut("k", process: inspected.process) == "")
     model.report.receive(try menuBarFixture(pids: [99001]))
     model.input(.confirm)
     await model.waitForAction()

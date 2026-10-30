@@ -75,9 +75,9 @@ struct MenuBarContributorTable: View {
                         .background(
                             (sections[node.id] == .pinned ? Color.accentColor : Color.primary).opacity(
                                 sections[node.id] == .other
-                                    ? 0.075
+                                    ? 0.03
                                     : ((groupIndices.indices.contains(index)
-                                        && groupIndices[index].isMultiple(of: 2)) ? 0.055 : 0.025)),
+                                        && groupIndices[index].isMultiple(of: 2)) ? 0.025 : 0.012)),
                             in: Rectangle()
                         )
                         .overlay(alignment: .leading) {
@@ -95,7 +95,8 @@ struct MenuBarContributorTable: View {
                                 if let target = overview.pinTarget(for: node.id), target == node.id {
                                     MenuBarContributorPin(
                                         pinned: overview.pinned.contains(target),
-                                        revealed: hovered == node.id
+                                        revealed: hovered == node.id,
+                                        shortcutAvailable: overview.selection == node.id
                                     ) {
                                         guard acceptsInteraction else { return }
                                         model.report.overview.togglePin(for: node.id)
@@ -110,7 +111,7 @@ struct MenuBarContributorTable: View {
                                     Image(systemName: "info.circle").frame(width: 24, height: 28)
                                 }
                                 .buttonStyle(.borderless).help(
-                                    "Contributor details. Select this row, then i to show or hide its details."
+                                    "Contributor details" + (overview.selection == node.id ? " (i)" : "")
                                 )
                                 .accessibilityLabel("Details for " + node.label.headline)
                             }.padding(.trailing, 4).padding(.bottom, 4)
@@ -157,7 +158,7 @@ struct MenuBarContributorTable: View {
                         model.report.overview.select(id)
                         if !model.report.overview.detailsVisible { model.report.overview.toggleDetails() }
                     }
-                    .help("Select this row, then i to show or hide its contributor details.")
+                    .help("Contributor details" + (overview.selection == id ? " (i)" : ""))
                     if let target = overview.pinTarget(for: id) {
                         Button(
                             overview.pinned.contains(target) ? "Unpin session" : "Pin session",
@@ -165,7 +166,7 @@ struct MenuBarContributorTable: View {
                         ) {
                             model.report.overview.togglePin(for: id)
                         }
-                        .help("Select this row, then . to pin or unpin its owning session.")
+                        .help("Pin or unpin session" + (overview.selection == id ? " (.)" : ""))
                     }
                 }
             }
@@ -313,8 +314,9 @@ struct MenuBarContributorRow: View {
                         .help(
                             processCountHelp
                                 + (overview.isExpanded(node.id)
-                                    ? " — click to collapse (← with this row selected)"
-                                    : " — click to expand (→ with this row selected)")
+                                    ? " — collapse" : " — expand")
+                                + (overview.selection == node.id
+                                    ? (overview.isExpanded(node.id) ? " (←)" : " (→)") : "")
                         )
                         .accessibilityValue(processCountHelp)
                 } else {
@@ -353,7 +355,7 @@ enum MenuBarContributorPresence {
 
     var symbol: String {
         switch self {
-        case .history, .missingWorkers: "clock.arrow.circlepath"
+        case .history, .missingWorkers: "circle.dashed"
         case .unavailable: "eye.slash"
         case .changedOwnership: "arrow.triangle.branch"
         }
@@ -431,7 +433,7 @@ extension ContributorID {
         switch self {
         case .section(let section):
             switch section {
-            case .recent: "clock.arrow.circlepath"
+            case .recent: "tray"
             case .remainder: "square.stack.3d.up"
             case .uncertain: "questionmark.folder"
             case .shared: "square.stack.3d.up.fill"
@@ -463,6 +465,7 @@ private struct MenuBarContributorPin: View {
     @FocusState private var focused: Bool
     let pinned: Bool
     let revealed: Bool
+    let shortcutAvailable: Bool
     let toggle: () -> Void
 
     var body: some View {
@@ -473,9 +476,8 @@ private struct MenuBarContributorPin: View {
             .opacity(pinned || revealed || focused ? 1 : 0)
             .accessibilityLabel("Pin session").accessibilityIdentifier("contributor-pin")
             .help(
-                pinned
-                    ? "Unpin this session. Select its row, then . for the keyboard shortcut."
-                    : "Pin this session. Select its row, then . for the keyboard shortcut.")
+                (pinned ? "Unpin this session" : "Pin this session")
+                    + (shortcutAvailable ? " (.)" : ""))
     }
 }
 

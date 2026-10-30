@@ -107,12 +107,15 @@ private struct MenuBarRowHeader<Label: View>: View {
             }
             .accessibilityValue(disclosure.accessibilityValue(expanded: expanded))
             .help(
-                "Expand with → or collapse with ← when this row is focused. ⇧→ / ⇧← expands or collapses session groups."
+                (expanded ? "Collapse" : "Expand")
+                    + (focus.wrappedValue?.rowID == id ? (expanded ? " (←)" : " (→)") : "")
             )
-            MenuBarPinButton(pinned: pinned, action: onPin)
-                .opacity(pinned || hovered || focus.wrappedValue?.rowID == id ? 1 : 0)
-                .focused(focus, equals: .pin(id))
-                .pinShortcut(onPinShortcut)
+            MenuBarPinButton(
+                pinned: pinned, shortcutAvailable: focus.wrappedValue?.rowID == id, action: onPin
+            )
+            .opacity(pinned || hovered || focus.wrappedValue?.rowID == id ? 1 : 0)
+            .focused(focus, equals: .pin(id))
+            .pinShortcut(onPinShortcut)
         }
         .onHover { hovered = $0 }
     }

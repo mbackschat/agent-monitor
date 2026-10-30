@@ -7,6 +7,7 @@ struct MenuBarProcessDetails: View {
     let model: MenuBarModel
     let process: HeavyProcess
     var contributor: ContributorID?
+    var keyboardTarget: LiveReportRowID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -15,7 +16,9 @@ struct MenuBarProcessDetails: View {
                 Text("PID \(String(process.process.pid))").foregroundStyle(.secondary)
                 Button("Copy PID", systemImage: "doc.on.doc") { copyPID() }
                     .labelStyle(.iconOnly).help(
-                        "Copy process ID \(process.process.pid). Keyboard: y in Processes view with this process row selected."
+                        "Copy process ID \(process.process.pid)"
+                            + (contributor == nil && keyboardTarget == .process(process.process)
+                                && model.pidToCopy(for: .process(process.process)) != nil ? " (y)" : "")
                     )
                 Spacer(minLength: 0)
                 Text(
@@ -34,13 +37,13 @@ struct MenuBarProcessDetails: View {
             }
             HStack {
                 Button("Terminal", systemImage: "terminal") { begin(.focus) }.disabled(!canBegin(.focus))
-                    .help("Show terminal (f from the selected row or contributor process inspector)")
+                    .help("Show terminal" + shortcut("f", kind: .focus))
                 Button("Message…", systemImage: "bubble") { begin(.message) }.disabled(!canBegin(.message))
                     .help(ProviderRuntimeAvailability.messagingUnavailableReason)
                 Spacer(minLength: 0)
                 Button("Terminate…", role: .destructive) { begin(.terminate) }.disabled(!canBegin(.terminate))
                     .help(
-                        "Review this process for termination (k from the selected row or contributor process inspector)"
+                        "Review this process for termination" + shortcut("k", kind: .terminate)
                     )
             }.controlSize(.small)
             path("Working directory", process.cwd ?? "Unavailable")
@@ -81,6 +84,10 @@ struct MenuBarProcessDetails: View {
             Text(TextReport.safe(value)).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private func shortcut(_ key: String, kind: ProcessActionKind) -> String {
+        keyboardTarget == .process(process.process) && canBegin(kind) ? " (" + key + ")" : ""
     }
 
     private func canBegin(_ kind: ProcessActionKind) -> Bool {
