@@ -166,6 +166,7 @@ struct MenuBarReferenceContent: View {
                 model.beginDiagnosis()
             }
             .disabled(!model.isOpen || model.report.actionPanel != nil || model.diagnosis.state.isRunning)
+            .help("Measure which processes use CPU over a short observation")
         }
     }
 }

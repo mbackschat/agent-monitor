@@ -108,6 +108,23 @@ import Testing
         let heading = try #require(outline.rowView(atRow: row, makeIfNecessary: true))
         #expect(!heading.isSelected)
     }
+    let controller = MenuBarOptionsController(model: model)
+    let menu = controller.makeMenu()
+    let filterIndex = try #require(menu.items.firstIndex { $0.title == "Hide no longer observed" })
+    let totals = model.report.overview.totals
+    menu.performActionForItem(at: filterIndex)
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+    #expect(model.report.overview.hideNoLongerObserved)
+    #expect(model.report.overview.hiddenHistoricalRowCount > 0)
+    #expect(outline.contributorRowIndexes.count == model.report.overview.visibleRows.count)
+    #expect(model.report.overview.visibleRows.allSatisfy { !$0.node.stats.isNoLongerObserved })
+    #expect(model.report.overview.totals == totals)
+    #expect(contributorOutline(in: host) === outline)
+    controller.menuNeedsUpdate(menu)
+    #expect(menu.item(withTitle: "Hide no longer observed")?.state == .on)
+    menu.performActionForItem(at: filterIndex)
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+    #expect(!model.report.overview.hideNoLongerObserved)
     window.contentView = nil
     await model.stop()
 }

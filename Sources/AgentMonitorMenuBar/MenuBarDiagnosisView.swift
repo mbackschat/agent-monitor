@@ -14,17 +14,18 @@ struct MenuBarDiagnosisView: View {
                 if diagnosis.state.phase == .collecting {
                     ProgressView().controlSize(.small)
                     Button("Cancel") { diagnosis.cancel() }
+                        .help("Cancel CPU diagnosis")
                 } else {
                     Button("Run again") { diagnosis.start() }
                         .disabled(diagnosis.state.isRunning)
-                        .help(DiagnosisViewState.startHelp)
+                        .help("Start a new short CPU measurement")
                 }
             }
             if diagnosis.state.phase == .completed {
                 HStack {
                     Button("Copy report", systemImage: "doc.on.doc") { _ = onCopy() }
                         .controlSize(.small)
-                        .help("Copy the full fixed report, including identities and measurement coverage.")
+                        .help("Copy diagnosis, process identities and coverage")
                     if let copyStatus { Text(copyStatus).font(.caption).foregroundStyle(.secondary) }
                 }
             }

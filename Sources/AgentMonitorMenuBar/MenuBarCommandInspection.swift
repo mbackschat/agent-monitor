@@ -13,6 +13,7 @@ struct MenuBarCommandInspection: View {
                     Text(inspection.summary).font(.caption2)
                     Spacer()
                     Button("Hide") { controller.dismiss() }.controlSize(.small)
+                        .help("Hide process arguments")
                 }
                 if let arguments = inspection.arguments {
                     ScrollView {
@@ -33,7 +34,7 @@ struct MenuBarCommandInspection: View {
                 Button("Read arguments", systemImage: "text.alignleft") { controller.start(process) }
                     .controlSize(.small).disabled(controller.isReading)
                     .help(
-                        "Read this process now, including when the displayed sample is paused. Keeps only this inspection in memory; does not enable recording."
+                        "Read current process arguments, even while paused. Kept in memory only."
                     )
             }
         }

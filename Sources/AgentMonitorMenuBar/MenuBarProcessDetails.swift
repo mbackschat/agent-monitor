@@ -49,7 +49,7 @@ struct MenuBarProcessDetails: View {
             path("Working directory", process.cwd ?? "Unavailable")
             path("Executable", process.executable)
             MenuBarCommandInspection(process: process, controller: model.commands)
-            DisclosureGroup("Attribution and measurement", isExpanded: $showsEvidence) {
+            DisclosureGroup(isExpanded: $showsEvidence) {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(AccountingContext.process(process), id: \.self) { Text($0) }
                     if let window = model.report.snapshot?.window {
@@ -74,6 +74,11 @@ struct MenuBarProcessDetails: View {
                     Text("Launch origin does not prove current use of shared daemons.").foregroundStyle(
                         .secondary)
                 }.fixedSize(horizontal: false, vertical: true)
+            } label: {
+                Text("Attribution and measurement")
+                    .help(
+                        showsEvidence
+                            ? "Hide attribution and measurements" : "Show attribution and measurements")
             }
         }.font(.caption).lineLimit(nil).textSelection(.enabled).padding(.vertical, 6)
     }

@@ -25,6 +25,14 @@ struct MenuBarContributorOverview: View {
                 .font(.caption).foregroundStyle(.secondary)
             }.monospacedDigit().accessibilityLabel("Measured total")
             if let notice = overview.pinNotice { Text(notice).font(.caption).foregroundStyle(.orange) }
+            if overview.hideNoLongerObserved {
+                Button(
+                    "No longer observed: \(overview.hiddenHistoricalRowCount) rows hidden · totals retained"
+                ) {
+                    model.report.overview.hideNoLongerObserved = false
+                }.buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
+                    .help("Show no longer observed rows")
+            }
             GeometryReader { geometry in
                 VStack(alignment: .leading, spacing: 6) {
                     MenuBarContributorTable(model: model, focus: focus)

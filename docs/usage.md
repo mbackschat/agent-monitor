@@ -243,6 +243,10 @@ History records **every collected report**, using that report's observations. Ac
 
 ## Menu bar app
 
+In the contributor view, **View options → Display filters → Hide no longer observed** hides fully historical rows, including pinned ones, without deleting pins or changing measured totals/history. Mixed groups with current members and unavailable-presence rows stay visible. A counted notice shows when the filter is active; click it to restore hidden rows. The setting starts off and remains selected across monitoring refreshes.
+
+Mac buttons and status symbols provide concise hover help. The dashed circle means one or more processes are no longer observed in the latest scan; retained recent activity does not confirm that they exited.
+
 The Mac **View options → View** section offers four mutually exclusive choices: **Main contributors (X/Y)**, **All contributors (Y)**, **Processes by session**, and **Processes**. Exactly one is checked; selecting it again leaves it selected. The Sort by section applies only to that chosen view, even before its first sample. PID is available only in process views. If a received snapshot has no contributor history, the controls reflect the rendered process view and contributor-view menu choices are unavailable.
 
 **View options** separates **Display filters** (CPU and footprint thresholds) from **Sampling** (mode, maximum interval, advanced settings and live icon). Filter tooltips explain their scope: visible process rows change, while observed totals and recent activity stay unchanged.

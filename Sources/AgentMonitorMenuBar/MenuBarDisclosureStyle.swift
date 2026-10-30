@@ -26,11 +26,13 @@ struct MenuBarRowAccessory: View {
                     .frame(minWidth: 32, minHeight: 20)
                     .background(.primary.opacity(0.09), in: RoundedRectangle(cornerRadius: 4))
                     .accessibilityLabel("\(count) observed processes")
+                    .help("\(count) observed processes; click to show or hide")
             case .process:
                 Image(systemName: "info.circle")
                     .font(.system(size: 14))
                     .frame(width: 32, height: 20)
                     .accessibilityLabel("Process details")
+                    .help("Show or hide process details")
             }
         }
         .foregroundStyle(.secondary)
@@ -90,6 +92,10 @@ private struct MenuBarRowHeader<Label: View>: View {
                         }
                     }
                     .frame(width: 18, height: 20).accessibilityHidden(true)
+                    .help(
+                        (expanded ? "Collapse" : "Expand")
+                            + (focus.wrappedValue?.rowID == id ? (expanded ? " (←)" : " (→)") : "")
+                    )
                     label
                     MenuBarRowAccessory(disclosure: disclosure)
                 }
@@ -106,10 +112,6 @@ private struct MenuBarRowHeader<Label: View>: View {
                 return .handled
             }
             .accessibilityValue(disclosure.accessibilityValue(expanded: expanded))
-            .help(
-                (expanded ? "Collapse" : "Expand")
-                    + (focus.wrappedValue?.rowID == id ? (expanded ? " (←)" : " (→)") : "")
-            )
             MenuBarPinButton(
                 pinned: pinned, shortcutAvailable: focus.wrappedValue?.rowID == id, action: onPin
             )

@@ -41,6 +41,7 @@ enum MenuBarOption: Equatable {
     case historyWindow(HistoryWindow)
     case reference(MenuBarReferencePage)
     case liveIcon, unpinAll
+    case hideNoLongerObserved
 
     func samplingSettings(from current: SamplingSettings) -> SamplingSettings? {
         var settings = current
@@ -76,7 +77,7 @@ enum MenuBarOption: Equatable {
         button.bezelStyle = .rounded
         button.preferredEdge = .minY
         button.setAccessibilityLabel(placement == .history ? "History metric and time range" : "View options")
-        button.toolTip = "Grouping, sort direction, CPU and footprint thresholds, and sampling options"
+        button.toolTip = "View, sort, filters and sampling options"
         button.menu = makeMenu()
         if placement == .pullDown {
             button.imagePosition = .imageOnly
@@ -90,7 +91,7 @@ enum MenuBarOption: Equatable {
         guard placement == .history, !tracking else { return }
         let title = "\(model.report.historyMetric.rawValue) · \(model.report.historyWindow.rawValue)"
         if button.title != title { button.title = title }
-        button.toolTip = "All observed agents; h cycles the history metric, t cycles the time range"
+        button.toolTip = "History metric (h) and time range (t)"
     }
 
     func makeMenu() -> NSMenu {
@@ -182,6 +183,11 @@ enum MenuBarOption: Equatable {
             menu.addItem(.separator())
         }
         menu.addItem(.sectionHeader(title: "Display filters"))
+        if overview {
+            add(
+                "Hide no longer observed", .hideNoLongerObserved,
+                checked: model.report.overview.hideNoLongerObserved, to: menu)
+        }
         let filterHelp = "Changes process rows; observed totals and recent activity stay unchanged."
         let cpu = model.report.thresholds.cpuPercent
         let cpuMenu = submenu(
@@ -227,20 +233,26 @@ enum MenuBarOption: Equatable {
             addSamplingChoice("\(value.formatted()) s", .interval(value), to: intervalMenu)
         }
         let modeMenu = submenu(
-            settings.enabled ? "Mode: Adaptive" : "Mode: Use maximum interval", in: menu)
+            settings.enabled ? "Mode: Adaptive" : "Mode: Use maximum interval", in: menu,
+            help: "Choose fixed or activity-based sampling")
         addSamplingChoice("Use maximum interval", .samplingMode(false), to: modeMenu)
         addSamplingChoice("Adaptive sampling", .samplingMode(true), to: modeMenu)
-        let advanced = submenu("Advanced sampling", in: menu)
-        let minimumMenu = submenu("Minimum interval: \(settings.minimum.formatted()) s", in: advanced)
+        let advanced = submenu("Advanced sampling", in: menu, help: "Sampling bounds and activity window")
+        let minimumMenu = submenu(
+            "Minimum interval: \(settings.minimum.formatted()) s", in: advanced,
+            help: "Fastest permitted sampling interval")
         for value in Set(LiveReportState.intervalSteps + [15, settings.minimum]).sorted() {
             addSamplingChoice("\(value.formatted()) s", .samplingMinimum(value), to: minimumMenu)
         }
-        let windowMenu = submenu("Activity window: \(settings.window.formatted()) s", in: advanced)
+        let windowMenu = submenu(
+            "Activity window: \(settings.window.formatted()) s", in: advanced,
+            help: "Recent activity used to adjust sampling")
         for value in Set([1, 5, 10, 30, 60, 120, 300, settings.window]).sorted() {
             addSamplingChoice("\(value.formatted()) s", .samplingWindow(value), to: windowMenu)
         }
         let multiplierMenu = submenu(
-            "Closed-panel multiplier: \(settings.closedMultiplier.formatted())×", in: advanced)
+            "Closed-panel multiplier: \(settings.closedMultiplier.formatted())×", in: advanced,
+            help: "Multiply the maximum interval while the panel is closed")
         for value in Set([1, 1.5, 2, 2.5, 4, 5, 10, settings.closedMultiplier]).sorted() {
             addSamplingChoice("\(value.formatted())×", .closedMultiplier(value), to: multiplierMenu)
         }
@@ -271,6 +283,27 @@ enum MenuBarOption: Equatable {
         item.allowsKeyEquivalentWhenHidden = false
         item.target = self
         item.representedObject = option
+        let help =
+            switch option {
+            case .view: "Show " + title
+            case .sort, .contributorSort: "Sort by " + title
+            case .ascending: "Reverse the current sort direction"
+            case .chartRange: "Set fixed CPU chart range: " + title
+            case .cpu: "Set CPU display filter: " + title + "; totals unchanged"
+            case .memory: "Set memory display filter: " + title + "; totals unchanged"
+            case .interval: "Set maximum sampling interval: " + title
+            case .samplingMode: "Sampling mode: " + title
+            case .samplingMinimum: "Set minimum sampling interval: " + title
+            case .samplingWindow: "Set sampling activity window: " + title
+            case .closedMultiplier: "Set closed-panel interval multiplier: " + title
+            case .historyMetric: "Show " + title + " history"
+            case .historyWindow: "Show history: " + title
+            case .reference: "Open " + title
+            case .liveIcon: "Toggle live icon and closed-panel collection"
+            case .unpinAll: "Remove all pins"
+            case .hideNoLongerObserved: "Hide historical rows; measured totals stay unchanged"
+            }
+        item.toolTip = help + (item.keyEquivalent.isEmpty ? "" : " (" + item.keyEquivalent + ")")
         item.state = checked ? .on : .off
         item.isEnabled = enabled
         menu.addItem(item)
@@ -306,6 +339,7 @@ enum MenuBarOption: Equatable {
         guard let option = item.representedObject as? MenuBarOption else { return }
         switch option {
         case .unpinAll: model.unpinAll()
+        case .hideNoLongerObserved: model.report.overview.hideNoLongerObserved.toggle()
         case .view(let view): model.report.view = view
         case .sort(let sort): model.report.sortCurrentView(by: sort)
         case .contributorSort:

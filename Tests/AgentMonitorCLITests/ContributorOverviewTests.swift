@@ -45,7 +45,7 @@ import Testing
 }
 
 func overviewFixture(
-    invocationName: String? = nil, includeProcesses: Bool = false
+    invocationName: String? = nil, includeProcesses: Bool = false, mixedSession: Bool = false
 ) throws -> MonitoringSnapshot {
     var ledger = CounterLedger()
     func samples(_ time: Double, includeBurst: Bool) -> [ProcessSample] {
@@ -69,7 +69,9 @@ func overviewFixture(
                 metadataStatus: .markerRead,
                 attribution: Attribution(
                     provider: .codex, evidence: .marker,
-                    context: .unverified, threadID: "session-\(value.identity.pid)", rootSessionID: nil,
+                    context: .unverified,
+                    threadID: "session-\(mixedSession && value.identity.pid == 22 ? 1 : value.identity.pid)",
+                    rootSessionID: nil,
                     runtime: nil, terminal: nil, runtimeDirectory: nil, candidateThreadIDs: [], ancestry: []),
                 invocationName: value.identity.pid == 1 ? invocationName : nil)
         }

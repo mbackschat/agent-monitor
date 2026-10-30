@@ -100,6 +100,9 @@ import Testing
         let context = overview.workloadContext(for: try #require(overview.nodes[id]))
         #expect(context.contains("presence unavailable"))
         #expect(!context.contains("No longer observed"))
+        let rows = overview.visibleRows
+        overview.hideNoLongerObserved = true
+        #expect(overview.visibleRows == rows)
     }
 
     @Test(arguments: [2, 8])

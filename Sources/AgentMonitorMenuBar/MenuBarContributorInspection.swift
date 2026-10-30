@@ -42,17 +42,23 @@ struct MenuBarContributorInspection: View {
                     if node.process != nil {
                         Button("Inspect current process…", action: inspect).disabled(!canInspect)
                             .help(
-                                "Open process details, arguments and verified actions. Historical workers cannot be action targets."
+                                "Show current process details, arguments and actions"
                             )
                     }
                     if !activity.spans.isEmpty {
-                        DisclosureGroup("CPU history · " + activity.scaleLabel, isExpanded: $showsHistory) {
+                        DisclosureGroup(isExpanded: $showsHistory) {
                             MenuBarInspectionFields(fields: activity.inspectionFields(for: node.id)).padding(
                                 .top, 6)
+                        } label: {
+                            Text("CPU history · " + activity.scaleLabel)
+                                .help(showsHistory ? "Hide CPU history" : "Show CPU history")
                         }.font(.caption)
                     }
-                    DisclosureGroup("Counts and evidence", isExpanded: $showsEvidence) {
+                    DisclosureGroup(isExpanded: $showsEvidence) {
                         MenuBarInspectionFields(fields: evidence).padding(.top, 6)
+                    } label: {
+                        Text("Counts and evidence")
+                            .help(showsEvidence ? "Hide counts and evidence" : "Show counts and evidence")
                     }.font(.caption)
                 }
             }

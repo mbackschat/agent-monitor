@@ -54,7 +54,9 @@ struct MenuBarContributorTable: View {
                     let depth = positions[node.id].map { rows[$0].depth } ?? 0
                     MenuBarContributorRow(
                         node: node, overview: overview, depth: depth,
-                        toggleDisclosure: node.children.isEmpty
+                        toggleDisclosure: node.children.allSatisfy {
+                            !overview.includesInTable($0) || overview.pinned.contains($0)
+                        }
                             ? nil
                             : {
                                 if acceptsInteraction { model.report.overview.activateRow(node.id) }
@@ -208,8 +210,8 @@ private struct MenuBarContributorRows: TableRowContent {
     let acceptsInteraction: Bool
 
     private func visibleNodes(_ ids: [ContributorID]) -> [ContributorNode] {
-        ids.compactMap { model.report.overview.nodes[$0] }.filter {
-            $0.process == nil || $0.stats.filtered.isEmpty
+        ids.filter { model.report.overview.includesInTable($0) }.compactMap {
+            model.report.overview.nodes[$0]
         }
     }
 
@@ -248,7 +250,7 @@ struct MenuBarContributorRow: View {
     private var processCountHelp: String {
         guard node.stats.currentAvailable else { return "Current process count unavailable" }
         let count = node.stats.current.count
-        return "\(count) currently observed \(count == 1 ? "process" : "processes") in this contributor"
+        return "\(count) currently observed \(count == 1 ? "process" : "processes")"
     }
 
     private var workloadText: AttributedString {
@@ -283,6 +285,7 @@ struct MenuBarContributorRow: View {
                             .italic(node.stats.isNoLongerObserved)
                     }.lineLimit(1).truncationMode(.middle)
                 }.frame(maxWidth: .infinity, alignment: .leading)
+                    .help(node.title)
                 MenuBarContributorLane(activity: overview.activity, id: node.id).frame(width: 100, height: 32)
                 Text(node.stats.cpuText(duration: overview.duration)).font(
                     .system(size: 17, weight: .semibold)
@@ -299,8 +302,9 @@ struct MenuBarContributorRow: View {
                     .lineLimit(2).truncationMode(.middle).frame(maxWidth: .infinity, alignment: .leading)
                 if let status = MenuBarContributorPresence(stats: node.stats) {
                     Image(systemName: status.symbol)
-                        .help(status.help + " Recent CPU: " + node.stats.recentCPUText + ".")
-                        .accessibilityLabel(status.help + " Recent CPU: " + node.stats.recentCPUText + ".")
+                        .frame(width: 24, height: 28).contentShape(Rectangle())
+                        .help(status.help)
+                        .accessibilityLabel(status.help)
                 }
                 if let toggleDisclosure {
                     Button(action: toggleDisclosure) {
@@ -309,6 +313,7 @@ struct MenuBarContributorRow: View {
                             Image(systemName: overview.isExpanded(node.id) ? "chevron.down" : "chevron.right")
                         }.font(.system(size: 12, weight: .semibold)).frame(minWidth: 44, minHeight: 32)
                             .background(.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
+                            .contentShape(Rectangle())
                     }.buttonStyle(.borderless).accessibilityIdentifier("contributor-disclosure")
                         .accessibilityLabel(
                             (overview.isExpanded(node.id) ? "Collapse " : "Expand ") + node.label.headline
@@ -331,8 +336,6 @@ struct MenuBarContributorRow: View {
                 prominence == .increased ? Color.white.opacity(0.85) : Color.secondary
             ).padding(.trailing, 84)
         }.foregroundStyle(prominence == .increased ? Color.white : Color.primary)
-            .help(
-                node.title + ". " + node.stats.census)
     }
 }
 
@@ -366,13 +369,13 @@ enum MenuBarContributorPresence {
     var help: String {
         switch self {
         case .history:
-            "No longer observed in the latest scan. Recent activity is retained; this does not confirm the process exited. Open Details to inspect its recorded identity and working directory."
+            "No longer observed in the latest scan. Recent activity retained; exit not confirmed."
         case .missingWorkers(let count):
-            "\(count) workers in this contributor are no longer observed in the latest scan; other members may still be present. Recent activity is retained, and absence does not confirm exit. Open Details for counts and identities."
+            "\(count) \(count == 1 ? "worker is" : "workers are") no longer observed; others may remain. Recent activity retained; exit not confirmed."
         case .unavailable:
-            "Current presence is unavailable: the latest scan could not establish which processes are still present. This is not a confirmed exit. Open Diagnostics for collection gaps and Details for retained identity."
+            "Current presence could not be determined. See Diagnostics for collection gaps."
         case .changedOwnership:
-            "No current members remain under this contributor's recorded ownership. The observed attribution changed; this does not mean the processes exited. Open Details to inspect the retained ownership evidence."
+            "These processes now have different attribution. Open Details for recorded ownership."
         }
     }
 }
@@ -466,6 +469,14 @@ private enum MenuBarContributorSection: String, CaseIterable {
         case .other: "square.stack.3d.up"
         }
     }
+
+    var help: String {
+        switch self {
+        case .pinned: "Pinned sessions stay at the top"
+        case .sessions: "Agent sessions and their workloads"
+        case .other: "Recent, additional, uncertain and shared work"
+        }
+    }
 }
 
 private struct MenuBarContributorPin: View {
@@ -499,5 +510,6 @@ private struct MenuBarContributorHeading: View {
             .padding(.horizontal, 8).padding(.vertical, 6)
             .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 5))
             .accessibilityAddTraits(.isHeader)
+            .help(section.help)
     }
 }

@@ -30,14 +30,10 @@ struct MenuBarProcessLabel: View {
                 .font(.caption).foregroundStyle(.secondary)
             }
             resources
+                .help(
+                    "\(process.observedName) · PID \(process.process.pid) · \(process.cwd ?? "Directory unavailable")"
+                )
         }
-        .help(
-            "\(process.observedName) · PID \(process.process.pid)"
-                + " · CWD: \(process.cwd ?? "unavailable")"
-                + " · \(ownerLabel)"
-                + (exactSession
-                    ? " · \(process.attribution.threadID ?? "")" : "")
-                + (process.isHistorical ? ". No longer observed; measured CPU remains in this window." : ""))
     }
 
     private var showsOwner: Bool {

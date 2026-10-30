@@ -27,7 +27,7 @@ struct MenuBarContributorActions: View {
                         model.beginContributorTermination(node.id)
                     }.disabled(!model.canBeginContributorTermination(node.id))
                         .help(
-                            "Review termination of this contributor's current processes. Confirmation is required."
+                            "Review all current processes before terminating"
                         )
                     Divider()
                     ForEach(targets, id: \.process) { process in
@@ -70,7 +70,7 @@ struct MenuBarContributorActions: View {
     @ViewBuilder private func commands(_ process: HeavyProcess) -> some View {
         Button("Inspect process…", systemImage: "info.circle") {
             model.report.inspectContributorProcess(process.process, contributor: node.id)
-        }
+        }.help("Show process details and actions")
         Button("Show terminal" + shortcut("f", process: process.process), systemImage: "terminal") {
             model.begin(.focus, contributor: node.id, process: process.process)
         }.disabled(!model.canBegin(.focus, contributor: node.id, process: process.process))
@@ -89,7 +89,7 @@ struct MenuBarContributorActions: View {
         }.disabled(!model.canBegin(.terminate, contributor: node.id, process: process.process))
             .help(
                 "Review termination of this process" + shortcut("k", process: process.process)
-                    + ". Confirmation is required."
+                    + "; confirmation required"
             )
     }
 }

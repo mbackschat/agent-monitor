@@ -46,6 +46,7 @@ enum MenuBarActivation {
         add("Open Agent Monitor", action: .open, to: menu)
         let settings = NSMenuItem(title: "View options", action: nil, keyEquivalent: "")
         settings.submenu = options.makeMenu()
+        settings.toolTip = "View, sort, filters and sampling options"
         menu.addItem(settings)
         menu.addItem(.separator())
         add("Quit Agent Monitor", action: .quit, to: menu)
@@ -57,6 +58,7 @@ enum MenuBarActivation {
             title: title, action: #selector(selectAction(_:)), keyEquivalent: action == .quit ? "q" : "")
         item.target = self
         item.representedObject = action
+        item.toolTip = action == .quit ? "Quit Agent Monitor (⌘Q)" : "Open the resource overview"
         menu.addItem(item)
     }
 

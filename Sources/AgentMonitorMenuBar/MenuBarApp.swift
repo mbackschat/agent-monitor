@@ -62,6 +62,7 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
         }
         button.image?.isTemplate = true
         button.setAccessibilityLabel(description)
+        button.toolTip = "Open Agent Monitor; right-click for options"
     }
 
     @objc private func activateStatusItem() {

@@ -28,6 +28,7 @@ struct MenuBarView: View {
                 if let logo = MenuBarLogo.image {
                     Image(nsImage: logo).resizable().interpolation(.high)
                         .frame(width: 20, height: 20).accessibilityHidden(true)
+                        .help("Agent Monitor")
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Agent Monitor").font(.headline)
@@ -44,6 +45,7 @@ struct MenuBarView: View {
                 if model.diagnosis.state.isVisible {
                     Button("Back") { model.diagnosis.dismiss() }
                         .focused($focus, equals: .inspection)
+                        .help("Return to contributors")
                 } else {
                     Button(
                         model.report.frozen ? "Resume" : "Pause",
@@ -51,7 +53,9 @@ struct MenuBarView: View {
                     ) { model.toggleFreeze() }
                     .labelStyle(.iconOnly)
                     .disabled(model.report.snapshot == nil || model.report.actionPanel != nil)
-                    .help("Hold the displayed sample and row order. Resume shows the latest sample (p).")
+                    .help(
+                        model.report.frozen
+                            ? "Resume live updates (p)" : "Pause displayed values and row order (p)")
                 }
             }
             .padding(.vertical, 10).padding(.trailing, 16).padding(.leading, 32)
@@ -83,6 +87,7 @@ struct MenuBarView: View {
                     }
                 }
                 .labelsHidden().frame(width: 100).controlSize(.small)
+                .help("Choose panel height")
                 Button("Quit", systemImage: "power") { NSApplication.shared.terminate(nil) }.labelStyle(
                     .iconOnly
                 ).help("Quit Agent Monitor (⌘Q)").keyboardShortcut("q")
@@ -291,6 +296,7 @@ struct MenuBarView: View {
             } else {
                 if !pinned.isEmpty {
                     Label("Pinned", systemImage: "pin.fill").font(.caption.bold()).foregroundStyle(.secondary)
+                        .help("Pinned processes and sessions")
                     LazyVStack(alignment: .leading, spacing: 2) {
                         ForEach(pinned, id: \.id) { nativeRow($0) }
                     }
@@ -494,6 +500,7 @@ struct MenuBarView: View {
                 Text(panel.result?.text ?? "Action finished").textSelection(.enabled)
                 Button("Done") { model.input(.escape) }
                     .focused($focus, equals: .inspection)
+                    .help("Close action result")
             }
         }.padding(16)
     }

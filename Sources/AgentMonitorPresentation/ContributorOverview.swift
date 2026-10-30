@@ -156,6 +156,17 @@ public struct ContributorOverview: Equatable, Sendable {
     public private(set) var selection: ContributorID?
     public private(set) var open: Set<ContributorID> = []
     public var showAll = false
+    public var hideNoLongerObserved = false {
+        didSet {
+            guard hideNoLongerObserved != oldValue else { return }
+            let rows = visibleRows
+            if !rows.contains(where: { $0.id == selection }) {
+                selection = rows.first?.id
+                detailsVisible = false
+                detailOffset = 0
+            }
+        }
+    }
     public var enabled = true
     public private(set) var pinned: [ContributorID] = []
     public private(set) var pinNotice: String?
@@ -305,6 +316,10 @@ public struct ContributorOverview: Equatable, Sendable {
     }
 
     public var topLevel: [ContributorID] {
+        unfilteredTopLevel.filter { includesInTable($0) }
+    }
+
+    private var unfilteredTopLevel: [ContributorID] {
         let summaries: [ContributorID] = [
             .section(.recent), .section(.remainder), .section(.uncertain), .section(.shared),
             .section(.released),
@@ -316,22 +331,40 @@ public struct ContributorOverview: Equatable, Sendable {
     }
 
     public var visibleRows: [ContributorRow] {
+        rows(hidingNoLongerObserved: hideNoLongerObserved)
+    }
+
+    public var hiddenHistoricalRowCount: Int {
+        hideNoLongerObserved ? rows(hidingNoLongerObserved: false).count - visibleRows.count : 0
+    }
+
+    public func includesInTable(_ id: ContributorID) -> Bool {
+        includesInTable(id, hidingNoLongerObserved: hideNoLongerObserved)
+    }
+
+    private func includesInTable(_ id: ContributorID, hidingNoLongerObserved: Bool) -> Bool {
+        guard let node = nodes[id] else { return false }
+        return (node.process == nil || node.stats.filtered.isEmpty)
+            && !(hidingNoLongerObserved && node.stats.isNoLongerObserved)
+    }
+
+    private func rows(hidingNoLongerObserved: Bool) -> [ContributorRow] {
         var rows: [ContributorRow] = []
         func visit(_ id: ContributorID, depth: Int, last: Bool = false) {
-            guard let node = nodes[id] else { return }
-            if node.process != nil && !node.stats.filtered.isEmpty { return }
+            guard let node = nodes[id], includesInTable(id, hidingNoLongerObserved: hidingNoLongerObserved)
+            else { return }
             rows.append(ContributorRow(node: node, depth: depth, isLastSibling: last))
             if isExpanded(id) {
                 let children = node.children.filter {
-                    guard !pinned.contains($0), let child = nodes[$0] else { return false }
-                    return child.process == nil || child.stats.filtered.isEmpty
+                    !pinned.contains($0)
+                        && includesInTable($0, hidingNoLongerObserved: hidingNoLongerObserved)
                 }
                 for (index, child) in children.enumerated() {
                     visit(child, depth: depth + 1, last: index == children.count - 1)
                 }
             }
         }
-        for id in topLevel { visit(id, depth: 0) }
+        for id in unfilteredTopLevel { visit(id, depth: 0) }
         return rows
     }
 
@@ -483,6 +516,7 @@ public struct ContributorOverview: Equatable, Sendable {
         if runID != recent.runID || scope != recent.scope {
             let enabled = enabled
             let showAll = showAll
+            let hideNoLongerObserved = hideNoLongerObserved
             let pinned = pinned
             let order = order
             let ascending = ascending
@@ -493,6 +527,7 @@ public struct ContributorOverview: Equatable, Sendable {
             self.order = order
             self.enabled = enabled
             self.showAll = showAll
+            self.hideNoLongerObserved = hideNoLongerObserved
             self.pinned = pinned
             scope = recent.scope
             runID = recent.runID
@@ -799,14 +834,14 @@ public struct ContributorOverview: Equatable, Sendable {
         for id in unavailablePins {
             nodes[id] = ContributorNode(id: id, title: "Pinned · outside retained range")
         }
+        if !recent.currentContextAvailable {
+            totals.currentAvailable = false
+            for id in nodes.keys { nodes[id]?.stats.currentAvailable = false }
+        }
         open.formIntersection(nodes.keys)
         if !visibleRows.contains(where: { $0.id == selection }) {
             detailsVisible = false
             selection = visibleRows.first?.id
-        }
-        if !recent.currentContextAvailable {
-            totals.currentAvailable = false
-            for id in nodes.keys { nodes[id]?.stats.currentAvailable = false }
         }
         let observed = Set(snapshot.observedFindings.map(\.process))
         let historical = snapshot.observedFindings.filter(\.isHistorical).count
