@@ -96,13 +96,9 @@ struct MenuBarContributorOverview: View {
 }
 
 struct MenuBarReadingSurface: View {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
     var body: some View {
-        // The popover already supplies native material; the 2026-10-30 surface review
-        // in native-menu-design.md rejects a second opaque fill over that background.
         Color(nsColor: .windowBackgroundColor)
-            .opacity(reduceTransparency ? 1 : 0)
+            .overlay(Color.primary.opacity(0.24))
             .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }

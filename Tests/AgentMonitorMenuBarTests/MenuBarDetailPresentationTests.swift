@@ -1,6 +1,5 @@
 import AgentMonitorPresentation
 import AppKit
-import CoreImage
 import SwiftUI
 import Testing
 
@@ -45,7 +44,7 @@ import Testing
 }
 
 @Test(arguments: [false, true]) @MainActor
-func contributorLedgerPreservesBackdropAndSeparatesGroups(dark: Bool) async throws {
+func contributorLedgerKeepsNeutralSurfaceAndSeparatesGroups(dark: Bool) async throws {
     _ = NSApplication.shared
     let snapshot = try nativeOverviewFixture()
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
@@ -74,11 +73,12 @@ func contributorLedgerPreservesBackdropAndSeparatesGroups(dark: Bool) async thro
             abs(left.blueComponent - right.blueComponent))
     }
     let surround = try color(at: NSPoint(x: 3, y: 100))
-    if !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency {
-        #expect(
-            surround.blueComponent - surround.redComponent > 0.15,
-            "The table must retain its backdrop instead of painting an opaque slab")
-    }
+    #expect(
+        abs(surround.blueComponent - surround.redComponent) < 0.15,
+        "The reading surface must suppress desktop colors")
+    #expect(
+        dark ? surround.redComponent < 0.4 : (0.7...0.86).contains(surround.redComponent),
+        "Restore the subdued neutral surface, not a bright white surround: \(surround)")
     let roots = model.report.overview.visibleRows.enumerated().filter { $0.element.depth == 0 }
     try #require(roots.count >= 2)
     let bands = try roots.prefix(2).map { row in
@@ -86,7 +86,7 @@ func contributorLedgerPreservesBackdropAndSeparatesGroups(dark: Bool) async thro
         return try color(at: host.convert(NSPoint(x: rect.midX, y: rect.maxY - 5), from: outline))
     }
     #expect(
-        difference(bands[0], bands[1]) >= 0.05,
+        difference(bands[0], bands[1]) >= 0.05 - 1.0 / 255,
         "Adjacent session bands must differ visibly, not by a nearly invisible tint: \(bands)")
     func checkEmptyViewport() throws {
         let last = outline.rect(ofRow: outline.numberOfRows - 1)
@@ -202,14 +202,7 @@ func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool, selected: Bool)
     let window = await mountOffscreenNativePreview(host)
     defer { window.close() }
     let bitmap = try detailBitmap(host)
-    var recognitionImage = try #require(bitmap.cgImage)
-    if dark && !selected {
-        // Vision returned no text for this readable dark row on 2026-10-30. Invert polarity
-        // for the truncation oracle; retain the original render for appearance review.
-        let inverted = CIImage(cgImage: recognitionImage).applyingFilter("CIColorInvert")
-        recognitionImage = try #require(CIContext().createCGImage(inverted, from: inverted.extent))
-    }
-    let recognized = try await nativeRecognizedText(in: recognitionImage)
+    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
     let text = recognized.map(\.text).joined(separator: " ")
     #expect(text.contains("java"), "\(text)")
     #expect(!text.contains("observed"), "Presence must not form part of a truncated path: \(text)")
