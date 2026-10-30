@@ -282,9 +282,11 @@ struct MenuBarContributorRow: View {
                                     weight: node.stats.isNoLongerObserved ? .regular : .semibold)
                             )
                             .italic(node.stats.isNoLongerObserved)
-                    }.lineLimit(1).truncationMode(.middle)
+                    }.lineLimit(1).truncationMode(.middle).help(node.title)
+                    if let entry = node.id.groupExplanation {
+                        MenuBarGroupHelp(entry: entry)
+                    }
                 }.frame(maxWidth: .infinity, alignment: .leading)
-                    .help(node.title)
                 MenuBarContributorLane(activity: overview.activity, id: node.id).frame(width: 100, height: 32)
                 Text(node.stats.cpuText(duration: overview.duration)).font(
                     .system(size: 17, weight: .semibold)
@@ -467,6 +469,14 @@ struct MenuBarContributorLane: View {
 }
 
 extension ContributorID {
+    var groupExplanation: ReportGlossary.Entry? {
+        switch self {
+        case .section(let section): ReportGlossary.contributorGroup(section)
+        case .collapsed: ReportGlossary.contributorGroup(.released)
+        case .session, .provider, .executable, .more, .process: nil
+        }
+    }
+
     var summarySymbol: String? {
         switch self {
         case .section(let section):
@@ -536,13 +546,15 @@ private struct MenuBarContributorHeading: View {
     let section: MenuBarContributorSection
 
     var body: some View {
-        Label(section.rawValue, systemImage: section.symbol)
-            .font(.system(size: 11, weight: .bold))
-            .foregroundStyle(section == .pinned ? Color.accentColor : Color.primary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 8).padding(.vertical, 6)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 5))
-            .accessibilityAddTraits(.isHeader)
-            .help(section.help)
+        HStack(spacing: 4) {
+            Label(section.rawValue, systemImage: section.symbol).help(section.help)
+            if section == .other { MenuBarGroupHelp(entry: ReportGlossary.otherObservedWork) }
+        }
+        .font(.system(size: 11, weight: .bold))
+        .foregroundStyle(section == .pinned ? Color.accentColor : Color.primary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8).padding(.vertical, 6)
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 5))
+        .accessibilityAddTraits(.isHeader)
     }
 }

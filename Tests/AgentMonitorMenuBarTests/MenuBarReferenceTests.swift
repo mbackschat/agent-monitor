@@ -10,6 +10,20 @@ import Testing
     page: MenuBarReferencePage, dark: Bool
 ) async throws {
     _ = NSApplication.shared
+    if page == .glossary {
+        let titles = Set(ReportGlossary.entries.map(\.title))
+        for section in [ContributorSection.recent, .remainder, .uncertain, .shared, .released] {
+            let explanation = try #require(ContributorID.section(section).groupExplanation)
+            #expect(ReportGlossary.entries.contains(explanation))
+        }
+        #expect(ContributorID.session(provider: "test", session: "test", root: nil).groupExplanation == nil)
+        for title in [
+            "Other observed work", "Recent contributors", "More processes",
+            "Unresolved / uncertain", "Shared agent runtimes", "Older work · detail released",
+        ] {
+            #expect(titles.contains(title), "Help must explain the visible group: \(title)")
+        }
+    }
     let snapshot = try nativeOverviewFixture(unreadable: 5)
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
