@@ -72,7 +72,7 @@ struct MenuBarContributorOverview: View {
                             }
                         }
                         .frame(height: min(260, geometry.size.height * 0.48))
-                        .background { MenuBarReadingSurface() }
+                        .background(.background.opacity(0.92), in: RoundedRectangle(cornerRadius: 8))
                         .onKeyPress(.escape) {
                             closeDetails()
                             return .handled
@@ -98,7 +98,7 @@ struct MenuBarContributorOverview: View {
 struct MenuBarReadingSurface: View {
     var body: some View {
         Color(nsColor: .windowBackgroundColor)
-            .overlay(Color.primary.opacity(0.24))
+            .opacity(0.92)
             .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }

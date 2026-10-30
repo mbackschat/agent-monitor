@@ -77,8 +77,8 @@ func contributorLedgerKeepsNeutralSurfaceAndSeparatesGroups(dark: Bool) async th
         abs(surround.blueComponent - surround.redComponent) < 0.15,
         "The reading surface must suppress desktop colors")
     #expect(
-        dark ? surround.redComponent < 0.4 : (0.7...0.86).contains(surround.redComponent),
-        "Restore the subdued neutral surface, not a bright white surround: \(surround)")
+        dark ? surround.redComponent < 0.2 : surround.redComponent > 0.9,
+        "Restore the original system reading surface without gray tint: \(surround)")
     let roots = model.report.overview.visibleRows.enumerated().filter { $0.element.depth == 0 }
     try #require(roots.count >= 2)
     let bands = try roots.prefix(2).map { row in
