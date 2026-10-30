@@ -248,9 +248,8 @@ struct MenuBarContributorRow: View {
     var toggleDisclosure: (() -> Void)? = nil
 
     private var processCountHelp: String {
-        guard node.stats.currentAvailable else { return "Current process count unavailable" }
-        let count = node.stats.current.count
-        return "\(count) currently observed \(count == 1 ? "process" : "processes")"
+        MenuBarContributorCounts(stats: node.stats).help
+            + (overview.hideNoLongerObserved ? " Past rows are hidden." : "")
     }
 
     private var workloadText: AttributedString {
@@ -309,9 +308,10 @@ struct MenuBarContributorRow: View {
                 if let toggleDisclosure {
                     Button(action: toggleDisclosure) {
                         HStack(spacing: 5) {
-                            Text(node.stats.currentAvailable ? "\(node.stats.current.count)" : "—")
+                            MenuBarContributorCounts(stats: node.stats)
                             Image(systemName: overview.isExpanded(node.id) ? "chevron.down" : "chevron.right")
-                        }.font(.system(size: 12, weight: .semibold)).frame(minWidth: 44, minHeight: 32)
+                        }.font(.system(size: 12, weight: .semibold))
+                            .padding(.horizontal, 6).frame(minWidth: 44, minHeight: 32)
                             .background(.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
                             .contentShape(Rectangle())
                     }.buttonStyle(.borderless).accessibilityIdentifier("contributor-disclosure")
@@ -327,7 +327,7 @@ struct MenuBarContributorRow: View {
                         )
                         .accessibilityValue(processCountHelp)
                 } else {
-                    Text(node.stats.currentAvailable ? "\(node.stats.current.count)" : "—")
+                    MenuBarContributorCounts(stats: node.stats)
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .frame(minWidth: 32, minHeight: 32)
                         .accessibilityLabel(processCountHelp).help(processCountHelp)
@@ -339,20 +339,56 @@ struct MenuBarContributorRow: View {
     }
 }
 
+struct MenuBarContributorCounts: View {
+    @Environment(\.backgroundProminence) private var prominence
+    let stats: ContributorStats
+
+    var pastCount: Int {
+        stats.processes.subtracting(stats.current).subtracting(stats.membershipChanged).count
+    }
+
+    var help: String {
+        guard stats.currentAvailable else { return "Current and past process counts unavailable" }
+        let current = stats.current.count
+        var text = "\(current) currently observed \(current == 1 ? "process" : "processes")"
+        if pastCount > 0 { text += "; \(pastCount) no longer observed. Exit not confirmed." }
+        if stats.collapsedProcesses != nil { text += " Some retained history lacks process identities." }
+        return text
+    }
+
+    var body: some View {
+        HStack(spacing: 7) {
+            if !stats.currentAvailable {
+                Text("—")
+            } else {
+                if !stats.current.isEmpty || pastCount == 0 {
+                    HStack(spacing: 3) {
+                        Text("\(stats.current.count)")
+                        Image(systemName: "circle.fill").font(.system(size: 6))
+                            .accessibilityHidden(true)
+                    }
+                }
+                if pastCount > 0 {
+                    HStack(spacing: 3) {
+                        Text("\(pastCount)")
+                        Image(systemName: "archivebox").font(.system(size: 11))
+                            .accessibilityHidden(true)
+                    }.foregroundStyle(prominence == .increased ? Color.white.opacity(0.7) : Color.secondary)
+                }
+            }
+        }.fixedSize().monospacedDigit()
+            .accessibilityElement(children: .ignore).accessibilityLabel(help)
+    }
+}
+
 enum MenuBarContributorPresence {
-    case history
-    case missingWorkers(Int)
     case unavailable, changedOwnership
 
     init?(stats: ContributorStats) {
         if !stats.currentAvailable, stats.hasContributions {
             self = .unavailable
-        } else if stats.isNoLongerObserved {
-            self = .history
         } else if stats.current.isEmpty, !stats.membershipChanged.isEmpty {
             self = .changedOwnership
-        } else if !stats.noLongerObserved.isEmpty {
-            self = .missingWorkers(stats.noLongerObserved.count)
         } else {
             return nil
         }
@@ -360,7 +396,6 @@ enum MenuBarContributorPresence {
 
     var symbol: String {
         switch self {
-        case .history, .missingWorkers: "circle.dashed"
         case .unavailable: "eye.slash"
         case .changedOwnership: "arrow.triangle.branch"
         }
@@ -368,10 +403,6 @@ enum MenuBarContributorPresence {
 
     var help: String {
         switch self {
-        case .history:
-            "No longer observed in the latest scan. Recent activity retained; exit not confirmed."
-        case .missingWorkers(let count):
-            "\(count) \(count == 1 ? "worker is" : "workers are") no longer observed; others may remain. Recent activity retained; exit not confirmed."
         case .unavailable:
             "Current presence could not be determined. See Diagnostics for collection gaps."
         case .changedOwnership:

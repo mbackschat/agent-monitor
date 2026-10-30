@@ -191,6 +191,16 @@ func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool, selected: Bool)
             return false
         })
     #expect(node.inspectionFields.contains { $0.label == "Directory" && $0.value == path })
+    #expect(MenuBarContributorPresence(stats: node.stats) == nil)
+    var mixed = node.stats
+    mixed.current = Set(model.report.overview.totals.current.prefix(1))
+    mixed.processes.formUnion(mixed.current)
+    #expect(MenuBarContributorPresence(stats: mixed) == nil)
+    #expect(MenuBarContributorCounts(stats: mixed).pastCount == node.stats.processes.count)
+    mixed.membershipChanged = node.stats.processes
+    #expect(MenuBarContributorCounts(stats: mixed).pastCount == 0)
+    mixed.currentAvailable = false
+    #expect(MenuBarContributorCounts(stats: mixed).help.contains("unavailable"))
     let host = NSHostingView(
         rootView:
             MenuBarContributorRow(node: node, overview: model.report.overview)
