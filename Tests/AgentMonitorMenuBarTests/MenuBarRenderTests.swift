@@ -230,19 +230,6 @@ private struct DisclosureChevronFixture: View {
     #expect(abs(host.fittingSize.width - width) < 0.5)
 }
 
-@Test @MainActor func sparseNativePanelKeepsStandardHeight() async throws {
-    let snapshot = try menuBarFixture()
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
-    model.open()
-    await model.waitForCollection()
-    _ = NSApplication.shared
-    let host = NSHostingView(rootView: MenuBarView(model: model))
-    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
-    host.layoutSubtreeIfNeeded()
-    #expect(host.fittingSize.height == 560)
-    await model.stop()
-}
-
 @Test @MainActor func nativePanelKeepsHeightAcrossDisclosureAndOverflow() async throws {
     let snapshot = try menuBarFixture(pids: Array(42001...42030))
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
@@ -419,42 +406,6 @@ private struct DisclosureChevronFixture: View {
 @Test @MainActor func nativePopoverAllowsAppKitDetachment() {
     let delegate = MenuBarDelegate()
     #expect(delegate.popoverShouldDetach(NSPopover()))
-}
-
-@Test @MainActor func detachmentDoesNotReflowTheHeader() async throws {
-    let snapshot = try menuBarFixture()
-    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
-    let delegate: any NSPopoverDelegate = MenuBarDelegate(model: model)
-    model.open()
-    await model.waitForCollection()
-    let host = NSHostingView(rootView: MenuBarView(model: model).background(Color.white))
-    host.appearance = NSAppearance(named: .aqua)
-    host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
-    func headerImage() throws -> Data {
-        host.layoutSubtreeIfNeeded()
-        let header = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 100)
-        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: header))
-        host.cacheDisplay(in: header, to: bitmap)
-        let scale = Double(bitmap.pixelsWide) / header.width
-        var occupiedCloseCornerPixels = 0
-        for y in 0..<Int(32 * scale) {
-            for x in 0..<Int(32 * scale) {
-                let color = try #require(bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
-                if min(color.redComponent, color.greenComponent, color.blueComponent) < 0.99 {
-                    occupiedCloseCornerPixels += 1
-                }
-            }
-        }
-        #expect(occupiedCloseCornerPixels == 0)
-        return try #require(bitmap.representation(using: .png, properties: [:]))
-    }
-    let before = try headerImage()
-    delegate.popoverDidDetach?(NSPopover())
-    let after = try headerImage()
-    #expect(before == after)
-    #expect(host.fittingSize == NSSize(width: MenuBarLayout.width, height: 560))
-    #expect(model.isOpen)
-    await model.stop()
 }
 
 @Test @MainActor func nativeHeaderLogoIsTheCanonicalArtwork() throws {

@@ -60,7 +60,11 @@ class ScratchCleanupTests(unittest.TestCase):
             link.symlink_to(self.root / active / 'debug', target_is_directory=True)
             paths = [path for path, _ in self.module.audit(self.root, 86400)]
             self.assertIn(self.root / inactive, paths)
-            self.assertNotIn(self.root / active, paths)
+            self.assertIn(self.root / active, paths)
+        (self.root / 'release').symlink_to(self.root / 'out' / 'debug', target_is_directory=True)
+        paths = [path for path, _ in self.module.audit(self.root, 86400)]
+        self.assertIn(self.root / 'out', paths)
+        self.assertIn(self.root / 'arm64-apple-macosx', paths)
 
     def test_audit_does_not_traverse_symbolic_links(self):
         outside = self.root / 'outside'

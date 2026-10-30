@@ -77,7 +77,7 @@ Select checks using the [validation matrix](docs/development.md#choose-checks-fo
 
 Common commands from the repository root:
 
-- `swift build` and `swift test`: build and run the Swift suite; use `swift test --filter <Suite>` for red/green loops and the full suite before committing shared-contract changes.
+- `swift build` and `swift test`: build and run the Swift suite; use `swift test --filter <Suite>` for focused red/green loops. Keep this POC lean: affected regressions and integration checks first; full suites are for broad refactors, release gates or explicit requests.
 - `python3 scripts/docs.py check`: documentation links, anchors, folder indices and status tables; required for documentation-only commits.
 - `swift format lint --strict --recursive Sources Tests Tools Package.swift`: formatting.
 - `bash scripts/doctor.sh`: read-only prerequisites and instruction/skill checks.

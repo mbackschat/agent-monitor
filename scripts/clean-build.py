@@ -28,12 +28,11 @@ def audit(build: Path, age_seconds: float) -> list[tuple[Path, str]]:
     for path in sorted(build.glob('*.png')):
         if not path.is_symlink() and path.is_file():
             candidates.append((path, 'review images belong in design-studies, not the build root'))
-    linked_products = [(build / name).resolve() for name in ('debug', 'release') if (build / name).is_symlink()]
-    for path in [build / 'out', *sorted(build.glob('*-apple-macosx'))]:
-        if path.is_dir() and not path.is_symlink() and linked_products:
-            if not any(product.is_relative_to(path.resolve()) for product in linked_products):
-                # Report only; product links do not establish whether another process uses the tree.
-                candidates.append((path, 'unreferenced build tree; verify idle before removal'))
+    trees = [path for path in [build / 'out', *sorted(build.glob('*-apple-macosx'))]
+             if path.is_dir() and not path.is_symlink()]
+    if len(trees) > 1:
+        # Debug and Release links may each retain a different backend; neither proves a tree is idle.
+        candidates.extend((path, 'multiple build backends retained; keep one after verifying idle') for path in trees)
     return candidates
 
 
