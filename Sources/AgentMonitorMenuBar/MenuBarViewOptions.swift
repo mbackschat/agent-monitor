@@ -90,7 +90,7 @@ enum MenuBarOption: Equatable {
         guard placement == .history, !tracking else { return }
         let title = "\(model.report.historyMetric.rawValue) · \(model.report.historyWindow.rawValue)"
         if button.title != title { button.title = title }
-        button.toolTip = "All observed agents; choose a history metric and time range"
+        button.toolTip = "All observed agents; h cycles the history metric, t cycles the time range"
     }
 
     func makeMenu() -> NSMenu {
@@ -172,7 +172,7 @@ enum MenuBarOption: Equatable {
             let rangeMenu = submenu(
                 "CPU chart range: \(Int(range.upper))%", in: menu,
                 help:
-                    "Fixed display range. Hardware default uses performance and super cores when identified; activity never changes it."
+                    "Fixed display range (b cycles choices). Hardware default uses performance and super cores when identified; activity never changes it."
             )
             for choice in range.choices {
                 add(
@@ -185,14 +185,15 @@ enum MenuBarOption: Equatable {
         let filterHelp = "Changes process rows; observed totals and recent activity stay unchanged."
         let cpu = model.report.thresholds.cpuPercent
         let cpuMenu = submenu(
-            cpu == 0 ? "CPU filter: Off" : "CPU > \(cpu.formatted())%", in: menu, help: filterHelp)
+            cpu == 0 ? "CPU filter: Off" : "CPU > \(cpu.formatted())%", in: menu,
+            help: filterHelp + " 1 lowers, 2 raises the threshold.")
         for value in Set([0, 5, 10, 25, 50, 100, 200, 400, 800, cpu]).sorted() {
             add(value == 0 ? "Off" : "\(value.formatted())%", .cpu(value), checked: value == cpu, to: cpuMenu)
         }
         let memory = model.report.thresholds.memoryBytes
         let memoryMenu = submenu(
             memory == 0 ? "Footprint filter: Off" : "Footprint > \((Double(memory) / 1e9).formatted()) GB",
-            in: menu, help: filterHelp)
+            in: menu, help: filterHelp + " 3 lowers, 4 raises the threshold.")
         let memorySteps: [UInt64] = [
             0, 250_000_000, 500_000_000, 1_000_000_000, 2_000_000_000, 4_000_000_000, 8_000_000_000,
             16_000_000_000,
@@ -220,7 +221,8 @@ enum MenuBarOption: Equatable {
         let settings = model.report.samplingSettings
         let interval = settings.visibleMaximum
         let intervalMenu = submenu(
-            "Maximum interval: \(interval.formatted()) s", in: menu, help: "Maximum while the panel is open.")
+            "Maximum interval: \(interval.formatted()) s", in: menu,
+            help: "Maximum while the panel is open. < slows acquisition, > speeds it up.")
         for value in Set(LiveReportState.intervalSteps + [15, interval]).sorted() {
             addSamplingChoice("\(value.formatted()) s", .interval(value), to: intervalMenu)
         }
@@ -263,12 +265,41 @@ enum MenuBarOption: Equatable {
     private func add(
         _ title: String, _ option: MenuBarOption, checked: Bool, enabled: Bool = true, to menu: NSMenu
     ) {
-        let item = NSMenuItem(title: title, action: #selector(choose(_:)), keyEquivalent: "")
+        let item = NSMenuItem(
+            title: title, action: #selector(choose(_:)), keyEquivalent: shortcut(for: option))
+        item.keyEquivalentModifierMask = []
+        item.allowsKeyEquivalentWhenHidden = false
         item.target = self
         item.representedObject = option
         item.state = checked ? .on : .off
         item.isEnabled = enabled
         menu.addItem(item)
+    }
+
+    private func shortcut(for option: MenuBarOption) -> String {
+        switch option {
+        case .sort(let sort):
+            switch sort {
+            case .cpu: return ReportShortcut.cpu.rawValue
+            case .memory: return ReportShortcut.memory.rawValue
+            case .pid: return ReportShortcut.pid.rawValue
+            case .stable: return ReportShortcut.stable.rawValue
+            }
+        case .ascending: return ReportShortcut.reverse.rawValue
+        case .unpinAll: return ReportShortcut.unpinAll.rawValue
+        case .view(let view):
+            for shortcut in [ReportShortcut.allContributors, .overview, .grouping] {
+                var report = model.report
+                report.apply(shortcut)
+                if report.view != model.report.view, report.view == view { return shortcut.rawValue }
+            }
+            return ""
+        case .historyMetric(let metric):
+            return metric == model.report.historyMetric.next ? ReportShortcut.historyMetric.rawValue : ""
+        case .historyWindow(let window):
+            return window == model.report.historyWindow.next ? ReportShortcut.historyWindow.rawValue : ""
+        default: return ""
+        }
     }
 
     @objc private func choose(_ item: NSMenuItem) {

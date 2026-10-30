@@ -146,8 +146,8 @@ private struct ContributorTableBackdrop: View {
     await model.stop()
 }
 
-@Test(arguments: [false, true]) @MainActor
-func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool) async throws {
+@Test(arguments: [false, true], [false, true]) @MainActor
+func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool, selected: Bool) async throws {
     let path =
         "/Users/fixture/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/very-long-workspace/jsonschema-0.58.6"
     let snapshot = try nativeOverviewFixture(historicalDirectory: path)
@@ -163,7 +163,10 @@ func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool) async throws {
     let host = NSHostingView(
         rootView:
             MenuBarContributorRow(node: node, overview: model.report.overview)
-            .padding(12).frame(width: 590, height: 180).background { MenuBarReadingSurface() })
+            .environment(\.backgroundProminence, selected ? .increased : .standard)
+            .padding(12).frame(width: 590, height: 180).background {
+                if selected { Color.accentColor } else { MenuBarReadingSurface() }
+            })
     host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
     host.frame.size = host.fittingSize
     let window = await mountOffscreenNativePreview(host)
@@ -176,7 +179,7 @@ func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool) async throws {
     if let directory = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: directory).appendingPathComponent(
-                dark ? "historical-path-dark.png" : "historical-path-light.png"))
+                "historical-path-\(dark ? "dark" : "light")\(selected ? "-selected" : "").png"))
     }
     await model.stop()
 }

@@ -35,8 +35,10 @@ import SwiftUI
     private func applyPreset() {
         guard let window, let host else { return }
         applyingPreset = true
+        let top = window.frame.maxY
         window.setContentSize(
             NSSize(width: MenuBarLayout.width, height: min(model.panelHeight, host.rootView.maximumHeight)))
+        window.setFrameOrigin(NSPoint(x: window.frame.minX, y: top - window.frame.height))
         applyingPreset = false
     }
 

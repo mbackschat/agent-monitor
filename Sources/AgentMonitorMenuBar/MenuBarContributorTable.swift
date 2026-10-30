@@ -242,13 +242,6 @@ struct MenuBarContributorRow: View {
         return "\(count) currently observed \(count == 1 ? "process" : "processes") in this contributor"
     }
 
-    private var presenceHelp: String? {
-        node.retainedStatus
-            ?? (node.stats.noLongerObserved.isEmpty
-                ? nil
-                : "\(node.stats.noLongerObserved.count) workers no longer observed; exit unconfirmed")
-    }
-
     private var workloadText: AttributedString {
         overview.workloadParts(for: node).reduce(into: AttributedString()) { result, part in
             if case .status = part { return }
@@ -274,7 +267,11 @@ struct MenuBarContributorRow: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(TextReport.safe(node.label.headline))
                             .font(
-                                .system(size: depth == 0 ? 15 : 14, weight: .semibold))
+                                .system(
+                                    size: depth == 0 ? 15 : 14,
+                                    weight: node.stats.isNoLongerObserved ? .regular : .semibold)
+                            )
+                            .italic(node.stats.isNoLongerObserved)
                     }.lineLimit(1).truncationMode(.middle)
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 MenuBarContributorLane(activity: overview.activity, id: node.id).frame(width: 100, height: 32)
@@ -287,17 +284,14 @@ struct MenuBarContributorRow: View {
                     .frame(width: 88, alignment: .trailing).accessibilityLabel(
                         "Memory: " + node.stats.currentMemoryText)
             }.monospacedDigit()
-                .opacity(node.stats.isNoLongerObserved ? (prominence == .increased ? 0.85 : 0.66) : 1)
+                .opacity(node.stats.isNoLongerObserved ? (prominence == .increased ? 0.65 : 0.55) : 1)
             HStack(spacing: 6) {
                 Text(workloadText)
                     .lineLimit(2).truncationMode(.middle).frame(maxWidth: .infinity, alignment: .leading)
-                if let status = presenceHelp {
-                    Image(
-                        systemName: node.stats.isNoLongerObserved
-                            ? "clock.arrow.circlepath" : "questionmark.circle"
-                    )
-                    .help(status + ". Recent CPU " + node.stats.recentCPUText)
-                    .accessibilityLabel(status + ". Recent CPU " + node.stats.recentCPUText)
+                if let status = MenuBarContributorPresence(stats: node.stats) {
+                    Image(systemName: status.symbol)
+                        .help(status.help + " Recent CPU: " + node.stats.recentCPUText + ".")
+                        .accessibilityLabel(status.help + " Recent CPU: " + node.stats.recentCPUText + ".")
                 }
                 if let toggleDisclosure {
                     Button(action: toggleDisclosure) {
@@ -328,6 +322,47 @@ struct MenuBarContributorRow: View {
         }.foregroundStyle(prominence == .increased ? Color.white : Color.primary)
             .help(
                 node.title + ". " + node.stats.census)
+    }
+}
+
+enum MenuBarContributorPresence {
+    case history
+    case missingWorkers(Int)
+    case unavailable, changedOwnership
+
+    init?(stats: ContributorStats) {
+        if !stats.currentAvailable, stats.hasContributions {
+            self = .unavailable
+        } else if stats.isNoLongerObserved {
+            self = .history
+        } else if stats.current.isEmpty, !stats.membershipChanged.isEmpty {
+            self = .changedOwnership
+        } else if !stats.noLongerObserved.isEmpty {
+            self = .missingWorkers(stats.noLongerObserved.count)
+        } else {
+            return nil
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .history, .missingWorkers: "clock.arrow.circlepath"
+        case .unavailable: "eye.slash"
+        case .changedOwnership: "arrow.triangle.branch"
+        }
+    }
+
+    var help: String {
+        switch self {
+        case .history:
+            "No longer observed in the latest scan. Recent activity is retained; this does not confirm the process exited. Open Details to inspect its recorded identity and working directory."
+        case .missingWorkers(let count):
+            "\(count) workers in this contributor are no longer observed in the latest scan; other members may still be present. Recent activity is retained, and absence does not confirm exit. Open Details for counts and identities."
+        case .unavailable:
+            "Current presence is unavailable: the latest scan could not establish which processes are still present. This is not a confirmed exit. Open Diagnostics for collection gaps and Details for retained identity."
+        case .changedOwnership:
+            "No current members remain under this contributor's recorded ownership. The observed attribution changed; this does not mean the processes exited. Open Details to inspect the retained ownership evidence."
+        }
     }
 }
 

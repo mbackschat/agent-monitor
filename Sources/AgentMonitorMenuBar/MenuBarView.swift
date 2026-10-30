@@ -85,9 +85,10 @@ struct MenuBarView: View {
                 .labelsHidden().frame(width: 100).controlSize(.small)
                 Button("Quit", systemImage: "power") { NSApplication.shared.terminate(nil) }.labelStyle(
                     .iconOnly
-                ).help("Quit Agent Monitor").keyboardShortcut("q")
+                ).help("Quit Agent Monitor (⌘Q)").keyboardShortcut("q")
             }
             .padding(12)
+            MenuBarResizeGrip(model: model, maximumHeight: maximumHeight).frame(height: 16)
         }
         .frame(width: MenuBarLayout.width)
         .frame(
@@ -225,7 +226,7 @@ struct MenuBarView: View {
                         model.report.overview.showAll.toggle()
                     }.labelStyle(.iconOnly).help(
                         model.report.overview.showAll
-                            ? "Compact contributor overview" : "Show all contributors"
+                            ? "Compact contributor overview (a)" : "Show all contributors (a)"
                     ).controlSize(.small)
                 }
                 MenuBarViewOptions(model: model)
@@ -353,20 +354,24 @@ struct MenuBarView: View {
 
     private func pinCommand(_ id: LiveReportRowID) -> some View {
         Button(model.report.isPinned(id) ? "Unpin" : "Pin", systemImage: "pin") { model.togglePin(id) }
+            .help("Pin or unpin this row. Select the row and press . for the keyboard action.")
     }
 
     @ViewBuilder private func rowCommands(_ id: LiveReportRowID) -> some View {
         pinCommand(id)
         Button("Copy PID", systemImage: "doc.on.doc") { model.copyPID(row: id) }
             .disabled(model.pidToCopy(for: id) == nil)
+            .help("Copy this process ID. Select the process row and press y for the keyboard action.")
         Divider()
         Button("Focus terminal", systemImage: "terminal") { model.begin(.focus, row: id) }
             .disabled(!model.canBegin(.focus, row: id))
+            .help("Show this process's terminal. Select the row and press f for the keyboard action.")
         Button("Message…", systemImage: "bubble") { model.begin(.message, row: id) }
             .disabled(!model.canBegin(.message, row: id))
             .help(ProviderRuntimeAvailability.messagingUnavailableReason)
         Button("Terminate…", systemImage: "stop", role: .destructive) { model.begin(.terminate, row: id) }
             .disabled(!model.canBegin(.terminate, row: id))
+            .help("Review termination of this process. Select the row and press k for the keyboard action.")
     }
 
     private func moveFocus(by delta: Int) -> KeyPress.Result {

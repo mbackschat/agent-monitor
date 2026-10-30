@@ -6,6 +6,23 @@ import Testing
 
 @testable import AgentMonitorMenuBar
 
+@Test @MainActor func menuCommandsExposeTheirExistingKeyboardShortcuts() throws {
+    let model = MenuBarModel { _, _, _ in }
+    let controller = MenuBarOptionsController(model: model)
+    let menu = controller.makeMenu()
+    for (title, key) in [
+        ("CPU", "c"), ("Footprint", "m"), ("Stable order", "o"), ("Ascending", "r"), ("Unpin all", "u"),
+    ] {
+        let item = try #require(menu.item(withTitle: title))
+        #expect(item.keyEquivalent == key)
+        #expect(item.keyEquivalentModifierMask.isEmpty)
+    }
+    #expect(menu.item(withTitle: "Contributor")?.keyEquivalent == "")
+    model.report.view = .processes
+    controller.menuNeedsUpdate(menu)
+    #expect(menu.item(withTitle: "PID")?.keyEquivalent == "n")
+}
+
 @Test @MainActor func viewOptionsIsReadyOnFirstLayoutWithFlatCheckedDisplayChoices() throws {
     _ = NSApplication.shared
     let model = MenuBarModel { _, _, _ in }
