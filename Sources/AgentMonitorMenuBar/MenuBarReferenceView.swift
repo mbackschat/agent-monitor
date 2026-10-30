@@ -77,7 +77,7 @@ struct MenuBarReferenceContent: View {
                 Text(page.title).font(.headline)
                 Spacer()
                 Button("Close", systemImage: "xmark", action: dismiss)
-                    .labelStyle(.iconOnly).help("Close").keyboardShortcut(.cancelAction)
+                    .labelStyle(.iconOnly).help("Close (Esc)").keyboardShortcut(.cancelAction)
             }
             .padding(14)
             Divider()

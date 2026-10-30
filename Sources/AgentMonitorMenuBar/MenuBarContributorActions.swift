@@ -20,11 +20,16 @@ struct MenuBarContributorActions: View {
                             + (model.report.overview.selection == node.id
                                 && (model.report.overview.inspectedProcess == nil
                                     || !model.report.overview.detailsVisible)
-                                ? " (k)" : ""),
+                                ? " (k)"
+                                : (model.report.overview.selection == node.id
+                                    ? " (k after closing Details)" : " (k after selection)")),
                         systemImage: "stop.circle", role: .destructive
                     ) {
                         model.beginContributorTermination(node.id)
                     }.disabled(!model.canBeginContributorTermination(node.id))
+                        .help(
+                            "Review all current targets in this contributor. For k, select this contributor and close its process inspector first; k in a process inspector targets only that process."
+                        )
                     Divider()
                     ForEach(targets, id: \.process) { process in
                         Menu(TextReport.safe(process.name) + " · PID " + String(process.process.pid)) {
@@ -47,12 +52,13 @@ struct MenuBarContributorActions: View {
         }
     }
 
-    private func shortcut(_ key: String, process: ProcessIdentity) -> String {
-        guard model.report.overview.selection == node.id else { return "" }
+    func shortcut(_ key: String, process: ProcessIdentity) -> String {
+        let preparation = " (" + key + " after inspection)"
+        guard model.report.overview.selection == node.id else { return preparation }
         if model.report.overview.detailsVisible, let inspected = model.report.overview.inspectedProcess {
-            return inspected == process ? " (" + key + ")" : ""
+            return inspected == process ? " (" + key + ")" : preparation
         }
-        return model.report.contributorProcesses(for: node.id).count == 1 ? " (" + key + ")" : ""
+        return model.report.contributorProcesses(for: node.id).count == 1 ? " (" + key + ")" : preparation
     }
 
     @ViewBuilder private func commands(_ process: HeavyProcess) -> some View {
@@ -62,6 +68,9 @@ struct MenuBarContributorActions: View {
         Button("Show terminal" + shortcut("f", process: process.process), systemImage: "terminal") {
             model.begin(.focus, contributor: node.id, process: process.process)
         }.disabled(!model.canBegin(.focus, contributor: node.id, process: process.process))
+            .help(
+                "Show this process's terminal (f). Choose Inspect process… first to make this exact PID the keyboard target."
+            )
         Button("Message unavailable — offline", systemImage: "bubble") {}.disabled(true)
             .help(ProviderRuntimeAvailability.messagingUnavailableReason)
         Divider()
@@ -72,6 +81,9 @@ struct MenuBarContributorActions: View {
         ) {
             model.begin(.terminate, contributor: node.id, process: process.process)
         }.disabled(!model.canBegin(.terminate, contributor: node.id, process: process.process))
+            .help(
+                "Review termination of this process (k). Choose Inspect process… first to make this exact PID the keyboard target. Confirmation is still required."
+            )
     }
 }
 

@@ -14,7 +14,9 @@ struct MenuBarProcessDetails: View {
                 Text(TextReport.safe(process.name)).font(.headline).lineLimit(1).truncationMode(.middle)
                 Text("PID \(String(process.process.pid))").foregroundStyle(.secondary)
                 Button("Copy PID", systemImage: "doc.on.doc") { copyPID() }
-                    .labelStyle(.iconOnly).help("Copy process ID \(process.process.pid)")
+                    .labelStyle(.iconOnly).help(
+                        "Copy process ID \(process.process.pid). Keyboard: y in Processes view with this process row selected."
+                    )
                 Spacer(minLength: 0)
                 Text(
                     "CPU "

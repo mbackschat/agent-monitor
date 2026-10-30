@@ -106,6 +106,9 @@ private struct MenuBarRowHeader<Label: View>: View {
                 return .handled
             }
             .accessibilityValue(disclosure.accessibilityValue(expanded: expanded))
+            .help(
+                "Expand with → or collapse with ← when this row is focused. ⇧→ / ⇧← expands or collapses session groups."
+            )
             MenuBarPinButton(pinned: pinned, action: onPin)
                 .opacity(pinned || hovered || focus.wrappedValue?.rowID == id ? 1 : 0)
                 .focused(focus, equals: .pin(id))

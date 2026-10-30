@@ -398,6 +398,9 @@ struct MenuBarView: View {
                 Button("Terminal", systemImage: "terminal") { model.begin(.focus, row: .group(group.id)) }
                     .controlSize(.small)
                     .disabled(!model.canBegin(.focus, row: .group(group.id)))
+                    .help(
+                        "Show this session's terminal. Select this session row, then f for the keyboard action."
+                    )
                 LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(model.rowIndex.projection.childrenByGroup[group.id] ?? [], id: \.process) {
                         process in
@@ -468,6 +471,7 @@ struct MenuBarView: View {
                     Button("Cancel") { model.input(.escape) }
                         .focused($focus, equals: .inspection)
                         .keyboardShortcut(.cancelAction)
+                        .help("Cancel termination review (Esc)")
                     Spacer()
                     Button(panel.processes.count == 1 ? "Terminate" : "Terminate all", role: .destructive) {
                         model.input(.confirm)

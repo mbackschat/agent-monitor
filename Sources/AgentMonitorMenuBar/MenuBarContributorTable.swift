@@ -109,7 +109,9 @@ struct MenuBarContributorTable: View {
                                 } label: {
                                     Image(systemName: "info.circle").frame(width: 24, height: 28)
                                 }
-                                .buttonStyle(.borderless).help("Contributor details (i)")
+                                .buttonStyle(.borderless).help(
+                                    "Contributor details. Select this row, then i to show or hide its details."
+                                )
                                 .accessibilityLabel("Details for " + node.label.headline)
                             }.padding(.trailing, 4).padding(.bottom, 4)
                         }
@@ -155,6 +157,7 @@ struct MenuBarContributorTable: View {
                         model.report.overview.select(id)
                         if !model.report.overview.detailsVisible { model.report.overview.toggleDetails() }
                     }
+                    .help("Select this row, then i to show or hide its contributor details.")
                     if let target = overview.pinTarget(for: id) {
                         Button(
                             overview.pinned.contains(target) ? "Unpin session" : "Pin session",
@@ -162,6 +165,7 @@ struct MenuBarContributorTable: View {
                         ) {
                             model.report.overview.togglePin(for: id)
                         }
+                        .help("Select this row, then . to pin or unpin its owning session.")
                     }
                 }
             }
@@ -189,7 +193,9 @@ struct MenuBarContributorTable: View {
                 model.report.overview.order == field
                     ? (model.report.overview.ascending ? "Ascending" : "Descending") : "Not sorted"
             )
-            .help("Sort by " + title + "; click again to reverse")
+            .help(
+                "Sort by " + title + (field == .cpu ? " (c)" : field == .memory ? " (m)" : "")
+                    + "; click again to reverse, or press r to reverse the current sort.")
     }
 }
 
@@ -307,7 +313,8 @@ struct MenuBarContributorRow: View {
                         .help(
                             processCountHelp
                                 + (overview.isExpanded(node.id)
-                                    ? " — click to collapse" : " — click to expand")
+                                    ? " — click to collapse (← with this row selected)"
+                                    : " — click to expand (→ with this row selected)")
                         )
                         .accessibilityValue(processCountHelp)
                 } else {
