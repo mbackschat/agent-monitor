@@ -54,5 +54,9 @@ else
     echo 'OPTIONAL: Agent skills are absent. To use them, run bash scripts/skills.sh install.'
 fi
 
+if ! python3 "$root/scripts/clean-build.py" check; then
+    fail 'Stale build artifacts need review; see docs/development.md#build-and-probe-artifact-retention.'
+fi
+
 echo 'Preview generation uses Swift only; no image converter or font installation is needed.'
 exit "$status"

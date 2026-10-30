@@ -9,6 +9,7 @@ case "$mode" in
 esac
 
 cd "$root"
+python3 scripts/clean-build.py check
 configuration=${AGENT_MONITOR_BUILD_CONFIGURATION:-release}
 case "$configuration" in
     debug|release) ;;

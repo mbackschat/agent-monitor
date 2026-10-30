@@ -19,6 +19,61 @@ class ScratchCleanupTests(unittest.TestCase):
         self.module = importlib.util.module_from_spec(SPEC)
         SPEC.loader.exec_module(self.module)
 
+    def test_audit_flags_old_logs_and_loose_images_without_deleting_anything(self):
+        for name in ('old.log', 'loose.png', 'experiment'):
+            path = self.root / name
+            path.touch()
+        for name in ('workspace-state.json', 'build.db', '.lock'):
+            (self.root / name).touch()
+        for name in ('out', 'checkouts', 'Agent Monitor.app', 'module-cache'):
+            (self.root / name).mkdir()
+        candidates = self.module.audit(self.root, 0)
+        self.assertEqual({path.name for path, _ in candidates}, {'old.log', 'loose.png'})
+        self.assertTrue(all(path.exists() for path, _ in candidates))
+
+    def test_audit_respects_recent_outputs_and_active_scratch_leases(self):
+        import fcntl
+        (self.root / 'recent.log').touch()
+        studies = self.root / 'design-studies'
+        studies.mkdir()
+        (studies / 'review.png').touch()
+        self.assertEqual(self.module.audit(self.root, 86400), [])
+        scratch = self.root / 'scratch'
+        scratch.mkdir()
+        run = scratch / 'run-active'
+        run.mkdir()
+        with (run / '.cleanup-lock').open('w') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            self.assertNotIn(run, [p for p, _ in self.module.audit(self.root, 0)])
+
+    def test_audit_flags_misplaced_images_even_when_recent(self):
+        misplaced = self.root / 'new-study.png'
+        misplaced.touch()
+        self.assertIn(misplaced, [path for path, _ in self.module.audit(self.root, 86400)])
+
+    def test_audit_flags_both_kinds_of_displaced_build_tree(self):
+        for name in ('out', 'arm64-apple-macosx'):
+            (self.root / name / 'debug').mkdir(parents=True)
+        link = self.root / 'debug'
+        for active, inactive in [('out', 'arm64-apple-macosx'), ('arm64-apple-macosx', 'out')]:
+            link.unlink(missing_ok=True)
+            link.symlink_to(self.root / active / 'debug', target_is_directory=True)
+            paths = [path for path, _ in self.module.audit(self.root, 86400)]
+            self.assertIn(self.root / inactive, paths)
+            self.assertNotIn(self.root / active, paths)
+
+    def test_audit_does_not_traverse_symbolic_links(self):
+        outside = self.root / 'outside'
+        outside.mkdir()
+        (outside / 'old.log').touch()
+        build = self.root / 'build'
+        build.mkdir()
+        (build / 'external').symlink_to(outside, target_is_directory=True)
+        self.assertEqual(self.module.audit(build, 0), [])
+        (self.root / 'linked-build').symlink_to(build, target_is_directory=True)
+        with self.assertRaises(ValueError):
+            self.module.audit(self.root / 'linked-build', 0)
+
     def test_command_output_is_removed_on_success_and_failure(self):
         for status in (0, 7):
             code = 'import os,pathlib,sys; pathlib.Path(os.environ["AGENT_MONITOR_SCRATCH"],"trace").write_text("data"); sys.exit(%d)' % status
@@ -45,7 +100,7 @@ class ScratchCleanupTests(unittest.TestCase):
                         self.module.run(self.root, ['fake-command'])
                 self.assertIs(caught.exception, interruption)
                 self.assertIs(caught.exception.__context__, failure)
-                self.assertEqual(list(self.root.iterdir()), [])
+                self.assertTrue(list(self.root.glob("run-*/.cleanup-lock")))
 
     def test_interruption_does_not_signal_an_already_finished_command(self):
         interruption = KeyboardInterrupt()
