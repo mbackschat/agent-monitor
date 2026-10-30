@@ -257,10 +257,20 @@ func nativeOverviewFixture(
     let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
     let text = recognized.map(\.text)
         .joined(separator: " ")
-    #expect(text.contains("Read failures: 3 same-user PIDs"), "\(text)")
+    #expect(!text.contains("Read failures"), "\(text)")
+    let hasWarningBadge = (bitmap.pixelsHigh * 4 / 5..<bitmap.pixelsHigh).contains { y in
+        (0..<bitmap.pixelsWide / 3).contains { x in
+            guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else { return false }
+            return color.redComponent > 0.8 && color.greenComponent > 0.25
+                && color.greenComponent < 0.8 && color.blueComponent < 0.2
+        }
+    }
+    #expect(hasWarningBadge, "Measurement gaps remain visible on the footer Diagnostics button")
+    if let path = ProcessInfo.processInfo.environment["MENUBAR_COVERAGE_PREVIEW_PATH"] {
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: path))
+    }
     #expect(!text.contains("See Diagnostics"))
-    let warning = try #require(recognized.first { $0.text.contains("Read failures") })
-    #expect(warning.bounds.maxY < 0.2, "Coverage belongs beside the footer Diagnostics control")
     #expect(!text.contains("Details"))
     #expect(model.report.displayCoverageStatus.notes.contains { $0.text.contains("3 same-user") })
     await model.stop()

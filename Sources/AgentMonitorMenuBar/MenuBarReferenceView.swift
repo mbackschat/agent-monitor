@@ -28,10 +28,6 @@ struct MenuBarReferenceMenu: View {
         HStack(spacing: 8) {
             referenceButton(.glossary)
             referenceButton(.diagnostics)
-            if !model.report.displayCoverageStatus.notes.isEmpty {
-                MenuBarCoverageStatus(model: model)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
         }
         .controlSize(.small)
         .popover(item: $model.referencePage) { page in
@@ -40,29 +36,27 @@ struct MenuBarReferenceMenu: View {
     }
 
     private func referenceButton(_ page: MenuBarReferencePage) -> some View {
-        Button(page.title, systemImage: page.symbol) { model.referencePage = page }
-            .labelStyle(.iconOnly).help(page.title)
-    }
-}
-
-struct MenuBarCoverageStatus: View {
-    let model: MenuBarModel
-
-    var body: some View {
-        let status = model.report.displayCoverageStatus
-        HStack {
-            if !status.notes.isEmpty {
-                Label(
-                    status.summaryText,
-                    systemImage: status.severity == .warning ? "exclamationmark.triangle" : "info.circle"
-                )
-                .lineLimit(2)
-                .foregroundStyle(status.severity == .warning ? Color.orange : Color.secondary)
+        let severity = page == .diagnostics ? model.report.displayCoverageStatus.severity : nil
+        let help =
+            switch severity {
+            case .warning: "Some process usage could not be measured. Open Diagnostics for details."
+            case .notice: "Measurement limits apply. Open Diagnostics for details."
+            case nil: page.title
+            }
+        return Button {
+            model.referencePage = page
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: page.symbol)
+                if let severity {
+                    Image(systemName: severity == .warning ? "exclamationmark.triangle.fill" : "info.circle")
+                        .foregroundStyle(severity == .warning ? Color.orange : Color.secondary)
+                }
             }
         }
-        .font(.caption2)
-        .fixedSize(horizontal: false, vertical: true)
-        .help(status.help)
+        .accessibilityLabel(page.title)
+        .accessibilityValue(severity == nil ? "" : help)
+        .help(help)
     }
 }
 
