@@ -36,8 +36,6 @@ struct MenuBarContributorOverview: View {
             GeometryReader { geometry in
                 VStack(alignment: .leading, spacing: 6) {
                     MenuBarContributorTable(model: model, focus: focus)
-                    Text("Recent " + overview.activity.intervalLabel + " · 100% = one core")
-                        .font(.caption2).foregroundStyle(.secondary)
                     if overview.detailsVisible, let id = overview.selection, let node = overview.nodes[id] {
                         Divider()
                         Group {
