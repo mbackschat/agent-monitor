@@ -393,12 +393,18 @@ func nativeOverviewFixture(
     _ = NSApplication.shared
     var overview = ContributorOverview()
     overview.receive(try nativeOverviewFixture())
-    let node = try #require(overview.nodes.values.first { $0.process != nil })
+    let node = try #require(
+        overview.nodes.values.filter { $0.process != nil }.max {
+            $0.stats.recentCPU < $1.stats.recentCPU
+        })
+    #expect(node.populationFields.allSatisfy { $0.help?.isEmpty == false })
+    #expect(node.inspectionFields.filter { $0.kind == .evidence }.allSatisfy { $0.help?.isEmpty == false })
     let host = NSHostingView(
         rootView:
             MenuBarContributorInspection(
-                node: node, duration: overview.duration, canInspect: false, inspect: {}
-            ).frame(width: 580, height: 250)
+                activity: overview.activity, node: node, duration: overview.duration,
+                canInspect: false, inspect: {}
+            ).frame(width: 580, height: 1200)
             .background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
     host.layoutSubtreeIfNeeded()
@@ -418,6 +424,11 @@ func nativeOverviewFixture(
     #expect(text.contains("Directory"), "\(text)")
     #expect(text.contains("Executable"), "\(text)")
     #expect(text.contains("Recent CPU"), "\(text)")
+    #expect(text.contains("CPU history"), "\(text)")
+    #expect(text.contains("Processes now"), "Counts should be visible without disclosure: \(text)")
+    #expect(text.contains("Meaning"), "Counts need visible explanations: \(text)")
+    #expect(text.contains("Attribution"), "Evidence remains available on demand: \(text)")
+    #expect(!text.contains("Frozen root"), "Technical evidence should start collapsed: \(text)")
     if let path = ProcessInfo.processInfo.environment["MENUBAR_INSPECTION_PREVIEW_PATH"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: path))

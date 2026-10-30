@@ -441,7 +441,7 @@ struct MenuBarContributorLane: View {
             let color: Color = prominence == .increased ? .white : .accentColor
             guard !activity.spans.isEmpty else { return }
             // Whole intervals are ordinal bars, with pixel-aligned equal widths; unequal durations
-            // remain explicit in the caption (architecture.md, Resource history).
+            // remain explicit in chart help (architecture.md, Resource history).
             let step = floor(size.width * displayScale / Double(activity.spans.count)) / displayScale
             let leading = (size.width - step * Double(activity.spans.count)) / 2
             let gap = 1 / displayScale

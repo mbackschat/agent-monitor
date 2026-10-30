@@ -55,14 +55,29 @@ public struct ContributorNode: Equatable, Sendable, Identifiable {
     public var populationFields: [InspectionField] {
         [
             InspectionField(
-                "Processes now", stats.currentAvailable ? String(stats.current.count) : "Unavailable"),
-            InspectionField("Recent workers", stats.workerCountText),
+                "Processes now", stats.currentAvailable ? String(stats.current.count) : "Unavailable",
+                help: "Processes present in the latest displayed sample. Unavailable does not mean zero."),
+            InspectionField(
+                "Recent workers", stats.workerCountText,
+                help:
+                    "Workers seen in the retained history, current and past. Excludes agent runtimes; overlaps Processes now."
+            ),
             InspectionField(
                 "No longer observed",
                 stats.currentAvailable ? String(stats.noLongerObserved.count) : "Unavailable",
-                help: "Absence is not confirmed termination."),
-            InspectionField("Agent runtimes", String(stats.runtimes.count)),
-            InspectionField("Filtered members", String(stats.filtered.count)),
+                help:
+                    "Workers absent from the latest displayed scan. Their measured CPU remains; absence does not confirm exit."
+            ),
+            InspectionField(
+                "Agent runtimes", String(stats.runtimes.count),
+                help:
+                    "Recognised agent runtime processes in retained history. Also counted in Processes now when present."
+            ),
+            InspectionField(
+                "Filtered members", String(stats.filtered.count),
+                help:
+                    "Processes outside CPU or memory display thresholds. Their measured contributions remain in totals."
+            ),
         ]
     }
     public var inspectionFields: [InspectionField] { labels + evidence.flatMap(\.fields) }
@@ -151,48 +166,88 @@ struct ContributorEvidence: Equatable, Sendable {
             InspectionField("Session", key.owner.sessionID ?? "Unresolved"),
             InspectionField("Directory", record.cwd ?? "Unavailable"),
             InspectionField("Executable", key.executable),
-            InspectionField("Lifetime", "PID \(key.process.pid), start µs \(key.process.startMicroseconds)"),
+            InspectionField(
+                "Lifetime", "PID \(key.process.pid), start µs \(key.process.startMicroseconds)",
+                kind: .evidence,
+                help: "PID plus start time identifies this exact process lifetime, even if the PID is reused."
+            ),
             InspectionField("State", state),
             InspectionField(
-                "Role", key.isAgentRuntime ? "Adapter-recognised agent runtime" : "Worker", kind: .evidence),
+                "Role", key.isAgentRuntime ? "Adapter-recognised agent runtime" : "Worker", kind: .evidence,
+                help: "Whether this process is the agent runtime itself or a worker it uses."),
             InspectionField(
                 "First / last seen",
                 String(format: "%.1f–%.1f s", first ?? record.firstObservedAt, record.lastObservedAt),
-                kind: .evidence, help: "Acquisition-run monotonic time."),
-            InspectionField("Ownership", key.owner.resolution.rawValue, kind: .evidence),
-            InspectionField("Evidence", evidence.sorted().joined(separator: ", "), kind: .evidence),
-            InspectionField("Frozen root", key.owner.rootSessionID ?? "Not corroborated", kind: .evidence),
-            InspectionField("Membership changes", String(stats.membershipChanged.count), kind: .evidence),
+                kind: .evidence,
+                help:
+                    "First and last observations, in seconds on the monitoring run’s monotonic clock; not confirmed birth or exit times."
+            ),
+            InspectionField(
+                "Ownership", key.owner.resolution.rawValue, kind: .evidence,
+                help:
+                    "How confidently the observed evidence associates this process with a session. A candidate is not proof for the whole CPU interval."
+            ),
+            InspectionField(
+                "Evidence", evidence.sorted().joined(separator: ", "), kind: .evidence,
+                help: "Observed signals used for attribution; not a guarantee of continuous ownership."),
+            InspectionField(
+                "Frozen root", key.owner.rootSessionID ?? "Not corroborated", kind: .evidence,
+                help:
+                    "Root session recorded with this observation, when corroborated by the available evidence."
+            ),
+            InspectionField(
+                "Membership changes", String(stats.membershipChanged.count), kind: .evidence,
+                help: "Still-observed processes whose current ownership differs from this historical row."),
             InspectionField(
                 "Intervals", "\(stats.recentMeasurements) accepted · \(stats.exclusions) excluded",
-                kind: .evidence),
+                kind: .evidence,
+                help:
+                    "Accepted CPU intervals and excluded readings. Excluded readings contribute no measured CPU."
+            ),
         ]
         if let name = key.invocationName { fields.insert(InspectionField("Invoked as", name), at: 4) }
         if let maximum = stats.maximumWorkerFootprint {
-            fields.append(InspectionField("Sampled maximum", memory(maximum), kind: .evidence))
+            fields.append(
+                InspectionField(
+                    "Sampled maximum", memory(maximum), kind: .evidence,
+                    help: "Largest retained worker footprint reading, not current memory."))
         }
         if let peak {
             fields.append(
                 InspectionField(
                     "Kernel task peak",
                     memory(peak) + (record.kernelPeakUnavailable ? " · later unavailable" : ""),
-                    kind: .evidence))
+                    kind: .evidence,
+                    help:
+                        "Peak reported by the kernel; it may predate this history or reset when the executable changes."
+                ))
             fields.append(
                 InspectionField(
-                    "Peak epoch", "Unverified; may predate this range or reset on exec", kind: .evidence))
+                    "Peak epoch", "Unverified; may predate this range or reset on exec", kind: .evidence,
+                    help: "The time range covered by the kernel peak is not established."))
         }
         if !key.owner.candidates.isEmpty {
             fields.append(
                 InspectionField(
-                    "Conflicting candidates", key.owner.candidates.joined(separator: ", "), kind: .evidence))
+                    "Conflicting candidates", key.owner.candidates.joined(separator: ", "), kind: .evidence,
+                    help: "Competing ownership candidates; no one session is chosen arbitrarily."))
         }
         if changes > 0 {
             fields.append(
                 InspectionField(
-                    "Exec-spanning intervals", "\(changes) · exec time unverified", kind: .evidence))
+                    "Exec-spanning intervals", "\(changes) · exec time unverified", kind: .evidence,
+                    help:
+                        "CPU intervals across an executable change. The exact change time within each interval is unknown."
+                ))
         }
         if let command = record.command {
-            fields += command.enumerated().map { InspectionField("Argument \($0.offset)", $0.element) }
+            fields += command.enumerated().map {
+                InspectionField(
+                    "Argument \($0.offset)", $0.element, kind: .evidence,
+                    help:
+                        "Command argument captured with this observation; retained history may no longer match the current command."
+                )
+            }
         }
         return fields
     }
