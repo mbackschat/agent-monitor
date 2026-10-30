@@ -72,10 +72,12 @@ struct MenuBarTableState: NSViewRepresentable {
                         if !value.active, table.window?.firstResponder === table {
                             table.window?.makeFirstResponder(nil)
                         }
-                        guard table.numberOfRows == value.rows.count,
+                        let nativeRows = table.contributorRowIndexes
+                        guard nativeRows.count == value.rows.count,
                             let selected = value.selection,
-                            let row = value.rows.firstIndex(of: selected)
+                            let index = value.rows.firstIndex(of: selected)
                         else { return }
+                        let row = nativeRows[index]
                         if table.selectedRow != row {
                             table.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
                         }
@@ -96,6 +98,15 @@ struct MenuBarTableState: NSViewRepresentable {
         private static func outline(in view: NSView) -> NSOutlineView? {
             if let table = view as? NSOutlineView { return table }
             return view.subviews.lazy.compactMap { outline(in: $0) }.first
+        }
+    }
+}
+
+extension NSOutlineView {
+    var contributorRowIndexes: [Int] {
+        (0..<numberOfRows).filter { row in
+            guard let item = item(atRow: row) else { return false }
+            return delegate?.outlineView?(self, isGroupItem: item) != true
         }
     }
 }

@@ -42,9 +42,10 @@ import Testing
     await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
     let process = try #require(model.report.overview.nodes[contributor]?.children.first)
     let expected = model.report.overview.visibleRows
-    try #require(original.numberOfRows == expected.count)
-    let selectedRow = try #require(expected.firstIndex { $0.id == process })
-    #expect(original.level(forRow: selectedRow) == 3)
+    try #require(original.contributorRowIndexes.count == expected.count)
+    let selectedIndex = try #require(expected.firstIndex { $0.id == process })
+    let selectedRow = original.contributorRowIndexes[selectedIndex]
+    #expect(original.level(forRow: selectedRow) == 4)
     original.selectRowIndexes(IndexSet(integer: selectedRow), byExtendingSelection: false)
     original.scrollRowToVisible(selectedRow)
     let scroll = try #require(original.enclosingScrollView)
@@ -79,7 +80,9 @@ import Testing
         }
         _ = try await retentionFrame(host)
         #expect(contributorOutline(in: host) === original)
-        #expect((0..<original.numberOfRows).map { original.level(forRow: $0) } == expected.map(\.depth))
+        #expect(
+            original.contributorRowIndexes.map { original.level(forRow: $0) } == expected.map { $0.depth + 1 }
+        )
         #expect(original.selectedRow == selectedRow)
         #expect(model.report.overview.selection == process)
         #expect(model.report.overview.open == open)
@@ -99,8 +102,11 @@ import Testing
         await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
         _ = try await retentionFrame(host)
         let rows = model.report.overview.visibleRows
-        #expect((0..<original.numberOfRows).map { original.level(forRow: $0) } == rows.map(\.depth))
-        #expect(original.selectedRow == rows.firstIndex { $0.id == process })
+        #expect(
+            original.contributorRowIndexes.map { original.level(forRow: $0) } == rows.map { $0.depth + 1 })
+        #expect(
+            original.selectedRow
+                == rows.firstIndex { $0.id == process }.map { original.contributorRowIndexes[$0] })
     }
     let controller = MenuBarOptionsController(model: model)
     let menu = controller.makeMenu()
@@ -120,9 +126,12 @@ import Testing
         await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
         _ = try await retentionFrame(host)
         let rows = model.report.overview.visibleRows
-        #expect((0..<original.numberOfRows).map { original.level(forRow: $0) } == rows.map(\.depth))
+        #expect(
+            original.contributorRowIndexes.map { original.level(forRow: $0) } == rows.map { $0.depth + 1 })
         #expect(model.report.overview.selection == process)
-        #expect(original.selectedRow == rows.firstIndex { $0.id == process })
+        #expect(
+            original.selectedRow
+                == rows.firstIndex { $0.id == process }.map { original.contributorRowIndexes[$0] })
     }
     await model.stop()
 }
@@ -142,7 +151,7 @@ private enum InspectionScreen { case diagnosis, process, review }
     let outline = try #require(contributorOutline(in: host))
     let ids = model.report.overview.visibleRows.map(\.id)
     try #require(ids.count >= 2)
-    outline.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+    outline.selectRowIndexes(IndexSet(integer: outline.contributorRowIndexes[0]), byExtendingSelection: false)
     let anchor = NSView()
     host.addSubview(anchor)
     let coordinator = MenuBarTableState.Coordinator()
@@ -150,10 +159,10 @@ private enum InspectionScreen { case diagnosis, process, review }
         MenuBarTableState(
             rows: ids, selection: ids[0], active: true, inspecting: false,
             isCurrent: { model.report.overview.selection == ids[0] }), view: anchor)
-    outline.selectRowIndexes(IndexSet(integer: 1), byExtendingSelection: false)
+    outline.selectRowIndexes(IndexSet(integer: outline.contributorRowIndexes[1]), byExtendingSelection: false)
     try #require(model.report.overview.selection == ids[1])
     await coordinator.pending?.value
-    #expect(outline.selectedRow == 1)
+    #expect(outline.selectedRow == outline.contributorRowIndexes[1])
     #expect(model.report.overview.selection == ids[1])
     await model.stop()
 }

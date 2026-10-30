@@ -41,6 +41,14 @@ import Testing
     await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
     if let first = model.report.overview.main.first {
         model.report.overview.togglePin(for: first)
+        await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+        let sections = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: sections)
+        let sectionsPath =
+            URL(fileURLWithPath: output).deletingPathExtension().path
+            + (dark ? "-dark-sections.png" : "-sections.png")
+        try #require(sections.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: sectionsPath))
         model.report.overview.setDisclosure(expanded: true, for: first)
         await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
         if let child = model.report.overview.nodes[first]?.children.first {
@@ -70,7 +78,8 @@ import Testing
     try #require(groups.representation(using: .png, properties: [:])).write(
         to: URL(fileURLWithPath: groupsPath))
     if let selected = model.report.overview.main.first {
-        let selectedIndex = try #require(model.report.overview.visibleRows.firstIndex { $0.id == selected })
+        let dataIndex = try #require(model.report.overview.visibleRows.firstIndex { $0.id == selected })
+        let selectedIndex = outline.contributorRowIndexes[dataIndex]
         outline.selectRowIndexes(IndexSet(integer: selectedIndex), byExtendingSelection: false)
         outline.scrollRowToVisible(selectedIndex)
         await Task.yield()

@@ -26,14 +26,15 @@ import Testing
     await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
     let outline = try #require(contributorOutline(in: host))
     let columnCount = outline.numberOfColumns
-    let rowCount = outline.numberOfRows
-    let levels = (0..<min(3, rowCount)).map { outline.level(forRow: $0) }
-    let contributorExpanded = rowCount > 1 && outline.isItemExpanded(outline.item(atRow: 1))
-    let processExpandable = rowCount > 2 && outline.isExpandable(outline.item(atRow: 2))
+    let dataRows = outline.contributorRowIndexes
+    let rowCount = dataRows.count
+    let levels = dataRows.prefix(3).map { outline.level(forRow: $0) }
+    let contributorExpanded = rowCount > 1 && outline.isItemExpanded(outline.item(atRow: dataRows[1]))
+    let processExpandable = rowCount > 2 && outline.isExpandable(outline.item(atRow: dataRows[2]))
     #expect(columnCount == 1)
     #expect(outline.headerView == nil)
     #expect(rowCount == model.report.overview.visibleRows.count)
-    #expect(levels == [0, 1, 2])
+    #expect(levels == [1, 2, 3])
     #expect(contributorExpanded)
     #expect(!processExpandable)
     #expect(outline.usesAlternatingRowBackgroundColors)
@@ -64,6 +65,7 @@ import Testing
     let parent = try #require(model.report.overview.main.first)
     let other = try #require(model.report.overview.main.last)
     try #require(parent != other)
+    model.report.overview.togglePin(for: parent)
     let host = NSHostingView(rootView: MenuBarView(model: model))
     host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 720)
     let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
@@ -72,15 +74,40 @@ import Testing
     window.contentView = host
     await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
     let outline = try #require(contributorOutline(in: host))
-    let otherRow = try #require(model.report.overview.visibleRows.firstIndex { $0.id == other })
+    let headings = (0..<outline.numberOfRows).filter { row in
+        guard let item = outline.item(atRow: row) else { return false }
+        return outline.delegate?.outlineView?(outline, isGroupItem: item) == true
+    }
+    try #require(headings.count == 3, "Pinned, Sessions and Other observed work need independent headers")
+    for row in headings {
+        let item = try #require(outline.item(atRow: row))
+        #expect(outline.delegate?.outlineView?(outline, shouldSelectItem: item) == false)
+    }
+    let otherIndex = try #require(model.report.overview.visibleRows.firstIndex { $0.id == other })
+    let otherRow = outline.contributorRowIndexes[otherIndex]
     outline.selectRowIndexes(IndexSet(integer: otherRow), byExtendingSelection: false)
     #expect(model.report.overview.selection == other)
     #expect(!model.report.overview.open.contains(other))
-    outline.expandItem(outline.item(atRow: 0))
+    outline.expandItem(outline.item(atRow: outline.contributorRowIndexes[0]))
     host.layoutSubtreeIfNeeded()
     #expect(model.report.overview.open.contains(parent))
     #expect(model.report.overview.selection == other)
-    #expect(outline.numberOfRows == model.report.overview.visibleRows.count)
+    #expect(outline.contributorRowIndexes.count == model.report.overview.visibleRows.count)
+    let rowOrder = model.report.overview.visibleRows.map(\.id)
+    for _ in 0..<2 {
+        model.report.overview.togglePin(for: other)
+        await settleContributorTable(in: host, expectedRows: rowOrder.count)
+        #expect(model.report.overview.visibleRows.map(\.id) == rowOrder)
+        #expect(contributorOutline(in: host) === outline)
+        #expect(model.report.overview.selection == other)
+        let selectedIndex = try #require(rowOrder.firstIndex(of: other))
+        #expect(outline.selectedRow == outline.contributorRowIndexes[selectedIndex])
+    }
+    let currentHeaders = Set(0..<outline.numberOfRows).subtracting(outline.contributorRowIndexes)
+    for row in currentHeaders {
+        let heading = try #require(outline.rowView(atRow: row, makeIfNecessary: true))
+        #expect(!heading.isSelected)
+    }
     window.contentView = nil
     await model.stop()
 }
@@ -89,7 +116,7 @@ import Testing
     for _ in 0..<20 {
         host.layoutSubtreeIfNeeded()
         await Task.yield()
-        if contributorOutline(in: host)?.numberOfRows == expectedRows { return }
+        if contributorOutline(in: host)?.contributorRowIndexes.count == expectedRows { return }
     }
 }
 
@@ -99,6 +126,7 @@ import Testing
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
+    model.report.overview.togglePin(for: try #require(model.report.overview.main.first))
     let host = NSHostingView(rootView: MenuBarView(model: model))
     host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 560)
     let window = await mountOffscreenNativePreview(host)
@@ -114,7 +142,12 @@ import Testing
     window.makeFirstResponder(outline)
     outline.keyDown(with: try contributorKey("\u{F701}", code: 125, window: window))
     #expect(model.report.overview.selection == expected)
-    #expect(outline.selectedRow == 1)
+    #expect(outline.selectedRow == outline.contributorRowIndexes[1])
+    outline.keyDown(with: try contributorKey("\u{F700}", code: 126, window: window))
+    #expect(model.report.overview.selection == model.report.overview.visibleRows.first?.id)
+    #expect(outline.selectedRow == outline.contributorRowIndexes[0])
+    outline.keyDown(with: try contributorKey("\u{F701}", code: 125, window: window))
+    #expect(model.report.overview.selection == expected)
     let next = try #require(contributorOptions(in: host))
     outline.nextKeyView = next
     outline.keyDown(with: try contributorKey("\t", code: 48, window: window))
@@ -161,13 +194,21 @@ import Testing
     #expect(model.report.overview.selection == selected)
     #expect(model.report.overview.open == open)
     #expect(abs(scroll.contentView.bounds.origin.y - origin.y) <= 1)
-    #expect(outline.selectedRow == model.report.overview.visibleRows.firstIndex { $0.id == selected })
+    #expect(
+        outline.selectedRow
+            == model.report.overview.visibleRows.firstIndex { $0.id == selected }.map {
+                outline.contributorRowIndexes[$0]
+            })
     model.report.overview.sort(by: .memory)
     host.layoutSubtreeIfNeeded()
     await Task.yield()
     host.layoutSubtreeIfNeeded()
     #expect(model.report.overview.selection == selected)
-    #expect(outline.selectedRow == model.report.overview.visibleRows.firstIndex { $0.id == selected })
+    #expect(
+        outline.selectedRow
+            == model.report.overview.visibleRows.firstIndex { $0.id == selected }.map {
+                outline.contributorRowIndexes[$0]
+            })
     #expect(model.report.overview.open == open)
     await model.stop()
 }

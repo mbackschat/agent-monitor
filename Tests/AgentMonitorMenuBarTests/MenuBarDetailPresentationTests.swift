@@ -82,7 +82,7 @@ func contributorLedgerKeepsNeutralSurfaceAndSeparatesGroups(dark: Bool) async th
     let roots = model.report.overview.visibleRows.enumerated().filter { $0.element.depth == 0 }
     try #require(roots.count >= 2)
     let bands = try roots.prefix(2).map { row in
-        let rect = outline.rect(ofRow: row.offset)
+        let rect = outline.rect(ofRow: outline.contributorRowIndexes[row.offset])
         return try color(at: host.convert(NSPoint(x: rect.midX, y: rect.maxY - 5), from: outline))
     }
     #expect(
@@ -153,7 +153,8 @@ private struct ContributorTableBackdrop: View {
     model.report.overview.select(process)
     await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
     let outline = try #require(contributorOutline(in: host))
-    let row = try #require(model.report.overview.visibleRows.firstIndex { $0.id == process })
+    let index = try #require(model.report.overview.visibleRows.firstIndex { $0.id == process })
+    let row = outline.contributorRowIndexes[index]
     outline.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
     outline.scrollRowToVisible(row)
     model.report.overview.toggleDetails()
