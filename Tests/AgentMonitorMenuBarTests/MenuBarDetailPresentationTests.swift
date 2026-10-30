@@ -192,6 +192,9 @@ func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool, selected: Bool)
         })
     #expect(node.inspectionFields.contains { $0.label == "Directory" && $0.value == path })
     #expect(MenuBarContributorPresence(stats: node.stats) == nil)
+    #expect(MenuBarContributorCounts.countText(99) == "99")
+    #expect(MenuBarContributorCounts.countText(100) == "99+")
+    #expect(MenuBarContributorCounts.countText(133) == "99+")
     var mixed = node.stats
     mixed.current = Set(model.report.overview.totals.current.prefix(1))
     mixed.processes.formUnion(mixed.current)
@@ -201,6 +204,11 @@ func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool, selected: Bool)
     #expect(MenuBarContributorCounts(stats: mixed).pastCount == 0)
     mixed.currentAvailable = false
     #expect(MenuBarContributorCounts(stats: mixed).help.contains("unavailable"))
+    var manyPast = node.stats
+    manyPast.current = []
+    manyPast.membershipChanged = []
+    manyPast.processes = Set((1...133).map { .init(pid: Int32($0), startMicroseconds: 1) })
+    #expect(MenuBarContributorCounts(stats: manyPast).help.contains("133 no longer observed"))
     let host = NSHostingView(
         rootView:
             MenuBarContributorRow(node: node, overview: model.report.overview)

@@ -343,6 +343,8 @@ struct MenuBarContributorCounts: View {
     @Environment(\.backgroundProminence) private var prominence
     let stats: ContributorStats
 
+    static func countText(_ count: Int) -> String { count > 99 ? "99+" : String(count) }
+
     var pastCount: Int {
         stats.processes.subtracting(stats.current).subtracting(stats.membershipChanged).count
     }
@@ -363,17 +365,17 @@ struct MenuBarContributorCounts: View {
             } else {
                 if !stats.current.isEmpty || pastCount == 0 {
                     HStack(spacing: 3) {
-                        Text("\(stats.current.count)")
+                        Text(Self.countText(stats.current.count))
                         Image(systemName: "circle.fill").font(.system(size: 6))
                             .accessibilityHidden(true)
                     }
                 }
                 if pastCount > 0 {
-                    HStack(spacing: 3) {
-                        Text("\(pastCount)")
-                        Image(systemName: "archivebox").font(.system(size: 11))
-                            .accessibilityHidden(true)
-                    }.foregroundStyle(prominence == .increased ? Color.white.opacity(0.7) : Color.secondary)
+                    HStack(spacing: 2) {
+                        Text(Self.countText(pastCount))
+                        Image(systemName: "archivebox").accessibilityHidden(true)
+                    }.font(.system(size: 8, weight: .regular)).foregroundStyle(
+                        prominence == .increased ? Color.white.opacity(0.7) : Color.secondary)
                 }
             }
         }.fixedSize().monospacedDigit()
