@@ -74,10 +74,8 @@ struct MenuBarContributorTable: View {
                         .padding(.leading, CGFloat(depth) * 18)
                         .background(
                             (sections[node.id] == .pinned ? Color.accentColor : Color.primary).opacity(
-                                sections[node.id] == .other
-                                    ? 0.03
-                                    : ((groupIndices.indices.contains(index)
-                                        && groupIndices[index].isMultiple(of: 2)) ? 0.025 : 0.012)),
+                                groupIndices.indices.contains(index)
+                                    && groupIndices[index].isMultiple(of: 2) ? 0.09 : 0),
                             in: Rectangle()
                         )
                         .overlay(alignment: .leading) {

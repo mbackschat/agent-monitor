@@ -9,19 +9,38 @@ struct MenuBarTableState: NSViewRepresentable {
     let inspecting: Bool
     let isCurrent: @MainActor () -> Bool
 
-    func makeNSView(context: Context) -> NSView { NSView() }
+    func makeNSView(context: Context) -> Anchor { Anchor(contentClip: context.coordinator.contentClip) }
     func makeCoordinator() -> Coordinator { Coordinator() }
 
-    func updateNSView(_ view: NSView, context: Context) {
+    func updateNSView(_ view: Anchor, context: Context) {
+        view.needsLayout = true
         context.coordinator.update(self, view: view)
     }
 
-    static func dismantleNSView(_ view: NSView, coordinator: Coordinator) {
+    static func dismantleNSView(_ view: Anchor, coordinator: Coordinator) {
         coordinator.pending?.cancel()
+        coordinator.contentClip.detach()
+    }
+
+    final class Anchor: NSView {
+        let contentClip: MenuBarTableContentClip
+
+        init(contentClip: MenuBarTableContentClip) {
+            self.contentClip = contentClip
+            super.init(frame: .zero)
+        }
+
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+        override func layout() {
+            super.layout()
+            contentClip.refresh()
+        }
     }
 
     @MainActor final class Coordinator {
         var pending: Task<Void, Never>?
+        let contentClip = MenuBarTableContentClip()
         private var rows: [ContributorID] = []
         private var selection: ContributorID?
         private var active = false
@@ -49,6 +68,7 @@ struct MenuBarTableState: NSViewRepresentable {
                 while let parent = ancestor {
                     if let table = Self.outline(in: parent) {
                         parent.layoutSubtreeIfNeeded()
+                        self.contentClip.update(table)
                         if !value.active, table.window?.firstResponder === table {
                             table.window?.makeFirstResponder(nil)
                         }

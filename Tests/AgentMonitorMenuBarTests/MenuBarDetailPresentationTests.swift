@@ -45,34 +45,67 @@ import Testing
 }
 
 @Test(arguments: [false, true]) @MainActor
-func contributorLedgerKeepsChromeLightAndContentReadableOverBackdrop(dark: Bool) async throws {
+func contributorLedgerPreservesBackdropAndSeparatesGroups(dark: Bool) async throws {
     _ = NSApplication.shared
     let snapshot = try nativeOverviewFixture()
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
     await model.waitForCollection()
-    let pinned = try #require(model.report.overview.main.first)
-    model.report.overview.togglePin(for: pinned)
-    model.report.overview.select(pinned)
+    model.report.overview.select(.section(.uncertain))
     let host = NSHostingView(rootView: ContributorTableBackdrop(model: model))
     host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-    host.frame.size = NSSize(width: 620, height: 300)
+    host.frame.size = NSSize(width: 620, height: 900)
     let window = await mountOffscreenNativePreview(host)
     defer { window.close() }
     await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
-    let bitmap = try detailBitmap(host)
-    for point in [NSPoint(x: 610, y: 12), NSPoint(x: 3, y: 100)] {
+    let outline = try #require(contributorOutline(in: host))
+    outline.scroll(.zero)
+    host.layoutSubtreeIfNeeded()
+    var bitmap = try detailBitmap(host)
+    func color(at point: NSPoint) throws -> NSColor {
         let x = Int(point.x * CGFloat(bitmap.pixelsWide) / host.bounds.width)
         let y = Int(point.y * CGFloat(bitmap.pixelsHigh) / host.bounds.height)
-        let color = try #require(bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
-        if point.y < 30 {
-            #expect(color.blueComponent > 0.8 && color.redComponent < 0.2, "Chrome lost its backdrop")
-        } else {
+        return try #require(bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
+    }
+    func difference(_ left: NSColor, _ right: NSColor) -> CGFloat {
+        max(
+            abs(left.redComponent - right.redComponent),
+            abs(left.greenComponent - right.greenComponent),
+            abs(left.blueComponent - right.blueComponent))
+    }
+    let surround = try color(at: NSPoint(x: 3, y: 100))
+    if !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency {
+        #expect(
+            surround.blueComponent - surround.redComponent > 0.15,
+            "The table must retain its backdrop instead of painting an opaque slab")
+    }
+    let roots = model.report.overview.visibleRows.enumerated().filter { $0.element.depth == 0 }
+    try #require(roots.count >= 2)
+    let bands = try roots.prefix(2).map { row in
+        let rect = outline.rect(ofRow: row.offset)
+        return try color(at: host.convert(NSPoint(x: rect.midX, y: rect.maxY - 5), from: outline))
+    }
+    #expect(
+        difference(bands[0], bands[1]) >= 0.05,
+        "Adjacent session bands must differ visibly, not by a nearly invisible tint: \(bands)")
+    func checkEmptyViewport() throws {
+        let last = outline.rect(ofRow: outline.numberOfRows - 1)
+        try #require(outline.visibleRect.maxY - last.maxY > 72)
+        for y in stride(from: last.maxY + 12, to: outline.visibleRect.maxY - 8, by: 12) {
+            let empty = try color(at: host.convert(NSPoint(x: outline.bounds.midX, y: y), from: outline))
             #expect(
-                color.blueComponent - color.redComponent > 0.15,
-                "The table must retain the underlying color instead of painting an opaque gray slab: \(color)"
-            )
+                difference(empty, surround) < 0.02,
+                "Empty viewport must show the surround without native filler stripes at y=\(y): \(empty)")
         }
+    }
+    try checkEmptyViewport()
+    for expanded in [true, false] {
+        model.report.overview.setDisclosure(expanded: expanded, for: roots[0].element.id)
+        window.setContentSize(NSSize(width: 620, height: expanded ? 1000 : 760))
+        await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+        #expect(contributorOutline(in: host) === outline)
+        bitmap = try detailBitmap(host)
+        try checkEmptyViewport()
     }
     if let output = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
