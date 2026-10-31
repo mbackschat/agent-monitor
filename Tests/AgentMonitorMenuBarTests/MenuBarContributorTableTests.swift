@@ -291,3 +291,66 @@ import Testing
     window.contentView = nil
     await model.stop()
 }
+
+@Test @MainActor func nativeSectionDecorationFollowsMovingRows() async throws {
+    let snapshot = try nativeOverviewFixture()
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let host = NSHostingView(rootView: MenuBarView(model: model))
+    host.frame = NSRect(x: 0, y: 0, width: 620, height: 720)
+    let window = await mountOffscreenNativePreview(host)
+    defer { window.close() }
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+    let table = try #require(contributorOutline(in: host))
+    func anchor(in view: NSView) -> MenuBarTableState.Anchor? {
+        if let anchor = view as? MenuBarTableState.Anchor { return anchor }
+        return view.subviews.lazy.compactMap { anchor(in: $0) }.first
+    }
+    let bridge = try #require(anchor(in: host)).contentClip
+    let heading = try #require(
+        (0..<table.numberOfRows).dropFirst().first { row in
+            guard let item = table.item(atRow: row) else { return false }
+            return table.delegate?.outlineView?(table, isGroupItem: item) == true
+        })
+    let row = try #require(table.rowView(atRow: heading, makeIfNecessary: true))
+    let final = row.frame
+    let gap = table.rect(ofRow: heading).minY - table.rect(ofRow: heading - 1).maxY
+    try #require(gap > 4)
+    // A hidden offscreen window skips AppKit's animation. Supply intermediate native frames
+    // to verify the clipping invariant observed in the user's 2026-10-31 recording.
+    for offset in [-40.0, -20.0, 0.0, 20.0, 40.0, 0.0] {
+        row.setFrameOrigin(NSPoint(x: final.minX, y: final.minY + offset))
+        bridge.refresh()
+        let mask = try #require((table.layer?.mask as? CAShapeLayer)?.path)
+        let x = table.bounds.midX
+        #expect(mask.contains(table.convertToLayer(NSPoint(x: x, y: row.frame.minY + 4))))
+        #expect(
+            !mask.contains(table.convertToLayer(NSPoint(x: x, y: row.frame.minY - gap / 2))),
+            "The gap must travel with the following section, not clip its moving heading")
+    }
+    let rowLayer = try #require(row.layer)
+    let animation = CABasicAnimation(keyPath: "position")
+    animation.fromValue = NSValue(point: NSPoint(x: rowLayer.position.x, y: rowLayer.position.y - 40))
+    animation.toValue = NSValue(point: rowLayer.position)
+    animation.duration = 1
+    animation.beginTime = 0.0001
+    animation.fillMode = .both
+    animation.isRemovedOnCompletion = false
+    rowLayer.speed = 0
+    rowLayer.timeOffset = 0.5
+    rowLayer.add(animation, forKey: "synthetic-section-motion")
+    CATransaction.flush()
+    let presented = try #require(rowLayer.presentation())
+    try #require(abs(presented.frame.minY - rowLayer.frame.minY) > 10)
+    bridge.refresh()
+    let mask = try #require((table.layer?.mask as? CAShapeLayer)?.path)
+    let movingTop = presented.frame.minY
+    #expect(mask.contains(table.convertToLayer(NSPoint(x: table.bounds.midX, y: movingTop + 4))))
+    #expect(!mask.contains(table.convertToLayer(NSPoint(x: table.bounds.midX, y: movingTop - gap / 2))))
+    rowLayer.removeAllAnimations()
+    rowLayer.speed = 1
+    rowLayer.timeOffset = 0
+    bridge.refresh()
+    await model.stop()
+}
