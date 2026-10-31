@@ -1,5 +1,9 @@
 /// Browsing controls shared by native and terminal hosts; text entry and action confirmation stay local.
 public enum ReportShortcut: String, CaseIterable, Sendable {
+    case foldPinned = "5"
+    case foldSessions = "6"
+    case foldOther = "7"
+    case foldTable = "8"
     case overview = "v"
     case allContributors = "a"
     case pause = "p"
@@ -26,6 +30,14 @@ extension LiveReportState {
     public mutating func apply(_ shortcut: ReportShortcut) {
         guard actionPanel == nil, referencePage == nil else { return }
         switch shortcut {
+        case .foldPinned, .foldSessions, .foldOther, .foldTable:
+            guard showsOverview else { return }
+            switch shortcut {
+            case .foldPinned: overview.toggleSection(.pinned)
+            case .foldSessions: overview.toggleSection(.sessions)
+            case .foldOther: overview.toggleSection(.other)
+            default: overview.toggleTable()
+            }
         case .overview: overview.enabled.toggle()
         case .allContributors:
             view = view == .allContributors ? .mainContributors : .allContributors

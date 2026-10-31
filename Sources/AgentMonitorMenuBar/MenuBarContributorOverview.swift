@@ -18,12 +18,15 @@ struct MenuBarContributorOverview: View {
                     Text("memory").font(.caption)
                 }
                 Spacer(minLength: 0)
+                MenuBarContributorLane(activity: overview.activity)
+                    .frame(width: 100, height: 32)
                 Text(
                     overview.totals.currentAvailable
                         ? "\(overview.totals.current.count) processes" : "Presence unavailable"
                 )
                 .font(.caption).foregroundStyle(.secondary)
-            }.monospacedDigit().accessibilityLabel("Measured total")
+                .frame(width: 180, alignment: .trailing)
+            }.padding(.trailing, 22).monospacedDigit().accessibilityLabel("Measured total")
             if let notice = overview.pinNotice { Text(notice).font(.caption).foregroundStyle(.orange) }
             if overview.hideNoLongerObserved {
                 Button(
@@ -36,6 +39,11 @@ struct MenuBarContributorOverview: View {
             GeometryReader { geometry in
                 VStack(alignment: .leading, spacing: 6) {
                     MenuBarContributorTable(model: model, focus: focus)
+                        .frame(height: overview.tableCollapsed ? 0 : nil)
+                        .clipped()
+                        .opacity(overview.tableCollapsed ? 0 : 1)
+                        .allowsHitTesting(!overview.tableCollapsed)
+                        .accessibilityHidden(overview.tableCollapsed)
                     if overview.detailsVisible, let id = overview.selection, let node = overview.nodes[id] {
                         Divider()
                         Group {
@@ -91,7 +99,8 @@ struct MenuBarContributorOverview: View {
             guard model.isOpen, model.report.showsOverview, !model.diagnosis.state.isVisible,
                 model.report.actionPanel == nil
             else { return }
-            focus.wrappedValue = visible ? .inspection : .overview
+            focus.wrappedValue =
+                visible ? .inspection : (overview.tableCollapsed ? .overviewControl : .overview)
         }
     }
     private func closeDetails() {

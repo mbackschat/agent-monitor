@@ -654,7 +654,20 @@ func terminalActionsRequireConfirmationAndPasteCannotSubmit(quitWhileUndersized:
     try writeAllBytes(Array("b".utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
-    ) { $0.contains("CPU 0–100%") && $0.contains("Main contributors") }
+    ) { $0.contains("Overall CPU · 0–100%") && $0.contains("Main contributors") }
+    for key in ["6", "8"] {
+        try writeAllBytes(Array(key.utf8), to: terminal.master)
+        _ = try await waitForScreen(
+            on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+        ) {
+            !$0.contains("overview-project") && $0.contains("Overall CPU")
+                && (key != "8" || $0.contains("8 expand"))
+        }
+        try writeAllBytes(Array(key.utf8), to: terminal.master)
+        _ = try await waitForScreen(
+            on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+        ) { $0.contains("overview-project") && $0.contains("6▾ Sessions") }
+    }
     try writeAllBytes(Array("i".utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)

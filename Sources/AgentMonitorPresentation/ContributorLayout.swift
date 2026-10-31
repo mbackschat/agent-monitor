@@ -15,7 +15,9 @@ public enum ContributorLayout {
         var footer = footerLines(state: state, width: width)
         let status = state.displayCoverageStatus
         let coverage = ReportLine(status.terminalSummary(width: width), style: status.lineStyle)
-        let heading = overview.title + (overview.order == .stable ? " · Stable" : "")
+        let heading =
+            (overview.tableCollapsed ? "▸ " : "▾ ") + overview.title
+            + (overview.order == .stable ? " · Stable" : "")
         let title = (state.frozen ? "PAUSED · p resume" : "Agent Monitor") + " | " + heading
         var header = [
             ReportLine(
@@ -25,17 +27,29 @@ public enum ContributorLayout {
             ReportLine(overview.totals.summary(duration: overview.duration)),
             coverage,
             ReportLine(
-                "Recent " + overview.activity.intervalLabel + " · CPU " + overview.activity.scaleLabel
-                    + " · 100% = one core", style: .muted),
-            ReportLine(
-                columns.row("CONTRIBUTOR", chart: "CPU HISTORY", cpu: "CPU", memory: "MEMORY"),
-                style: .heading),
+                columns.row(
+                    "Overall CPU · " + overview.activity.scaleLabel,
+                    chart: overview.activity.terminalLane(width: columns.chart), cpu: "", memory: ""),
+                style: .muted),
         ]
+        if !overview.tableCollapsed {
+            let sections = overview.tableSections.map {
+                $0.shortcut + (overview.collapsedSections.contains($0) ? "▸ " : "▾ ")
+                    + ($0 == .other ? "Other work" : $0.rawValue)
+            }.joined(separator: " · ")
+            header += [
+                ReportLine(sections, style: .heading),
+                ReportLine(
+                    columns.row("CONTRIBUTOR", chart: "CPU HISTORY", cpu: "CPU", memory: "MEMORY"),
+                    style: .heading),
+            ]
+        }
         if !state.thresholds.isUnfiltered {
             header.insert(ReportLine(ThresholdContext.text(state.thresholds), style: .muted), at: 3)
         }
         if let notice = overview.pinNotice { header.insert(ReportLine(notice, style: .warning), at: 3) }
-        let blocks = overview.visibleRows.map { row -> [ReportLine] in
+        let rows = overview.visibleRows
+        let blocks = rows.enumerated().map { index, row -> [ReportLine] in
             let selected = row.id == overview.selection
             let marker = TerminalRowMarker.text(selected: selected, pinned: overview.pinned.contains(row.id))
             let branch = row.node.children.isEmpty ? "·" : (overview.isExpanded(row.id) ? "▾" : "▸")
@@ -95,6 +109,14 @@ public enum ContributorLayout {
                             + TerminalCells.clipped(
                                 text, to: max(1, width - TerminalCells.width(inset) - suffix.count)) + suffix,
                         style: selected ? .selected : .muted))
+            }
+            if width >= 80, row.depth == 0,
+                index == 0
+                    || overview.tableSection(for: rows[index - 1].id) != overview.tableSection(for: row.id)
+            {
+                lines.insert(
+                    ReportLine("── " + overview.tableSection(for: row.id).rawValue + " ──", style: .heading),
+                    at: 0)
             }
             return lines
         }
@@ -172,6 +194,9 @@ public enum ContributorLayout {
         let pause = state.frozen ? "p resume" : "p pause"
         let diagnosis =
             state.diagnosis.isRunning ? DiagnosisViewState.cleanupHint : DiagnosisViewState.keyHint
+        if state.overview.tableCollapsed {
+            return [ReportLine("8 expand · ? help · " + pause + " · q quit", style: .muted)]
+        }
         if width < 80, state.overview.detailsVisible {
             return [
                 ReportLine("Tab focus · Esc close · i details", style: .muted),
@@ -188,7 +213,7 @@ public enum ContributorLayout {
             ReportLine(
                 state.overview.detailsVisible
                     ? "Tab rows/details · ↑/↓ scroll · PgUp/PgDn page · Esc close · Enter inspect process"
-                    : "↑/↓ select · ←/→ fold · i details · c/m/o sort · . pin · a main/all · v processes",
+                    : "↑/↓ select · ←/→ rows · 5/6/7 sections · 8 table · i details",
                 style: .muted),
             ReportLine("? help | " + diagnosis + " | " + pause + " | q quit", style: .muted),
         ]

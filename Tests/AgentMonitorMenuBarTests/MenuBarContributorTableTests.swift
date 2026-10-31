@@ -229,3 +229,60 @@ import Testing
     #expect(model.report.overview.open == open)
     await model.stop()
 }
+
+@Test @MainActor func nativeContributorSectionFoldingPreservesTableAndSelection() async throws {
+    _ = NSApplication.shared
+    let snapshot = try nativeOverviewFixture()
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let host = NSHostingView(rootView: MenuBarView(model: model))
+    host.frame = NSRect(x: 0, y: 0, width: 620, height: 560)
+    let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    defer { window.close() }
+    window.contentView = host
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+    let table = try #require(contributorOutline(in: host))
+    let id = try #require(model.report.overview.main.first)
+    model.report.overview.select(id)
+    model.report.overview.setDisclosure(expanded: true, for: id)
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+    func save(_ name: String) throws {
+        guard let directory = ProcessInfo.processInfo.environment["MENUBAR_FOLD_PREVIEW_DIRECTORY"] else {
+            return
+        }
+        host.layoutSubtreeIfNeeded()
+        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: directory).appendingPathComponent(name + ".png"))
+    }
+    try save("overall-and-sections")
+    let rows = model.report.overview.visibleRows
+    let expanded = model.report.overview.open
+    #expect(model.handleShortcut("6", row: nil))
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+    #expect(table.contributorRowIndexes.count == model.report.overview.visibleRows.count)
+    #expect(model.report.overview.selection == id)
+    #expect(!model.report.overview.selectionIsVisible)
+    #expect(table.selectedRow == -1)
+    try save("sessions-folded")
+    #expect(model.handleShortcut("6", row: nil))
+    await settleContributorTable(in: host, expectedRows: rows.count)
+    #expect(contributorOutline(in: host) === table)
+    #expect(model.report.overview.visibleRows == rows)
+    #expect(model.report.overview.open == expanded)
+    #expect(model.handleShortcut("8", row: nil))
+    host.layoutSubtreeIfNeeded()
+    await Task.yield()
+    #expect(contributorOutline(in: host) === table)
+    #expect(!model.report.overview.selectionIsVisible)
+    try save("table-folded")
+    #expect(model.handleShortcut("8", row: nil))
+    await settleContributorTable(in: host, expectedRows: rows.count)
+    #expect(model.report.overview.selection == id)
+    #expect(model.report.overview.visibleRows == rows)
+    window.contentView = nil
+    await model.stop()
+}

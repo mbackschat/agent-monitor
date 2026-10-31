@@ -2,6 +2,26 @@ import AgentMonitorPresentation
 import Testing
 
 @Suite struct ContributorLayoutTests {
+    @Test func tableFoldingHasADiscoverableTerminalControl() throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        let text = ContributorLayout.lines(state: state, width: 120, height: 30).map(\.text).joined(
+            separator: "\n")
+        #expect(text.contains("Overall CPU"))
+        let fold = try #require(ReportShortcut(rawValue: "8"))
+        let selected = state.overview.selection
+        state.apply(fold)
+        #expect(state.overview.visibleRows.isEmpty)
+        #expect(state.overview.selection == selected)
+        let folded = ContributorLayout.lines(state: state, width: 120, height: 30).map(\.text).joined(
+            separator: "\n")
+        #expect(folded.contains("8 expand"))
+        #expect(!folded.contains("CONTRIBUTOR"))
+        #expect(folded.contains("Overall CPU"))
+        state.apply(fold)
+        #expect(!state.overview.visibleRows.isEmpty)
+    }
+
     @Test func lanesHaveVisibleBoundsAndDetailsDoNotReplaceSelectedRow() throws {
         var state = LiveReportState()
         state.receive(try overviewFixture())

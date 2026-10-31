@@ -5,6 +5,29 @@ import Testing
 @testable import AgentMonitorCore
 
 @Suite struct ContributorActivityTests {
+    @Test func overallLaneCountsEachContributionOnceRegardlessOfVisibility() throws {
+        var overview = ContributorOverview()
+        overview.receive(try overviewFixture(includeProcesses: true))
+        let original = overview.activity.totalSamples
+        #expect(original.count == overview.activity.spans.count)
+        #expect(
+            abs(original.compactMap { $0?.cpuSeconds }.reduce(0, +) - overview.totals.recentCPU) < 0.000001)
+        let historical = ContributorID.session(provider: "codex", session: "session-22", root: nil)
+        overview.togglePin(for: historical)
+        overview.hideNoLongerObserved = true
+        overview.toggleSection(.sessions)
+        overview.toggleTable()
+        let updated = overview.activity.totalSamples
+        for (before, after) in zip(original, updated) {
+            #expect(abs((before?.cpuSeconds ?? 0) - (after?.cpuSeconds ?? 0)) < 0.000001)
+            #expect(before?.qualified == after?.qualified)
+            #expect(before?.measuredIntervals == after?.measuredIntervals)
+        }
+        #expect(overview.activity.terminalLane(width: 12).count == 12)
+        #expect(ContributorActivity().totalSamples.isEmpty)
+        #expect(ContributorActivity().terminalLane(width: 4) == "····")
+    }
+
     @Test func hardwareRangeAndManualChoiceSurviveMonitoringTransitions() throws {
         let topology = ProcessorTopology(
             logicalCPUCount: 8,

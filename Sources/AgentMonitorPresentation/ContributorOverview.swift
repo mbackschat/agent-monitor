@@ -137,6 +137,20 @@ public struct ContributorRow: Equatable, Sendable, Identifiable {
     public var id: ContributorID { node.id }
 }
 
+public enum ContributorTableSection: String, CaseIterable, Sendable {
+    case pinned = "Pinned"
+    case sessions = "Sessions"
+    case other = "Other observed work"
+
+    public var shortcut: String {
+        switch self {
+        case .pinned: "5"
+        case .sessions: "6"
+        case .other: "7"
+        }
+    }
+}
+
 public enum ContributorOrder: String, Sendable { case stable, contributor, cpu, memory }
 
 /// One immutable-category projection and disclosure policy for native and terminal hosts.
@@ -155,11 +169,13 @@ public struct ContributorOverview: Equatable, Sendable {
     private var scope: ProcessScope?
     public private(set) var selection: ContributorID?
     public private(set) var open: Set<ContributorID> = []
+    public private(set) var tableCollapsed = false
+    public private(set) var collapsedSections: Set<ContributorTableSection> = []
     public var showAll = false
     public var hideNoLongerObserved = false {
         didSet {
             guard hideNoLongerObserved != oldValue else { return }
-            let rows = visibleRows
+            let rows = unfoldedRows
             if !rows.contains(where: { $0.id == selection }) {
                 selection = rows.first?.id
                 detailsVisible = false
@@ -330,12 +346,66 @@ public struct ContributorOverview: Equatable, Sendable {
             }
     }
 
-    public var visibleRows: [ContributorRow] {
+    private func sectionForRoot(_ id: ContributorID) -> ContributorTableSection {
+        if pinned.contains(id) { return .pinned }
+        if case .session = id { return .sessions }
+        return .other
+    }
+
+    public func tableSection(for id: ContributorID) -> ContributorTableSection {
+        if unfilteredTopLevel.contains(id) { return sectionForRoot(id) }
+        func contains(_ root: ContributorID) -> Bool {
+            root == id
+                || (nodes[root]?.children ?? []).contains {
+                    !pinned.contains($0) && contains($0)
+                }
+        }
+        return unfilteredTopLevel.first(where: contains).map(sectionForRoot) ?? .other
+    }
+
+    var selectionIsFolded: Bool {
+        tableCollapsed || selection.map { collapsedSections.contains(tableSection(for: $0)) } == true
+    }
+
+    public var tableSections: [ContributorTableSection] {
+        ContributorTableSection.allCases.filter { section in
+            topLevel.contains { sectionForRoot($0) == section }
+        }
+    }
+
+    private var unfoldedRows: [ContributorRow] {
         rows(hidingNoLongerObserved: hideNoLongerObserved)
     }
 
+    public var visibleRows: [ContributorRow] {
+        guard !tableCollapsed else { return [] }
+        var section = ContributorTableSection.other
+        return unfoldedRows.filter { row in
+            if row.depth == 0 { section = sectionForRoot(row.id) }
+            return !collapsedSections.contains(section)
+        }
+    }
+
+    public var selectionIsVisible: Bool {
+        visibleRows.contains { $0.id == selection }
+    }
+
+    public mutating func toggleTable() {
+        tableCollapsed.toggle()
+        if tableCollapsed { detailsVisible = false }
+    }
+
+    public mutating func setSectionExpanded(_ expanded: Bool, section: ContributorTableSection) {
+        if expanded { collapsedSections.remove(section) } else { collapsedSections.insert(section) }
+        if !selectionIsVisible { detailsVisible = false }
+    }
+
+    public mutating func toggleSection(_ section: ContributorTableSection) {
+        setSectionExpanded(collapsedSections.contains(section), section: section)
+    }
+
     public var hiddenHistoricalRowCount: Int {
-        hideNoLongerObserved ? rows(hidingNoLongerObserved: false).count - visibleRows.count : 0
+        hideNoLongerObserved ? rows(hidingNoLongerObserved: false).count - unfoldedRows.count : 0
     }
 
     public func includesInTable(_ id: ContributorID) -> Bool {
@@ -406,6 +476,7 @@ public struct ContributorOverview: Equatable, Sendable {
         detailOffset = 0
     }
     public mutating func toggleDetails() {
+        guard selectionIsVisible else { return }
         detailsVisible.toggle()
         focus = detailsVisible ? .details : .rows
         detailOffset = 0
@@ -422,7 +493,10 @@ public struct ContributorOverview: Equatable, Sendable {
         detailsVisible = false
         let ids = visibleRows.map(\.id)
         guard !ids.isEmpty else { return }
-        let index = selection.flatMap { ids.firstIndex(of: $0) } ?? 0
+        guard let index = selection.flatMap({ ids.firstIndex(of: $0) }) else {
+            selection = delta < 0 ? ids.last : ids.first
+            return
+        }
         selection = ids[min(ids.count - 1, max(0, index + delta))]
     }
     public mutating func disclose(_ expanded: Bool) {
@@ -444,7 +518,7 @@ public struct ContributorOverview: Equatable, Sendable {
         }
     }
     @discardableResult public mutating func togglePin() -> Bool {
-        guard let selection else { return false }
+        guard !selectionIsFolded, let selection else { return false }
         return togglePin(for: selection)
     }
 
@@ -495,7 +569,7 @@ public struct ContributorOverview: Equatable, Sendable {
         partition(previous: nodes.mapValues(\.children))
         rebuildActivity()
         open.formIntersection(nodes.keys)
-        if !visibleRows.contains(where: { $0.id == selection }) {
+        if !unfoldedRows.contains(where: { $0.id == selection }) {
             selection = visibleRows.first?.id
             detailsVisible = false
             detailOffset = 0
@@ -518,6 +592,8 @@ public struct ContributorOverview: Equatable, Sendable {
             let enabled = enabled
             let showAll = showAll
             let hideNoLongerObserved = hideNoLongerObserved
+            let tableCollapsed = tableCollapsed
+            let collapsedSections = collapsedSections
             let pinned = pinned
             let order = order
             let ascending = ascending
@@ -528,6 +604,8 @@ public struct ContributorOverview: Equatable, Sendable {
             self.order = order
             self.enabled = enabled
             self.showAll = showAll
+            self.tableCollapsed = tableCollapsed
+            self.collapsedSections = collapsedSections
             self.hideNoLongerObserved = hideNoLongerObserved
             self.pinned = pinned
             scope = recent.scope
@@ -840,7 +918,7 @@ public struct ContributorOverview: Equatable, Sendable {
             for id in nodes.keys { nodes[id]?.stats.currentAvailable = false }
         }
         open.formIntersection(nodes.keys)
-        if !visibleRows.contains(where: { $0.id == selection }) {
+        if !unfoldedRows.contains(where: { $0.id == selection }) {
             detailsVisible = false
             selection = visibleRows.first?.id
         }

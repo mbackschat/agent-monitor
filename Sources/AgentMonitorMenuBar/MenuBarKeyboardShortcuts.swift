@@ -6,7 +6,7 @@ struct MenuBarKeyboardShortcuts: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(model.report.showsOverview ? "For the selected contributor" : "For the process table")
+            Text(model.report.showsOverview ? "For the contributor overview" : "For the process table")
                 .font(.subheadline).foregroundStyle(.secondary)
             Button("Help & glossary", systemImage: "book.closed") { model.showGlossary() }
                 .help("Explain resource measurements and contributor groups")
@@ -28,9 +28,18 @@ extension MenuBarModel {
     var availableKeyboardShortcuts: [(key: String, description: String)] {
         var keys: [(key: String, description: String)] = [("Esc", "Close this guide")]
         guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil else { return keys }
-        keys += [("Tab / ⇧Tab", "Next / previous control"), ("↑ / ↓", "Previous / next row")]
+        keys.append(("Tab / ⇧Tab", "Next / previous control"))
+        if !report.showsOverview || !report.overview.visibleRows.isEmpty {
+            keys.append(("↑ / ↓", "Previous / next row"))
+        }
         if report.showsOverview {
-            if let id = report.overview.selection, let node = report.overview.nodes[id] {
+            keys.append(("8", "Collapse / expand table"))
+            for section in report.overview.tableSections {
+                keys.append((section.shortcut, "Fold " + section.rawValue))
+            }
+            if report.overview.selectionIsVisible, let id = report.overview.selection,
+                let node = report.overview.nodes[id]
+            {
                 if !node.children.isEmpty { keys.append(("← / →", "Collapse / expand row")) }
                 keys.append(("i", "Show / hide contributor details"))
                 if report.overview.pinTarget(for: id) != nil { keys.append((".", "Pin / unpin session")) }

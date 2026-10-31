@@ -84,12 +84,21 @@ public enum ReportReferenceLayout {
         var lines = [
             ReportLine("Esc returns to your selection. These keys apply in the report.", style: .muted),
             ReportLine("Navigation", style: .heading),
-            ReportLine(
-                state.showsOverview && state.overview.detailsVisible && state.overview.focus == .details
-                    ? "↑/↓ scroll details" : "↑/↓ select row"),
         ]
+        if !state.showsOverview || !state.overview.visibleRows.isEmpty {
+            lines.append(
+                ReportLine(
+                    state.showsOverview && state.overview.detailsVisible && state.overview.focus == .details
+                        ? "↑/↓ scroll details" : "↑/↓ select row"))
+        }
         if state.showsOverview {
-            if let id = state.overview.selection, let node = state.overview.nodes[id] {
+            lines.append(ReportLine("8 collapse/expand table"))
+            for section in state.overview.tableSections {
+                lines.append(ReportLine(section.shortcut + " fold " + section.rawValue))
+            }
+            if state.overview.selectionIsVisible, let id = state.overview.selection,
+                let node = state.overview.nodes[id]
+            {
                 if !node.children.isEmpty { lines.append(ReportLine("←/→ collapse/expand row")) }
                 lines.append(ReportLine("i show/hide contributor details"))
                 if state.overview.pinTarget(for: id) != nil {

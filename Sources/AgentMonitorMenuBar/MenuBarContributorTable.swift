@@ -8,7 +8,8 @@ struct MenuBarContributorTable: View {
     var focus: FocusState<MenuBarFocus?>.Binding
 
     private var acceptsInteraction: Bool {
-        model.isOpen && model.report.showsOverview && !model.diagnosis.state.isVisible
+        model.isOpen && model.report.showsOverview && !model.report.overview.tableCollapsed
+            && !model.diagnosis.state.isVisible
             && model.report.actionPanel == nil
     }
 
@@ -20,15 +21,15 @@ struct MenuBarContributorTable: View {
         let rows = overview.visibleRows
         let positions = Dictionary(uniqueKeysWithValues: rows.enumerated().map { ($0.element.id, $0.offset) })
         let firstSection = overview.topLevel.first.map {
-            MenuBarContributorSection.section(for: $0, overview: overview)
+            overview.tableSection(for: $0)
         }
         var group = -1
-        var currentSection = MenuBarContributorSection.sessions
-        var sections: [ContributorID: MenuBarContributorSection] = [:]
+        var currentSection = ContributorTableSection.sessions
+        var sections: [ContributorID: ContributorTableSection] = [:]
         let groupIndices = rows.map { row in
             if row.depth == 0 {
                 group += 1
-                currentSection = MenuBarContributorSection.section(for: row.id, overview: overview)
+                currentSection = overview.tableSection(for: row.id)
             }
             sections[row.id] = currentSection
             return group
@@ -45,7 +46,7 @@ struct MenuBarContributorTable: View {
             Table(
                 of: ContributorNode.self,
                 selection: Binding(
-                    get: { model.report.overview.selection },
+                    get: { model.report.overview.selectionIsVisible ? model.report.overview.selection : nil },
                     set: { id in if acceptsInteraction, let id { model.report.overview.select(id) } }
                 )
             ) {
@@ -114,18 +115,31 @@ struct MenuBarContributorTable: View {
                     }.padding(.top, depth == 0 && index > 0 ? 8 : 0)
                 }.width(min: 280, ideal: 560)
             } rows: {
-                ForEach(MenuBarContributorSection.allCases, id: \.self) { section in
+                ForEach(ContributorTableSection.allCases, id: \.self) { section in
                     let ids = overview.topLevel.filter {
-                        MenuBarContributorSection.section(for: $0, overview: overview) == section
+                        overview.tableSection(for: $0) == section
                     }
                     if !ids.isEmpty {
-                        Section {
+                        Section(
+                            isExpanded: Binding(
+                                get: { !model.report.overview.collapsedSections.contains(section) },
+                                set: {
+                                    if acceptsInteraction {
+                                        model.report.overview.setSectionExpanded($0, section: section)
+                                    }
+                                }
+                            )
+                        ) {
                             MenuBarContributorRows(
                                 model: model, ids: ids, acceptsInteraction: acceptsInteraction)
                         } header: {
                             MenuBarContributorHeading(section: section) {
                                 if acceptsInteraction { model.showGlossary(ReportGlossary.otherObservedWork) }
                             }
+                            .help(
+                                (overview.collapsedSections.contains(section) ? "Expand " : "Collapse ")
+                                    + section.rawValue + " (" + section.shortcut + ")"
+                            )
                             .padding(.top, section == firstSection ? 0 : 12)
                             .padding(.bottom, 4)
                             .background(MenuBarRowBackground())
@@ -446,7 +460,7 @@ private struct MenuBarContributorBranch: View {
 
 struct MenuBarContributorLane: View {
     let activity: ContributorActivity
-    let id: ContributorID
+    var id: ContributorID? = nil
     @Environment(\.backgroundProminence) private var prominence
     @Environment(\.displayScale) private var displayScale
 
@@ -459,7 +473,8 @@ struct MenuBarContributorLane: View {
             let step = floor(size.width * displayScale / Double(activity.spans.count)) / displayScale
             let leading = (size.width - step * Double(activity.spans.count)) / 2
             let gap = 1 / displayScale
-            for (index, sample) in (activity.samples[id] ?? []).enumerated() {
+            let samples = id.map { activity.samples[$0] ?? [] } ?? activity.totalSamples
+            for (index, sample) in samples.enumerated() {
                 let span = activity.spans[index]
                 let x = leading + Double(index) * step
                 guard let value = sample?.percent(in: span) else { continue }
@@ -474,8 +489,14 @@ struct MenuBarContributorLane: View {
                 }
             }
         }
-        .accessibilityLabel("CPU history, " + activity.scaleLabel + ", " + activity.intervalLabel)
-        .help("Recent CPU averages; gaps mean unmeasured")
+        .accessibilityLabel(
+            (id == nil ? "Overall contributor CPU history, " : "CPU history, ") + activity.scaleLabel + ", "
+                + activity.intervalLabel
+        )
+        .help(
+            id == nil
+                ? "All contributors, including hidden rows; not whole-Mac CPU"
+                : "Recent CPU averages; gaps mean unmeasured")
     }
 }
 
@@ -506,16 +527,7 @@ extension ContributorID {
     }
 }
 
-private enum MenuBarContributorSection: String, CaseIterable {
-    case pinned = "Pinned"
-    case sessions = "Sessions"
-    case other = "Other observed work"
-
-    static func section(for id: ContributorID, overview: ContributorOverview) -> Self {
-        if overview.pinned.contains(id) { return .pinned }
-        return id.summarySymbol == nil ? .sessions : .other
-    }
-
+extension ContributorTableSection {
     var symbol: String {
         switch self {
         case .pinned: "pin.fill"
@@ -524,13 +536,6 @@ private enum MenuBarContributorSection: String, CaseIterable {
         }
     }
 
-    var help: String {
-        switch self {
-        case .pinned: "Pinned sessions stay at the top"
-        case .sessions: "Agent sessions and their workloads"
-        case .other: "Recent, additional, uncertain and shared work"
-        }
-    }
 }
 
 private struct MenuBarContributorPin: View {
@@ -554,12 +559,12 @@ private struct MenuBarContributorPin: View {
 }
 
 private struct MenuBarContributorHeading: View {
-    let section: MenuBarContributorSection
+    let section: ContributorTableSection
     let showGroupHelp: () -> Void
 
     var body: some View {
         HStack(spacing: 4) {
-            Label(section.rawValue, systemImage: section.symbol).help(section.help)
+            Label(section.rawValue, systemImage: section.symbol)
             if section == .other {
                 MenuBarGroupHelp(entry: ReportGlossary.otherObservedWork, open: showGroupHelp)
             }

@@ -2,6 +2,70 @@ import AgentMonitorPresentation
 import Testing
 
 @Suite struct ContributorDisclosureTests {
+    @Test(arguments: ContributorTableSection.allCases)
+    func foldingASectionHidesItsEntireSubtreesOnly(section: ContributorTableSection) throws {
+        var overview = ContributorOverview()
+        overview.receive(try overviewFixture(includeProcesses: true))
+        overview.togglePin(for: try #require(overview.main.first))
+        overview.showAll = true
+        for _ in 0..<4 {
+            for row in overview.visibleRows { overview.setDisclosure(expanded: true, for: row.id) }
+        }
+        var rowSection = ContributorTableSection.other
+        let expected = overview.visibleRows.filter { row in
+            if row.depth == 0 {
+                rowSection =
+                    overview.pinned.contains(row.id)
+                    ? .pinned
+                    : (overview.main.contains(row.id) ? .sessions : .other)
+            }
+            return rowSection != section
+        }
+        overview.toggleSection(section)
+        #expect(overview.visibleRows.map(\.id) == expected.map(\.id))
+    }
+
+    @Test func sectionAndTableFoldingPreserveInspectionAcrossRefresh() throws {
+        let snapshot = try overviewFixture(includeProcesses: true)
+        var state = LiveReportState()
+        state.receive(snapshot)
+        let parent = try #require(state.overview.main.first)
+        state.overview.setDisclosure(expanded: true, for: parent)
+        let child = try #require(state.overview.nodes[parent]?.children.first)
+        state.overview.select(child)
+        state.overview.toggleDetails()
+        let rows = state.overview.visibleRows
+        let open = state.overview.open
+        let totals = state.overview.totals
+        let activity = state.overview.activity
+        state.apply(.foldSessions)
+        #expect(!state.overview.selectionIsVisible)
+        #expect(!state.overview.detailsVisible)
+        #expect(state.contributorProcesses(for: child).isEmpty)
+        state.overview.toggleDetails()
+        #expect(!state.overview.detailsVisible)
+        let pinnedHiddenSelection = state.overview.togglePin()
+        #expect(!pinnedHiddenSelection)
+        state.overview.receive(snapshot)
+        #expect(state.overview.selection == child)
+        #expect(state.overview.open == open)
+        #expect(state.overview.totals == totals)
+        #expect(state.overview.activity == activity)
+        state.apply(.foldSessions)
+        #expect(state.overview.visibleRows == rows)
+        #expect(state.overview.selection == child)
+        state.apply(.foldTable)
+        state.overview.hideNoLongerObserved = true
+        #expect(state.overview.selection == child)
+        state.overview.hideNoLongerObserved = false
+        state.overview.receive(snapshot)
+        #expect(state.overview.visibleRows.isEmpty)
+        #expect(state.overview.selection == child)
+        state.apply(.foldTable)
+        #expect(state.overview.visibleRows == rows)
+        #expect(state.overview.open == open)
+    }
+
     @Test(arguments: [false, true])
     func hidingHistoricalRowsPreservesMeasuredWorkAndCurrentMembers(mixedSession: Bool) throws {
         let snapshot = try overviewFixture(includeProcesses: true, mixedSession: mixedSession)

@@ -127,6 +127,24 @@ public struct ContributorActivity: Equatable, Sendable {
 
     }
 
+    /// Sum disjoint retained leaves, independent of grouping, pins and display filters.
+    public var totalSamples: [Sample?] {
+        var result = [Sample?](repeating: nil, count: spans.count)
+        for (id, values) in samples {
+            switch id {
+            case .process, .collapsed:
+                for (index, sample) in values.enumerated() {
+                    guard let sample else { continue }
+                    var combined = result[index] ?? Sample()
+                    combined.merge(sample)
+                    result[index] = combined
+                }
+            case .section, .session, .provider, .executable, .more: continue
+            }
+        }
+        return result
+    }
+
     public var scaleLabel: String { "0–\(Int(ceiling))%" }
 
     public var intervalLabel: String {
@@ -135,8 +153,11 @@ public struct ContributorActivity: Equatable, Sendable {
             + (unequal ? " · unequal durations" : "")
     }
 
-    public func terminalLane(for id: ContributorID, width: Int, level: Int = 0, rows: Int = 1) -> String {
-        guard width > 0, !spans.isEmpty, let values = samples[id] else {
+    public func terminalLane(for id: ContributorID? = nil, width: Int, level: Int = 0, rows: Int = 1)
+        -> String
+    {
+        let values = id.map { samples[$0] ?? [] } ?? totalSamples
+        guard width > 0, !spans.isEmpty, values.count == spans.count else {
             return String(repeating: "·", count: max(0, width))
         }
         let levels = Array("▁▂▃▄▅▆▇█")

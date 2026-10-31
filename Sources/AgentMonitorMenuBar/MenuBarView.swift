@@ -144,7 +144,8 @@ struct MenuBarView: View {
             }
             focus =
                 overview
-                ? .overview : initialFocus.open(rows: model.visibleRowIDs, preferred: model.report.selection)
+                ? (model.report.overview.tableCollapsed ? .overviewControl : .overview)
+                : initialFocus.open(rows: model.visibleRowIDs, preferred: model.report.selection)
         }
         .onKeyPress(keys: MenuBarKeyboard.keys, phases: .down) { key in
             guard !model.diagnosis.state.isVisible, model.report.actionPanel == nil,
@@ -155,6 +156,9 @@ struct MenuBarView: View {
                 return .handled
             }
             return model.handleShortcut(key.characters, row: focusedRow) ? .handled : .ignored
+        }
+        .onChange(of: model.report.overview.tableCollapsed) { _, collapsed in
+            if overviewVisible { focus = collapsed ? .overviewControl : .overview }
         }
         .onChange(of: model.referencePage) { previous, page in
             if previous != nil, page == nil, model.isOpen { restoreReportFocus() }
@@ -215,6 +219,24 @@ struct MenuBarView: View {
     private func report(overview: Bool) -> some View {
         return VStack(alignment: .leading, spacing: overview ? 8 : 12) {
             HStack {
+                if overview {
+                    Button {
+                        model.report.overview.toggleTable()
+                    } label: {
+                        Image(
+                            systemName: model.report.overview.tableCollapsed
+                                ? "chevron.right" : "chevron.down"
+                        )
+                        .frame(width: 20, height: 24)
+                    }.buttonStyle(.borderless)
+                        .focused($focus, equals: .overviewControl)
+                        .help(
+                            model.report.overview.tableCollapsed ? "Expand table (8)" : "Collapse table (8)"
+                        )
+                        .accessibilityLabel(
+                            model.report.overview.tableCollapsed
+                                ? "Expand contributor table" : "Collapse contributor table")
+                }
                 Text(
                     overview
                         ? model.report.overview.title
@@ -274,7 +296,8 @@ struct MenuBarView: View {
     private func restoreReportFocus() {
         focus =
             model.report.showsOverview
-            ? .overview : initialFocus.open(rows: model.visibleRowIDs, preferred: model.report.selection)
+            ? (model.report.overview.tableCollapsed ? .overviewControl : .overview)
+            : initialFocus.open(rows: model.visibleRowIDs, preferred: model.report.selection)
         if let focusedRow { model.selectRow(focusedRow) }
     }
 

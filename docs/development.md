@@ -309,6 +309,8 @@ The [ledger decision](architecture.md#constrained-overview-presentation) adds ex
 
 ### TUI interaction review
 
+For overview folding, verify keys 5/6/7 and 8 through the owned PTY fixture as well as shared state tests. Check complete selected rows at 40×8, section controls and aggregate alignment at 90×30 or wider, and reopening after refresh. In Mac, verify native section headers remain nonselectable and the table instance survives whole-table folding. Confirm the aggregate lane includes filtered/hidden work once and changes neither retention nor measurement totals.
+
 - Follow the [TUI contract](architecture.md#tui-contract) and [no-fork decision](decisions/swifttui-fork.md). Use terminal-native selection, tree markers and keyboard commands; do not copy Mac hover interactions or graphical popovers. Keep the current selection, available detail/Back commands and shortcut meanings discoverable in the supported viewport.
 - Check cell widths, long/Unicode labels, narrow/wide layouts, scrolling and pagination. Keep hierarchy in the label column and numbers aligned; distinguish selection from expansion and preserve meaningful state without color. Detailed diagnostics belong behind an explicit command without hiding material coverage warnings.
 - Exercise focus routing, disclosure, inspection/return, pause, refresh and row disappearance using the synthetic PTY fixture. Ensure navigation keys reach the active pane and editors do not trigger table shortcuts. Source/model checks do not establish terminal key delivery on the user's keyboard; retain the [manual workflow check](#manual-tui-workflow-check).

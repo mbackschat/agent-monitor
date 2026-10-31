@@ -75,6 +75,8 @@ Adaptive sampling defaults off. With `--adaptive-sampling`, acquisition starts a
 | `c` / `m` / `n` | Sort the current view by CPU or memory; PID applies only in process views |
 | `o` | Stable order in the current view: keep surviving sibling positions and append arrivals (process-view default) |
 | `r` | Reverse the current view’s sort direction; no effect in Stable order |
+| `5` / `6` / `7` | Fold Pinned / Sessions / Other observed work in the contributor overview |
+| `8` | Collapse/expand the contributor table; totals and overall CPU chart stay visible |
 | `b` | Cycle the fixed contributor CPU chart range; no effect in process views |
 | `h` | Cycle history: CPU (default), memory, heavy-process count |
 | `t` | Switch history between the last 10 minutes (default) and one hour |
@@ -247,6 +249,10 @@ CPU totals all observed agent-associated processes (100% = one core); Memory tot
 History records **every collected report**, using that report's observations. Acquisition runs independently of the five-second display cadence; coalesced deliveries contribute their enclosing measured window. CPU represents the resource interval measured at each recorded observation; work missed between scans remains missing from history. History accumulates while this instance runs, up to one hour; it is not saved across launches. The range ends at the latest history observation, and unsampled earlier periods stay blank. Pause holds the strip along with the table; Resume includes measurements collected during the pause. The native live icon’s closed-panel delivered windows also feed history. Static-icon mode adds no samples while closed, leaving gaps between observations. Closing/reopening preserves the history and metric/range choice. There is no additional polling or animation timer.
 
 ## Menu bar app
+
+The contributor overview shows **overall CPU history** above the row charts, on their same fixed scale and recent range. It includes hidden contributors, counts each contribution once, and represents the monitored population, not whole-Mac CPU. It uses existing measurements without retaining extra history. In the TUI, the aligned overall chart appears when the window is at least 90 columns by 20 rows.
+
+Collapse **Pinned**, **Sessions** or **Other observed work** using its section chevron; collapse the whole table with the chevron beside **Main contributors**. Totals, the overall chart and view options remain visible. Folding preserves selection and child expansion across refreshes, closes hidden Details and prevents actions on hidden rows. Reopening restores surviving rows; it does not restore expired measurements. Both interfaces also accept **5**, **6**, **7** for these sections and **8** for the table, listed in **?** keyboard help. The TUI labels its section controls with those keys; headings are not selectable contributor rows.
 
 In the contributor view, **View options → Display filters → Hide no longer observed** hides fully historical rows, including pinned ones, without deleting pins or changing measured totals/history. Mixed groups with current members and unavailable-presence rows stay visible. A counted notice shows when the filter is active; click it to restore hidden rows. The setting starts off and remains selected across monitoring refreshes.
 
