@@ -192,23 +192,40 @@ public enum ContributorLayout {
         let bodyHeight = available - detailsHeight
         var start = min(selected, max(0, blocks.count - 1))
         var used = blocks.indices.contains(start) ? blocks[start].count : 0
-        while start > 0, used + blocks[start - 1].count <= min(bodyHeight, bodyHeight / 2 + minimumBody) {
+        while start > 0, used + blocks[start - 1].count <= bodyHeight {
             start -= 1
             used += blocks[start].count
         }
         var body: [ReportLine] = []
         var visibleCount = 0
+        var partialLastRow = false
         for block in blocks.dropFirst(start) {
-            guard body.count + block.count <= bodyHeight else { break }
-            body += block
+            let remaining = bodyHeight - body.count
+            guard remaining > 0 else { break }
+            let visible = block.prefix(remaining)
+            if visible.count < block.count {
+                guard
+                    visible.contains(where: {
+                        $0.style == .selected || $0.style == .identity || $0.style == .warning
+                    })
+                else { break }
+                partialLastRow = true
+            }
+            body += visible
             visibleCount += 1
+            if partialLastRow { break }
         }
         while body.count < bodyHeight { body.append(ReportLine("")) }
         let details = detailLines(state: state, width: width, height: detailsHeight)
-        let position =
+        var position =
             bodyHeight > 0
             ? TerminalChrome.position(start: start, count: min(visibleCount, rows.count), total: rows.count)
             : ""
+        if partialLastRow {
+            position =
+                (start > 0 ? "↑ " : "")
+                + "\(start + 1)–\(min(start + visibleCount, rows.count))/\(rows.count) ↓"
+        }
         if !position.isEmpty, !header.isEmpty {
             let index = 0
             let suffix = "  " + position

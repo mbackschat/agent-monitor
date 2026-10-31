@@ -22,6 +22,43 @@ import Testing
         #expect(lines.filter { $0.text.contains("/fixture") }.allSatisfy { $0.style == .normal })
     }
 
+    @Test(arguments: [false, true])
+    func movingDownKeepsEarlierRowsWhenTableFits(details: Bool) throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        if details { state.showDetails() }
+        let height = details ? 44 : 24
+        let rows = state.overview.visibleRows
+        let before = ContributorLayout.lines(state: state, width: 120, height: height)
+        for row in rows {
+            #expect(before.contains { $0.text.contains(row.node.label.headline) })
+        }
+        state.overview.select(try #require(rows.last).id)
+        if details { state.showDetails() }
+        let after = ContributorLayout.lines(state: state, width: 120, height: height)
+        for row in rows {
+            #expect(after.contains { $0.text.contains(row.node.label.headline) })
+        }
+        #expect(after.contains { $0.style == .selected })
+    }
+
+    @Test func followingContributorUsesRemainingRowsAfterExpansion() throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture(includeProcesses: true, mixedSession: true, splitWorkloads: true))
+        let root = try #require(state.overview.main.first)
+        state.overview.setDisclosure(expanded: true, for: root)
+        let next = try #require(state.overview.visibleRows.dropFirst().first { $0.depth == 0 })
+        let complete = ContributorLayout.lines(state: state, width: 120, height: 80)
+        let following = try #require(complete.firstIndex { $0.text.contains(next.node.label.headline) })
+        let firstChild = try #require(state.overview.visibleRows.first { $0.depth == 1 })
+        let height = following + 2 + TerminalChrome.footer(state: state, width: 120).count
+        let clipped = ContributorLayout.lines(state: state, width: 120, height: height)
+        #expect(clipped.contains { $0.text.contains(firstChild.node.label.headline) })
+        #expect(clipped.contains { $0.text.contains(next.node.label.headline) })
+        #expect(clipped.contains { $0.style == .selected && $0.text.contains("session-") })
+        #expect(clipped.first?.text.contains("↓") == true)
+    }
+
     @Test func syntheticGroupsShowTheirPopulationOnlyOnce() throws {
         var state = LiveReportState()
         state.receive(try overviewFixture())
