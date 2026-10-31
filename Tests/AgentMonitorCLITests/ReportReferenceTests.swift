@@ -59,9 +59,45 @@ import Testing
         #expect(top.allSatisfy { TerminalCells.width($0.text) <= width })
     }
 
-    @Test func wideningAHelpPageAtItsEndKeepsOneLineScrollingResponsive() {
+    @Test(arguments: [100, 120, 160], [ReportView.mainContributors, .processes])
+    func wideKeyboardHelpBalancesSectionsAndPreservesStyledShortcuts(width: Int, view: ReportView) throws {
         var state = LiveReportState()
-        state.showReference(.glossary)
+        state.receive(try overviewFixture(includeProcesses: true))
+        state.view = view
+        state.showReference(.keyboard)
+        let source = ReportReferenceLayout.content(state: state, page: .keyboard)
+        let lines = ReportReferenceLayout.lines(state: state, width: width, height: 60)
+        let first = lines[1]
+        #expect(first.runs.filter { $0.style == .title }.count == 2)
+        let expectedKeys = source.flatMap(\.runs).filter { $0.style == .shortcut }.map(\.text).sorted()
+        let renderedKeys = lines.flatMap(\.runs).filter { $0.style == .shortcut }.map(\.text).sorted()
+        #expect(renderedKeys == expectedKeys)
+        for heading in source.filter({ $0.style == .title }) {
+            #expect(lines.flatMap(\.runs).filter { $0.style == .title && $0.text == heading.text }.count == 1)
+        }
+        #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
+        #expect(lines[57].text == String(repeating: "─", count: width))
+        let singleColumnRows = source.count
+        #expect(
+            ReportReferenceLayout.maximumOffset(state: state, width: width, height: 12) < singleColumnRows - 8
+        )
+    }
+
+    @Test func narrowKeyboardHelpRetainsSectionReadingOrder() throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        state.showReference(.keyboard)
+        let source = ReportReferenceLayout.content(state: state, page: .keyboard)
+
+        let lines = ReportReferenceLayout.lines(state: state, width: 80, height: 80)
+        #expect(Array(lines.dropFirst().prefix(source.count)) == source)
+    }
+
+    @Test(arguments: [ReportReferencePage.glossary, .keyboard])
+    func wideningAHelpPageAtItsEndKeepsOneLineScrollingResponsive(page: ReportReferencePage) {
+
+        var state = LiveReportState()
+        state.showReference(page)
         state.scrollReference(by: Int.max, width: 40, height: 12)
         let bottom = LiveReportLayout.lines(state: state, width: 140, height: 12)
         state.scrollReference(by: -1, width: 140, height: 12)

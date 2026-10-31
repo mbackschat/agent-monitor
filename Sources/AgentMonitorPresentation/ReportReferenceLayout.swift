@@ -188,8 +188,33 @@ public enum ReportReferenceLayout {
 
     private static func wrapped(state: LiveReportState, page: ReportReferencePage, width: Int) -> [ReportLine]
     {
-        content(state: state, page: page).flatMap { line in
-            line.wrapped(to: max(1, width))
+        let source = content(state: state, page: page)
+        guard page == .keyboard, width >= 100 else {
+            return source.flatMap { $0.wrapped(to: max(1, width)) }
+        }
+        let gap = 4
+        let columnWidth = (width - gap) / 2
+        let sections = source.split(whereSeparator: { $0.text.isEmpty }).map { section in
+            section.flatMap { $0.wrapped(to: columnWidth) }
+        }
+        func column(_ sections: ArraySlice<[ReportLine]>) -> [ReportLine] {
+            Array(sections.joined(separator: [ReportLine("")]))
+        }
+        guard
+            let split = (1..<sections.count).min(by: { lhs, rhs in
+                max(column(sections[..<lhs]).count, column(sections[lhs...]).count)
+                    < max(column(sections[..<rhs]).count, column(sections[rhs...]).count)
+            })
+        else { return source.flatMap { $0.wrapped(to: width) } }
+        let left = column(sections[..<split])
+        let right = column(sections[split...])
+        return (0..<max(left.count, right.count)).map { row in
+            let first = row < left.count ? left[row] : ReportLine("")
+            guard row < right.count else { return first }
+            return ReportLine(
+                runs: first.runs + [
+                    .init(String(repeating: " ", count: columnWidth - TerminalCells.width(first.text) + gap))
+                ] + right[row].runs)
         }
     }
 
