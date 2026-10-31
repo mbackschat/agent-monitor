@@ -39,14 +39,14 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("PID ascending") && $0.contains("Details min") && !$0.contains("Runtime: 1234")
+        $0.contains("PID ↑") && $0.contains("Details min") && !$0.contains("Runtime: 1234")
     }
     try writeAllBytes(Array("i".utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
         $0.contains("Runtime: 1234") && $0.contains("PID 42 |")
-            && $0.range(of: "Updates: ([2-9]|[1-9][0-9]+) ", options: .regularExpression) != nil
+            && $0.range(of: "Updates: ([2-9]|[1-9][0-9]+)( |\n)", options: .regularExpression) != nil
             && dividerRow($0) != nil
     }
     for width in [120, 200, 80, 100] {
@@ -63,13 +63,13 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
                 let footer = rows.lastIndex(where: { $0.contains("↑/↓ select") })
             else { return false }
             return $0.contains("PID 42 |") && header < divider && divider < footer
-                && $0.contains("1/2 CPU -/+10%") && $0.contains("3/4 GB -/+1")
+                && $0.contains("v view") && $0.contains("g group") && $0.contains("? help")
         }
     }
     try writeAllBytes(Array("c".utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
-    ) { $0.contains("CPU descending") }
+    ) { $0.contains("CPU ↓") }
     try writeAllBytes(Array("o".utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
@@ -78,13 +78,13 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("PID ascending") && $0.contains("PID 42 |")
+        $0.contains("PID ↑") && $0.contains("PID 42 |")
     }
     try writeAllBytes(Array("r".utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("PID descending") && $0.contains("PID 42 |")
+        $0.contains("PID ↓") && $0.contains("PID 42 |")
     }
     for (key, label) in [
         ("+", "Details | pane 55%"), ("9", "Details max"), ("0", "Details min"),
@@ -106,7 +106,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("PID descending") && $0.contains("PID 42 |") && $0.contains("unresolved")
+        $0.contains("PID ↓") && $0.contains("PID 42 |") && $0.contains("unresolved")
             && dividerRow($0) != nil
     }
     try writeAllBytes(Array(String(repeating: "\u{1b}[6~", count: 4).utf8), to: terminal.master)
@@ -197,7 +197,7 @@ func terminalRefreshDisclosureResizeAndRestoration() async throws {
                 && !$0.contains("pending")
                 && $0.contains("No processes match") == empty
                 && (empty || ($0.contains("fixture-42") && $0.contains("fixture-84")))
-                && $0.contains("1/2 CPU -/+10%") && $0.contains("3/4 GB -/+1")
+                && $0.contains("v view") && $0.contains("g group") && $0.contains("? help")
         }
     }
     try writeAllBytes([3], to: terminal.master)
@@ -303,6 +303,22 @@ private func dividerRow(_ text: String) -> Int? {
         $0.contains("Help & glossary") && $0.contains("D diagnostics")
             && $0.contains("Processes / Procs")
     }
+    try writeAllBytes([32], to: terminal.master)
+    _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)) {
+        $0.contains("5–12/") && !$0.contains("Processes / Procs")
+    }
+    try writeAllBytes(Array("\u{1b}[32;2u".utf8), to: terminal.master)
+    _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)) {
+        $0.contains("1–8/") && $0.contains("Processes / Procs")
+    }
+    try writeAllBytes(Array("\u{1b}[6~".utf8), to: terminal.master)
+    _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)) {
+        $0.contains("9–16/")
+    }
+    try writeAllBytes(Array("\u{1b}[5~".utf8), to: terminal.master)
+    _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)) {
+        $0.contains("1–8/") && $0.contains("Processes / Procs")
+    }
     try writeAllBytes(Array("]".utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
@@ -372,12 +388,12 @@ private func dividerRow(_ text: String) -> Int? {
     try writeAllBytes(Array(">c".utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
-    ) { $0.contains("CPU descending") && $0.contains("acquire max 0.5 s") }
+    ) { $0.contains("CPU ↓") && $0.contains("acquire max 0.5 s") }
     try await expectSourceSamplingSettings(at: settings, maximum: 0.5)
     try writeAllBytes(Array((String(repeating: "<", count: 10) + "m").utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
-    ) { $0.contains("PAUSED") && $0.contains("Footprint descending") && $0.contains("acquire max 10 s") }
+    ) { $0.contains("PAUSED") && $0.contains("Memory ↓") && $0.contains("acquire max 10 s") }
     try await expectSourceSamplingSettings(at: settings, maximum: 10)
     try writeAllBytes(Array("q".utf8), to: terminal.master)
     try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
@@ -676,7 +692,7 @@ func terminalActionsRequireConfirmationAndPasteCannotSubmit(quitWhileUndersized:
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("Main contributors") && $0.contains(" · Stable")
+        $0.contains("Main contributors") && $0.contains(" | Stable | ")
             && $0.contains("Exact session:") && $0.contains("DETAILS ●")
     }
     try writeAllBytes([9], to: terminal.master)
@@ -698,8 +714,13 @@ func terminalActionsRequireConfirmationAndPasteCannotSubmit(quitWhileUndersized:
     try writeAllBytes(Array("\u{1b}[C\u{1b}[B\u{1b}[C\u{1b}[B\u{1b}[Ci".utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("DETAILS ● node · PID 42") && $0.contains("/fixture/node") }
+    try writeAllBytes([32], to: terminal.master)
+    _ = try await waitForScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.range(of: "Lifetime: +PID 42", options: .regularExpression) != nil && $0.contains("/fixture/node")
+        $0.range(of: "Lifetime: +PID 42", options: .regularExpression) != nil
+            && $0.contains("DETAILS ● node · PID 42")
     }
     try writeAllBytes(Array("p".utf8), to: terminal.master)
     _ = try await waitForScreen(

@@ -92,7 +92,7 @@ public enum LiveReportLayout {
         var lines = layout.header
         lines += processLines(state: state, width: width, height: layout.processHeight)
         lines += detailsPane(state: state, width: width, height: layout.detailHeight)
-        lines += layout.footer.map { ReportLine($0, style: .muted) }
+        lines += layout.footer
         return lines.map { $0.clipped(to: width) }
     }
 
@@ -104,35 +104,19 @@ public enum LiveReportLayout {
     }
 
     private static func paneLayout(state: LiveReportState, width: Int, height: Int)
-        -> (header: [ReportLine], footer: [String], processHeight: Int, detailHeight: Int)
+        -> (header: [ReportLine], footer: [ReportLine], processHeight: Int, detailHeight: Int)
     {
         var header = headerLines(state: state, width: width) + [historyLine(state: state, width: width)]
         let minimumProcess = state.detailsMode == .maximized ? 0 : (width < 85 ? 3 : 2)
         let minimumBody = max(3, minimumProcess + 1)
-        var footer = helpLines(
-            width: width, height: height, headerHeight: header.count, frozen: state.frozen,
-            diagnosisRunning: state.diagnosis.isRunning)
+        var footer = TerminalChrome.footer(state: state, width: width)
         if height - header.count - footer.count < minimumBody {
-            let coverage = state.displayCoverageStatus
-            // UX-01 puts the selected responsibility above optional chrome. Counts keep
-            // reduced coverage detail explicit; Diagnostics retains the full notes.
-            let coverageText = coverage.terminalSummary(width: width)
-            header = [ReportLine(coverageText, style: coverage.lineStyle)]
+            header = [TerminalChrome.title(state: state, width: width)]
             if !state.thresholds.isUnfiltered || filtersPending(state) {
                 header.append(ReportLine(filterText(state), style: .muted))
             }
-            if state.frozen {
-                let stamp = state.snapshot.map { " at " + clockTime($0.timestamp) } ?? ""
-                let resize = state.notice == nil ? "" : " · resize"
-                header.insert(ReportLine("PAUSED\(stamp) | p resume\(resize)", style: .title), at: 0)
-                if let notice = state.notice { footer[0] = notice }
-            } else if let notice = state.notice {
-                header.append(ReportLine(notice, style: .warning))
-            }
-            let limit = height - footer.count - max(3, minimumProcess)
-            if !state.frozen, state.notice == nil, header.count < limit {
-                header.insert(ReportLine("Agent Monitor", style: .title), at: 0)
-            }
+            if let notice = state.notice { footer[0] = ReportLine(notice, style: .warning) }
+
         }
         let available = max(0, height - header.count - footer.count)
         let details = detailHeight(state: state, available: available, minimumProcess: minimumProcess)
@@ -157,18 +141,6 @@ public enum LiveReportLayout {
     }
 
     private static func headerLines(state: LiveReportState, width: Int) -> [ReportLine] {
-        let seconds = String(format: "%g", state.interval)
-        let frozen =
-            state.frozen
-            ? "PAUSED" + (state.snapshot.map { " at " + clockTime($0.timestamp) } ?? "")
-                + " | p resume | " : ""
-        let cadence =
-            state.snapshot?.window == nil
-            ? (state.samplingSettings.enabled ? "acquire max \(seconds) s" : "every \(seconds) s")
-            : "acquire \(state.samplingSettings.enabled ? "max " : "")\(seconds) s / display \(String(format: "%g", LiveReportState.displayIntervalSeconds)) s"
-        let activity = "\(state.sortDescription) | \(cadence)"
-        let title =
-            state.frozen ? frozen + activity : "Agent Monitor | \(activity) | Updates: \(state.updates)"
         let status: String
         if let notice = state.notice {
             status = notice
@@ -180,71 +152,40 @@ public enum LiveReportLayout {
             status = "Sampling baseline…"
         }
         let filters = filterText(state)
-        let coverageStatus = state.displayCoverageStatus
-        // The on-demand diagnostics contract (docs/architecture.md) keeps a reserved status row
-        // so a coverage warning does not move the selected contributor.
-        let coverage = [
-            ReportLine(coverageStatus.terminalSummary(width: width), style: coverageStatus.lineStyle)
-        ]
-
-        switch width {
-        case 120...:
-            return [
-                ReportLine(
-                    title + " | " + abbreviated(status, width: width - title.count - filters.count - 6)
-                        + " | " + filters, style: .title)
-            ] + coverage
-        case 85..<120:
-            return [
-                ReportLine(
-                    title + " | " + abbreviated(status, width: width - title.count - 3), style: .title),
-                ReportLine(filters, style: .muted),
-            ] + coverage
-        default:
-            return [
-                ReportLine(title, style: .title), ReportLine(status, style: .title),
-                ReportLine(filters, style: .muted),
-            ] + coverage
-        }
+        return [TerminalChrome.title(state: state, width: width), TerminalChrome.cadence(state: state)]
+            + (width >= 85
+                ? [
+                    ReportLine(
+                        TerminalCells.abbreviated(
+                            status, to: max(1, width - TerminalCells.width(filters) - 3)) + " · " + filters)
+                ]
+                : [ReportLine(status), ReportLine(filters)])
     }
 
-    private static func helpLines(
-        width: Int, height: Int, headerHeight: Int, frozen: Bool, diagnosisRunning: Bool
-    ) -> [String] {
-        let diagnosisHint = diagnosisRunning ? DiagnosisViewState.cleanupHint : DiagnosisViewState.keyHint
-        let groups = [
-            [
-                "↑/↓ select", "←/→ fold", "g group", "c/m/n/o sort", "r reverse",
-                ". pin", diagnosisHint,
-            ],
-            [frozen ? "p resume" : "p pause", "k terminate", "f focus"],
-            ["1/2 CPU -/+10%", "3/4 GB -/+1", "</> interval"],
-            ["Details: i", "Pg↑↓", "-/+ size", "0 hide", "9 max", "= restore"],
-            ["? help", "| q/Ctrl-C quit"],
-        ]
-        var lines: [String] = []
-        var line = ""
-        func append(_ text: String) {
-            let candidate = line.isEmpty ? text : line + " " + text
-            if candidate.count > width {
-                lines.append(line)
-                line = text
+    public static func page(
+        state: inout LiveReportState, width: Int, height: Int, direction: Int, half: Bool = true
+    ) {
+        if state.referencePage != nil {
+            state.scrollReference(
+                by: direction * max(1, (height - 4) / (half ? 2 : 1)), width: width, height: height)
+        } else if state.diagnosis.isVisible {
+            state.scrollDiagnosis(
+                by: direction * max(1, (height - 3) / (half ? 2 : 1)), width: width, height: height)
+        } else if state.showsOverview {
+            ContributorLayout.page(
+                state: &state, width: width, height: height, direction: direction, half: half)
+        } else {
+            let layout = paneLayout(state: state, width: width, height: height)
+            if state.detailsMode != .minimized {
+                state.scrollDetails(
+                    by: direction * max(1, (layout.detailHeight - 1) / (half ? 2 : 1)),
+                    maximum: maximumDetailOffset(state: state, width: width, height: height))
             } else {
-                line = candidate
+                let rowHeight = width < 85 ? 2 : 1
+                state.moveSelection(
+                    by: direction * max(1, (layout.processHeight - 2) / rowHeight / (half ? 2 : 1)))
             }
         }
-        for controls in groups {
-            for control in controls { append(control) }
-        }
-        lines.append(line)
-        return lines.count <= height - headerHeight - 3
-            ? lines
-            : [
-                diagnosisRunning ? diagnosisHint : "? help | \(diagnosisHint)",
-                diagnosisRunning
-                    ? "? help | q/Ctrl-C quit"
-                    : (frozen ? "p resume | q/Ctrl-C quit" : "p pause | q/Ctrl-C quit"),
-            ]
     }
 
     private static func abbreviated(_ text: String, width: Int) -> String {
@@ -293,7 +234,9 @@ public enum LiveReportLayout {
             ? table.directoryHeader(grouped: state.grouping == .session || hasGroups)
             : "  " + table.header(columns: columns, grouped: state.grouping == .session, hasGroups: hasGroups)
         var lines = [ReportLine(heading, style: .muted)]
-        let capacity = height - 1
+        let indicatorHeight = rows.count * (narrow ? 2 : 1) > height - 1 && height > 3 ? 1 : 0
+        let tableHeight = height - indicatorHeight
+        let capacity = tableHeight - 1
         func rowHeight(_ row: LiveReportRow) -> Int {
             if case .unavailable = row { return 1 }
             return narrow ? 2 : 1
@@ -306,13 +249,15 @@ public enum LiveReportLayout {
             occupied += rowHeight(rows[start])
         }
         let directories = ProcessDirectoryLabels(state.rows)
+        var visibleCount = 0
         for entry in rows.dropFirst(start) {
-            guard lines.count + rowHeight(entry) <= height else {
+            guard lines.count + rowHeight(entry) <= tableHeight else {
                 if lines.count == 1 && capacity > 0 {
                     lines.append(ReportLine("Resize for identity and resources", style: .muted))
                 }
                 break
             }
+            visibleCount += 1
             let selected = entry.id == state.selection
             switch entry {
             case .group(let group):
@@ -348,6 +293,13 @@ public enum LiveReportLayout {
                         ? "Waiting for first report…"
                         : "No processes match the display filters in this scope.")
             )
+        }
+        if indicatorHeight > 0 {
+            lines = padded(lines, to: tableHeight)
+            lines.append(
+                ReportLine(
+                    "Rows " + TerminalChrome.position(start: start, count: visibleCount, total: rows.count),
+                    style: .heading))
         }
         return padded(lines, to: height)
     }
@@ -627,9 +579,5 @@ public enum LiveReportLayout {
     }
 
     /// Local wall-clock time of the frozen snapshot, so the user can judge how stale it is.
-    private static func clockTime(_ date: Date) -> String {
-        let components = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
-        return String(
-            format: "%02d:%02d:%02d", components.hour ?? 0, components.minute ?? 0, components.second ?? 0)
-    }
+
 }

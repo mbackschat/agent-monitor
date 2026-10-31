@@ -18,7 +18,7 @@ public enum ReportReferenceLayout {
         case .glossary:
             return ReportGlossary.entries.flatMap {
                 [ReportLine($0.title, style: .heading), ReportLine($0.definition), ReportLine("")]
-            }
+            } + chartHelp
         case .keyboard:
             return keyboardHelp(state: state)
         case .diagnostics:
@@ -84,6 +84,10 @@ public enum ReportReferenceLayout {
         var lines = [
             ReportLine("Esc returns to your selection. These keys apply in the report.", style: .muted),
             ReportLine("Navigation", style: .heading),
+            ReportLine("Space / Shift-Space scroll half a page down / up"),
+            ReportLine("PgUp/PgDn scroll a page; Tab selects rows/details in contributors."),
+            ReportLine("Help and glossary use the same paging keys."),
+            ReportLine("If your terminal sends Shift-Space as Space, use PgUp to go back."),
         ]
         if !state.showsOverview || !state.overview.visibleRows.isEmpty {
             lines.append(
@@ -109,7 +113,7 @@ public enum ReportReferenceLayout {
             if state.overview.detailsVisible {
                 lines += [
                     ReportLine("Tab switch rows/details · Esc close details"),
-                    ReportLine("PgUp/PgDn scroll details · [/] scroll one line"),
+                    ReportLine("[/] scroll details one line"),
                 ]
             }
             lines += [ReportLine("a main/all contributors"), ReportLine("b change fixed CPU chart range")]
@@ -125,7 +129,7 @@ public enum ReportReferenceLayout {
             }
             if state.detailsMode != .minimized {
                 lines += [
-                    ReportLine("PgUp/PgDn scroll details · [/] scroll one line"),
+                    ReportLine("[/] scroll details one line"),
                     ReportLine("-/+ resize details · 0 minimize · 9 maximize · = restore"),
                 ]
             } else {
@@ -161,10 +165,22 @@ public enum ReportReferenceLayout {
             ReportLine("</> slower/faster sampling"), ReportLine(""),
             ReportLine("Help & investigation", style: .heading),
             ReportLine("? keyboard shortcuts · G glossary · D diagnostics"),
+            ReportLine("D ! marks measurement warnings; D • marks notices."),
             ReportLine("q/Ctrl-C quit"),
         ]
         if !state.diagnosis.isRunning { lines.append(ReportLine("d start CPU investigation")) }
-        return lines
+        return lines + chartHelp
+    }
+
+    private static var chartHelp: [ReportLine] {
+        [
+            ReportLine(""), ReportLine("Contributor CPU charts", style: .heading),
+            ReportLine(TerminalChrome.chartLegend),
+            ReportLine("↑ means above the chart ceiling, not a rising trend. b changes the range."),
+            ReportLine("Oldest left, newest right. Dots are gaps, never zero CPU."),
+            ReportLine("Bars show retained interval averages; equal widths can cover unequal durations."),
+            ReportLine("~ spans marks measurements crossing gaps in sampling."),
+        ]
     }
 
     private static func wrapped(state: LiveReportState, page: ReportReferencePage, width: Int) -> [ReportLine]
@@ -192,13 +208,17 @@ public enum ReportReferenceLayout {
         let content = wrapped(state: state, page: page, width: width)
         let capacity = height - 4
         let offset = min(max(0, state.referenceOffset), max(0, content.count - capacity))
-        var lines = [ReportLine(page.title, style: .title)] + content.dropFirst(offset).prefix(capacity)
+        let position = TerminalChrome.position(
+            start: offset, count: min(capacity, content.count), total: content.count)
+        var lines =
+            [ReportLine(page.title + (position.isEmpty ? "" : " · " + position), style: .title)]
+            + content.dropFirst(offset).prefix(capacity)
         lines += Array(repeating: ReportLine(""), count: max(0, height - 3 - lines.count))
         let destination = page == .keyboard ? "G glossary | D diagnostics" : "? keys | D diagnostics"
         lines += [
-            ReportLine("↑/↓ [/] PgUp/Dn scroll", style: .muted),
-            ReportLine(destination, style: .muted),
-            ReportLine(controls, style: .muted),
+            ReportLine("Space/Shift-Space ½ page · PgUp/Dn page"),
+            ReportLine(destination),
+            ReportLine(controls),
         ]
         return lines.map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
     }

@@ -40,7 +40,7 @@ import Testing
         let original = state
         state.showReference(page)
         let top = LiveReportLayout.lines(state: state, width: width, height: 12)
-        #expect(top.first?.text == page.title)
+        #expect(top.first?.text.hasPrefix(page.title) == true)
         #expect(top.map(\.text).joined().contains("Esc back"))
         #expect(top.map(\.text).joined().contains("D diagnostics"))
         state.scrollReference(by: Int.max, width: width, height: 12)
@@ -69,7 +69,7 @@ import Testing
     }
 
     @Test(arguments: [40, 80, 140])
-    func diagnosticsRetainFullCoverageWhileOverviewUsesOneActionableRow(width: Int) throws {
+    func diagnosticsRetainFullCoverageWhileOverviewUsesAnActionBadge(width: Int) throws {
         var state = LiveReportState()
         var feed = OverviewFeed()
         let workers = [OverviewFeed.Worker(session: "A", executable: "java", pid: 1, cpuPerSecond: 0.5)]
@@ -79,7 +79,7 @@ import Testing
         let live = LiveReportLayout.lines(state: state, width: width, height: 24)
         #expect(live.contains { $0.text.contains("D diagnostics") })
         #expect(live.contains { $0.style == .warning })
-        #expect(!live.contains { $0.text.contains("PID detail") })
+        #expect(!live.contains { $0.text.contains("PID detail") || $0.text.contains("Read failures:") })
         #expect(live.map(\.text).joined().contains("? help"))
         state.showReference(.diagnostics)
         let details = ReportReferenceLayout.content(state: state, page: .diagnostics)
@@ -88,7 +88,9 @@ import Testing
         #expect(text.contains("Their CPU and memory are unmeasured"))
         #expect(text.contains("Sampled:"))
         #expect(text.contains("ownership is unknown"))
-        #expect(LiveReportLayout.lines(state: state, width: width, height: 12).first?.text == "Diagnostics")
+        #expect(
+            LiveReportLayout.lines(state: state, width: width, height: 12).first?.text.hasPrefix(
+                "Diagnostics") == true)
     }
 
 }

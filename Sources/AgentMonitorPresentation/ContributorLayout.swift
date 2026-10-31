@@ -2,6 +2,17 @@ import Foundation
 
 public enum ContributorLayout {
     public static func lines(state: LiveReportState, width: Int, height: Int) -> [ReportLine] {
+        layout(state: state, width: width, height: height).lines
+    }
+
+    private struct Layout {
+        let lines: [ReportLine]
+        let blockHeights: [Int]
+        let bodyHeight: Int
+        let detailsHeight: Int
+    }
+
+    private static func layout(state: LiveReportState, width: Int, height: Int) -> Layout {
         let overview = state.overview
         let columns = Columns(
             width: width, graphs: width >= 90 && height >= 20, order: overview.order,
@@ -13,19 +24,10 @@ public enum ContributorLayout {
             memory: max(
                 10, overview.nodes.values.map { TerminalCells.width($0.stats.currentMemoryText) }.max() ?? 0))
         var footer = footerLines(state: state, width: width)
-        let status = state.displayCoverageStatus
-        let coverage = ReportLine(status.terminalSummary(width: width), style: status.lineStyle)
-        let heading =
-            (overview.tableCollapsed ? "▸ " : "▾ ") + overview.title
-            + (overview.order == .stable ? " · Stable" : "")
-        let title = (state.frozen ? "PAUSED · p resume" : "Agent Monitor") + " | " + heading
         var header = [
-            ReportLine(
-                TerminalCells.width(title) <= width
-                    ? title : (state.frozen ? "PAUSED | " : "") + heading,
-                style: .title),
+            TerminalChrome.title(state: state, width: width),
+            TerminalChrome.cadence(state: state),
             ReportLine(overview.totals.summary(duration: overview.duration)),
-            coverage,
             columns.styledRow(
                 "Overall CPU · " + overview.activity.scaleLabel,
                 chart: overview.activity.terminalLane(width: columns.chart), cpu: "", memory: "",
@@ -75,7 +77,7 @@ public enum ContributorLayout {
                 : (row.id == .section(.uncertain) ? .warning : .identity)
             let cap =
                 columns.graphs
-                ? overview.activity.terminalLane(for: row.id, width: columns.chart, level: 0, rows: 2) : ""
+                ? overview.activity.terminalLane(for: row.id, width: columns.chart) : ""
             var lines = [
                 columns.styledRow(
                     prefix + headline, chart: cap,
@@ -93,11 +95,9 @@ public enum ContributorLayout {
                     + (row.node.stats.current.count == 1 ? "process" : "processes")
                 : "Presence unavailable"
             if columns.graphs {
-                let lane = overview.activity.terminalLane(
-                    for: row.id, width: columns.chart, level: 1, rows: 2)
                 lines.append(
                     columns.styledRow(
-                        inset + (includesPopulation ? "" : population), chart: lane,
+                        inset + (includesPopulation ? "" : population), chart: "",
                         cpu: overview.activity.samples[row.id]?.contains { $0?.qualified == true } == true
                             ? "~ spans" : "", memory: "", style: .normal, metricStyle: .warning))
             }
@@ -152,9 +152,8 @@ public enum ContributorLayout {
         let selected = overview.visibleRows.firstIndex { $0.id == overview.selection } ?? 0
         let minimumBody = blocks.indices.contains(selected) ? blocks[selected].count : 1
         let essential =
-            [coverage]
-            + (state.thresholds.isUnfiltered
-                ? [] : [ReportLine(ThresholdContext.text(state.thresholds), style: .muted)])
+            state.thresholds.isUnfiltered
+            ? [] : [ReportLine(ThresholdContext.text(state.thresholds), style: .muted)]
         while header.count + footer.count + minimumBody > height {
             guard let index = header.lastIndex(where: { !essential.contains($0) }) else { break }
             header.remove(at: index)
@@ -174,15 +173,54 @@ public enum ContributorLayout {
             used += blocks[start].count
         }
         var body: [ReportLine] = []
+        var visibleCount = 0
         for block in blocks.dropFirst(start) {
             guard body.count + block.count <= bodyHeight else { break }
             body += block
+            visibleCount += 1
         }
         while body.count < bodyHeight { body.append(ReportLine("")) }
         let details = detailLines(state: state, width: width, height: detailsHeight)
-        return Array((header + body + details + footer).prefix(height)).map {
-            $0.clipped(to: width)
+        let position = TerminalChrome.position(start: start, count: visibleCount, total: blocks.count)
+        if !position.isEmpty, !header.isEmpty {
+            let index = 0
+            let suffix = "  " + position
+            header[index] = ReportLine(
+                runs: header[index].clipped(to: max(0, width - suffix.count)).runs + [
+                    .init(suffix, style: .heading)
+                ])
         }
+        if !position.isEmpty, header.isEmpty, !footer.isEmpty {
+            footer[0] = ReportLine(
+                TerminalCells.abbreviated(footer[0].text, to: max(1, width - position.count - 2)) + "  "
+                    + position)
+        }
+        return Layout(
+            lines: Array((header + body + details + footer).prefix(height)).map { $0.clipped(to: width) },
+            blockHeights: blocks.map(\.count), bodyHeight: bodyHeight, detailsHeight: detailsHeight)
+    }
+
+    public static func page(state: inout LiveReportState, width: Int, height: Int, direction: Int, half: Bool)
+    {
+        let layout = layout(state: state, width: width, height: height)
+        if state.overview.detailsVisible && state.overview.focus == .details && layout.detailsHeight > 1 {
+            let step = max(1, (layout.detailsHeight - 1) / (half ? 2 : 1))
+            state.overview.scroll(
+                by: direction * step, maximum: maximumDetailOffset(state: state, width: width, height: height)
+            )
+            return
+        }
+        let rows = state.overview.visibleRows
+        guard let selected = rows.firstIndex(where: { $0.id == state.overview.selection }) else { return }
+        let target = max(1, layout.bodyHeight / (half ? 2 : 1))
+        var index = selected
+        var traversed = 0
+        while rows.indices.contains(index + direction) {
+            index += direction
+            traversed += layout.blockHeights[index]
+            if traversed >= target { break }
+        }
+        state.overview.move(by: index - selected)
     }
 
     public static func hasDetailPane(state: LiveReportState, width: Int, height: Int) -> Bool {
@@ -211,41 +249,23 @@ public enum ContributorLayout {
         let title = overview.selection.flatMap { overview.nodes[$0]?.label.headline } ?? ""
         let lines = fields(state: state, width: width)
         let offset = min(overview.detailOffset, max(0, lines.count - height + 1))
-        return [
-            ReportLine(
-                "DETAILS " + (overview.focus == .details ? "● " : "○ ") + title + " · Tab switch · Esc close",
-                style: .heading)
-        ]
+        let count = min(lines.count - offset, max(0, height - 1))
+        let position = TerminalChrome.position(start: offset, count: count, total: lines.count)
+        let heading = "DETAILS " + (overview.focus == .details ? "● " : "○ ") + title
+        let suffix = position.isEmpty ? "" : " · " + position
+        var result =
+            [
+                ReportLine(
+                    TerminalCells.abbreviated(heading, to: max(1, width - suffix.count)) + suffix,
+                    style: .heading)
+            ]
             + lines.dropFirst(offset).prefix(max(0, height - 1))
+        result += Array(repeating: ReportLine(""), count: max(0, height - result.count))
+        return result
     }
 
     private static func footerLines(state: LiveReportState, width: Int) -> [ReportLine] {
-        let pause = state.frozen ? "p resume" : "p pause"
-        let diagnosis =
-            state.diagnosis.isRunning ? DiagnosisViewState.cleanupHint : DiagnosisViewState.keyHint
-        if state.overview.tableCollapsed {
-            return [ReportLine("8 expand · ? help · " + pause + " · q quit", style: .muted)]
-        }
-        if width < 80, state.overview.detailsVisible {
-            return [
-                ReportLine("Tab focus · Esc close · i details", style: .muted),
-                ReportLine("? help | " + pause + " | q quit", style: .muted),
-            ]
-        }
-        if width < 80 {
-            return [
-                ReportLine("? help | " + diagnosis, style: .muted),
-                ReportLine("i details | " + pause + " | q quit", style: .muted),
-            ]
-        }
-        return [
-            ReportLine(
-                state.overview.detailsVisible
-                    ? "Tab rows/details · ↑/↓ scroll · PgUp/PgDn page · Esc close · v process view"
-                    : "↑/↓ select · ←/→ rows · 5/6/7 sections · 8 table · i details",
-                style: .muted),
-            ReportLine("? help | " + diagnosis + " | " + pause + " | q quit", style: .muted),
-        ]
+        TerminalChrome.footer(state: state, width: width)
     }
 
     private struct Columns {

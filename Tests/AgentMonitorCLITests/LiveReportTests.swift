@@ -288,8 +288,9 @@ func helpAndQuitRemainDiscoverableAcrossTerminalWidths(width: Int) {
     #expect(state.thresholds.memoryBytes == 0)
     let text = LiveReportLayout.lines(state: state, width: 100, height: 24).map(\.text).joined(
         separator: "\n")
-    #expect(text.contains("1/2 CPU -/+10%"))
-    #expect(text.contains("3/4 GB -/+1"))
+    let help = ReportReferenceLayout.content(state: state, page: .keyboard).map(\.text).joined()
+    #expect(help.contains("1/2 lower/raise CPU filter"))
+    #expect(help.contains("3/4 lower/raise memory filter"))
     #expect(text.contains("pending"))
 }
 
@@ -307,7 +308,7 @@ func helpAndQuitRemainDiscoverableAcrossTerminalWidths(width: Int) {
     state.adjustThreshold(.cpuUp)
     state.adjustThreshold(.memoryUp)
     let applied = LiveReportLayout.lines(state: state, width: 100, height: 24)
-    #expect(applied.contains { $0.text == "CPU > 25.00% OR footprint > 1.00 GB" })
+    #expect(applied.contains { $0.text.contains("CPU > 25.00% OR footprint > 1.00 GB") })
     #expect(!applied.contains { $0.text.contains("pending") })
 }
 
@@ -320,7 +321,7 @@ func processesFillSpaceBetweenTheVisibleHeaderAndFooter(width: Int) throws {
     let help = try #require(lines.firstIndex { $0.text.contains("↑/↓ select") })
     #expect(table < help)
     #expect(
-        lines.filter { $0.style == .selected || $0.style == .heavy }.count == help - table - 2)
+        lines.filter { $0.style == .selected || $0.style == .heavy }.count == help - table - 3)
     #expect(lines.count == 24)
     #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
     let header = lines.prefix(table).map(\.text).joined(separator: "\n")
@@ -404,10 +405,10 @@ func statusChromeAndKeysUseTheirOwnRoles(width: Int) {
     let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
     let status = lines.prefix { !$0.text.contains("CPU%") }
     #expect(status.first?.style == .title)
-    #expect(status.contains { $0.text.contains("Updates:") && $0.style == .title })
-    #expect(status.allSatisfy { $0.style == .title || $0.style == .muted })
-    let keys = lines.drop { !$0.text.contains("↑/↓ select") }
-    #expect(!keys.isEmpty && keys.allSatisfy { $0.style == .muted })
+    #expect(status.contains { $0.text.contains("Updates:") && $0.style == .normal })
+    #expect(status.allSatisfy { $0.style == .title || $0.style == .muted || $0.style == .normal })
+    let keys = lines.drop { !$0.text.contains("v view") }
+    #expect(!keys.isEmpty && keys.allSatisfy { $0.style == .normal })
 }
 
 @Test func intervalStepsAlongTheLadderFromAnyStart() {
@@ -435,9 +436,15 @@ func statusChromeAndKeysUseTheirOwnRoles(width: Int) {
 @Test func statusShowsTheRequestedInterval() {
     var state = LiveReportState(interval: 1)
     state.receive(liveSnapshot([liveRow(42)]))
-    #expect(LiveReportLayout.lines(state: state, width: 120, height: 24)[0].text.contains("every 1 s"))
+    #expect(
+        LiveReportLayout.lines(state: state, width: 120, height: 24).contains {
+            $0.text.contains("every 1 s")
+        })
     state.adjustInterval(.faster)
-    #expect(LiveReportLayout.lines(state: state, width: 120, height: 24)[0].text.contains("every 0.5 s"))
+    #expect(
+        LiveReportLayout.lines(state: state, width: 120, height: 24).contains {
+            $0.text.contains("every 0.5 s")
+        })
 }
 
 @Test func freezeHoldsTheViewAndShowsTheLatestSnapshotOnRelease() {
@@ -463,13 +470,14 @@ func pausedStatusAndResumeKeyRemainVisible(width: Int) {
     #expect(live.contains { $0.text.contains("p pause") })
     state.toggleFreeze()
     let paused = LiveReportLayout.lines(state: state, width: width, height: 8)
-    #expect(paused[0].text.hasPrefix("PAUSED at "))
-    #expect(paused[0].text.contains("p resume"))
+    #expect(paused[0].text.hasPrefix("PAUSED"))
+    #expect(paused.contains { $0.text.contains("p resume") })
     #expect(paused.contains { $0.text.contains("All observed processes") })
 }
 
 @Test func pausedInspectionKeepsSelectionDetailsAndOrderWhileCPUChanges() {
     var state = LiveReportState()
+    state.view = .processes
     state.sortCurrentView(by: .cpu)
     state.receive(liveSnapshot([liveRow(42, cpu: 90), liveRow(84, cpu: 50)]))
     state.toggleDisclosure()
@@ -663,7 +671,7 @@ private func explicitInspectionChangesCancelReturningDetails(change: InspectionC
     await controller.waitForCompletion()
     live.diagnosis = controller.state
     let lines = LiveReportLayout.lines(state: live, width: 80, height: 20)
-    #expect(lines.first?.text == "CPU diagnosis · completed")
+    #expect(lines.first?.text.hasPrefix("CPU diagnosis · completed") == true)
     #expect(!lines.map(\.text).joined().contains("CPU >"))
     live.receive(liveSnapshot([liveRow(84)]))
     #expect(live.snapshot == before.snapshot)
@@ -682,7 +690,7 @@ func compactFooterKeepsHelpAndDiagnosisHints(width: Int, frozen: Bool) {
     let lines = LiveReportLayout.lines(state: state, width: width, height: width == 40 ? 8 : 11)
     let footer = lines.suffix(2).map(\.text).joined(separator: "\n")
     #expect(footer.contains("? help"))
-    #expect(footer.contains("d CPU diagnosis"))
+    #expect(footer.contains("d diagnosis"))
     #expect(footer.contains(frozen ? "p resume" : "p pause"))
     #expect(footer.contains("q/Ctrl-C quit"))
 }

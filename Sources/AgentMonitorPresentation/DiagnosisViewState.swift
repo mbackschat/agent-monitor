@@ -78,7 +78,7 @@ public struct DiagnosisViewState: Equatable, Sendable {
     public func terminalLines(width: Int, height: Int, offset: Int = 0) -> [ReportLine] {
         guard width > 0, height > 0 else { return [] }
         let title = ReportLine("CPU diagnosis · \(phase.rawValue)", style: .title)
-        let controls = "Esc back | x cancel | q quit"
+        let controls = "Esc back | x cancel | q/Ctrl-C quit"
         if width < 40 || height < 8 {
             return [title, ReportLine("Resize to 40x8 or larger"), ReportLine(controls)]
                 .prefix(height).map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
@@ -86,11 +86,14 @@ public struct DiagnosisViewState: Equatable, Sendable {
         let rows = wrapped(width: width)
         let capacity = height - 3
         let first = min(max(0, offset), max(0, rows.count - capacity))
-        var result = [title] + Array(rows.dropFirst(first).prefix(capacity))
+        let position = TerminalChrome.position(
+            start: first, count: min(capacity, rows.count), total: rows.count)
+        let heading = ReportLine(title.text + (position.isEmpty ? "" : " · " + position), style: .title)
+        var result = [heading] + Array(rows.dropFirst(first).prefix(capacity))
         result += Array(repeating: ReportLine(""), count: max(0, height - 2 - result.count))
         result += [
-            ReportLine("↑/↓ scroll | \(isRunning ? "Run again unavailable" : "d Run again")", style: .muted),
-            ReportLine(controls, style: .muted),
+            ReportLine("Space/Shift-Space ½ page · " + (isRunning ? "Running" : "d rerun")),
+            ReportLine(controls),
         ]
         return result.map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
     }

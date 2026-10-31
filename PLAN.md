@@ -49,7 +49,7 @@ The completed short-worker fixture confirms substantial loss despite timely poll
 
 ### Temporary feedback intake — 2026-10-17
 
-- [ ] **FEEDBACK-13 — Verify physical German-keyboard scrolling.** Page Up/Down and bracket aliases pass source/PTY guards; modified-key delivery needs the actual terminal and keyboard. Use the [TUI workflow check](docs/development.md#manual-tui-workflow-check). The [dated triage](docs/research/terminal-ui.md#feedback-triage--2026-10-26) owns the other feedback dispositions; their source corrections do not replace UX-01’s physical workflow checks.
+- [ ] **FEEDBACK-13 — Verify physical German-keyboard scrolling.** Page Up/Down, bracket aliases and Space/encoded Shift-Space pass source/PTY guards; physical Shift-Space delivery needs the actual terminal and keyboard because legacy terminals may send ordinary Space. Check the shared headers, visible ranges, bottom-anchored Details/footer and single-line plots with the user’s font/theme. Use the [TUI workflow check](docs/development.md#manual-tui-workflow-check). The [dated triage](docs/research/terminal-ui.md#feedback-triage--2026-10-26) owns the other feedback dispositions; their source corrections do not replace UX-01’s physical workflow checks.
 
 ### Execution and authorization boundaries
 

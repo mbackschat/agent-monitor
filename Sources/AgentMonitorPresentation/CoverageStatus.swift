@@ -95,18 +95,6 @@ public struct CoverageStatus: Equatable, Sendable {
         return notes[0].text + (notes.count > 1 ? " · +\(notes.count - 1) more" : "")
     }
 
-    public func terminalSummary(width: Int) -> String {
-        guard !notes.isEmpty else { return "" }
-        let action = " · D diagnostics"
-        let first = notes[0].text + (notes.count > 1 ? " · +\(notes.count - 1)" : "")
-        if TerminalCells.width(first + action) <= width { return first + action }
-        let warnings = notes.filter { $0.severity == .warning }.count
-        let compact =
-            warnings > 0
-            ? "Coverage: \(warnings) \(warnings == 1 ? "warning" : "warnings")"
-            : "Coverage: \(notes.count) \(notes.count == 1 ? "notice" : "notices")"
-        return compact + action
-    }
     public var help: String {
         notes.isEmpty ? SamplingCoverageSummary.interpretation : notes.map(\.help).joined(separator: "\n")
     }

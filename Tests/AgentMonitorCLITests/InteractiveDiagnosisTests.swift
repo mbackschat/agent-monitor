@@ -143,7 +143,7 @@ import Testing
         for (width, height) in [(40, 8), (60, 12), (100, 24)] {
             let lines = LiveReportLayout.lines(state: live, width: width, height: height)
             #expect(
-                lines.contains { $0.text.contains("diagnosis cleanup in progress") && $0.style == .muted })
+                lines.contains { $0.text.contains("CPU cleanup") })
             #expect(!lines.contains { $0.text.contains("d CPU diagnosis") })
             #expect(lines.contains { $0.text.contains("q/Ctrl-C quit") })
             if height < 24 { #expect(lines.contains { $0.text.contains("? help") }) }

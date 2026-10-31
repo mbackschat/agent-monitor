@@ -172,8 +172,8 @@ import Testing
         #expect(lines.count <= height)
         let text = lines.map(\.text).joined(separator: "\n")
         #expect(text.contains("? help"))
-        #expect(text.contains(paused ? "p resume" : DiagnosisViewState.keyHint))
-        #expect(text.contains("q quit"))
+        #expect(text.contains(paused ? "p resume" : "p pause"))
+        #expect(text.contains("q/Ctrl-C quit"))
         #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
     }
 

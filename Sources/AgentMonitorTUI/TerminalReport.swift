@@ -72,6 +72,18 @@ public enum TerminalReport {
                     commands.reconcile(with: state.state)
                     inspection?.set(!state.state.frozen)
                 }
+                if state.state.actionPanel == nil,
+                    key.key == .space || key.key == .character(" "),
+                    key.modifiers.isEmpty || key.modifiers == .shift
+                {
+                    let size = host.surfaceSize
+                    state.mutate {
+                        LiveReportLayout.page(
+                            state: &$0, width: size.width, height: size.height,
+                            direction: key.modifiers == .shift ? -1 : 1)
+                    }
+                    return .handled
+                }
                 if state.state.diagnosis.isVisible {
                     guard key.modifiers.isEmpty else { return .handled }
                     let size = host.surfaceSize
@@ -114,14 +126,14 @@ public enum TerminalReport {
                     case .character("?"): state.mutate { $0.showReference(.keyboard) }
                     case .character("G"): state.mutate { $0.showReference(.glossary) }
                     case .character("D"): state.mutate { $0.showReference(.diagnostics) }
-                    case .arrowUp, .arrowDown, .pageUp, .pageDown, .character("["), .character("]"):
-                        let delta: Int
-                        switch key.key {
-                        case .arrowUp, .character("["): delta = -1
-                        case .arrowDown, .character("]"): delta = 1
-                        case .pageUp: delta = -max(1, size.height - 3)
-                        default: delta = max(1, size.height - 3)
+                    case .pageUp, .pageDown:
+                        state.mutate {
+                            LiveReportLayout.page(
+                                state: &$0, width: size.width, height: size.height,
+                                direction: key.key == .pageUp ? -1 : 1, half: false)
                         }
+                    case .arrowUp, .arrowDown, .character("["), .character("]"):
+                        let delta = key.key == .arrowUp || key.key == .character("[") ? -1 : 1
                         state.mutate { $0.scrollReference(by: delta, width: size.width, height: size.height) }
                     default: break
                     }
@@ -227,8 +239,13 @@ public enum TerminalReport {
                 case .return: state.mutate { $0.showDetails() }
                 case .character("i"):
                     state.mutate { $0.toggleDetails() }
-                case .pageUp: scrollInspection(by: -5)
-                case .pageDown: scrollInspection(by: 5)
+                case .pageUp, .pageDown:
+                    let size = host.surfaceSize
+                    state.mutate {
+                        LiveReportLayout.page(
+                            state: &$0, width: size.width, height: size.height,
+                            direction: key.key == .pageUp ? -1 : 1, half: false)
+                    }
                 case .arrowUp: state.mutate { $0.moveSelection(by: -1) }
                 case .arrowDown: state.mutate { $0.moveSelection(by: 1) }
                 case .arrowLeft: state.mutate { $0.setChildDisclosure(expanded: false) }

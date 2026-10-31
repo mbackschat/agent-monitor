@@ -179,7 +179,9 @@ import Testing
         state.receive(snapshot)
         state.overview.enabled = false
         let lines = LiveReportLayout.lines(state: state, width: 160, height: 30)
-        #expect(lines.contains { $0.text.contains("Collapsed") && $0.text.contains("1.00–2.00 s") })
+        #expect(lines.contains { $0.text.contains("D diagnostics") && $0.text.contains("!") })
+        let diagnostics = ReportReferenceLayout.content(state: state, page: .diagnostics)
+        #expect(diagnostics.contains { $0.text.contains("Collapsed") && $0.text.contains("1.00–2.00 s") })
     }
 
     @Test func releasedCategoriesRetainWorkerRoleAndSampledMaximum() throws {
@@ -294,7 +296,7 @@ import Testing
     }
 
     /// A gap appearing or clearing must not move the rows under the user's selection.
-    @Test func overviewHeaderReservesOneCoverageRow() throws {
+    @Test func coverageChangesDoNotMoveTheFirstContributor() throws {
         func firstContributor(unreadable: Int) throws -> Int {
             var state = LiveReportState()
             state.receive(try reviewSnapshot(cpu: [20], memory: [200_000_000], unreadable: unreadable))
