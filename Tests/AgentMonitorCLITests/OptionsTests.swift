@@ -35,7 +35,7 @@ import Testing
     #expect(normalized.contains("JSONL schema version 1"))
     #expect(normalized.contains("Requested acquisition period"))
     #expect(normalized.contains("host occupancy beside your measured processes"))
-    #expect(AgentGuide.render(.tui).contains("0 minimizes; 9 maximizes; = restores the chosen split"))
+    #expect(AgentGuide.render(.tui).contains("i closes; M maximizes; = restores the chosen split"))
 }
 
 @Test func optionsAcceptEqualsSyntaxAndPreserveDefaults() throws {
