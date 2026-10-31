@@ -372,13 +372,14 @@ struct MenuBarContributorCounts: View {
                     Text("—")
                 }
             }.frame(height: 15)
-            HStack(spacing: 2) {
-                Text(Self.countText(pastCount))
-                Image(systemName: "archivebox").frame(width: 8).accessibilityHidden(true)
-            }.font(.system(size: 8, weight: .regular))
-                .foregroundStyle(prominence == .increased ? Color.white.opacity(0.7) : Color.secondary)
-                .frame(height: 11)
-                .opacity(stats.currentAvailable && pastCount > 0 ? 1 : 0)
+            if stats.currentAvailable && pastCount > 0 {
+                HStack(spacing: 2) {
+                    Text(Self.countText(pastCount))
+                    Image(systemName: "archivebox").frame(width: 8).accessibilityHidden(true)
+                }.font(.system(size: 8, weight: .regular))
+                    .foregroundStyle(prominence == .increased ? Color.white.opacity(0.7) : Color.secondary)
+                    .frame(height: 11)
+            }
         }.frame(width: 38, height: 28, alignment: .trailing).monospacedDigit()
             .accessibilityElement(children: .ignore).accessibilityLabel(help)
     }
