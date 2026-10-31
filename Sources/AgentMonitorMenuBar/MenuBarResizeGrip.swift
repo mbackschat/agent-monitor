@@ -26,7 +26,7 @@ struct MenuBarResizeGrip: NSViewRepresentable {
         override init(frame: NSRect) {
             super.init(frame: frame)
             toolTip =
-                "Drag up to make the panel shorter or down to make it taller. Works attached to the menu bar or detached."
+                "Drag to resize the panel vertically"
             setAccessibilityElement(true)
             setAccessibilityRole(.splitter)
             setAccessibilityLabel("Panel height")

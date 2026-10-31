@@ -46,7 +46,7 @@ struct MenuBarContributorInspection: View {
                             )
                     }
                     Text("Process counts").font(.subheadline.bold()).accessibilityAddTraits(.isHeader)
-                        .help("These populations overlap; do not add the rows together")
+                        .help("Counts overlap; do not add them together")
                     MenuBarEvidenceTable(fields: node.populationFields)
                     if !evidence.isEmpty {
                         DisclosureGroup(isExpanded: $showsEvidence) {
@@ -54,7 +54,7 @@ struct MenuBarContributorInspection: View {
                         } label: {
                             Text("Attribution details")
                                 .help(
-                                    "How this process was associated with a session, and the limits of that evidence"
+                                    "Show ownership evidence and measurement limits"
                                 )
                         }.font(.caption)
                     }
@@ -85,7 +85,7 @@ struct MenuBarInspectionFields: View {
                     Text(TextReport.safe(field.value))
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                }.help(field.help ?? "")
+                }.help("Select text to copy")
             }
         }.font(.caption).lineLimit(nil).textSelection(.enabled)
     }

@@ -16,14 +16,14 @@ struct MenuBarCoverageSummary: View {
                         if summary.retentionLimited {
                             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                                 .help(
-                                    "Retention pressure or an acquisition gap shortened the available history."
+                                    "Less history is available; see Measurement limits"
                                 )
                         }
                     }.font(.caption2)
                     ProgressView(value: min(duration, 60), total: 60)
                         .tint(summary.retentionLimited ? .orange : .accentColor)
                         .help(
-                            "Retained time range, not a percentage of workload captured. Polling can miss processes."
+                            "Retained history duration; not complete workload coverage"
                         )
                         .accessibilityLabel("Retained recent history")
                         .accessibilityValue("\(duration.formatted()) seconds")

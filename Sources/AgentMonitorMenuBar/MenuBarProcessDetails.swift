@@ -39,7 +39,7 @@ struct MenuBarProcessDetails: View {
                 Button("Terminal", systemImage: "terminal") { begin(.focus) }.disabled(!canBegin(.focus))
                     .help("Show terminal" + shortcut("f", kind: .focus))
                 Button("Message…", systemImage: "bubble") { begin(.message) }.disabled(!canBegin(.message))
-                    .help(ProviderRuntimeAvailability.messagingUnavailableReason)
+                    .help("Messaging is unavailable in local-only mode")
                 Spacer(minLength: 0)
                 Button("Terminate…", role: .destructive) { begin(.terminate) }.disabled(!canBegin(.terminate))
                     .help(

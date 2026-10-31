@@ -205,7 +205,7 @@ struct MenuBarContributorTable: View {
             )
             .help(
                 "Sort by " + title + (field == .cpu ? " (c)" : field == .memory ? " (m)" : "")
-                    + "; click again to reverse, or press r to reverse the current sort.")
+                    + "; click again or press r to reverse")
     }
 }
 
@@ -288,7 +288,8 @@ struct MenuBarContributorRow: View {
                                     weight: node.stats.isNoLongerObserved ? .regular : .semibold)
                             )
                             .italic(node.stats.isNoLongerObserved)
-                    }.lineLimit(1).truncationMode(.middle).help(node.title)
+                    }.lineLimit(1).truncationMode(.middle).help(
+                        "Full identity and paths are available in Details")
                     if let entry = node.id.groupExplanation, let showGroupHelp {
                         MenuBarGroupHelp(entry: entry) { showGroupHelp(entry) }
                     }
@@ -328,7 +329,7 @@ struct MenuBarContributorRow: View {
                             (overview.isExpanded(node.id) ? "Collapse " : "Expand ") + node.label.headline
                         )
                         .help(
-                            processCountHelp
+                            MenuBarContributorCounts(stats: node.stats).tooltip
                                 + (overview.isExpanded(node.id)
                                     ? " — collapse" : " — expand")
                                 + (overview.selection == node.id
@@ -339,7 +340,8 @@ struct MenuBarContributorRow: View {
                     MenuBarContributorCounts(stats: node.stats)
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .frame(minWidth: 32, minHeight: 32)
-                        .accessibilityLabel(processCountHelp).help(processCountHelp)
+                        .accessibilityLabel(processCountHelp).help(
+                            MenuBarContributorCounts(stats: node.stats).tooltip)
                 }
             }.font(.system(size: 12)).foregroundStyle(
                 prominence == .increased ? Color.white.opacity(0.85) : Color.secondary
@@ -353,6 +355,12 @@ struct MenuBarContributorCounts: View {
     let stats: ContributorStats
 
     static func countText(_ count: Int) -> String { count > 99 ? "99+" : String(count) }
+
+    var tooltip: String {
+        guard stats.currentAvailable else { return "Process counts unavailable" }
+        return "\(stats.current.count) current"
+            + (pastCount > 0 ? " · \(pastCount) no longer observed" : " processes")
+    }
 
     var pastCount: Int {
         stats.processes.subtracting(stats.current).subtracting(stats.membershipChanged).count
@@ -414,9 +422,9 @@ enum MenuBarContributorPresence {
     var help: String {
         switch self {
         case .unavailable:
-            "Current presence could not be determined. See Diagnostics for collection gaps."
+            "Current presence unavailable; see Diagnostics"
         case .changedOwnership:
-            "These processes now have different attribution. Open Details for recorded ownership."
+            "Ownership changed; see Details"
         }
     }
 }
@@ -467,10 +475,7 @@ struct MenuBarContributorLane: View {
             }
         }
         .accessibilityLabel("CPU history, " + activity.scaleLabel + ", " + activity.intervalLabel)
-        .help(
-            "CPU history · " + activity.scaleLabel + " · " + activity.intervalLabel
-                + ". Fixed display range; 100% is one CPU-second per elapsed second. Change it in View options or with b. Equal-width bars are whole interval averages, oldest left and newest right, regardless of duration. Gaps are unmeasured; shaded spans have incomplete observations or reduced detail. An orange cap marks values above the fixed ceiling; open contributor details for actual interval values."
-        )
+        .help("Recent CPU averages; open Details to inspect each bar")
     }
 }
 

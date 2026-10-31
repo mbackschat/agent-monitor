@@ -23,7 +23,7 @@ struct MenuBarProcessLabel: View {
                     if process.accounting?.labelChangedInWindow == true {
                         Text("Changed").fixedSize()
                             .help(
-                                "The session label changed in this CPU window. This is the last observed label; CPU includes contributions with earlier labels."
+                                "Session label changed; CPU includes earlier ownership"
                             )
                     }
                 }
@@ -31,7 +31,7 @@ struct MenuBarProcessLabel: View {
             }
             resources
                 .help(
-                    "\(process.observedName) · PID \(process.process.pid) · \(process.cwd ?? "Directory unavailable")"
+                    "Inspect this process for its full path and ownership"
                 )
         }
     }

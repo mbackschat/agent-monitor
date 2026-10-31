@@ -36,12 +36,12 @@ struct MenuBarHistoryStrip: View {
                     : "Agent \(metric.rawValue) history, peak \(metric.formatted(peak))"
             )
             .help(
-                "All observed agents · each bar preserves the bucket’s peak · scale 0–\(metric.formatted(maximum)) · gaps mean no available measurement"
+                "All observed agents; peak values, gaps where unmeasured"
             )
             Text(currentValue.map { metric.formatted($0) } ?? "No data")
                 .font(.caption).monospacedDigit().fixedSize()
                 .foregroundStyle(currentValue == nil ? .secondary : .primary)
-                .help("Latest \(metric.rawValue) measurement; No data means unavailable, not zero.")
+                .help("Latest \(metric.rawValue); No data means unmeasured")
         }
         .frame(height: 28)
     }

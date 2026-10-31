@@ -173,7 +173,7 @@ enum MenuBarOption: Equatable {
             let rangeMenu = submenu(
                 "CPU chart range: \(Int(range.upper))%", in: menu,
                 help:
-                    "Fixed display range (b cycles choices). Hardware default uses performance and super cores when identified; activity never changes it."
+                    "Fixed CPU scale; cycle ranges with b"
             )
             for choice in range.choices {
                 add(
@@ -188,18 +188,18 @@ enum MenuBarOption: Equatable {
                 "Hide no longer observed", .hideNoLongerObserved,
                 checked: model.report.overview.hideNoLongerObserved, to: menu)
         }
-        let filterHelp = "Changes process rows; observed totals and recent activity stay unchanged."
+        let filterHelp = "Filter displayed rows; totals stay unchanged"
         let cpu = model.report.thresholds.cpuPercent
         let cpuMenu = submenu(
             cpu == 0 ? "CPU filter: Off" : "CPU > \(cpu.formatted())%", in: menu,
-            help: filterHelp + " 1 lowers, 2 raises the threshold.")
+            help: filterHelp + " (1 / 2)")
         for value in Set([0, 5, 10, 25, 50, 100, 200, 400, 800, cpu]).sorted() {
             add(value == 0 ? "Off" : "\(value.formatted())%", .cpu(value), checked: value == cpu, to: cpuMenu)
         }
         let memory = model.report.thresholds.memoryBytes
         let memoryMenu = submenu(
             memory == 0 ? "Footprint filter: Off" : "Footprint > \((Double(memory) / 1e9).formatted()) GB",
-            in: menu, help: filterHelp + " 3 lowers, 4 raises the threshold.")
+            in: menu, help: filterHelp + " (3 / 4)")
         let memorySteps: [UInt64] = [
             0, 250_000_000, 500_000_000, 1_000_000_000, 2_000_000_000, 4_000_000_000, 8_000_000_000,
             16_000_000_000,

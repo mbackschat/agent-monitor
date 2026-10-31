@@ -9,6 +9,7 @@ import Testing
         let snapshot = try samplingSnapshot()
         let summary = SamplingCoverageSummary(snapshot: snapshot)
         let metrics = Dictionary(uniqueKeysWithValues: summary.metrics.map { ($0.id, $0) })
+        #expect(summary.metrics.allSatisfy { $0.help.count <= 75 && !$0.help.contains("\n") })
         #expect(metrics["sampling-mode"]?.value == "Adaptive")
         #expect(metrics["sampling-requested"]?.value == "100.00 / 300.00 ms")
         #expect(metrics["sampling-bounds"]?.value == "100.00–500.00 ms")

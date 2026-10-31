@@ -312,7 +312,7 @@ public struct ContributorOverview: Equatable, Sendable {
     public var allTitle: String { "All contributors (\(population.total))" }
 
     public var populationHelp: String {
-        "Main or pinned / all retained session groups. A root and its threads count once. Shared, unresolved and released-detail work are shown separately."
+        "Shown / all retained sessions; a root and its threads count once"
     }
 
     public var topLevel: [ContributorID] {

@@ -34,7 +34,6 @@ public struct SamplingCoverageSummary: Equatable, Sendable {
         duration = recentDuration
         self.retentionLimited = retentionLimited
         rangeLabel = recentDuration == nil ? "Window" : "Recent"
-        let scope = recentDuration == nil ? "display window" : "retained recent range"
         let failedTitle: String
         let failed: String
         let failedHelp: String
@@ -43,48 +42,46 @@ public struct SamplingCoverageSummary: Equatable, Sendable {
             failedTitle = "Read failures"
             failed = coverage.readFailurePIDCount.text
             hasFailures = coverage.readFailurePIDCount.maximum > 0
-            failedHelp =
-                "Distinct same-user PID values that could not be read in the \(scope), excluding processes that exited before their read. Collection-wide, not agent-owned worker counts; PID reuse is unresolved. Failed PIDs per scan, including exits: mean \(ReportNumber.text(coverage.meanFailedPIDsPerScan)), maximum \(coverage.maximumFailedPIDsPerScan)."
+            failedHelp = "PID read failures, excluding exits before reading"
         } else if coverage.unidentifiedFailureObservations > 0 {
             failedTitle = "Read gaps"
             failed = "\(coverage.unidentifiedFailureObservations) reads"
             hasFailures = true
-            failedHelp =
-                "Failed observations without PID detail in the \(scope); repeated observations are not distinct processes."
+            failedHelp = "Failed reads without process identity; observations may repeat"
         } else {
             failedTitle = "Read gaps"
             failed = String(snapshot.unreadableProcessCount)
             hasFailures = snapshot.unreadableProcessCount > 0
-            failedHelp = "Failed same-user PID reads in the latest scan; the cause and ownership are unknown."
+            failedHelp = "Unreadable processes in the latest scan; ownership unknown"
         }
         var metrics = [
             Metric(
                 id: "observed", title: "Observed", value: count.text,
                 help:
-                    "Process lifetimes represented in the display window, including retained contributors. Count ranges disclose collapsed detail.",
+                    "Process lifetimes in this window, including retained past contributors",
                 warning: false),
             Metric(
                 id: "departed", title: "No longer seen",
                 value: String(snapshot.observedFindings.filter(\.isHistorical).count),
-                help: "Retained contributors absent from the final scan. Exit is unconfirmed.", warning: false
+                help: "Absent from the latest scan; exit is not confirmed", warning: false
             ),
             Metric(id: "failed", title: failedTitle, value: failed, help: failedHelp, warning: hasFailures),
             Metric(
                 id: "sampled", title: "Sampled", value: String(snapshot.sampledProcessCount),
                 help:
-                    "Readable same-user processes in the latest collection scan, before agent scope and display filters.",
+                    "Readable processes in the latest scan, before scope and filters",
                 warning: false),
             Metric(
                 id: "gap",
                 title: timing?.maximumRequestedPeriodSeconds == nil ? "Max scan gap" : "Max gap / request",
                 value: Self.gap(timing),
                 help:
-                    "Longest achieved start-to-start period beside the largest requested interval in the \(scope). A gap can miss short-lived workers.",
+                    "Longest scan gap / largest requested interval",
                 warning: (timing?.overrunCount ?? 0) > 0),
             Metric(
                 id: "overruns", title: "Overruns", value: timing.map { String($0.overrunCount) } ?? "—",
                 help:
-                    "Periods exceeding 1.5 times their effective requested acquisition interval in the \(scope).",
+                    "Scan gaps exceeding 1.5× the requested interval",
                 warning: (timing?.overrunCount ?? 0) > 0),
         ]
         if let minimum = timing?.minimumRequestedPeriodSeconds,
@@ -95,18 +92,17 @@ public struct SamplingCoverageSummary: Equatable, Sendable {
                     id: "sampling-range", title: "Requested range",
                     value: Self.intervalRange(minimum, maximum),
                     help:
-                        "Smallest and largest requested acquisition intervals in the \(scope); achieved gaps and effective deadlines are measured separately.",
+                        "Smallest and largest requested intervals in this range",
                     warning: false))
         }
         metrics += Self.samplingMetrics(
-            timing?.sampling ?? snapshot.cpuAccounting.acquisition?.sampling ?? SamplingCoverage(),
-            scope: scope)
+            timing?.sampling ?? snapshot.cpuAccounting.acquisition?.sampling ?? SamplingCoverage())
         self.metrics = metrics
         let kinds: [(String, String, LifetimeCountRange, String, Bool)] = [
             ("denied", "Denied", coverage.deniedPIDCount, "Permission denied", true),
             (
                 "vanished", "Exited before read", coverage.vanishedPIDCount,
-                "Listed but no longer existing when read (ESRCH), so CPU after the last reading is unmeasured",
+                "Exited between listing and reading",
                 false
             ),
             (
@@ -118,7 +114,7 @@ public struct SamplingCoverageSummary: Equatable, Sendable {
         events = kinds.filter { $0.2.maximum > 0 }.map {
             Metric(
                 id: $0.0, title: $0.1, value: $0.2.text,
-                help: "\($0.3). Same-user PID values in the \(scope); categories can overlap.", warning: $0.4)
+                help: "\($0.3); PID counts may overlap", warning: $0.4)
         }
         scanLabel =
             timing.map {
@@ -139,7 +135,7 @@ public struct SamplingCoverageSummary: Equatable, Sendable {
         ReportNumber.text(minimum * 1_000) + "–" + ReportNumber.text(maximum * 1_000) + " ms"
     }
 
-    private static func samplingMetrics(_ sampling: SamplingCoverage, scope: String) -> [Metric] {
+    private static func samplingMetrics(_ sampling: SamplingCoverage) -> [Metric] {
         guard let latest = sampling.latest else { return [] }
         let mode: String
         switch latest.mode {
@@ -151,19 +147,19 @@ public struct SamplingCoverageSummary: Equatable, Sendable {
                 id: "sampling-mode", title: "Sampling",
                 value: mode + (sampling.modes.count > 1 ? " · mixed" : ""),
                 help:
-                    "Current sampling mode. Mixed means the \(scope) also includes another mode; retained override totals cover the whole range.",
+                    "Current mode; mixed means this range contains more than one mode",
                 warning: false),
             Metric(
                 id: "sampling-requested", title: "Requested / base",
                 value: ReportNumber.text(latest.requestedSeconds * 1_000) + " / "
                     + ReportNumber.text(latest.baseSeconds * 1_000) + " ms",
-                help: "Current requested interval and controller base before temporary overrides.",
+                help: "Requested interval / base interval before temporary overrides",
                 warning: false),
             Metric(
                 id: "sampling-bounds", title: "Applicable bounds",
                 value: intervalRange(latest.minimumSeconds, latest.maximumSeconds),
                 help:
-                    "Current minimum and context maximum, including the native closed-panel multiplier where applicable.",
+                    "Minimum / maximum interval for the current context",
                 warning: false),
             Metric(
                 id: "sampling-rolling", title: "CPU all / young",
@@ -171,39 +167,39 @@ public struct SamplingCoverageSummary: Equatable, Sendable {
                     ? ReportNumber.text(latest.rollingCPURate * 1_000) + " / "
                         + ReportNumber.text(latest.youngCPURate * 1_000) + " ms/s" : "—",
                 help:
-                    "Eligible all-age and young/unknown-age CPU-time rates over \(ReportNumber.text(latest.rollingSpanSeconds)) s of enclosing support. Age classification is frozen when CPU is observed; these control rates do not establish ownership.",
+                    "Eligible all/young CPU over \(ReportNumber.text(latest.rollingSpanSeconds)) s of enclosing support",
                 warning: false),
             Metric(
                 id: "sampling-recent", title: "Recent CPU",
                 value: latest.recentSpanSeconds > 0
                     ? ReportNumber.text(latest.recentCPURate * 1_000) + " ms/s" : "—",
                 help:
-                    "Recent all-eligible CPU-time rate over \(ReportNumber.text(latest.recentSpanSeconds)) s of enclosing support, which can exceed the one-second lookback.",
+                    "Recent eligible CPU over \(ReportNumber.text(latest.recentSpanSeconds)) s of enclosing support",
                 warning: false),
             Metric(
                 id: "sampling-arrivals", title: "Eligible arrivals",
                 value: latest.rollingSpanSeconds > 0
                     ? ReportNumber.text(latest.arrivalRate * 60) + " / min" : "—",
                 help:
-                    "Eligible arrival rate over \(ReportNumber.text(latest.rollingSpanSeconds)) s of enclosing support; pending or uncertain identity remains eligible.",
+                    "Eligible process arrivals per minute; uncertain identities included",
                 warning: false),
             Metric(
                 id: "sampling-rolling-support", title: "Rolling support",
                 value: latest.rollingSpanSeconds > 0
                     ? ReportNumber.text(latest.rollingSpanSeconds) + " s" : "—",
                 help:
-                    "Actual enclosing support for all-age CPU, young-worker CPU and arrival rates; it can exceed the configured rolling window.",
+                    "Measured duration supporting rolling CPU and arrival rates",
                 warning: false),
             Metric(
                 id: "sampling-recent-support", title: "Recent support",
                 value: latest.recentSpanSeconds > 0
                     ? ReportNumber.text(latest.recentSpanSeconds) + " s" : "—",
                 help:
-                    "Actual enclosing support for the recent CPU rate; it can exceed the one-second lookback.",
+                    "Measured duration supporting the recent CPU rate",
                 warning: false),
             Metric(
                 id: "sampling-changes", title: "Policy changes", value: String(sampling.policyChangeCount),
-                help: "Sampling policy changes retained in the \(scope).", warning: false),
+                help: "Sampling policy changes within this range", warning: false),
         ]
         for reason in SamplingOverride.allCases {
             let count = sampling.overrideActivations[reason.rawValue] ?? 0
@@ -224,7 +220,7 @@ public struct SamplingCoverageSummary: Equatable, Sendable {
                     id: "sampling-override-" + reason.rawValue, title: title,
                     value: "\(count) × / \(ReportNumber.text(seconds)) s",
                     help:
-                        "Override activations and duration in the \(scope); \(active ? "currently active" : "currently inactive"). Continuing an override adds duration without another activation; simultaneous reasons overlap.",
+                        "Activations / duration; \(active ? "currently active" : "currently inactive"); reasons overlap",
                     warning: reason == .uncertainty && active))
         }
         return values

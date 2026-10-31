@@ -379,7 +379,7 @@ struct MenuBarView: View {
             .help("Show this process's terminal" + actionShortcut("f", kind: .focus, row: id))
         Button("Message…", systemImage: "bubble") { model.begin(.message, row: id) }
             .disabled(!model.canBegin(.message, row: id))
-            .help(ProviderRuntimeAvailability.messagingUnavailableReason)
+            .help("Messaging is unavailable in local-only mode")
         Button("Terminate…", systemImage: "stop", role: .destructive) { model.begin(.terminate, row: id) }
             .disabled(!model.canBegin(.terminate, row: id))
             .help("Review termination of this process" + actionShortcut("k", kind: .terminate, row: id))
@@ -430,7 +430,7 @@ struct MenuBarView: View {
                     .monospacedDigit().frame(width: 48, alignment: .trailing)
                 Text(resource(group.memoryGBTotal, unit: " GB", partial: group.memoryPartial))
                     .monospacedDigit().frame(width: 56, alignment: .trailing)
-            }.font(.subheadline).help(group.headingHelp)
+            }.font(.subheadline).help("Expand this session to inspect its processes")
         }
         .id(LiveReportRowID.group(group.id))
         .disclosureGroupStyle(

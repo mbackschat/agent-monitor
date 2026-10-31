@@ -34,7 +34,7 @@ struct MenuBarCommandInspection: View {
                 Button("Read arguments", systemImage: "text.alignleft") { controller.start(process) }
                     .controlSize(.small).disabled(controller.isReading)
                     .help(
-                        "Read current process arguments, even while paused. Kept in memory only."
+                        "Read current process arguments"
                     )
             }
         }

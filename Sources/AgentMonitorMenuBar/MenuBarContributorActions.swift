@@ -78,7 +78,7 @@ struct MenuBarContributorActions: View {
                 "Show this process's terminal" + shortcut("f", process: process.process)
             )
         Button("Message unavailable — offline", systemImage: "bubble") {}.disabled(true)
-            .help(ProviderRuntimeAvailability.messagingUnavailableReason)
+            .help("Messaging is unavailable in local-only mode")
         Divider()
         Button(
             "Terminate PID \(process.process.pid)…" + shortcut("k", process: process.process),

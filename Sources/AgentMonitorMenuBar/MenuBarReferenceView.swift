@@ -42,8 +42,8 @@ struct MenuBarReferenceMenu: View {
         let severity = page == .diagnostics ? model.report.displayCoverageStatus.severity : nil
         let help =
             switch severity {
-            case .warning: "Some process usage could not be measured. Open Diagnostics for details."
-            case .notice: "Measurement limits apply. Open Diagnostics for details."
+            case .warning: "Open Diagnostics to review missing measurements"
+            case .notice: "Open Diagnostics to review measurement limits"
             case nil: page == .keyboard ? page.title + " (?)" : page.title
             }
         return Button {
