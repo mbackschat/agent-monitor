@@ -93,7 +93,7 @@ struct MenuBarContributorOverview: View {
                         }
                     }
                 }
-            }
+            }.frame(height: overview.tableCollapsed ? 0 : nil)
         }
         .onChange(of: overview.detailsVisible) { _, visible in
             guard model.isOpen, model.report.showsOverview, !model.diagnosis.state.isVisible,

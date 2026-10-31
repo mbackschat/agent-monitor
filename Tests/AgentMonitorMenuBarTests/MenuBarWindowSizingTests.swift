@@ -99,6 +99,30 @@ import Testing
     #expect(model.report.overview.detailsVisible)
     #expect(model.report.overview.isExpanded(selected))
     #expect(contributorOutline(in: host.view) === original)
+    for _ in 0..<2 {
+        model.report.overview.toggleTable()
+        await settleWindowSize(in: host.view)
+        #expect(host.view.bounds.height < 300)
+        #expect(host.view.bounds.height > 150)
+        let summaryHeight = host.view.bounds.height
+        model.report.overview.hideNoLongerObserved = true
+        await settleWindowSize(in: host.view)
+        #expect(host.view.bounds.height > summaryHeight)
+        #expect(host.view.bounds.height < 300)
+        model.report.overview.hideNoLongerObserved = false
+        await settleWindowSize(in: host.view)
+        #expect(abs(host.view.bounds.height - summaryHeight) < 1)
+        #expect(model.panelHeight == 775)
+        #expect(abs(window.frame.maxY - top) < 1)
+        #expect(contributorOutline(in: host.view) === original)
+        model.report.overview.toggleTable()
+        await settleWindowSize(in: host.view)
+        #expect(abs(host.view.bounds.height - 775) < 1)
+        #expect(model.panelHeight == 775)
+        #expect(model.report.overview.selection == selected)
+        #expect(model.report.overview.isExpanded(selected))
+        #expect(contributorOutline(in: host.view) === original)
+    }
     model.panelSize = .compact
     host.view.layoutSubtreeIfNeeded()
     #expect(abs(host.view.bounds.height - 420) < 1)
@@ -106,4 +130,49 @@ import Testing
     sizing.stop()
     #expect(host.sizingOptions == [.intrinsicContentSize])
     await model.stop()
+}
+
+@Test @MainActor func attachedSummaryFitsContentAndRestoresCustomHeight() async throws {
+    let snapshot = try nativeOverviewFixture()
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    model.rememberPanelHeight(675)
+    let host = NSHostingView(rootView: MenuBarView(model: model, maximumHeight: 900))
+    host.frame.size = host.fittingSize
+    let window = await mountOffscreenNativePreview(host)
+    defer { window.close() }
+    #expect(host.fittingSize.height == 675)
+    model.report.overview.toggleTable()
+    for _ in 0..<20 {
+        host.frame.size = host.fittingSize
+        host.layoutSubtreeIfNeeded()
+        await Task.yield()
+    }
+    #expect(host.fittingSize.height < 300)
+    #expect(host.fittingSize.height > 150)
+    if let path = ProcessInfo.processInfo.environment["MENUBAR_COLLAPSED_PREVIEW_PATH"] {
+        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: path))
+    }
+    #expect(model.panelHeight == 675)
+    model.report.view = .processes
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize.height == 675)
+    model.report.view = .mainContributors
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize.height < 300)
+    model.report.overview.toggleTable()
+    host.layoutSubtreeIfNeeded()
+    #expect(host.fittingSize.height == 675)
+    await model.stop()
+}
+
+@MainActor private func settleWindowSize(in host: NSView) async {
+    for _ in 0..<20 {
+        host.layoutSubtreeIfNeeded()
+        await Task.yield()
+    }
 }

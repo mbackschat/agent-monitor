@@ -35,6 +35,10 @@ final class MenuBarModel {
     }
     private(set) var customPanelHeight: CGFloat?
     var panelHeight: CGFloat { customPanelHeight ?? panelSize.height }
+    var isSummaryOnly: Bool {
+        report.showsOverview && report.overview.tableCollapsed
+            && !diagnosis.state.isVisible && report.actionPanel == nil
+    }
     @ObservationIgnored var onPanelSizeChange: (() -> Void)?
 
     func rememberPanelHeight(_ height: CGFloat) {

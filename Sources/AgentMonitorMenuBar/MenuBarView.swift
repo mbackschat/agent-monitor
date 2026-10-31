@@ -86,20 +86,29 @@ struct MenuBarView: View {
                     }
                 }
                 .labelsHidden().frame(width: 100).controlSize(.small)
-                .help("Choose panel height")
+                .disabled(model.isSummaryOnly)
+                .help(model.isSummaryOnly ? "Expand the table to resize" : "Choose panel height")
                 Button("Quit", systemImage: "power") { NSApplication.shared.terminate(nil) }.labelStyle(
                     .iconOnly
                 ).help("Quit Agent Monitor (⌘Q)").keyboardShortcut("q")
             }
             .padding(12)
-            MenuBarResizeGrip(model: model, maximumHeight: maximumHeight).frame(height: 16)
+            MenuBarResizeGrip(model: model, maximumHeight: maximumHeight)
+                .frame(height: model.isSummaryOnly ? 0 : 16).clipped()
+                .allowsHitTesting(!model.isSummaryOnly).accessibilityHidden(model.isSummaryOnly)
         }
         .frame(width: MenuBarLayout.width)
         .frame(
-            minHeight: min(detached ? MenuBarPanelSize.compact.height : model.panelHeight, maximumHeight),
-            idealHeight: min(model.panelHeight, maximumHeight),
-            maxHeight: detached ? maximumHeight : min(model.panelHeight, maximumHeight)
+            minHeight: model.isSummaryOnly
+                ? nil
+                : min(detached ? MenuBarPanelSize.compact.height : model.panelHeight, maximumHeight),
+            idealHeight: model.isSummaryOnly ? nil : min(model.panelHeight, maximumHeight),
+            maxHeight: model.isSummaryOnly
+                ? nil
+                : (detached ? maximumHeight : min(model.panelHeight, maximumHeight))
         )
+        .fixedSize(horizontal: false, vertical: model.isSummaryOnly)
+        .onChange(of: model.isSummaryOnly) { _, _ in model.onPanelSizeChange?() }
         .onChange(of: model.diagnosis.state.isVisible || model.report.actionPanel != nil) { _, inspecting in
             if inspecting {
                 focus = .inspection
@@ -179,6 +188,7 @@ struct MenuBarView: View {
             $0.size
         } action: {
             onSizeChange($0)
+            if model.isSummaryOnly { model.onPanelSizeChange?() }
         }
     }
 
@@ -287,7 +297,8 @@ struct MenuBarView: View {
             }
         }
         .frame(
-            maxWidth: .infinity, maxHeight: overview ? .infinity : nil,
+            maxWidth: .infinity,
+            maxHeight: overview && !model.report.overview.tableCollapsed ? .infinity : nil,
             alignment: .topLeading
         )
         .padding(14)
