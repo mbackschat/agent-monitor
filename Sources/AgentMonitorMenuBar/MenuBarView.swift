@@ -30,18 +30,17 @@ struct MenuBarView: View {
                         .frame(width: 20, height: 20).accessibilityHidden(true)
                         .help("Agent Monitor")
                 }
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Agent Monitor").font(.headline)
+                Text("Agent Monitor").font(.headline)
+                Spacer()
+                Group {
                     if model.diagnosis.state.isVisible {
-                        Text("Finite CPU investigation").font(.caption).foregroundStyle(.secondary)
+                        Text("Finite CPU investigation")
                     } else if model.report.frozen, let snapshot = model.report.snapshot {
                         Text("Paused at \(snapshot.timestamp.formatted(date: .omitted, time: .standard))")
-                            .font(.caption).foregroundStyle(.secondary).monospacedDigit()
                     } else {
-                        Text("Live updates").font(.caption).foregroundStyle(.secondary)
+                        Text("Live updates")
                     }
-                }
-                Spacer()
+                }.font(.caption).foregroundStyle(.secondary).monospacedDigit().lineLimit(1)
                 if model.diagnosis.state.isVisible {
                     Button("Back") { model.diagnosis.dismiss() }
                         .focused($focus, equals: .inspection)

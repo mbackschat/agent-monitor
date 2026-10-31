@@ -170,6 +170,9 @@ private struct ContributorTableBackdrop: View {
         recognized.first { $0.text == "Agent Monitor" })
     #expect(heading.bounds.maxY < 0.99)
     #expect(heading.bounds.minY > 0.85)
+    let status = try #require(recognized.first { $0.text == "Live updates" })
+    #expect(abs(status.bounds.midY - heading.bounds.midY) < 0.015)
+    #expect(status.bounds.minX > heading.bounds.maxX)
     if let directory = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: directory).appendingPathComponent("compact-process-inspector.png"))
