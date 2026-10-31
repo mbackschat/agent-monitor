@@ -4,7 +4,8 @@ import Foundation
 public struct ReportLine: Equatable, Sendable {
     /// Display roles; the TUI maps them to colors, which NO_COLOR removes.
     public enum Style: Sendable {
-        case normal, title, heading, selected, heavy, muted, separator, warning, success, failure
+        case normal, title, heading, identity, metric, selected, heavy, muted, separator, warning, success,
+            failure
     }
     public struct Run: Equatable, Sendable {
         public let text: String

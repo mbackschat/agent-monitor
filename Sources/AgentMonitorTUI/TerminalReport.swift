@@ -381,7 +381,9 @@ private struct TerminalReportView: View {
         switch run.style {
         case .title: return text.foregroundStyle(.blue).bold()
         case .heading: return text.bold()
-        case .separator: return text.foregroundStyle(.cyan)
+        case .identity: return text.foregroundStyle(.blue).bold()
+        case .metric: return text.foregroundStyle(.cyan).bold()
+        case .separator: return text.foregroundStyle(.blue)
         case .selected: return text.bold().reverse()
         case .heavy: return text
         case .muted: return text.foregroundStyle(.secondary)

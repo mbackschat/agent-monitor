@@ -72,10 +72,11 @@ enum Preview {
                 let color: String
                 let weight: String
                 switch run.style {
-                case .title: (color, weight) = ("#5ba3ff", "bold")
+                case .title, .identity: (color, weight) = ("#5ba3ff", "bold")
                 case .heading: (color, weight) = ("#f0f6fc", "bold")
                 case .selected: (color, weight) = ("#0d1117", "bold")
-                case .separator: (color, weight) = ("#56b6c2", "normal")
+                case .separator: (color, weight) = ("#5ba3ff", "normal")
+                case .metric: (color, weight) = ("#56b6c2", "bold")
                 case .warning: (color, weight) = ("#e3b341", "normal")
                 case .muted: (color, weight) = ("#8c92ac", "normal")
                 case .success: (color, weight) = ("#61c67b", "normal")

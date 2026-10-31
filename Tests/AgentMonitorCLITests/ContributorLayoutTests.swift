@@ -1,4 +1,5 @@
 import AgentMonitorPresentation
+import Foundation
 import Testing
 
 @Suite struct ContributorLayoutTests {
@@ -36,13 +37,48 @@ import Testing
         let lines = ContributorLayout.lines(state: state, width: 120, height: 60)
         let selected = try #require(lines.first { $0.style == .selected })
         #expect(selected.runs.contains { $0.style == .selected && $0.text.contains("session-") })
-        #expect(selected.runs.contains { $0.style == .separator && $0.text.contains("┌") })
+        #expect(selected.runs.contains { $0.style == .separator && !$0.text.contains("┌") })
         #expect(selected.runs.contains { $0.style == .heading && $0.text.contains("MB") })
         let context = try #require(lines.first { $0.text.contains("/fixture") })
         #expect(context.runs.contains { $0.style == .normal && $0.text.contains("/fixture") })
-        #expect(context.runs.contains { $0.style == .heading && $0.text.contains("node") })
+        #expect(ANSIText.styled(context).contains("\u{1B}[1;34m"))
         #expect(ANSIText.styled(selected).contains("\u{1B}[1;7m"))
-        #expect(ANSIText.styled(selected).contains("\u{1B}[36m"))
+        #expect(ANSIText.styled(selected).contains("\u{1B}[34m"))
+    }
+
+    @Test(arguments: [99, 100, 140])
+    func wideContextStopsBeforeHistoryAndContributorsHaveSeparation(width: Int) throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture(invocationName: String(repeating: "long-workload-", count: 8)))
+        let lines = ContributorLayout.lines(state: state, width: width, height: 60)
+        let header = try #require(lines.first { $0.text.contains("CPU HISTORY") })
+        let chart = try #require(header.text.range(of: "CPU HISTORY"))
+        let boundary = TerminalCells.width(String(header.text[..<chart.lowerBound])) - 1
+        let context = lines.filter { $0.style == .normal && $0.text.contains("long-workload") }
+        #expect(!context.isEmpty)
+        if width >= 100 {
+            #expect(context.allSatisfy { TerminalCells.width($0.text) <= boundary })
+        } else {
+            #expect(context.contains { TerminalCells.width($0.text) > boundary })
+        }
+        let count = try #require(lines.first { $0.text.contains("1 process") })
+        #expect(count.runs.filter { $0.text.contains("1 process") }.allSatisfy { $0.style != .muted })
+        let next = try #require(lines.firstIndex { $0.text.contains("Unresolved / uncertain") })
+        #expect(lines[next - 1].text.trimmingCharacters(in: .whitespaces).isEmpty)
+    }
+
+    @Test(arguments: [ContributorOrder.cpu, .memory], [false, true])
+    func resourceAccentFollowsSortAndHasATextArrow(order: ContributorOrder, ascending: Bool) throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        state.overview.sort(by: order, ascending: ascending)
+        let lines = ContributorLayout.lines(state: state, width: 120, height: 40)
+        let header = try #require(lines.first { $0.text.contains("CPU HISTORY") })
+        let label = (order == .cpu ? "CPU" : "MEMORY") + (ascending ? " ↑" : " ↓")
+        #expect(header.text.contains(label))
+        let selected = try #require(lines.first { $0.style == .selected })
+        let value = try #require(selected.runs.first { $0.text.contains(order == .cpu ? "%" : "MB") })
+        #expect(ANSIText.styled(ReportLine(runs: [value])).contains("\u{1B}[1;36m"))
     }
 
     @Test func tableFoldingHasADiscoverableTerminalControl() throws {
@@ -65,7 +101,7 @@ import Testing
         #expect(!state.overview.visibleRows.isEmpty)
     }
 
-    @Test func lanesHaveVisibleBoundsAndDetailsDoNotReplaceSelectedRow() throws {
+    @Test func borderlessLanesAndDetailsKeepTheSelectedRow() throws {
         var state = LiveReportState()
         state.receive(try overviewFixture())
         let id = try #require(state.overview.main.first)
@@ -74,7 +110,7 @@ import Testing
         let lines = ContributorLayout.lines(state: state, width: 120, height: 30)
         let text = lines.map(\.text).joined(separator: "\n")
         #expect(text.contains("0–800%"))
-        #expect(text.contains("┌") && text.contains("└"))
+        #expect(!text.contains("┌") && !text.contains("┐") && !text.contains("┘"))
         #expect(text.contains("Tab") && text.contains("Esc"))
         #expect(lines.contains { $0.style == .selected && $0.text.contains("session-") })
     }

@@ -9,10 +9,11 @@ public enum ANSIText {
         let code: String? =
             switch run.style {
             case .normal: nil
-            case .title: "1;34"
+            case .title, .identity: "1;34"
+            case .metric: "1;36"
             case .heading: "1"
             case .selected: "1;7"
-            case .separator: "36"
+            case .separator: "34"
             case .heavy, .warning: "33"
             case .muted: "90"
             case .success: "32"

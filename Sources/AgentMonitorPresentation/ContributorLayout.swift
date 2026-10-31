@@ -4,7 +4,7 @@ public enum ContributorLayout {
     public static func lines(state: LiveReportState, width: Int, height: Int) -> [ReportLine] {
         let overview = state.overview
         let columns = Columns(
-            width: width, graphs: width >= 90 && height >= 20,
+            width: width, graphs: width >= 90 && height >= 20, order: overview.order,
             cpu: max(
                 7,
                 overview.nodes.values.map {
@@ -38,9 +38,13 @@ public enum ContributorLayout {
             }.joined(separator: " · ")
             header += [
                 ReportLine(sections, style: .heading),
-                ReportLine(
-                    columns.row("CONTRIBUTOR", chart: "CPU HISTORY", cpu: "CPU", memory: "MEMORY"),
-                    style: .heading),
+                columns.styledRow(
+                    "CONTRIBUTOR"
+                        + (overview.order == .contributor ? (overview.ascending ? " ↑" : " ↓") : ""),
+                    chart: "CPU HISTORY",
+                    cpu: "CPU" + (overview.order == .cpu ? (overview.ascending ? " ↑" : " ↓") : ""),
+                    memory: "MEMORY" + (overview.order == .memory ? (overview.ascending ? " ↑" : " ↓") : ""),
+                    style: .heading, accentMetrics: true),
             ]
         }
         if !state.thresholds.isUnfiltered {
@@ -65,17 +69,18 @@ public enum ContributorLayout {
                 + (hasVisibleChildren ? "│ " : "  ")
             ancestorLast.append(row.isLastSibling)
             let headline = TextReport.safe(row.node.label.headline)
-            let style: ReportLine.Style = selected ? .selected : .heading
+            let style: ReportLine.Style =
+                selected
+                ? .selected
+                : (row.id == .section(.uncertain) ? .warning : .identity)
             let cap =
                 columns.graphs
-                ? "┌"
-                    + overview.activity.terminalLane(for: row.id, width: columns.chart - 2, level: 0, rows: 2)
-                    + "┐" : ""
+                ? overview.activity.terminalLane(for: row.id, width: columns.chart, level: 0, rows: 2) : ""
             var lines = [
                 columns.styledRow(
                     prefix + headline, chart: cap,
                     cpu: row.node.stats.cpuText(duration: overview.duration),
-                    memory: row.node.stats.currentMemoryText, style: style)
+                    memory: row.node.stats.currentMemoryText, style: style, accentMetrics: true)
             ]
             let includesPopulation: Bool
             switch row.id {
@@ -88,23 +93,21 @@ public enum ContributorLayout {
                     + (row.node.stats.current.count == 1 ? "process" : "processes")
                 : "Presence unavailable"
             if columns.graphs {
-                let lane =
-                    "└"
-                    + overview.activity.terminalLane(for: row.id, width: columns.chart - 2, level: 1, rows: 2)
-                    + "┘"
+                let lane = overview.activity.terminalLane(
+                    for: row.id, width: columns.chart, level: 1, rows: 2)
                 lines.append(
                     columns.styledRow(
                         inset + (includesPopulation ? "" : population), chart: lane,
                         cpu: overview.activity.samples[row.id]?.contains { $0?.qualified == true } == true
-                            ? "~ spans" : "", memory: "", style: .muted, metricStyle: .warning))
+                            ? "~ spans" : "", memory: "", style: .normal, metricStyle: .warning))
             }
             var context: [ReportLine.Run] = []
             if !columns.graphs && !includesPopulation {
-                context.append(.init(population + " · ", style: .muted))
+                context.append(.init(population + " · "))
             }
             for part in overview.workloadParts(for: row.node) {
                 switch part {
-                case .executable(let text): context.append(.init(text, style: .heading))
+                case .executable(let text): context.append(.init(text, style: .identity))
                 case .context(let text): context.append(.init(text))
                 case .status(let text):
                     if let status = row.node.retainedStatus, !includesPopulation {
@@ -118,10 +121,10 @@ public enum ContributorLayout {
                     }
                 }
             }
-            let contextWidth = max(1, width - TerminalCells.width(inset))
+            let contextWidth = max(1, (width >= 100 ? columns.name : width) - TerminalCells.width(inset))
             let headingContinuation =
                 TerminalCells.width(prefix + headline) > columns.name
-                ? [ReportLine(TerminalCells.abbreviated(headline, to: contextWidth), style: .heading)] : []
+                ? [ReportLine(TerminalCells.abbreviated(headline, to: contextWidth), style: .identity)] : []
             let wrapped = headingContinuation + ReportLine(runs: context).wrapped(to: contextWidth)
             for (index, line) in wrapped.prefix(2).enumerated() {
                 let suffix = index == 1 && wrapped.count > 2 ? "…" : ""
@@ -141,6 +144,8 @@ public enum ContributorLayout {
                             + String(
                                 repeating: "─",
                                 count: max(0, width - TerminalCells.width(heading))), style: .heading), at: 0)
+            } else if height >= 20, index > 0, rows[index - 1].depth >= row.depth {
+                lines.insert(ReportLine(depth > 0 ? "  " + ancestors + "│" : ""), at: 0)
             }
             return lines
         }
@@ -245,11 +250,13 @@ public enum ContributorLayout {
 
     private struct Columns {
         let graphs: Bool
+        let order: ContributorOrder
         let name: Int
         let chart: Int
         let cpu: Int
         let memory: Int
-        init(width: Int, graphs: Bool, cpu: Int, memory: Int) {
+        init(width: Int, graphs: Bool, order: ContributorOrder, cpu: Int, memory: Int) {
+            self.order = order
             self.cpu = cpu
             self.memory = memory
             self.graphs = graphs
@@ -258,7 +265,7 @@ public enum ContributorLayout {
         }
         func styledRow(
             _ title: String, chart: String, cpu: String, memory: String,
-            style: ReportLine.Style, metricStyle: ReportLine.Style = .heading
+            style: ReportLine.Style, metricStyle: ReportLine.Style = .heading, accentMetrics: Bool = false
         ) -> ReportLine {
             func numeric(_ text: String, width: Int) -> String {
                 let value = TerminalCells.abbreviated(text, to: width)
@@ -271,13 +278,13 @@ public enum ContributorLayout {
                         style: style),
                     .init(graphs ? " " + TerminalCells.padded(chart, to: self.chart) : "", style: .separator),
                     .init(
-                        " " + numeric(cpu, width: self.cpu) + " " + numeric(memory, width: self.memory),
-                        style: metricStyle),
+                        " " + numeric(cpu, width: self.cpu),
+                        style: accentMetrics && order == .cpu && cpu != "—" ? .metric : metricStyle),
+                    .init(
+                        " " + numeric(memory, width: self.memory),
+                        style: accentMetrics && order == .memory && memory != "—" ? .metric : metricStyle),
                 ], style: style)
         }
 
-        func row(_ title: String, chart: String, cpu: String, memory: String) -> String {
-            styledRow(title, chart: chart, cpu: cpu, memory: memory, style: .normal).text
-        }
     }
 }
