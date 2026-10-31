@@ -18,7 +18,7 @@ public enum ReportReferenceLayout {
         case .glossary:
             return ReportGlossary.entries.flatMap {
                 [ReportLine($0.title, style: .title), ReportLine($0.definition), ReportLine("")]
-            } + chartHelp
+            } + chartHelp()
         case .keyboard:
             return keyboardHelp(state: state)
         case .diagnostics:
@@ -84,7 +84,7 @@ public enum ReportReferenceLayout {
 
     private static func keyboardHelp(state: LiveReportState) -> [ReportLine] {
         func key(_ key: String, _ action: String) -> ReportLine {
-            TerminalChrome.controls([(key, action)])
+            TerminalChrome.controls([(key, action)], keyStyle: .shortcut)
         }
         var lines = [
             ReportLine("Navigation", style: .title),
@@ -167,10 +167,10 @@ public enum ReportReferenceLayout {
             key("q / Ctrl-C", "quit"),
         ]
         if !state.diagnosis.isRunning { lines.append(key("I", "start CPU investigation")) }
-        return lines + chartHelp
+        return lines + chartHelp(keyStyle: .shortcut)
     }
 
-    private static var chartHelp: [ReportLine] {
+    private static func chartHelp(keyStyle: ReportLine.Style = .normal) -> [ReportLine] {
         [
             ReportLine(""), ReportLine("Contributor CPU charts", style: .title),
             ReportLine(runs: [
@@ -178,7 +178,7 @@ public enum ReportReferenceLayout {
                 .init(" no measurement; "), .init("_", style: .identity), .init(" measured zero"),
             ]),
             ReportLine("↑ is above the ceiling, not a rising trend."),
-            TerminalChrome.controls([("b", "change chart range")]),
+            TerminalChrome.controls([("b", "change chart range")], keyStyle: keyStyle),
             ReportLine("Oldest left, newest right. Dots are gaps, never zero CPU."),
             ReportLine("Bars show retained interval averages; equal widths can cover unequal durations."),
             ReportLine("~ spans marks measurements crossing gaps in sampling."),

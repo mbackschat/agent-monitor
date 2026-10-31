@@ -58,11 +58,13 @@ public enum TerminalChrome {
         }
     }
 
-    public static func controls(_ items: [(String, String)]) -> ReportLine {
+    public static func controls(
+        _ items: [(String, String)], keyStyle: ReportLine.Style = .normal
+    ) -> ReportLine {
         var runs: [ReportLine.Run] = []
         for (index, item) in items.enumerated() {
             if index > 0 { runs.append(.init(" · ")) }
-            runs += [.init(item.0, style: .shortcut), .init(" " + item.1)]
+            runs += [.init(item.0, style: keyStyle), .init(" " + item.1)]
         }
         return ReportLine(runs: runs)
     }

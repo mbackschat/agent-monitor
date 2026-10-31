@@ -49,7 +49,7 @@ The completed short-worker fixture confirms substantial loss despite timely poll
 
 ### Temporary feedback intake — 2026-10-17
 
-- [ ] **FEEDBACK-13 — Verify physical German-keyboard scrolling.** Check u/d, Ctrl-U/Ctrl-D, retained Space, Page Up/Down and bracket aliases on the user’s keyboard. Apple Terminal may send Shift-Space as ordinary Space; encoded support does not establish physical delivery. Verify styled Help/controls, three-row charts with full-cell fill and -/+ contributor Details sizing in the user’s font/theme. Use the [TUI workflow check](docs/development.md#manual-tui-workflow-check). The [dated triage](docs/research/terminal-ui.md#feedback-triage--2026-10-26) owns the other feedback dispositions; their source corrections do not replace UX-01’s physical workflow checks.
+- [ ] **FEEDBACK-13 — Verify physical German-keyboard scrolling.** Check u/d, Ctrl-U/Ctrl-D, retained Space, Page Up/Down and bracket aliases on the user’s keyboard. Apple Terminal may send Shift-Space as ordinary Space; encoded support does not establish physical delivery. Verify styled Keyboard Help and neutral view controls, three-row charts with full-cell fill and -/+ contributor Details sizing in the user’s font/theme. Use the [TUI workflow check](docs/development.md#manual-tui-workflow-check). The [dated triage](docs/research/terminal-ui.md#feedback-triage--2026-10-26) owns the other feedback dispositions; their source corrections do not replace UX-01’s physical workflow checks.
 
 ### Execution and authorization boundaries
 
