@@ -26,7 +26,7 @@ struct MenuBarReferenceMenu: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            referenceButton(.keyboard)
+            referenceButton(.glossary)
             referenceButton(.diagnostics)
         }
         .controlSize(.small)
