@@ -105,5 +105,13 @@ func previewFixtureUsesProductionLayoutAcrossWidths(width: Int, grouped: Bool) t
         try svg.write(
             to: URL(fileURLWithPath: directory).appendingPathComponent("grouped-\(width).svg"),
             atomically: true, encoding: .utf8)
+        var details = state
+        details.maximizeDetails()
+        try Preview.svg(
+            lines: LiveReportLayout.lines(state: details, width: width, height: 24), width: width, height: 24
+        )
+        .write(
+            to: URL(fileURLWithPath: directory).appendingPathComponent("details-\(width).svg"),
+            atomically: true, encoding: .utf8)
     }
 }

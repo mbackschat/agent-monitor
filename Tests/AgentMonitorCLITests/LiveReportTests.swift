@@ -470,7 +470,7 @@ func pausedStatusAndResumeKeyRemainVisible(width: Int) {
 
 @Test func pausedInspectionKeepsSelectionDetailsAndOrderWhileCPUChanges() {
     var state = LiveReportState()
-    state.sort(by: .cpu)
+    state.sortCurrentView(by: .cpu)
     state.receive(liveSnapshot([liveRow(42, cpu: 90), liveRow(84, cpu: 50)]))
     state.toggleDisclosure()
     let selected = state.selected
@@ -581,7 +581,7 @@ func pinIndicatorsPreserveSelectionThroughDisappearance(width: Int) throws {
     #expect(state.rows.map(\.process.pid) == [20, 10])
     state.toggleFreeze()
     #expect(state.rows.map(\.process.pid) == [20, 10, 5])
-    state.sort(by: .cpu)
+    state.sortCurrentView(by: .cpu)
     #expect(state.rows.map(\.process.pid) == [5, 10, 20])
 }
 
@@ -720,4 +720,23 @@ func processChildDisclosureNeverOpensOrHidesDetails(grouping: ReportGrouping) th
     #expect(state.expanded == nil && state.detailsMode == .minimized)
     state.toggleDetails()
     #expect(state.expanded == row.process && state.detailsPercent == 60)
+}
+
+@Test(arguments: [ReportGrouping.none, .session], [60, 120])
+func processTableAndDetailsPreserveFieldColors(grouping: ReportGrouping, width: Int) throws {
+    var state = LiveReportState(grouping: grouping)
+    state.receive(liveSnapshot([liveRow(20)]))
+    state.sortCurrentView(by: .cpu)
+    for group in state.groups {
+        state.select(.group(group.id))
+        state.setChildDisclosure(expanded: true)
+    }
+    state.select(.process(try #require(state.rows.first).process))
+    state.setDisclosure(expanded: true)
+    let lines = LiveReportLayout.lines(state: state, width: width, height: 60)
+    let selected = lines.filter { $0.style == .selected }
+    #expect(selected.contains { $0.runs.contains { $0.style == .metric } })
+    let directory = try #require(lines.first { $0.text.hasPrefix("Work directory:") })
+    #expect(directory.runs.contains { $0.style == .identity && $0.text == "Work directory: " })
+    #expect(directory.runs.contains { $0.style == .normal && !$0.text.isEmpty })
 }

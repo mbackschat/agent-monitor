@@ -38,7 +38,10 @@ extension LiveReportState {
             case .foldOther: overview.toggleSection(.other)
             default: overview.toggleTable()
             }
-        case .overview: overview.enabled.toggle()
+        case .overview:
+            let wasEnabled = overview.enabled
+            if showsOverview { inspectOverviewProcess() }
+            overview.enabled = !wasEnabled
         case .allContributors:
             view = view == .allContributors ? .mainContributors : .allContributors
         case .pause: toggleFreeze()

@@ -18,7 +18,12 @@ import Testing
         let folded = ContributorLayout.lines(state: state, width: 120, height: 60).map(\.text).joined(
             separator: "\n")
         #expect(!folded.contains("Lifetime:"))
-        state.overview.toggleDetails()
+        let open = state.overview.open
+        state.showDetails()
+        state.showDetails()
+        #expect(state.showsOverview)
+        #expect(state.overview.selection == worker)
+        #expect(state.overview.open == open)
         let fields = try #require(state.overview.nodes[worker]).inspectionFields
         #expect(fields.contains { $0.label == "Agent" && $0.value == "codex" })
         #expect(fields.contains { $0.label == "Session" && !$0.value.isEmpty })

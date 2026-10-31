@@ -224,7 +224,7 @@ public enum TerminalReport {
                     } else if let row = state.state.commandInspectionTarget {
                         commands.start(row)
                     }
-                case .return: state.mutate { $0.inspectOverviewProcess() }
+                case .return: state.mutate { $0.showDetails() }
                 case .character("i"):
                     state.mutate { $0.toggleDetails() }
                 case .pageUp: scrollInspection(by: -5)

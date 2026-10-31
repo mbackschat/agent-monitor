@@ -627,7 +627,7 @@ func terminalActionsRequireConfirmationAndPasteCannotSubmit(quitWhileUndersized:
     try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
 }
 
-@Test func terminalOverviewDisclosesRecentWorkersAndSwitchesToProcessInspection() async throws {
+@Test func terminalOverviewKeepsDetailsInPlaceAndExplicitlySwitchesViews() async throws {
     let binary =
         ProcessInfo.processInfo.environment["AGENT_MONITOR_TUI_FIXTURE"]
         ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -711,8 +711,13 @@ func terminalActionsRequireConfirmationAndPasteCannotSubmit(quitWhileUndersized:
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) {
-        $0.contains("PID 42 |") && !$0.contains("Main contributors")
+        $0.range(of: "Lifetime: +PID 42", options: .regularExpression) != nil
+            && $0.contains("Main contributors") && $0.contains("DETAILS")
     }
+    try writeAllBytes(Array("v".utf8), to: terminal.master)
+    _ = try await waitForScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("PID 42 |") && !$0.contains("Main contributors") }
     try writeAllBytes(Array("9x".utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)

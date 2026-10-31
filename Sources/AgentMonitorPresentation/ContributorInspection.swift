@@ -110,7 +110,7 @@ public struct InspectionField: Equatable, Sendable {
     }
     public var text: String { label + ": " + value }
 
-    static func terminalLines(_ fields: [Self], width: Int) -> [String] {
+    static func terminalLines(_ fields: [Self], width: Int) -> [ReportLine] {
         let labelWidth = min(width / 3, fields.map { TerminalCells.width($0.label) + 1 }.max() ?? 0)
         return fields.flatMap { field in
             let label = TerminalCells.padded(
@@ -118,7 +118,12 @@ public struct InspectionField: Equatable, Sendable {
             let values = TerminalCells.wrapped(
                 TextReport.safe(field.value), to: max(1, width - labelWidth - 1))
             return values.enumerated().map {
-                ($0.offset == 0 ? label : String(repeating: " ", count: labelWidth)) + " " + $0.element
+                ReportLine(runs: [
+                    .init(
+                        ($0.offset == 0 ? label : String(repeating: " ", count: labelWidth)) + " ",
+                        style: .identity),
+                    .init($0.element),
+                ])
             }
         }
     }

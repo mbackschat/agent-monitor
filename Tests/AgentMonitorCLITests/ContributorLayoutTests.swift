@@ -81,6 +81,16 @@ import Testing
         #expect(ANSIText.styled(ReportLine(runs: [value])).contains("\u{1B}[1;36m"))
     }
 
+    @Test func contributorDetailsKeepColoredLabelsAndReadableValues() throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        state.overview.toggleDetails()
+        let lines = ContributorLayout.lines(state: state, width: 120, height: 60)
+        let detail = try #require(lines.first { $0.text.contains("Exact session:") })
+        #expect(detail.runs.contains { $0.style == .identity && $0.text.contains("Exact session:") })
+        #expect(detail.runs.contains { $0.style == .normal && $0.text.contains("session-1") })
+    }
+
     @Test func tableFoldingHasADiscoverableTerminalControl() throws {
         var state = LiveReportState()
         state.receive(try overviewFixture())

@@ -84,7 +84,7 @@ public enum LiveReportLayout {
                     ReportLine("Agent Monitor"), ReportLine("Resize to 40x8 or larger"),
                     ReportLine(state.actionPanel == nil ? "q/Ctrl-C quit" : "Ctrl-C quit"),
                 ].prefix(height)
-            ).map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
+            ).map { $0.clipped(to: width) }
         }
         if let panel = state.actionPanel { return panel.lines(width: width, height: height) }
         if state.showsOverview { return ContributorLayout.lines(state: state, width: width, height: height) }
@@ -93,7 +93,7 @@ public enum LiveReportLayout {
         lines += processLines(state: state, width: width, height: layout.processHeight)
         lines += detailsPane(state: state, width: width, height: layout.detailHeight)
         lines += layout.footer.map { ReportLine($0, style: .muted) }
-        return lines.map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
+        return lines.map { $0.clipped(to: width) }
     }
 
     public static func maximumDetailOffset(state: LiveReportState, width: Int, height: Int) -> Int {
@@ -378,9 +378,12 @@ public enum LiveReportLayout {
         let style: ReportLine.Style = selected ? .selected : .heading
         let prefix = groupPrefix(group, selected: selected, state: state, table: table)
         return [
-            ReportLine(abbreviated(title, width: width), style: style),
             ReportLine(
-                prefix + abbreviated(group.project, width: width - TerminalCells.width(prefix)),
+                runs: [.init(abbreviated(title, width: width), style: selected ? .selected : .identity)],
+                style: style),
+            ReportLine(
+                runs: table.styledPrefix(prefix, sort: state.sortKey, selected: selected)
+                    + [.init(abbreviated(group.project, width: width - TerminalCells.width(prefix)))],
                 style: style),
         ]
     }
@@ -400,9 +403,13 @@ public enum LiveReportLayout {
         let directory = directories.label(for: row)
         let prefix = processPrefix(row, state: state, table: table)
         return [
-            ReportLine(abbreviated(title, width: width), style: style),
             ReportLine(
-                prefix + abbreviated(directory, width: width - TerminalCells.width(prefix)), style: style),
+                runs: [.init(abbreviated(title, width: width), style: selected ? .selected : .identity)],
+                style: style),
+            ReportLine(
+                runs: table.styledPrefix(prefix, sort: state.sortKey, selected: selected)
+                    + [.init(abbreviated(directory, width: width - TerminalCells.width(prefix)))],
+                style: style),
         ]
     }
 
@@ -426,7 +433,12 @@ public enum LiveReportLayout {
         let disclosure = state.openGroups.contains(group.id) ? "▾" : "▸"
         let prefix = groupPrefix(
             group, selected: selected, state: state, table: table, disclosure: disclosure)
-        return ReportLine(prefix + group.label, style: selected ? .selected : .heading)
+        return ReportLine(
+            runs: table.styledPrefix(prefix, sort: state.sortKey, selected: selected)
+                + group.labelRuns.map {
+                    .init($0.text, style: selected && $0.style == .identity ? .selected : $0.style)
+                },
+            style: selected ? .selected : .heading)
     }
 
     private static func processPrefix(
@@ -456,7 +468,7 @@ public enum LiveReportLayout {
         let provider = row.attribution.provider?.rawValue ?? "unknown"
         let sessionWidth = max(8, columns.agent - provider.count - 1)
         let agent = "\(provider)/\(sessionLabel(row, width: state.grouping == .session ? 8 : sessionWidth))"
-        let description: String
+        let description: [ReportLine.Run]
         switch state.grouping {
         case .session:
             description = groupedProcessDescription(
@@ -467,14 +479,19 @@ public enum LiveReportLayout {
                 row, agent: agent, directory: directories.label(for: row), branch: branch, columns: columns)
         }
         return ReportLine(
-            prefix + description,
+            runs: table.styledPrefix(prefix, sort: state.sortKey, selected: row.process == state.selected)
+                + description.map {
+                    .init(
+                        $0.text,
+                        style: row.process == state.selected && $0.style == .identity ? .selected : $0.style)
+                },
             style: row.process == state.selected
                 ? .selected : (state.isPinned(.process(row.process)) ? .heading : .heavy))
     }
 
     private static func groupedProcessDescription(
         _ row: HeavyProcess, agent: String, directory: String, branch: String?, width: Int
-    ) -> String {
+    ) -> [ReportLine.Run] {
         // A scrolled-away group header cannot supply ownership: reserve all three fields
         // before clipping individual text (product contract: information that belongs together).
         let agentWidth = min(TerminalCells.width(TextReport.safe(agent)), max(16, width / 3))
@@ -482,9 +499,11 @@ public enum LiveReportLayout {
         let workloadWidth = max(0, width - agentWidth - TerminalCells.width(guide) - 6)
         let processWidth = min(
             TerminalCells.width(TextReport.safe(processName(row))), max(8, workloadWidth / 2))
-        return guide + abbreviated(processName(row), width: processWidth)
-            + " · " + abbreviated(directory, width: max(0, workloadWidth - processWidth))
-            + " · " + abbreviated(agent, width: agentWidth)
+        return [
+            .init(guide), .init(abbreviated(processName(row), width: processWidth), style: .identity),
+            .init(" · " + abbreviated(directory, width: max(0, workloadWidth - processWidth))),
+            .init(" · "), .init(abbreviated(agent, width: agentWidth), style: .identity),
+        ]
     }
 
     private static func processName(_ row: HeavyProcess) -> String {
@@ -493,11 +512,17 @@ public enum LiveReportLayout {
 
     private static func flatDescription(
         _ row: HeavyProcess, agent: String, directory: String, branch: String?, columns: ReportTable.Columns
-    ) -> String {
-        ReportTable.pad(
-            abbreviated((branch ?? "") + processName(row), width: columns.process), to: columns.process) + " "
-            + ReportTable.pad(abbreviated(agent, width: columns.agent), to: columns.agent) + " "
-            + abbreviated(directory, width: columns.directory)
+    ) -> [ReportLine.Run] {
+        [
+            .init(
+                ReportTable.pad(
+                    abbreviated((branch ?? "") + processName(row), width: columns.process),
+                    to: columns.process) + " ", style: .identity),
+            .init(
+                ReportTable.pad(abbreviated(agent, width: columns.agent), to: columns.agent) + " ",
+                style: .identity),
+            .init(abbreviated(directory, width: columns.directory)),
+        ]
     }
 
     private static func sessionLabel(_ row: HeavyProcess, width: Int) -> String {
@@ -529,7 +554,7 @@ public enum LiveReportLayout {
                         state.selected == nil ? "No process selected." : "i to show selected process.",
                         style: .muted))
             } else {
-                lines += details.dropFirst(offset).prefix(visible).map { ReportLine($0) }
+                lines += details.dropFirst(offset).prefix(visible)
             }
         }
         return padded(lines, to: height)
@@ -539,55 +564,66 @@ public enum LiveReportLayout {
         Array(lines.prefix(height)) + Array(repeating: ReportLine(" "), count: max(0, height - lines.count))
     }
 
-    private static func detailLines(state: LiveReportState, width: Int) -> [String] {
+    private static func detailLines(state: LiveReportState, width: Int) -> [ReportLine] {
         if let id = state.selectedGroup, let group = state.groups.first(where: { $0.id == id }) {
-            return wrapped(
-                [
-                    "Launch \(group.isRoot ? "root" : "session"): \(group.sessionDescription)",
-                    group.label,
-                    "All observed members; ~ marks partial totals with missing measurements.",
-                    "Launch origin does not prove current use of shared daemons.",
-                    "←/→ folds children · ↑/↓ selects · i shows/hides details.",
-                ], width: width)
+            return
+                ([
+                    field("Launch " + (group.isRoot ? "root" : "session"), group.sessionDescription),
+                    ReportLine(runs: group.labelRuns),
+                    ReportLine("All observed members; ~ marks partial totals with missing measurements."),
+                    ReportLine("Launch origin does not prove current use of shared daemons."),
+                    ReportLine("←/→ folds children · ↑/↓ selects · i shows/hides details."),
+                ]).flatMap { $0.wrapped(to: width) }
         }
         guard let row = state.rows.first(where: { $0.process == state.expanded }) else { return [] }
         let attribution = row.attribution
         var values = [
-            "PID \(row.process.pid) | \(row.executable)",
-            "Session: \(row.sessionDescription) [\(attribution.evidence.rawValue), \(attribution.context.rawValue)]",
-            "Runtime: \(attribution.runtime.map { String($0.pid) } ?? "unresolved") | TTY: \(attribution.terminal ?? "unavailable")",
-            "Work directory: \(row.cwd ?? "unavailable")",
-            "Runtime directory: \(attribution.runtimeDirectory ?? "unavailable")",
-            "Observed chain: \(attribution.ancestry.map { String($0.pid) }.joined(separator: " ← "))",
+            ReportLine(runs: [
+                .init("PID \(row.process.pid)", style: .identity), .init(" | \(row.executable)"),
+            ]),
+            field(
+                "Session",
+                "\(row.sessionDescription) [\(attribution.evidence.rawValue), \(attribution.context.rawValue)]",
+                valueStyle: attribution.evidence == .ambiguous || attribution.threadID == nil
+                    ? .warning : .normal),
+            field(
+                "Runtime",
+                "\(attribution.runtime.map { String($0.pid) } ?? "unresolved") | TTY: \(attribution.terminal ?? "unavailable")"
+            ),
+            field("Work directory", row.cwd ?? "unavailable"),
+            field("Runtime directory", attribution.runtimeDirectory ?? "unavailable"),
+            field("Observed chain", attribution.ancestry.map { String($0.pid) }.joined(separator: " ← ")),
         ]
-        values += AccountingContext.process(row)
+        values += AccountingContext.process(row).map { ReportLine($0) }
         if let window = state.snapshot?.window {
-            values.append(AccountingContext.evidence(row, in: window))
-            values.append(AccountingContext.acquisition(window.acquisitionCoverage))
+            values.append(ReportLine(AccountingContext.evidence(row, in: window), style: .metric))
+            values.append(ReportLine(AccountingContext.acquisition(window.acquisitionCoverage)))
             if let range = AccountingContext.publicationRange(
                 window.publicationCoverage, endingAt: window.endedAt)
             {
-                values.append(range)
+                values.append(ReportLine(range))
             }
         }
-        if let peak = FootprintContext.kernelPeak(row) { values.append(peak) }
-        if let root = attribution.rootSessionID { values.append("Root session: \(root)") }
+        if let peak = FootprintContext.kernelPeak(row) { values.append(ReportLine(peak, style: .metric)) }
+        if let root = attribution.rootSessionID { values.append(field("Root session", root)) }
         if !attribution.candidateThreadIDs.isEmpty {
-            values.append("Candidates: " + attribution.candidateThreadIDs.joined(separator: ", "))
+            values.append(field("Candidates", attribution.candidateThreadIDs.joined(separator: ", ")))
         }
         if let inspection = state.commandInspection, inspection.process == row.process {
-            values += inspection.lines
-            values.append("x hide arguments")
+            values += inspection.lines.map { ReportLine($0) }
+            values.append(ReportLine("x hide arguments"))
         } else if let command = row.command {
-            values.append("Command: " + command.joined(separator: " "))
+            values.append(field("Command", command.joined(separator: " ")))
         } else if !row.isHistorical {
-            values.append("x read arguments on demand")
+            values.append(ReportLine("x read arguments on demand"))
         }
-        return wrapped(values, width: width)
+        return values.flatMap { $0.wrapped(to: width) }
     }
 
-    private static func wrapped(_ values: [String], width: Int) -> [String] {
-        values.flatMap { TerminalCells.wrapped(TextReport.safe($0), to: width) }
+    private static func field(_ label: String, _ value: String, valueStyle: ReportLine.Style = .normal)
+        -> ReportLine
+    {
+        ReportLine(runs: [.init(label + ": ", style: .identity), .init(value, style: valueStyle)])
     }
 
     /// Local wall-clock time of the frozen snapshot, so the user can judge how stale it is.

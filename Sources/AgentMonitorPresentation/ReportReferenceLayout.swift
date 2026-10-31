@@ -104,12 +104,7 @@ public enum ReportReferenceLayout {
                 if state.overview.pinTarget(for: id) != nil {
                     lines.append(ReportLine(". pin/unpin session"))
                 }
-                if let identity = node.process,
-                    state.snapshot?.findings.contains(where: { $0.process == identity && !$0.isHistorical })
-                        == true
-                {
-                    lines.append(ReportLine("Enter inspect current process"))
-                }
+                lines.append(ReportLine("Enter show contributor details"))
             }
             if state.overview.detailsVisible {
                 lines += [
@@ -124,7 +119,9 @@ public enum ReportReferenceLayout {
                 lines.append(ReportLine("Shift+←/→ collapse/expand session groups"))
             }
             if state.selection != nil {
-                lines += [ReportLine("i show/hide details"), ReportLine(". pin/unpin row")]
+                lines += [
+                    ReportLine("i show/hide details · Enter show details"), ReportLine(". pin/unpin row"),
+                ]
             }
             if state.detailsMode != .minimized {
                 lines += [

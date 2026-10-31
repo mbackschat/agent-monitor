@@ -68,7 +68,9 @@ public struct SessionGroup: Equatable, Sendable {
         sessionID ?? "\(isSharedRuntime ? "shared runtime" : "unresolved") PID \(minimumPID)"
     }
 
-    public var label: String {
+    public var label: String { labelRuns.map(\.text).joined() }
+
+    var labelRuns: [ReportLine.Run] {
         let session = sessionID.map { String($0.prefix(8)) } ?? sessionDescription
         let kind = isSharedRuntime ? "" : (isRoot ? " root" : " session")
         let evidence =
@@ -76,8 +78,13 @@ public struct SessionGroup: Equatable, Sendable {
             ? (sessionID == nil ? " | uncertain CPU" : " | point-candidate CPU") : ""
         let partial = cpuPartial || memoryPartial ? " | partial totals" : ""
         let changed = labelChangedInWindow ? " | Label changed in window" : ""
-        return
-            "\(provider?.rawValue ?? "unknown")/\(session)\(kind) | \(observedCount) \(observedCount == 1 ? "process" : "processes") | \(project)\(partial)\(evidence)\(changed)"
+        return [
+            .init("\(provider?.rawValue ?? "unknown")/\(session)\(kind)", style: .identity),
+            .init(" | \(observedCount) \(observedCount == 1 ? "process" : "processes") | \(project)"),
+            .init(partial, style: .warning),
+            .init(evidence, style: sessionID == nil ? .warning : .normal),
+            .init(changed, style: .warning),
+        ]
     }
 
     private func sum(_ values: [Double?]) -> Double? {

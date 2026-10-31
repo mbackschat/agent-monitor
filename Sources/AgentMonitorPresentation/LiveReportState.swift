@@ -432,6 +432,14 @@ public struct LiveReportState: Equatable, Sendable {
         setDisclosure(expanded: expanded)
     }
 
+    public mutating func showDetails() {
+        if showsOverview {
+            if !overview.detailsVisible { overview.toggleDetails() }
+        } else if detailsMode == .minimized {
+            toggleDetails()
+        }
+    }
+
     public mutating func toggleDetails() {
         if showsOverview {
             overview.toggleDetails()

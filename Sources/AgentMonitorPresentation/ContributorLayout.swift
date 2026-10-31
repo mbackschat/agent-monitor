@@ -197,7 +197,7 @@ public enum ContributorLayout {
         return max(0, fields(state: state, width: width).count - bodyHeight)
     }
 
-    private static func fields(state: LiveReportState, width: Int) -> [String] {
+    private static func fields(state: LiveReportState, width: Int) -> [ReportLine] {
         guard let id = state.overview.selection, let node = state.overview.nodes[id] else { return [] }
         return InspectionField.terminalLines(
             node.inspectionFields.filter { $0.kind == .context }
@@ -216,7 +216,7 @@ public enum ContributorLayout {
                 "DETAILS " + (overview.focus == .details ? "● " : "○ ") + title + " · Tab switch · Esc close",
                 style: .heading)
         ]
-            + lines.dropFirst(offset).prefix(max(0, height - 1)).map { ReportLine($0, style: .muted) }
+            + lines.dropFirst(offset).prefix(max(0, height - 1))
     }
 
     private static func footerLines(state: LiveReportState, width: Int) -> [ReportLine] {
@@ -241,7 +241,7 @@ public enum ContributorLayout {
         return [
             ReportLine(
                 state.overview.detailsVisible
-                    ? "Tab rows/details · ↑/↓ scroll · PgUp/PgDn page · Esc close · Enter inspect process"
+                    ? "Tab rows/details · ↑/↓ scroll · PgUp/PgDn page · Esc close · v process view"
                     : "↑/↓ select · ←/→ rows · 5/6/7 sections · 8 table · i details",
                 style: .muted),
             ReportLine("? help | " + diagnosis + " | " + pause + " | q quit", style: .muted),

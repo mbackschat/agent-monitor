@@ -63,6 +63,20 @@ struct ReportTable {
         "\(marker) \(Self.pad(pid, to: identifierWidth)) \(right(cpu, width: cpuWidth))\(cpuMarker) \(right(memory, width: memoryWidth))\(memoryMarker)  "
     }
 
+    func styledPrefix(_ prefix: String, sort: ReportSort, selected: Bool) -> [ReportLine.Run] {
+        // The numeric suffix widths belong to prefix(marker:pid:cpu:memory:); keep
+        // styling independent of formatted values, partial markers and PID length.
+        let cpuStart = prefix.index(prefix.endIndex, offsetBy: -(cpuWidth + memoryWidth + 5))
+        let memoryStart = prefix.index(cpuStart, offsetBy: cpuWidth + 2)
+        let memoryEnd = prefix.index(prefix.endIndex, offsetBy: -2)
+        return [
+            .init(String(prefix[..<cpuStart]), style: selected ? .selected : .identity),
+            .init(String(prefix[cpuStart..<memoryStart]), style: sort == .cpu ? .metric : .heading),
+            .init(String(prefix[memoryStart..<memoryEnd]), style: sort == .memory ? .metric : .heading),
+            .init(String(prefix[memoryEnd...])),
+        ]
+    }
+
     static func number(_ value: Double?) -> String {
         value.map(ReportNumber.text) ?? "?"
     }
