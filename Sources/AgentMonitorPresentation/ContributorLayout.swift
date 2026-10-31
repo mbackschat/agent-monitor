@@ -25,17 +25,17 @@ public enum ContributorLayout {
                 10, overview.nodes.values.map { TerminalCells.width($0.stats.currentMemoryText) }.max() ?? 0))
         var footer = footerLines(state: state, width: width)
         let totals = overview.totals.summary(duration: overview.duration)
-        let showsOverallChart = columns.graphs && TerminalCells.width(totals) <= columns.name
+        let chartCaption = " · Overall CPU · " + overview.activity.scaleLabel
+        let cadence = TerminalChrome.cadence(state: state).text
+        let showsOverallChart =
+            columns.graphs
+            && TerminalCells.width(totals) <= columns.name
+            && TerminalCells.width(cadence + chartCaption) <= columns.name
+        let summaryWidth = showsOverallChart ? columns.name : width
         var header = [
-            TerminalChrome.title(state: state, width: width),
-            ReportLine(
-                TerminalChrome.cadence(state: state).text
-                    + (showsOverallChart ? " · Overall CPU · " + overview.activity.scaleLabel : "")),
-            showsOverallChart
-                ? columns.styledRow(
-                    totals, chart: overview.activity.terminalLane(width: columns.chart), cpu: "", memory: "",
-                    style: .normal)
-                : ReportLine(totals),
+            TerminalChrome.title(state: state, width: summaryWidth),
+            ReportLine(cadence + (columns.graphs ? chartCaption : "")),
+            ReportLine(totals),
         ]
         if !(overview.detailsVisible && state.detailsMode == .maximized) {
             header += [
@@ -230,7 +230,7 @@ public enum ContributorLayout {
             let index = 0
             let suffix = "  " + position
             header[index] = ReportLine(
-                runs: header[index].clipped(to: max(0, width - suffix.count)).runs + [
+                runs: header[index].clipped(to: max(0, summaryWidth - suffix.count)).runs + [
                     .init(suffix, style: .heading)
                 ])
         }
@@ -239,9 +239,15 @@ public enum ContributorLayout {
                 TerminalCells.abbreviated(footer[0].text, to: max(1, width - position.count - 2)) + "  "
                     + position)
         }
-        if columns.graphs,
-            visibleCount > 0 || (showsOverallChart && header.contains { $0.text.hasPrefix(totals) })
-        {
+        let rendersOverallChart = showsOverallChart && header.count >= 3
+        if rendersOverallChart {
+            for level in 0..<3 {
+                header[level] = columns.contextRow(
+                    header[level],
+                    chart: overview.activity.terminalLane(width: columns.chart, level: level, rows: 3))
+            }
+        }
+        if columns.graphs, visibleCount > 0 || rendersOverallChart {
             footer = TerminalChrome.withChartLegend(footer, width: width)
         }
         return Layout(

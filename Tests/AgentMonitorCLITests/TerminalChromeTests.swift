@@ -81,6 +81,47 @@ import Testing
         }
     }
 
+    @Test(arguments: [120, 160], [24, 60])
+    func overallChartSpansHeaderFromTopOfScreen(width: Int, height: Int) throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        state.overview.setChartRange(.percent(100))
+        state.overview.showAll = true
+        let lines = ContributorLayout.lines(state: state, width: width, height: height)
+        let chartWidth = min(24, width / 5)
+        for level in 0..<3 {
+            let chart = lines[level].runs.filter { $0.style == .separator || $0.style == .chartFill }
+                .map(\.text).joined()
+            #expect(
+                chart == " " + state.overview.activity.terminalLane(width: chartWidth, level: level, rows: 3))
+        }
+        #expect(
+            lines[0].text.contains("CPU ↓")
+                && lines[0].text.contains("/\(state.overview.visibleRows.count) ↓"))
+        #expect(
+            lines[1].text.contains("Overall CPU")
+                && lines[1].text.contains(state.overview.activity.scaleLabel))
+        #expect(lines[0].runs.contains { $0.style == .chartFill })
+        #expect(lines[2].text.contains("Memory"))
+        #expect(lines[3].text.hasPrefix("CONTRIBUTOR"))
+        #expect(lines.count == height)
+        #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
+    }
+
+    @Test func narrowHeaderPreservesSummaryAndScaleWithoutOverallChart() throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        let lines = ContributorLayout.lines(state: state, width: 90, height: 30)
+        #expect(lines[1].text.contains(TerminalChrome.cadence(state: state).text))
+        #expect(lines[1].text.contains(state.overview.activity.scaleLabel))
+        #expect(lines[2].text == state.overview.totals.summary(duration: state.overview.duration))
+        #expect(
+            lines.prefix(3).allSatisfy { line in
+                !line.runs.contains { $0.style == .separator || $0.style == .chartFill }
+            })
+        #expect(lines[3].text.contains("CPU HISTORY"))
+    }
+
     @Test func contributorDetailsHonorResizeAndAdvertiseIt() throws {
         var state = LiveReportState()
         state.receive(try overviewFixture())
