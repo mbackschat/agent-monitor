@@ -111,7 +111,8 @@ public enum TerminalReport {
                     switch key.key {
                     case .character("q"): return .exit(.userExit(key))
                     case .escape: state.mutate { $0.dismissReference() }
-                    case .character("?"): state.mutate { $0.showReference(.glossary) }
+                    case .character("?"): state.mutate { $0.showReference(.keyboard) }
+                    case .character("G"): state.mutate { $0.showReference(.glossary) }
                     case .character("D"): state.mutate { $0.showReference(.diagnostics) }
                     case .arrowUp, .arrowDown, .pageUp, .pageDown, .character("["), .character("]"):
                         let delta: Int
@@ -129,6 +130,9 @@ public enum TerminalReport {
                 if key.modifiers.isEmpty || key.modifiers == .shift {
                     switch key.key {
                     case .character("?"):
+                        state.mutate { $0.showReference(.keyboard) }
+                        return .handled
+                    case .character("G"):
                         state.mutate { $0.showReference(.glossary) }
                         return .handled
                     case .character("D"):

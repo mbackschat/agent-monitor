@@ -157,6 +157,9 @@ struct MenuBarView: View {
             }
             return model.handleShortcut(key.characters, row: focusedRow) ? .handled : .ignored
         }
+        .onChange(of: model.referencePage) { previous, page in
+            if previous != nil, page == nil, model.isOpen { restoreReportFocus() }
+        }
         .task(id: pendingPinFocus) {
             guard let row = pendingPinFocus else { return }
             if model.visibleRowIDs.contains(row) { focusedRow = row }

@@ -23,16 +23,24 @@ import Testing
         #expect(diagnostics.contains(ProviderRuntimeAvailability.messagingUnavailableReason))
     }
 
-    @Test(arguments: [40, 80, 140])
-    func passivePagesPreserveInspectionPauseAndSupportBoundedScrolling(width: Int) throws {
+    @Test(arguments: [40, 80, 140], [ReportReferencePage.glossary, .keyboard])
+    func passivePagesPreserveInspectionPauseAndSupportBoundedScrolling(width: Int, page: ReportReferencePage)
+        throws
+    {
         var state = LiveReportState()
         state.receive(try overviewFixture())
         state.overview.toggleDetails()
         state.toggleFreeze()
+        let shortcuts = ReportReferenceLayout.content(state: state, page: .keyboard).map(\.text).joined(
+            separator: "\n")
+        #expect(shortcuts.contains("i show/hide contributor details"))
+        #expect(
+            !shortcuts.contains("k review") && !shortcuts.contains("n sort")
+                && !shortcuts.contains("s messaging"))
         let original = state
-        state.showReference(.glossary)
+        state.showReference(page)
         let top = LiveReportLayout.lines(state: state, width: width, height: 12)
-        #expect(top.first?.text == "Help & glossary")
+        #expect(top.first?.text == page.title)
         #expect(top.map(\.text).joined().contains("Esc back"))
         #expect(top.map(\.text).joined().contains("D diagnostics"))
         state.scrollReference(by: Int.max, width: width, height: 12)

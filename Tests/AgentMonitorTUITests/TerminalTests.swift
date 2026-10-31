@@ -288,6 +288,10 @@ private func dividerRow(_ text: String) -> Int? {
     try writeAllBytes(Array("pi?".utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) { $0.contains("Keyboard shortcuts") && $0.contains("Esc back") }
+    try writeAllBytes(Array("G".utf8), to: terminal.master)
+    _ = try await waitForScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
     ) { $0.contains("Help & glossary") && $0.contains("Processes / Procs") && $0.contains("Esc back") }
     var small = winsize(ws_row: 12, ws_col: 40, ws_xpixel: 0, ws_ypixel: 0)
     try #require(ioctl(terminal.slave, TIOCSWINSZ, &small) == 0)
@@ -310,7 +314,7 @@ private func dividerRow(_ text: String) -> Int? {
     try writeAllBytes(Array(String(repeating: "\u{1b}[6~", count: 30).utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
-    ) { $0.contains("q/Ctrl-C quit") && !$0.contains("Processes / Procs") }
+    ) { $0.contains("Esc back") && !$0.contains("Processes / Procs") }
     try writeAllBytes(Array("D".utf8), to: terminal.master)
     _ = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)

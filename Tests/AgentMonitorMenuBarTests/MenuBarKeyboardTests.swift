@@ -93,13 +93,15 @@ func nativeBrowsingKeysRejectModifiedText(modifiers: EventModifiers) {
     #expect(!MenuBarKeyboard.accepts(".", modifiers: modifiers))
 }
 
-@Test func nativeBrowsingKeysAllowOnlyUnmodifiedKeysAndShiftedAngleBrackets() {
+@Test func nativeBrowsingKeysAllowUnmodifiedKeysAndShiftedPunctuation() {
     #expect(MenuBarKeyboard.keys.contains("."))
     #expect(!MenuBarKeyboard.keys.contains(.space))
     #expect(!MenuBarKeyboard.keys.contains(.return))
     #expect(MenuBarKeyboard.accepts("p", modifiers: []))
     #expect(MenuBarKeyboard.accepts(".", modifiers: []))
     #expect(MenuBarKeyboard.accepts("<", modifiers: .shift))
+    #expect(MenuBarKeyboard.keys.contains("?"))
+    #expect(MenuBarKeyboard.accepts("?", modifiers: .shift))
     #expect(!MenuBarKeyboard.accepts("P", modifiers: .shift))
 }
 
@@ -161,4 +163,33 @@ func nativeRowArrowsAcceptNonShortcutFlags(modifiers: EventModifiers) {
     #expect(focus.open(rows: [], preferred: selected) == .table)
     #expect(focus.rowsChanged([first], focus: .table) == first)
     #expect(focus.open(rows: [first], preferred: nil) == .row(first))
+}
+
+@Test @MainActor func questionMarkOpensShortcutsWithoutChangingSelectedContributor() async throws {
+    let snapshot = try nativeOverviewFixture()
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let selected = try #require(model.report.overview.visibleRows.first?.id)
+    model.report.overview.select(selected)
+    #expect(model.availableKeyboardShortcuts.contains { $0.key == "i" })
+    #expect(!model.availableKeyboardShortcuts.contains { $0.key == "n" || $0.key == "s" || $0.key == "y" })
+    let before = model.report
+    #expect(model.handleShortcut("?", row: nil))
+    #expect(model.referencePage == .keyboard)
+    #expect(model.report == before)
+    #expect(!model.handleShortcut("p", row: nil))
+    #expect(model.report == before)
+    model.referencePage = nil
+    #expect(model.report.overview.selection == selected)
+    let past = try #require(model.report.overview.nodes.values.first { $0.stats.isNoLongerObserved })
+    model.report.overview.select(past.id)
+    #expect(!model.availableKeyboardShortcuts.contains { $0.key == "k" || $0.key == "f" })
+    model.report.view = .processes
+    let row = try #require(model.visibleRowIDs.first)
+    model.selectRow(row)
+    #expect(model.availableKeyboardShortcuts.contains { $0.key == "n" })
+    #expect(model.handleShortcut("?", row: row))
+    #expect(model.referencePage == .keyboard)
+    await model.stop()
 }

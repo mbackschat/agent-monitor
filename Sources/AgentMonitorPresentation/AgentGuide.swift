@@ -109,7 +109,7 @@ public enum AgentGuide {
             1/2 lower/raise CPU by 10 percentage points; 3/4 lower/raise footprint by 1 GB.
             </> increase/decrease the period, or adaptive visible maximum: 0.1, 0.25, 0.5, 1, 2, 5, 10, 30 or 60 seconds; invalid steps are skipped.
             Main contributors is the default: v switches overview/process views; a selects Main/All contributors.
-            ? opens Help & glossary; D opens passive collection Diagnostics without starting measurements. In either page: ↑/↓ and Page Up/Down scroll; Esc returns to the report. Selection, disclosure and pause are preserved.
+            ? opens available keyboard shortcuts; G opens Help & glossary; D opens passive collection Diagnostics without starting measurements. On these pages: ↑/↓ and Page Up/Down scroll; Esc returns to the report. Selection, disclosure and pause are preserved.
             Arrows disclose session → executable → process; i shows/hides details in either view; Page Up/Down scroll detail; Return inspects a current worker without changing grouping.
             . pins the owning overview session (or selected process/session in process view); p pauses/resumes the view while sampling continues.
             u unpins all processes and sessions in both views.

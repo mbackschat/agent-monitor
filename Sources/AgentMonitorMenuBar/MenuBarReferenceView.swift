@@ -26,7 +26,7 @@ struct MenuBarReferenceMenu: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            referenceButton(.glossary)
+            referenceButton(.keyboard)
             referenceButton(.diagnostics)
         }
         .controlSize(.small)
@@ -41,7 +41,7 @@ struct MenuBarReferenceMenu: View {
             switch severity {
             case .warning: "Some process usage could not be measured. Open Diagnostics for details."
             case .notice: "Measurement limits apply. Open Diagnostics for details."
-            case nil: page.title
+            case nil: page == .keyboard ? page.title + " (?)" : page.title
             }
         return Button {
             model.referencePage = page
@@ -80,7 +80,7 @@ struct MenuBarReferenceContent: View {
                     switch page {
                     case .glossary: glossary
                     case .diagnostics: diagnostics
-                    case .keyboard: MenuBarKeyboardShortcuts()
+                    case .keyboard: MenuBarKeyboardShortcuts(model: model)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

@@ -3,7 +3,7 @@ import SwiftUI
 
 enum MenuBarKeyboard {
     static let keys = Set(
-        (ReportShortcut.allCases.map(\.rawValue) + ["k", "s", "f", "y", "q", "i"])
+        (ReportShortcut.allCases.map(\.rawValue) + ["k", "s", "f", "y", "q", "i", "?"])
             .map { KeyEquivalent(Character($0)) })
 
     static func isBulkDisclosure(modifiers: EventModifiers) -> Bool {
@@ -14,7 +14,7 @@ enum MenuBarKeyboard {
         // AppKit marks arrow keys as numericPad; Caps Lock also is not a shortcut chord.
         // https://developer.apple.com/documentation/appkit/nsevent/modifierflags-swift.struct/numericpad
         let chord = modifiers.intersection([.command, .control, .option, .shift])
-        return chord.isEmpty || (chord == .shift && (key == "<" || key == ">"))
+        return chord.isEmpty || (chord == .shift && (key == "<" || key == ">" || key == "?"))
     }
 }
 
@@ -41,6 +41,11 @@ extension MenuBarModel {
         writeClipboard: @MainActor (String) -> Bool = MenuBarClipboard.copy
     ) -> Bool {
         guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil else { return false }
+        if key == "?" {
+            referencePage = .keyboard
+            return true
+        }
+        guard referencePage == nil else { return false }
         if key == "i", report.showsOverview, report.overview.selection != nil {
             report.overview.toggleDetails()
             return true

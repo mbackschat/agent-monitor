@@ -220,6 +220,7 @@ enum MenuBarOption: Equatable {
             menu.items.last?.image = NSImage(
                 systemSymbolName: page.symbol, accessibilityDescription: page.title)
             menu.items.last?.preferredImageVisibility = .visible
+            if page == .keyboard { menu.items.last?.title += " (?)" }
         }
     }
 

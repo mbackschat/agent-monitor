@@ -62,11 +62,12 @@ import Testing
 }
 
 @Test @MainActor func keyboardHelpHasItsOwnMenuEntry() throws {
+    _ = NSApplication.shared
     let model = MenuBarModel { _, _, _ in }
     let controller = MenuBarOptionsController(model: model)
     let menu = controller.makeMenu()
     for page in [MenuBarReferencePage.glossary, .keyboard, .diagnostics] {
-        let item = try #require(menu.item(withTitle: page.title))
+        let item = try #require(menu.item(withTitle: page == .keyboard ? page.title + " (?)" : page.title))
         menu.performActionForItem(at: menu.index(of: item))
         #expect(model.referencePage == page)
     }

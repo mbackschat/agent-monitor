@@ -1,36 +1,84 @@
+import AgentMonitorPresentation
 import SwiftUI
 
 struct MenuBarKeyboardShortcuts: View {
-    var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 3) {
-            shortcut("Tab / ⇧Tab", "Next / previous control")
-            shortcut("↑ / ↓", "Previous / next row")
-            shortcut("← / →", "Collapse / expand row")
-            shortcut("⇧← / ⇧→", "Collapse / expand session groups")
-            shortcut(". / u", "Pin or unpin / unpin all views")
-            shortcut("i", "Contributor information")
-            shortcut("v / a", "Overview / processes; show all contributors")
-            shortcut("p", "Pause / resume")
-            shortcut("c / m / n / o", "Sort CPU / memory / PID / stable")
-            shortcut("r", "Reverse current sort direction")
-            shortcut("g", "Toggle session grouping")
-            shortcut("h / t", "History metric / time range")
-            shortcut("b", "Cycle fixed contributor CPU chart range")
-            shortcut("1 / 2", "CPU threshold −/+")
-            shortcut("3 / 4", "Memory threshold −/+")
-            shortcut("< / >", "Slower / faster acquisition maximum")
-            shortcut("y", "Copy PID")
-            shortcut("k", "Review termination of selected current process(es)")
-            shortcut("s", "Messaging unavailable in local-only mode")
-            shortcut("f", "Focus terminal (one current target)")
-            shortcut("q / ⌘Q", "Quit")
-        }.font(.caption)
-    }
+    let model: MenuBarModel
 
-    private func shortcut(_ key: String, _ description: String) -> some View {
-        GridRow {
-            Text(key).fontDesign(.monospaced).fixedSize()
-            Text(description).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(model.report.showsOverview ? "For the selected contributor" : "For the process table")
+                .font(.subheadline).foregroundStyle(.secondary)
+            Button("Help & glossary", systemImage: "book.closed") { model.referencePage = .glossary }
+                .help("Explain resource measurements and contributor groups")
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 7) {
+                ForEach(model.availableKeyboardShortcuts, id: \.key) { shortcut in
+                    GridRow {
+                        Text(shortcut.key).fontDesign(.monospaced).fixedSize()
+                            .padding(.horizontal, 5).padding(.vertical, 2)
+                            .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))
+                        Text(shortcut.description).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }.font(.caption)
         }
+    }
+}
+
+extension MenuBarModel {
+    var availableKeyboardShortcuts: [(key: String, description: String)] {
+        var keys: [(key: String, description: String)] = [("Esc", "Close this guide")]
+        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil else { return keys }
+        keys += [("Tab / ⇧Tab", "Next / previous control"), ("↑ / ↓", "Previous / next row")]
+        if report.showsOverview {
+            if let id = report.overview.selection, let node = report.overview.nodes[id] {
+                if !node.children.isEmpty { keys.append(("← / →", "Collapse / expand row")) }
+                keys.append(("i", "Show / hide contributor details"))
+                if report.overview.pinTarget(for: id) != nil { keys.append((".", "Pin / unpin session")) }
+                if report.overview.detailsVisible, report.overview.inspectedProcess != nil {
+                    if let process = report.contributorProcessTarget {
+                        if canBegin(.terminate, contributor: id, process: process.process) {
+                            keys.append(("k", "Review process termination"))
+                        }
+                        if canBegin(.focus, contributor: id, process: process.process) {
+                            keys.append(("f", "Show terminal"))
+                        }
+                    }
+                } else {
+                    if canBeginContributorTermination(id) {
+                        keys.append(("k", "Review termination of current processes"))
+                    }
+                    let targets = report.contributorProcesses(for: id)
+                    if targets.count == 1, let process = targets.first,
+                        canBegin(.focus, contributor: id, process: process.process)
+                    {
+                        keys.append(("f", "Show terminal"))
+                    }
+                }
+            }
+            keys += [("a", "Main / all contributors"), ("b", "Change fixed CPU chart range")]
+        } else {
+            if let row = report.selection {
+                keys += [("← / →", "Close / open row details"), (".", "Pin / unpin row")]
+                if pidToCopy(for: row) != nil { keys.append(("y", "Copy PID")) }
+                if canBegin(.terminate, row: row) { keys.append(("k", "Review process termination")) }
+                if canBegin(.focus, row: row) { keys.append(("f", "Show terminal")) }
+            }
+            if report.grouping == .session { keys.append(("⇧← / ⇧→", "Collapse / expand session groups")) }
+            keys += [
+                ("n", "Sort by PID"), ("h", "Change history metric"), ("t", "Change history time range"),
+            ]
+        }
+        if report.hasPins { keys.append(("u", "Unpin all")) }
+        if report.canSelectOverview { keys.append(("v", "Switch overview / processes")) }
+        keys += [("g", "Toggle process grouping"), ("c / m / o", "Sort by CPU / memory / stable order")]
+        if report.showsOverview ? report.overview.order != .stable : report.sortKey != .stable {
+            keys.append(("r", "Reverse sort direction"))
+        }
+        if report.snapshot != nil { keys.append(("p", report.frozen ? "Resume updates" : "Pause updates")) }
+        keys += [
+            ("1 / 2", "Lower / raise CPU filter"), ("3 / 4", "Lower / raise memory filter"),
+            ("< / >", "Slower / faster sampling"), ("?", "Show available shortcuts"), ("q / ⌘Q", "Quit"),
+        ]
+        return keys
     }
 }
