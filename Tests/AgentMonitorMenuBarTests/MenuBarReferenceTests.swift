@@ -74,3 +74,38 @@ import Testing
     model.close()
     #expect(model.referencePage == nil)
 }
+
+@Test @MainActor func contextualGlossaryKeepsTheRequestedTopicVisible() async throws {
+    _ = NSApplication.shared
+    let model = MenuBarModel { _, _, _ in }
+    let topic = ReportGlossary.contributorGroup(.released)
+    model.showGlossary(topic)
+    #expect(model.referencePage == .glossary)
+    #expect(model.glossaryTopic == topic.id)
+    let host = NSHostingView(
+        rootView: MenuBarReferenceContent(model: model, page: .glossary, dismiss: {})
+            .background(Color(nsColor: .windowBackgroundColor)))
+    host.frame.size = NSSize(width: 400, height: 480)
+    let window = await mountOffscreenNativePreview(host)
+    defer { window.close() }
+    await Task.yield()
+    host.layoutSubtreeIfNeeded()
+    let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    let text = try await nativeRecognizedText(in: #require(bitmap.cgImage)).map(\.text).joined(separator: " ")
+    #expect(text.contains("detail released"), "The selected glossary topic must be visible: \(text)")
+    if let directory = ProcessInfo.processInfo.environment["MENUBAR_REFERENCE_PREVIEW_DIRECTORY"] {
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: directory).appendingPathComponent("contextual-glossary.png"))
+    }
+    model.showGlossary()
+    #expect(model.referencePage == .glossary)
+    #expect(model.glossaryTopic == nil)
+    await Task.yield()
+    host.layoutSubtreeIfNeeded()
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    let top = try await nativeRecognizedText(in: #require(bitmap.cgImage)).map(\.text).joined(separator: " ")
+    #expect(top.contains("Processes / Procs"), "General help must start at the top: \(top)")
+    model.referencePage = nil
+    #expect(model.glossaryTopic == nil)
+}

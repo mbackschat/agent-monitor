@@ -8,7 +8,7 @@ struct MenuBarKeyboardShortcuts: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(model.report.showsOverview ? "For the selected contributor" : "For the process table")
                 .font(.subheadline).foregroundStyle(.secondary)
-            Button("Help & glossary", systemImage: "book.closed") { model.referencePage = .glossary }
+            Button("Help & glossary", systemImage: "book.closed") { model.showGlossary() }
                 .help("Explain resource measurements and contributor groups")
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 7) {
                 ForEach(model.availableKeyboardShortcuts, id: \.key) { shortcut in

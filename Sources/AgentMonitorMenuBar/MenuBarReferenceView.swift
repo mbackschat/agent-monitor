@@ -26,7 +26,9 @@ struct MenuBarReferenceMenu: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            referenceButton(.glossary)
+            HelpLink { model.showGlossary() }
+                .accessibilityLabel("Help & glossary")
+                .help("Open help for resource use and contributor groups")
             referenceButton(.diagnostics)
         }
         .controlSize(.small)
@@ -75,18 +77,26 @@ struct MenuBarReferenceContent: View {
             }
             .padding(14)
             Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    switch page {
-                    case .glossary: glossary
-                    case .diagnostics: diagnostics
-                    case .keyboard: MenuBarKeyboardShortcuts(model: model)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        switch page {
+                        case .glossary: glossary
+                        case .diagnostics: diagnostics
+                        case .keyboard: MenuBarKeyboardShortcuts(model: model)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .id("reference-top")
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
+                .scrollBounceBehavior(.basedOnSize)
+                .task(id: page.rawValue + ":" + (model.glossaryTopic ?? "")) {
+                    proxy.scrollTo(
+                        page == .glossary ? model.glossaryTopic ?? "reference-top" : "reference-top",
+                        anchor: .top)
+                }
             }
-            .scrollBounceBehavior(.basedOnSize)
         }
         .frame(width: 400, height: 480)
     }
@@ -94,7 +104,7 @@ struct MenuBarReferenceContent: View {
     private var glossary: some View {
         VStack(alignment: .leading, spacing: 16) {
             ForEach(ReportGlossary.entries) { entry in
-                MenuBarGlossaryEntry(entry: entry)
+                MenuBarGlossaryEntry(entry: entry).id(entry.id)
             }
         }
     }
@@ -135,9 +145,12 @@ struct MenuBarReferenceContent: View {
             if let summary = model.report.displaySamplingCoverage {
                 MenuBarCoverageSummary(summary: summary)
             }
-            Text(SamplingCoverageSummary.interpretation)
-                .font(.caption).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            DisclosureGroup("Measurement limits") {
+                Text(SamplingCoverageSummary.interpretation)
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }.help("Show what these measurements can miss")
             GroupBox("Local-only operation") {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(ProviderRuntimeAvailability.sessionListingUnavailableReason)
@@ -173,12 +186,14 @@ struct MenuBarGlossaryEntry: View {
 
 struct MenuBarGroupHelp: View {
     let entry: ReportGlossary.Entry
+    let open: () -> Void
 
     var body: some View {
-        Image(systemName: "questionmark.circle")
-            .font(.system(size: 11)).frame(width: 24, height: 24).contentShape(Rectangle())
-            .help(entry.definition)
+        Button(action: open) {
+            Image(systemName: "info.circle")
+                .font(.system(size: 11)).frame(width: 24, height: 24)
+        }.buttonStyle(.borderless)
+            .help("Explain " + entry.title.lowercased())
             .accessibilityLabel("About " + entry.title)
-            .accessibilityHint(entry.definition)
     }
 }

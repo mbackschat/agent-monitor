@@ -41,7 +41,16 @@ final class MenuBarModel {
         guard height.isFinite, height > 0 else { return }
         customPanelHeight = abs(height - panelSize.height) < 1 ? nil : height
     }
-    var referencePage: MenuBarReferencePage?
+    var referencePage: MenuBarReferencePage? {
+        didSet { if referencePage != .glossary { glossaryTopic = nil } }
+    }
+    private(set) var glossaryTopic: String?
+
+    func showGlossary(_ entry: ReportGlossary.Entry? = nil) {
+        referencePage = .glossary
+        glossaryTopic = entry?.id
+    }
+
     private(set) var arrivals = MenuBarArrivals()
     @ObservationIgnored private var arrivalExpiry: Task<Void, Never>?
     @ObservationIgnored private var arrivalDeadline: ContinuousClock.Instant?

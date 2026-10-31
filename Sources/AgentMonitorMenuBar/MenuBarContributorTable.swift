@@ -54,6 +54,9 @@ struct MenuBarContributorTable: View {
                     let depth = positions[node.id].map { rows[$0].depth } ?? 0
                     MenuBarContributorRow(
                         node: node, overview: overview, depth: depth,
+                        showGroupHelp: { entry in
+                            if acceptsInteraction { model.showGlossary(entry) }
+                        },
                         toggleDisclosure: node.children.allSatisfy {
                             !overview.includesInTable($0) || overview.pinned.contains($0)
                         }
@@ -120,10 +123,12 @@ struct MenuBarContributorTable: View {
                             MenuBarContributorRows(
                                 model: model, ids: ids, acceptsInteraction: acceptsInteraction)
                         } header: {
-                            MenuBarContributorHeading(section: section)
-                                .padding(.top, section == firstSection ? 0 : 12)
-                                .padding(.bottom, 4)
-                                .background(MenuBarRowBackground())
+                            MenuBarContributorHeading(section: section) {
+                                if acceptsInteraction { model.showGlossary(ReportGlossary.otherObservedWork) }
+                            }
+                            .padding(.top, section == firstSection ? 0 : 12)
+                            .padding(.bottom, 4)
+                            .background(MenuBarRowBackground())
                         }
                     }
                 }
@@ -245,6 +250,7 @@ struct MenuBarContributorRow: View {
     let node: ContributorNode
     let overview: ContributorOverview
     var depth = 0
+    var showGroupHelp: ((ReportGlossary.Entry) -> Void)? = nil
     var toggleDisclosure: (() -> Void)? = nil
 
     private var processCountHelp: String {
@@ -283,8 +289,8 @@ struct MenuBarContributorRow: View {
                             )
                             .italic(node.stats.isNoLongerObserved)
                     }.lineLimit(1).truncationMode(.middle).help(node.title)
-                    if let entry = node.id.groupExplanation {
-                        MenuBarGroupHelp(entry: entry)
+                    if let entry = node.id.groupExplanation, let showGroupHelp {
+                        MenuBarGroupHelp(entry: entry) { showGroupHelp(entry) }
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 MenuBarContributorLane(activity: overview.activity, id: node.id).frame(width: 100, height: 32)
@@ -544,11 +550,14 @@ private struct MenuBarContributorPin: View {
 
 private struct MenuBarContributorHeading: View {
     let section: MenuBarContributorSection
+    let showGroupHelp: () -> Void
 
     var body: some View {
         HStack(spacing: 4) {
             Label(section.rawValue, systemImage: section.symbol).help(section.help)
-            if section == .other { MenuBarGroupHelp(entry: ReportGlossary.otherObservedWork) }
+            if section == .other {
+                MenuBarGroupHelp(entry: ReportGlossary.otherObservedWork, open: showGroupHelp)
+            }
         }
         .font(.system(size: 11, weight: .bold))
         .foregroundStyle(section == .pinned ? Color.accentColor : Color.primary)

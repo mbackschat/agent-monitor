@@ -359,7 +359,8 @@ enum MenuBarOption: Equatable {
                 model.report.setSamplingSettings(settings)
             }
         case .liveIcon: model.setLiveIcon(!model.liveIcon)
-        case .reference(let page): model.referencePage = page
+        case .reference(let page):
+            if page == .glossary { model.showGlossary() } else { model.referencePage = page }
         case .historyMetric(let metric): model.report.historyMetric = metric
         case .historyWindow(let window): model.report.historyWindow = window
         }
