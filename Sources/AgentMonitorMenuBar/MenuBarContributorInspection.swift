@@ -37,7 +37,7 @@ struct MenuBarContributorInspection: View {
                             + " · Recent CPU " + node.stats.recentCPUText
                     )
                     .font(.caption).monospacedDigit().textSelection(.enabled)
-                    MenuBarInspectionHistory(activity: activity, id: node.id)
+                    MenuBarInspectionHistory(activity: activity, id: node.id).id(node.id)
                     MenuBarInspectionFields(fields: context)
                     if node.process != nil {
                         Button("Inspect current process…", action: inspect).disabled(!canInspect)
@@ -88,46 +88,6 @@ struct MenuBarInspectionFields: View {
                 }.help("Select text to copy")
             }
         }.font(.caption).lineLimit(nil).textSelection(.enabled)
-    }
-}
-
-private struct MenuBarInspectionHistory: View {
-    let activity: ContributorActivity
-    let id: ContributorID
-    @State private var showsIntervals = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("CPU history").font(.subheadline.bold()).accessibilityAddTraits(.isHeader)
-                Spacer()
-                Text(activity.scaleLabel).font(.caption).monospacedDigit()
-                    .help("Fixed CPU range shared with the overview; 100% means one core")
-            }
-            if activity.spans.isEmpty {
-                Text("No CPU history available").font(.caption).foregroundStyle(.secondary)
-            } else {
-                MenuBarContributorLane(activity: activity, id: id)
-                    .frame(height: 96)
-                    .background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 4))
-                    .overlay {
-                        if activity.samples[id]?.contains(where: { ($0?.measuredIntervals ?? 0) > 0 }) != true
-                        {
-                            Text("No measured CPU intervals").font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                HStack {
-                    Text("Older")
-                    Spacer()
-                    Text("Latest")
-                }.font(.caption2).foregroundStyle(.secondary)
-                DisclosureGroup(isExpanded: $showsIntervals) {
-                    MenuBarInspectionFields(fields: activity.inspectionFields(for: id)).padding(.top, 6)
-                } label: {
-                    Text("Interval values").help("Exact CPU values and measurement limits for each bar")
-                }.font(.caption)
-            }
-        }
     }
 }
 

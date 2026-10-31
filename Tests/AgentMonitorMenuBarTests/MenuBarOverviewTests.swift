@@ -156,6 +156,44 @@ import Testing
     #expect(widths[0] == widths[1])
 }
 
+@Test func chartInspectionKeepsHeldValuesAndDistinguishesMissingFromZero() throws {
+    var overview = ContributorOverview()
+    overview.receive(try nativeOverviewFixture(secondSampleTime: 3))
+    let node = try #require(overview.nodes.values.first { $0.process?.pid == 42001 })
+    let original = MenuBarHistoryData(activity: overview.activity, id: node.id)
+    #expect(original.readout(at: 0) == "63.7% CPU · 2.0–3.0 s before latest")
+    #expect(original.readout(at: 1) == "31.9% CPU · 0.0–2.0 s before latest")
+    #expect(original.readout(at: 2) == nil)
+    var selection = MenuBarHistorySelection()
+    selection.hold(original, at: 1)
+    var refreshed = ContributorOverview()
+    refreshed.receive(try nativeOverviewFixture(secondSampleTime: 4))
+    let live = MenuBarHistoryData(activity: refreshed.activity, id: node.id)
+    #expect(live != original)
+    #expect(selection.held?.readout(at: 1) == original.readout(at: 1))
+    selection.resume()
+    #expect(selection.held == nil && selection.index == nil)
+    let missing = MenuBarHistoryData(activity: overview.activity, id: .section(.released))
+    #expect(missing.readout(at: 1) == "Not measured · 0.0–2.0 s before latest")
+    let idle = try #require(overview.nodes.values.first { $0.process?.pid == 42002 })
+    #expect(
+        MenuBarHistoryData(activity: overview.activity, id: idle.id).readout(at: 1)?.hasPrefix("0.0% CPU")
+            == true)
+}
+
+@Test func chartHitTestingUsesTheSamePixelAlignedBarsAtEveryScale() {
+    for scale in [1.0, 2.0] {
+        let bars = MenuBarHistoryGeometry(width: 101, scale: scale, count: 12)
+        #expect(bars.index(at: bars.leading - 0.1) == nil)
+        #expect(bars.index(at: bars.leading + 12 * bars.step) == nil)
+        for index in 0..<12 {
+            #expect(bars.index(at: bars.leading + Double(index) * bars.step) == index)
+            #expect(bars.index(at: bars.leading + Double(index + 1) * bars.step - 0.1) == index)
+        }
+    }
+    #expect(MenuBarHistoryGeometry(width: 100, scale: 2, count: 0).index(at: 0) == nil)
+}
+
 func nativeOverviewFixture(
     unreadable: Int = 0, secondSampleTime: Double = 2, historicalDirectory: String = "/demo/worker-burst"
 ) throws -> MonitoringSnapshot {
@@ -425,6 +463,10 @@ func nativeOverviewFixture(
     #expect(text.contains("Executable"), "\(text)")
     #expect(text.contains("Recent CPU"), "\(text)")
     #expect(text.contains("CPU history"), "\(text)")
+    #expect(!text.contains("Interval values"), "Inspect bars directly instead of opening a table: \(text)")
+    #expect(
+        text.localizedCaseInsensitiveContains("Hover to inspect"),
+        "Point inspection should be discoverable: \(text)")
     #expect(text.contains("Processes now"), "Counts should be visible without disclosure: \(text)")
     #expect(text.contains("Meaning"), "Counts need visible explanations: \(text)")
     #expect(text.contains("Attribution"), "Evidence remains available on demand: \(text)")
