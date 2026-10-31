@@ -176,6 +176,10 @@ import Testing
             overview.activity.terminalLane(for: id, width: 12)
                 == String(repeating: cpuCount == 8 ? "▁" : "▄", count: 6)
                 + String(repeating: cpuCount == 8 ? "▃" : "↑", count: 6))
+        for level in 0..<2 {
+            let upper = overview.activity.terminalLane(for: id, width: 12, level: level, rows: 3)
+            #expect(upper.allSatisfy { " █↑".contains($0) })
+        }
         #expect(overview.activity.intervalLabel.contains("unequal durations"))
         #expect(samples[1]?.percent(in: overview.activity.spans[1]) == 300)
         overview.sort(by: .memory)

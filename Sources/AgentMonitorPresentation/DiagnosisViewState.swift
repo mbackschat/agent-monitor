@@ -72,7 +72,7 @@ public struct DiagnosisViewState: Equatable, Sendable {
     }
 
     func maximumOffset(width: Int, height: Int) -> Int {
-        max(0, wrapped(width: width).count - max(0, height - 3))
+        max(0, wrapped(width: width).count - max(0, height - 4))
     }
 
     public func terminalLines(width: Int, height: Int, offset: Int = 0) -> [ReportLine] {
@@ -84,14 +84,15 @@ public struct DiagnosisViewState: Equatable, Sendable {
                 .prefix(height).map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
         }
         let rows = wrapped(width: width)
-        let capacity = height - 3
+        let capacity = height - 4
         let first = min(max(0, offset), max(0, rows.count - capacity))
         let position = TerminalChrome.position(
             start: first, count: min(capacity, rows.count), total: rows.count)
         let heading = ReportLine(title.text + (position.isEmpty ? "" : " · " + position), style: .title)
         var result = [heading] + Array(rows.dropFirst(first).prefix(capacity))
-        result += Array(repeating: ReportLine(""), count: max(0, height - 2 - result.count))
+        result += Array(repeating: ReportLine(""), count: max(0, height - 3 - result.count))
         result += [
+            TerminalChrome.rule(width: width),
             ReportLine(
                 runs: TerminalChrome.controls([("u/d", "½ page")]).runs + [.init(" · ")]
                     + (isRunning

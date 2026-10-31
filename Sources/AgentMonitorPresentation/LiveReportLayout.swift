@@ -171,7 +171,7 @@ public enum LiveReportLayout {
                 by: direction * max(1, (height - 4) / (half ? 2 : 1)), width: width, height: height)
         } else if state.diagnosis.isVisible {
             state.scrollDiagnosis(
-                by: direction * max(1, (height - 3) / (half ? 2 : 1)), width: width, height: height)
+                by: direction * max(1, (height - 4) / (half ? 2 : 1)), width: width, height: height)
         } else if state.showsOverview {
             ContributorLayout.page(
                 state: &state, width: width, height: height, direction: direction, half: half)

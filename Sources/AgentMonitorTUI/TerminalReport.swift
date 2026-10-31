@@ -1,6 +1,7 @@
 import AgentMonitorActions
 import AgentMonitorCore
 import AgentMonitorPresentation
+import Darwin
 import Foundation
 import SwiftTUICLI
 import SwiftTUIRuntime
@@ -55,8 +56,17 @@ public enum TerminalReport {
         commands.onChange = { [weak state] value in state?.mutate { $0.commandInspection = value } }
         diagnosis.onChange = { [weak state] value in state?.mutate { $0.diagnosis = value } }
         // SwiftTUI 0.14.0 defaults to mouse reporting, which captures terminal selection drags.
+        let environment = hostEnvironment(color: color, base: ProcessInfo.processInfo.environment)
+        let isTerminal = isatty(STDOUT_FILENO) != 0
+        var capabilities = TerminalCapabilityProfile.detect(environment: environment, isTTY: isTerminal)
+        if RuntimeConfiguration.detect(environment: environment, isStdoutTTY: isTerminal).color == .never {
+            capabilities.colorLevel = .none
+        }
+        // SwiftTUI 0.14.0 couples NO_COLOR to all SGR styles; its public profile separates them.
+        if isTerminal, environment["TERM"] != "dumb" { capabilities.emitsStyleEscapeSequences = true }
+        let monochrome = capabilities.colorLevel == .none
         let host = TerminalHost(
-            environment: hostEnvironment(color: color, base: ProcessInfo.processInfo.environment),
+            capabilityProfile: capabilities, environment: environment,
             mouseInputResolution: .preResolved(.disabled))
         // SwiftTUI 0.14.0 Running-Apps.md exposes RunLoop for custom hosts.
         // The single-screen monitor needs no scene-discovery IPC or web host.
@@ -106,8 +116,8 @@ public enum TerminalReport {
                         switch key.key {
                         case .arrowUp: delta = -1
                         case .arrowDown: delta = 1
-                        case .pageUp: delta = -max(1, size.height - 3)
-                        default: delta = max(1, size.height - 3)
+                        case .pageUp: delta = -max(1, size.height - 4)
+                        default: delta = max(1, size.height - 4)
                         }
                         state.mutate {
                             $0.scrollDiagnosis(by: delta, width: size.width, height: size.height)
@@ -289,7 +299,7 @@ public enum TerminalReport {
             viewBuilder: { value, _ in
                 TerminalReportView(
                     state: value, container: state, interval: liveInterval, source: source, outcome: outcome,
-                    commands: commands)
+                    commands: commands, monochrome: monochrome)
             }
         )
         do {
@@ -371,6 +381,7 @@ private struct TerminalReportView: View {
     let source: SnapshotSource
     let outcome: TerminalOutcome
     let commands: CommandInspectionController
+    let monochrome: Bool
     @Environment(\.requestTermination) private var requestTermination
 
     var body: some View {
@@ -426,14 +437,17 @@ private struct TerminalReportView: View {
         case .identity: return text.foregroundStyle(.blue).bold()
         case .metric: return text.foregroundStyle(.cyan).bold()
         case .shortcut: return text.foregroundStyle(.cyan).bold().underline()
-        case .chartFill: return text.foregroundStyle(.blue).cellBackground(.blue)
+        case .chartFill:
+            return monochrome
+                ? Text(String(repeating: " ", count: TerminalCells.width(run.text))).reverse()
+                : text.foregroundStyle(.blue).cellBackground(.blue)
         case .separator: return text.foregroundStyle(.blue)
         case .selected: return text.bold().reverse()
         case .heavy: return text
         case .muted: return text.foregroundStyle(.secondary)
-        case .warning: return text.foregroundStyle(.warning)
+        case .warning: return monochrome ? text.bold() : text.foregroundStyle(.warning)
         case .success: return text.foregroundStyle(.success)
-        case .failure: return text.foregroundStyle(.danger)
+        case .failure: return monochrome ? text.bold() : text.foregroundStyle(.danger)
         case .normal: return text
         }
     }

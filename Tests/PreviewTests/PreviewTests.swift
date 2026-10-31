@@ -54,9 +54,23 @@ import Testing
         ).write(
             to: URL(fileURLWithPath: directory).appendingPathComponent("ledger-wide.svg"),
             atomically: true, encoding: .utf8)
+        for (name, report) in [("overview", immediate), ("processes", try Preview.state(grouped: false))] {
+            try Preview.svg(
+                lines: LiveReportLayout.lines(state: report, width: 120, height: 32), width: 120, height: 32,
+                monochrome: true
+            ).write(
+                to: URL(fileURLWithPath: directory).appendingPathComponent("monochrome-\(name).svg"),
+                atomically: true, encoding: .utf8)
+        }
         for page in [ReportReferencePage.keyboard, .glossary, .diagnostics] {
             var reference = immediate
             reference.showReference(page)
+            try Preview.svg(
+                lines: LiveReportLayout.lines(state: reference, width: 100, height: 46), width: 100,
+                height: 46, monochrome: true
+            ).write(
+                to: URL(fileURLWithPath: directory).appendingPathComponent("monochrome-\(page).svg"),
+                atomically: true, encoding: .utf8)
             try Preview.svg(
                 lines: LiveReportLayout.lines(state: reference, width: 100, height: 46), width: 100,
                 height: 46

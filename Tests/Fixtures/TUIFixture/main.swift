@@ -13,7 +13,7 @@ enum TUIFixture {
                 enabled: true, minimum: 0.4, visibleMaximum: 1, closedMultiplier: 2.5, window: 17)
         }
         try await TerminalReport.run(
-            sampling: sampling,
+            sampling: sampling, color: !CommandLine.arguments.contains("--no-color"),
             actions: FixtureActions(),
             diagnosisSource: {
                 if let path = ProcessInfo.processInfo.environment["AGENT_MONITOR_DIAGNOSIS_GATE"] {

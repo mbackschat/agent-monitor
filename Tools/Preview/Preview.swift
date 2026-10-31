@@ -47,7 +47,7 @@ enum Preview {
         }
     }
 
-    static func svg(lines: [ReportLine], width: Int, height: Int) -> String {
+    static func svg(lines: [ReportLine], width: Int, height: Int, monochrome: Bool = false) -> String {
         let pixelsWide = width * 9 + 48
         let pixelsHigh = height * 23 + 68
         var output = """
@@ -69,8 +69,8 @@ enum Preview {
             output += "<g aria-label=\"\(escape(text))\">\n"
             var column = 0
             for run in line.runs {
-                let color: String
-                let weight: String
+                var color: String
+                var weight: String
                 switch run.style {
                 case .title, .identity: (color, weight) = ("#5ba3ff", "bold")
                 case .heading: (color, weight) = ("#f0f6fc", "bold")
@@ -84,9 +84,13 @@ enum Preview {
                 case .failure: (color, weight) = ("#e05757", "normal")
                 case .normal, .heavy: (color, weight) = ("#c9d1d9", "normal")
                 }
+                if monochrome, run.style != .selected {
+                    color = "#c9d1d9"
+                    if run.style == .warning || run.style == .failure { weight = "bold" }
+                }
                 if run.style == .chartFill {
                     output +=
-                        "<rect x=\"\(24 + column * 9)\" y=\"\(52 + index * 23)\" width=\"\(TerminalCells.width(run.text) * 9)\" height=\"23\" fill=\"#5ba3ff\"/>\n"
+                        "<rect x=\"\(24 + column * 9)\" y=\"\(52 + index * 23)\" width=\"\(TerminalCells.width(run.text) * 9)\" height=\"23\" fill=\"\(monochrome ? "#c9d1d9" : "#5ba3ff")\"/>\n"
                 }
                 if run.style == .selected {
                     output +=

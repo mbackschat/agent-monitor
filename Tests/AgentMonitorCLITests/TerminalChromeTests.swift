@@ -15,6 +15,9 @@ import Testing
         #expect(text.contains("q/Ctrl-C quit"))
         #expect(!text.contains("Read failures:") && !text.contains("same-user PIDs"))
         #expect(lines.count == 30)
+        let footer = TerminalChrome.footer(state: state, width: width)
+        #expect(footer.count <= 3)
+        #expect(footer.first?.text == String(repeating: "─", count: width))
     }
 
     @Test(arguments: [40, 120], [24, 60])
@@ -87,7 +90,7 @@ import Testing
         state.adjustDetails(by: 20)
         let larger = LiveReportLayout.lines(state: state, width: 120, height: 50)
         #expect(try #require(larger.firstIndex { $0.text.hasPrefix("DETAILS") }) < original)
-        #expect(larger.map(\.text).joined().contains("+ larger"))
+        #expect(larger.map(\.text).joined().contains("-/+ size"))
         state.adjustDetails(by: -20)
         #expect(LiveReportLayout.lines(state: state, width: 120, height: 50) == before)
     }
@@ -138,11 +141,11 @@ import Testing
         let footer = TerminalChrome.footer(state: state, width: width)
         let rendered = ContributorLayout.lines(state: state, width: width, height: height)
         let legend = ["↑  above chart range", "·  no measurement", "_  measured zero"]
-        let fits = footer.allSatisfy { TerminalCells.width($0.text) + 3 + 20 <= width }
+        let fits = footer.dropFirst().allSatisfy { TerminalCells.width($0.text) + 3 + 20 <= width }
         let expected = height >= 20 && fits
         #expect(rendered.count == height)
         for (index, line) in rendered.suffix(3).enumerated() {
-            #expect(line.text.hasPrefix(footer[index].text))
+            if index > 0 || !expected { #expect(line.text.hasPrefix(footer[index].text)) }
             #expect(line.text.contains(legend[index]) == expected)
             if expected { #expect(TerminalCells.width(line.text) == width) }
         }

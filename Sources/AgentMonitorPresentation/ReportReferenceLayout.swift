@@ -181,6 +181,7 @@ public enum ReportReferenceLayout {
             TerminalChrome.controls([("b", "change chart range")], keyStyle: keyStyle),
             ReportLine("Oldest left, newest right. Dots are gaps, never zero CPU."),
             ReportLine("Bars show retained interval averages; equal widths can cover unequal durations."),
+            ReportLine("Chart heights are approximate: upper rows round up to whole-cell steps."),
             ReportLine("~ spans marks measurements crossing gaps in sampling."),
         ]
     }
@@ -224,7 +225,14 @@ public enum ReportReferenceLayout {
         if TerminalCells.width(combined.text) <= width {
             lines += [TerminalChrome.rule(width: width), combined, exit].map(TerminalChrome.footerHint)
         } else {
-            lines += [navigation, destinations, exit].map(TerminalChrome.footerHint)
+            lines += [
+                TerminalChrome.rule(width: width),
+                TerminalChrome.controls([("u/d", "½ page"), ("D", "diagnostics")]),
+                TerminalChrome.controls([
+                    ("Esc", "back"), (page == .keyboard ? "G" : "?", page == .keyboard ? "glossary" : "keys"),
+                    ("q/Ctrl-C", "quit"),
+                ]),
+            ].map(TerminalChrome.footerHint)
         }
         return lines.map { $0.clipped(to: width) }
     }

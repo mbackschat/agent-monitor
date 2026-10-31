@@ -71,73 +71,55 @@ public enum TerminalChrome {
 
     public static func footer(state: LiveReportState, width: Int) -> [ReportLine] {
         let details = state.showsOverview ? state.overview.detailsVisible : state.detailsMode != .minimized
-        var lines: [ReportLine] = []
-        if width >= 80 {
-            var navigation =
-                details
-                ? [("u/d", "½ page"), ("-", "smaller"), ("+", "larger")]
-                : [("↑/↓", "select"), ("←/→", "fold"), ("u/d", "½ page"), ("Space", "down")]
-            if details {
-                if state.showsOverview { navigation += [("Tab", "focus"), ("Esc", "close")] }
-                if !state.showsOverview || width >= 120 {
-                    navigation += [("M", "maximize"), ("=", "restore")]
-                }
+        func fitting(_ required: [(String, String)], _ optional: [(String, String)]) -> ReportLine {
+            var items = required
+            for item in optional where TerminalCells.width(controls(items + [item]).text) <= width {
+                items.append(item)
             }
-            lines.append(controls(navigation))
+            return footerHint(controls(items))
         }
-        var views = [("v", "view"), ("g", "group"), ("i", "details")]
-        if width >= 80 { views += [("c/m/o", "sort"), ("r", "reverse")] }
-        if state.showsOverview && width >= 120 { views.append(("P/S/O", "fold sections")) }
-        if width < 80 && details {
-            views = [
-                ("v", "view"), ("g", "group"), ("-/+", "size"), (state.showsOverview ? "Esc" : "i", "close"),
-            ]
-        }
-        lines.append(controls(views))
+        let views =
+            details
+            ? [("v", "view"), ("g", "group"), ("-/+", "size"), (state.showsOverview ? "Esc" : "i", "close")]
+            : [("v", "view"), ("g", "group"), ("i", "details")]
+        let navigation =
+            details
+            ? [("u/d", "½ page"), ("M", "max"), ("=", "restore")]
+                + (state.showsOverview ? [("Tab", "focus")] : [])
+            : [("↑/↓", "select"), ("←/→", "fold"), ("u/d", "½ page"), ("Space", "down")]
         let status = state.displayCoverageStatus
-        var reference = controls([("?", "help"), ("D", "diagnostics")]).runs
-        if let severity = status.severity {
-            reference.append(
-                .init(severity == .warning ? " !" : " •", style: severity == .warning ? .warning : .identity))
-        }
-        if width >= 120 { reference += [.init(" · ")] + controls([("G", "glossary")]).runs }
-        if width >= 80 {
-            reference +=
-                [.init(" · ")]
-                + controls([("p", state.frozen ? "resume" : "pause"), ("q/Ctrl-C", "quit")]).runs
-            lines.append(ReportLine(runs: reference))
-        } else {
-            reference +=
-                [.init(" · ")]
-                + (state.diagnosis.isRunning ? [.init("CPU cleanup")] : controls([("I", "investigate")]).runs)
-            lines.append(ReportLine(runs: reference))
-            lines.append(controls([("p", state.frozen ? "resume" : "pause"), ("q/Ctrl-C", "quit")]))
-        }
-        if width >= 80 && width < 120 {
-            lines[1] = ReportLine(
-                runs: lines[1].runs + [.init(" · ")]
-                    + (state.diagnosis.isRunning
-                        ? [.init("CPU cleanup")] : controls([("I", "investigate")]).runs))
-        } else if width >= 120 {
-            let last = lines.count - 1
-            let hint =
-                state.diagnosis.isRunning ? ReportLine("CPU cleanup") : controls([("I", "investigate")])
-            lines[last] = ReportLine(runs: hint.runs + [.init(" · ")] + lines[last].runs)
-        }
-        return lines.map(footerHint)
+        let diagnostics =
+            width < 60 && status.severity != nil
+            ? (status.severity == .warning ? "!" : "•")
+            : (width < 80 ? "diag" : "diagnostics")
+                + (status.severity == .warning ? " !" : status.severity == .notice ? " •" : "")
+        return [
+            rule(width: width),
+            fitting(views, navigation + [("c/m/o", "sort"), ("r", "reverse")]),
+            fitting(
+                [("?", "help"), ("p", state.frozen ? "resume" : "pause"), ("q/Ctrl-C", "quit")],
+                [("D", diagnostics)]
+                    + (state.diagnosis.isRunning ? [("", "CPU cleanup")] : [("I", "investigate")])
+                    + [("G", "glossary")]),
+        ]
     }
 
     static func withChartLegend(_ footer: [ReportLine], width: Int) -> [ReportLine] {
         let legend = ["↑  above chart range", "·  no measurement", "_  measured zero"]
         let legendWidth = legend.map(TerminalCells.width).max() ?? 0
         let column = width - legendWidth
+        let startsWithRule = footer.first?.text.allSatisfy { $0 == "─" } == true
         guard footer.count == legend.count,
-            footer.allSatisfy({ TerminalCells.width($0.text) + 3 <= column })
+            footer.enumerated().allSatisfy({ index, line in
+                (index == 0 && startsWithRule) || TerminalCells.width(line.text) + 3 <= column
+            })
         else { return footer }
-        return zip(footer, legend).map { line, label in
-            ReportLine(
-                runs: line.runs + [
-                    .init(String(repeating: " ", count: column - TerminalCells.width(line.text))),
+        return zip(footer, legend).enumerated().map { index, pair in
+            let (line, label) = pair
+            let content = index == 0 && startsWithRule ? rule(width: column - 3) : line
+            return ReportLine(
+                runs: content.runs + [
+                    .init(String(repeating: " ", count: column - TerminalCells.width(content.text))),
                     .init(TerminalCells.padded(label, to: legendWidth), style: .muted),
                 ])
         }

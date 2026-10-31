@@ -55,6 +55,10 @@ def verify(binary, duration, color, fixture, group_session=False, no_color_flag=
         assert not enabled_modes.intersection({9, 1000, 1001, 1002, 1003, 1006, 1016}), (
             "Mouse reporting prevents native terminal text selection"
         )
+        if fixture and not color:
+            for key in [b"?", b"G", b"D"]:
+                os.write(master, key)
+                drain(0.2)
         if color:
             os.write(master, b"\x03")
         else:
@@ -69,6 +73,14 @@ def verify(binary, duration, color, fixture, group_session=False, no_color_flag=
         assert b"\x1b[?25h" in output, "Cursor was not restored"
         has_color = re.search(rb"\x1b\[[0-9;]*(?:38|48);", output) is not None
         assert has_color == color, "Color capability / NO_COLOR mismatch"
+        if not color:
+            styles = re.findall(rb"\x1b\[([0-9;]+)m", output)
+            codes = {code.split(b":")[0] for style in styles for code in style.split(b";")}
+            assert b"7" in codes, "Monochrome selection lost reverse video"
+            color_codes = {str(value).encode() for value in [*range(30, 39), *range(40, 49), 58, *range(90, 98), *range(100, 108)]}
+            assert not codes.intersection(color_codes), "Monochrome output emitted a color attribute"
+            if fixture:
+                assert b"1" in codes and b"4" in codes, "Monochrome Help lost bold/underlined keys"
         cpu = usage.ru_utime + usage.ru_stime - previous.ru_utime - previous.ru_stime
         mode = "color + Ctrl-C" if color else "--no-color + SIGTERM" if no_color_flag else "NO_COLOR + SIGTERM"
         print(f"PASS {mode}: {cpu:.3f} CPU s / {elapsed:.3f} wall s = {100 * cpu / elapsed:.2f}% of one core")
@@ -94,5 +106,4 @@ if __name__ == "__main__":
         parser.error("--group-session requires the live CLI")
     verify(args.binary, args.seconds, color=True, fixture=args.fixture, group_session=args.group_session)
     verify(args.binary, args.seconds, color=False, fixture=args.fixture, group_session=args.group_session)
-    if not args.fixture:
-        verify(args.binary, args.seconds, color=False, fixture=False, no_color_flag=True)
+    verify(args.binary, args.seconds, color=False, fixture=args.fixture, no_color_flag=True)

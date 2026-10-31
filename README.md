@@ -152,7 +152,7 @@ The following options control reports; diagnosis has fixed defaults and its own 
 | `--json-schema` | Print the report's JSON Schema and exit without sampling. | Off |
 | `--all-processes` | Include unrelated and unattributed processes; same-user scope and display thresholds still apply. | Off |
 | `--commands` | Include command arguments in reports and details; arguments can contain secrets. | Off |
-| `--no-color` | Disable colors in text, TUI and action output, like `NO_COLOR=1`; JSONL is never colored. Colors otherwise appear only on a terminal. | Off |
+| `--no-color` | Disable colors in text, TUI and action output, like `NO_COLOR=1`; TUI keeps selection inversion and text emphasis. JSONL is never colored. Colors otherwise appear only on a terminal. | Off |
 | `--version` | Print the installed version and exit. | — |
 | `-h`, `--help` | Show command help and exit. | — |
 

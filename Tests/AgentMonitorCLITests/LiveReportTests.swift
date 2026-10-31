@@ -215,7 +215,7 @@ func detailsSplitStaysFixedAcrossRefreshSelectionAndDisappearance(width: Int) th
     let minimized = LiveReportLayout.lines(state: state, width: 100, height: 24)
     let divider = try #require(minimized.firstIndex { $0.style == .separator })
     let footer = try #require(minimized.firstIndex { $0.text.contains("↑/↓ select") })
-    #expect(divider + 1 == footer)
+    #expect(divider + 2 == footer)
     #expect(!minimized.contains { $0.text.contains("PID 42 |") })
     state.restoreDetails()
     #expect(state.detailsPercent == 55)
@@ -318,10 +318,10 @@ func processesFillSpaceBetweenTheVisibleHeaderAndFooter(width: Int) throws {
     state.receive(liveSnapshot((1...40).map { liveRow(Int32($0)) }))
     let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
     let table = try #require(lines.firstIndex { $0.text.contains("PROCESS") })
-    let help = try #require(lines.firstIndex { $0.text.contains("↑/↓ select") })
-    #expect(table < help)
+    let footer = try #require(lines.firstIndex { $0.text == String(repeating: "─", count: width) })
+    #expect(table < footer)
     #expect(
-        lines.filter { $0.style == .selected || $0.style == .heavy }.count == help - table - 3)
+        lines.filter { $0.style == .selected || $0.style == .heavy }.count == footer - table - 3)
     #expect(lines.count == 24)
     #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
     let header = lines.prefix(table).map(\.text).joined(separator: "\n")
@@ -690,7 +690,7 @@ func compactFooterKeepsHelpAndDiagnosisHints(width: Int, frozen: Bool) {
     let lines = LiveReportLayout.lines(state: state, width: width, height: width == 40 ? 8 : 11)
     let footer = lines.suffix(2).map(\.text).joined(separator: "\n")
     #expect(footer.contains("? help"))
-    #expect(footer.contains("I investigate"))
+    if width >= 60 { #expect(footer.contains("I investigate")) }
     #expect(footer.contains(frozen ? "p resume" : "p pause"))
     #expect(footer.contains("q/Ctrl-C quit"))
 }
