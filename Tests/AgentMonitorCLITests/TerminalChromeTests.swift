@@ -131,4 +131,21 @@ import Testing
         #expect(lines.first?.text.contains("1–8/") == true)
         #expect(lines.map(\.text).joined().contains("u/d"))
     }
+    @Test(arguments: [120, 160, 200], [12, 32])
+    func chartLegendUsesOnlySpareFooterSpace(width: Int, height: Int) throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        let footer = TerminalChrome.footer(state: state, width: width)
+        let rendered = ContributorLayout.lines(state: state, width: width, height: height)
+        let legend = ["↑  above chart range", "·  no measurement", "_  measured zero"]
+        let fits = footer.allSatisfy { TerminalCells.width($0.text) + 3 + 20 <= width }
+        let expected = height >= 20 && fits
+        #expect(rendered.count == height)
+        for (index, line) in rendered.suffix(3).enumerated() {
+            #expect(line.text.hasPrefix(footer[index].text))
+            #expect(line.text.contains(legend[index]) == expected)
+            if expected { #expect(TerminalCells.width(line.text) == width) }
+        }
+    }
+
 }

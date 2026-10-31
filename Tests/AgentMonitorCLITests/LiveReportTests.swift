@@ -743,7 +743,9 @@ func processTableAndDetailsPreserveFieldColors(grouping: ReportGrouping, width: 
     state.setDisclosure(expanded: true)
     let lines = LiveReportLayout.lines(state: state, width: width, height: 60)
     let selected = lines.filter { $0.style == .selected }
-    #expect(selected.contains { $0.runs.contains { $0.style == .metric } })
+    for metric in ["50.00", "0.00"] {
+        #expect(selected.contains { $0.runs.contains { $0.style == .selected && $0.text.contains(metric) } })
+    }
     let directory = try #require(lines.first { $0.text.hasPrefix("Work directory:") })
     #expect(directory.runs.contains { $0.style == .identity && $0.text == "Work directory: " })
     #expect(directory.runs.contains { $0.style == .normal && !$0.text.isEmpty })

@@ -88,8 +88,10 @@
 <text y="368" fill="#0d1117" font-weight="bold"><tspan x="24">&gt;</tspan><tspan x="42">▸</tspan><tspan x="60">c</tspan><tspan x="69">o</tspan><tspan x="78">d</tspan><tspan x="87">e</tspan><tspan x="96">x</tspan><tspan x="114">·</tspan><tspan x="132">0</tspan><tspan x="141">0</tspan><tspan x="150">0</tspan><tspan x="159">0</tspan><tspan x="168">0</tspan><tspan x="177">0</tspan><tspan x="186">0</tspan><tspan x="195">2</tspan></text>
 <text y="368" fill="#5ba3ff" font-weight="normal"></text>
 <text y="368" fill="#5ba3ff" font-weight="normal"></text>
-<text y="368" fill="#56b6c2" font-weight="bold"><tspan x="960">1</tspan><tspan x="969">2</tspan><tspan x="978">.</tspan><tspan x="987">6</tspan><tspan x="996">%</tspan></text>
-<text y="368" fill="#f0f6fc" font-weight="bold"><tspan x="1050">2</tspan><tspan x="1059">.</tspan><tspan x="1068">4</tspan><tspan x="1086">G</tspan><tspan x="1095">B</tspan></text>
+<rect x="933" y="351" width="72" height="23" fill="#c9d1d9"/>
+<text y="368" fill="#0d1117" font-weight="bold"><tspan x="960">1</tspan><tspan x="969">2</tspan><tspan x="978">.</tspan><tspan x="987">6</tspan><tspan x="996">%</tspan></text>
+<rect x="1005" y="351" width="99" height="23" fill="#c9d1d9"/>
+<text y="368" fill="#0d1117" font-weight="bold"><tspan x="1050">2</tspan><tspan x="1059">.</tspan><tspan x="1068">4</tspan><tspan x="1086">G</tspan><tspan x="1095">B</tspan></text>
 </g>
 <g aria-label="    1 process">
 <text y="391" fill="#c9d1d9" font-weight="normal"><tspan x="60">1</tspan><tspan x="78">p</tspan><tspan x="87">r</tspan><tspan x="96">o</tspan><tspan x="105">c</tspan><tspan x="114">e</tspan><tspan x="123">s</tspan><tspan x="132">s</tspan></text>
@@ -180,7 +182,7 @@
 <text y="690" fill="#5ba3ff" font-weight="normal"></text>
 <text y="690" fill="#5ba3ff" font-weight="normal"><tspan x="717">▁</tspan><tspan x="726">▁</tspan><tspan x="735">▁</tspan><tspan x="744">▁</tspan><tspan x="753">▁</tspan><tspan x="762">▁</tspan><tspan x="771">▁</tspan><tspan x="780">▁</tspan><tspan x="789">▁</tspan><tspan x="798">▁</tspan><tspan x="807">▁</tspan><tspan x="816">▁</tspan><tspan x="825">▁</tspan><tspan x="834">▁</tspan><tspan x="843">▁</tspan><tspan x="852">▁</tspan><tspan x="861">▁</tspan><tspan x="870">▁</tspan><tspan x="879">▁</tspan><tspan x="888">▁</tspan><tspan x="897">▁</tspan><tspan x="906">▁</tspan><tspan x="915">▁</tspan><tspan x="924">▁</tspan></text>
 </g>
-<g aria-label="↑/↓ select · ←/→ fold · u/d ½ page · Space down">
+<g aria-label="↑/↓ select · ←/→ fold · u/d ½ page · Space down                                                     ↑  above chart range">
 <text y="736" fill="#8c92ac" font-weight="normal"><tspan x="24">↑</tspan><tspan x="33">/</tspan><tspan x="42">↓</tspan></text>
 <text y="736" fill="#8c92ac" font-weight="normal"><tspan x="60">s</tspan><tspan x="69">e</tspan><tspan x="78">l</tspan><tspan x="87">e</tspan><tspan x="96">c</tspan><tspan x="105">t</tspan></text>
 <text y="736" fill="#8c92ac" font-weight="normal"><tspan x="123">·</tspan></text>
@@ -192,8 +194,10 @@
 <text y="736" fill="#8c92ac" font-weight="normal"><tspan x="339">·</tspan></text>
 <text y="736" fill="#8c92ac" font-weight="normal"><tspan x="357">S</tspan><tspan x="366">p</tspan><tspan x="375">a</tspan><tspan x="384">c</tspan><tspan x="393">e</tspan></text>
 <text y="736" fill="#8c92ac" font-weight="normal"><tspan x="411">d</tspan><tspan x="420">o</tspan><tspan x="429">w</tspan><tspan x="438">n</tspan></text>
+<text y="736" fill="#c9d1d9" font-weight="normal"></text>
+<text y="736" fill="#8c92ac" font-weight="normal"><tspan x="924">↑</tspan><tspan x="951">a</tspan><tspan x="960">b</tspan><tspan x="969">o</tspan><tspan x="978">v</tspan><tspan x="987">e</tspan><tspan x="1005">c</tspan><tspan x="1014">h</tspan><tspan x="1023">a</tspan><tspan x="1032">r</tspan><tspan x="1041">t</tspan><tspan x="1059">r</tspan><tspan x="1068">a</tspan><tspan x="1077">n</tspan><tspan x="1086">g</tspan><tspan x="1095">e</tspan></text>
 </g>
-<g aria-label="v view · g group · i details · c/m/o sort · r reverse · P/S/O fold sections">
+<g aria-label="v view · g group · i details · c/m/o sort · r reverse · P/S/O fold sections                         ·  no measurement">
 <text y="759" fill="#8c92ac" font-weight="normal"><tspan x="24">v</tspan></text>
 <text y="759" fill="#8c92ac" font-weight="normal"><tspan x="42">v</tspan><tspan x="51">i</tspan><tspan x="60">e</tspan><tspan x="69">w</tspan></text>
 <text y="759" fill="#8c92ac" font-weight="normal"><tspan x="87">·</tspan></text>
@@ -211,8 +215,10 @@
 <text y="759" fill="#8c92ac" font-weight="normal"><tspan x="510">·</tspan></text>
 <text y="759" fill="#8c92ac" font-weight="normal"><tspan x="528">P</tspan><tspan x="537">/</tspan><tspan x="546">S</tspan><tspan x="555">/</tspan><tspan x="564">O</tspan></text>
 <text y="759" fill="#8c92ac" font-weight="normal"><tspan x="582">f</tspan><tspan x="591">o</tspan><tspan x="600">l</tspan><tspan x="609">d</tspan><tspan x="627">s</tspan><tspan x="636">e</tspan><tspan x="645">c</tspan><tspan x="654">t</tspan><tspan x="663">i</tspan><tspan x="672">o</tspan><tspan x="681">n</tspan><tspan x="690">s</tspan></text>
+<text y="759" fill="#c9d1d9" font-weight="normal"></text>
+<text y="759" fill="#8c92ac" font-weight="normal"><tspan x="924">·</tspan><tspan x="951">n</tspan><tspan x="960">o</tspan><tspan x="978">m</tspan><tspan x="987">e</tspan><tspan x="996">a</tspan><tspan x="1005">s</tspan><tspan x="1014">u</tspan><tspan x="1023">r</tspan><tspan x="1032">e</tspan><tspan x="1041">m</tspan><tspan x="1050">e</tspan><tspan x="1059">n</tspan><tspan x="1068">t</tspan></text>
 </g>
-<g aria-label="I investigate · ? help · D diagnostics · G glossary · p pause · q/Ctrl-C quit">
+<g aria-label="I investigate · ? help · D diagnostics · G glossary · p pause · q/Ctrl-C quit                       _  measured zero">
 <text y="782" fill="#8c92ac" font-weight="normal"><tspan x="24">I</tspan></text>
 <text y="782" fill="#8c92ac" font-weight="normal"><tspan x="42">i</tspan><tspan x="51">n</tspan><tspan x="60">v</tspan><tspan x="69">e</tspan><tspan x="78">s</tspan><tspan x="87">t</tspan><tspan x="96">i</tspan><tspan x="105">g</tspan><tspan x="114">a</tspan><tspan x="123">t</tspan><tspan x="132">e</tspan></text>
 <text y="782" fill="#8c92ac" font-weight="normal"><tspan x="150">·</tspan></text>
@@ -230,6 +236,8 @@
 <text y="782" fill="#8c92ac" font-weight="normal"><tspan x="582">·</tspan></text>
 <text y="782" fill="#8c92ac" font-weight="normal"><tspan x="600">q</tspan><tspan x="609">/</tspan><tspan x="618">C</tspan><tspan x="627">t</tspan><tspan x="636">r</tspan><tspan x="645">l</tspan><tspan x="654">-</tspan><tspan x="663">C</tspan></text>
 <text y="782" fill="#8c92ac" font-weight="normal"><tspan x="681">q</tspan><tspan x="690">u</tspan><tspan x="699">i</tspan><tspan x="708">t</tspan></text>
+<text y="782" fill="#c9d1d9" font-weight="normal"></text>
+<text y="782" fill="#8c92ac" font-weight="normal"><tspan x="924">_</tspan><tspan x="951">m</tspan><tspan x="960">e</tspan><tspan x="969">a</tspan><tspan x="978">s</tspan><tspan x="987">u</tspan><tspan x="996">r</tspan><tspan x="1005">e</tspan><tspan x="1014">d</tspan><tspan x="1032">z</tspan><tspan x="1041">e</tspan><tspan x="1050">r</tspan><tspan x="1059">o</tspan></text>
 </g>
 </g>
 </svg>

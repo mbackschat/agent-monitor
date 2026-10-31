@@ -127,6 +127,22 @@ public enum TerminalChrome {
         return lines.map(footerHint)
     }
 
+    static func withChartLegend(_ footer: [ReportLine], width: Int) -> [ReportLine] {
+        let legend = ["↑  above chart range", "·  no measurement", "_  measured zero"]
+        let legendWidth = legend.map(TerminalCells.width).max() ?? 0
+        let column = width - legendWidth
+        guard footer.count == legend.count,
+            footer.allSatisfy({ TerminalCells.width($0.text) + 3 <= column })
+        else { return footer }
+        return zip(footer, legend).map { line, label in
+            ReportLine(
+                runs: line.runs + [
+                    .init(String(repeating: " ", count: column - TerminalCells.width(line.text))),
+                    .init(TerminalCells.padded(label, to: legendWidth), style: .muted),
+                ])
+        }
+    }
+
     public static func footerHint(_ line: ReportLine) -> ReportLine {
         ReportLine(runs: line.runs.map { .init($0.text, style: $0.style == .normal ? .muted : $0.style) })
     }

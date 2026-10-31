@@ -222,6 +222,11 @@ public enum ContributorLayout {
                 TerminalCells.abbreviated(footer[0].text, to: max(1, width - position.count - 2)) + "  "
                     + position)
         }
+        if columns.graphs,
+            visibleCount > 0 || (showsOverallChart && header.contains { $0.text.hasPrefix(totals) })
+        {
+            footer = TerminalChrome.withChartLegend(footer, width: width)
+        }
         return Layout(
             lines: Array((header + body + details + footer).prefix(height)).map { $0.clipped(to: width) },
             blockHeights: blocks.map(\.count), bodyHeight: bodyHeight, detailsHeight: detailsHeight)
@@ -354,10 +359,14 @@ public enum ContributorLayout {
                 ] + chartRuns(chart) + [
                     .init(
                         " " + numeric(cpu, width: self.cpu),
-                        style: accentMetrics && order == .cpu && cpu != "—" ? .metric : metricStyle),
+                        style: style == .selected
+                            ? .selected
+                            : (accentMetrics && order == .cpu && cpu != "—" ? .metric : metricStyle)),
                     .init(
                         " " + numeric(memory, width: self.memory),
-                        style: accentMetrics && order == .memory && memory != "—" ? .metric : metricStyle),
+                        style: style == .selected
+                            ? .selected
+                            : (accentMetrics && order == .memory && memory != "—" ? .metric : metricStyle)),
                 ], style: style)
         }
 

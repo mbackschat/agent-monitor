@@ -49,6 +49,11 @@ import Testing
     let delayedLines = LiveReportLayout.lines(state: delayed, width: 120, height: 32)
     let immediateLines = LiveReportLayout.lines(state: immediate, width: 120, height: 32)
     if let directory = ProcessInfo.processInfo.environment["TUI_GROUPED_PREVIEW_DIRECTORY"] {
+        try Preview.svg(
+            lines: LiveReportLayout.lines(state: immediate, width: 160, height: 32), width: 160, height: 32
+        ).write(
+            to: URL(fileURLWithPath: directory).appendingPathComponent("ledger-wide.svg"),
+            atomically: true, encoding: .utf8)
         for page in [ReportReferencePage.keyboard, .glossary, .diagnostics] {
             var reference = immediate
             reference.showReference(page)

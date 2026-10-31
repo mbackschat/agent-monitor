@@ -71,8 +71,12 @@ struct ReportTable {
         let memoryEnd = prefix.index(prefix.endIndex, offsetBy: -2)
         return [
             .init(String(prefix[..<cpuStart]), style: selected ? .selected : .identity),
-            .init(String(prefix[cpuStart..<memoryStart]), style: sort == .cpu ? .metric : .heading),
-            .init(String(prefix[memoryStart..<memoryEnd]), style: sort == .memory ? .metric : .heading),
+            .init(
+                String(prefix[cpuStart..<memoryStart]),
+                style: selected ? .selected : (sort == .cpu ? .metric : .heading)),
+            .init(
+                String(prefix[memoryStart..<memoryEnd]),
+                style: selected ? .selected : (sort == .memory ? .metric : .heading)),
             .init(String(prefix[memoryEnd...])),
         ]
     }

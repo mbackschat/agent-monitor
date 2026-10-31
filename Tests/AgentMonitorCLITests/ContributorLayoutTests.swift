@@ -38,7 +38,8 @@ import Testing
         let selected = try #require(lines.first { $0.style == .selected })
         #expect(selected.runs.contains { $0.style == .selected && $0.text.contains("session-") })
         #expect(selected.runs.contains { $0.style == .separator && !$0.text.contains("┌") })
-        #expect(selected.runs.contains { $0.style == .heading && $0.text.contains("MB") })
+        #expect(selected.runs.contains { $0.style == .selected && $0.text.contains("MB") })
+        #expect(selected.runs.contains { $0.style == .selected && $0.text.contains("%") })
         let context = try #require(lines.first { $0.text.contains("/fixture") })
         #expect(context.runs.contains { $0.style == .normal && $0.text.contains("/fixture") })
         #expect(ANSIText.styled(context).contains("\u{1B}[1;34m"))
@@ -81,8 +82,8 @@ import Testing
         let header = try #require(lines.first { $0.text.contains("CPU HISTORY") })
         let label = (order == .cpu ? "CPU" : "MEMORY") + (ascending ? " ↑" : " ↓")
         #expect(header.text.contains(label))
-        let selected = try #require(lines.first { $0.style == .selected })
-        let value = try #require(selected.runs.first { $0.text.contains(order == .cpu ? "%" : "MB") })
+        let unselected = try #require(lines.first { $0.style == .identity && $0.text.contains("%") })
+        let value = try #require(unselected.runs.first { $0.text.contains(order == .cpu ? "%" : "MB") })
         #expect(ANSIText.styled(ReportLine(runs: [value])).contains("\u{1B}[1;36m"))
     }
 
