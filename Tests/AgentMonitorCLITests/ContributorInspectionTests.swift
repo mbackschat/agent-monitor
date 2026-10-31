@@ -29,6 +29,7 @@ import Testing
         let detailed = ContributorLayout.lines(state: state, width: 120, height: 60).map(\.text).joined(
             separator: "\n")
         #expect(detailed.contains("Lifetime:"))
+        #expect(!detailed.contains("CPU history"), "Details must not repeat interval data from row charts")
         #expect(detailed.contains("/fixture"))
     }
     @Test func refreshThatHidesTheInspectedRowClosesDetailsInsteadOfRetargeting() throws {

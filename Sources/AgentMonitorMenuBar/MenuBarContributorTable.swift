@@ -447,54 +447,35 @@ private struct MenuBarContributorBranch: View {
 struct MenuBarContributorLane: View {
     let activity: ContributorActivity
     let id: ContributorID
-    var body: some View {
-        MenuBarHistoryPlot(data: MenuBarHistoryData(activity: activity, id: id))
-            .accessibilityLabel("CPU history, " + activity.scaleLabel + ", " + activity.intervalLabel)
-            .help("Recent CPU averages; open Details to inspect each bar")
-    }
-}
-
-struct MenuBarHistoryPlot: View {
-    let data: MenuBarHistoryData
-    var selectedIndex: Int? = nil
     @Environment(\.backgroundProminence) private var prominence
     @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         Canvas { context, size in
             let color: Color = prominence == .increased ? .white : .accentColor
-            guard !data.spans.isEmpty else { return }
-            // Share pixel boundaries so hit testing cannot select a neighbouring bar.
-            let bars = MenuBarHistoryGeometry(width: size.width, scale: displayScale, count: data.spans.count)
-            let step = bars.step
-            let leading = bars.leading
+            guard !activity.spans.isEmpty else { return }
+            // Equal widths represent whole intervals, not equal elapsed time
+            // (architecture.md, Resource history).
+            let step = floor(size.width * displayScale / Double(activity.spans.count)) / displayScale
+            let leading = (size.width - step * Double(activity.spans.count)) / 2
             let gap = 1 / displayScale
-            for (index, sample) in data.samples.enumerated() {
-                let span = data.spans[index]
+            for (index, sample) in (activity.samples[id] ?? []).enumerated() {
+                let span = activity.spans[index]
                 let x = leading + Double(index) * step
-                if selectedIndex == index {
-                    context.fill(
-                        Path(CGRect(x: x, y: 0, width: step, height: size.height)),
-                        with: .color(color.opacity(0.15)))
-                    context.stroke(
-                        Path(
-                            CGRect(
-                                x: x + 0.5, y: 0.5, width: max(0, step - 1), height: max(0, size.height - 1))),
-                        with: .color(color), lineWidth: 1)
-                }
                 guard let value = sample?.percent(in: span) else { continue }
-                let height = max(1, min(1, value / data.ceiling) * size.height)
+                let height = max(1, min(1, value / activity.ceiling) * size.height)
                 let bar = Path(
                     CGRect(
                         x: x + gap, y: size.height - height, width: max(gap, step - gap), height: height))
                 context.fill(bar, with: .color(color.opacity(sample?.qualified == true ? 0.45 : 0.8)))
-                if value > data.ceiling {
+                if value > activity.ceiling {
                     let cap = Path(CGRect(x: x, y: 0, width: step, height: 2))
                     context.fill(cap, with: .color(.orange))
                 }
             }
         }
-
+        .accessibilityLabel("CPU history, " + activity.scaleLabel + ", " + activity.intervalLabel)
+        .help("Recent CPU averages; gaps mean unmeasured")
     }
 }
 

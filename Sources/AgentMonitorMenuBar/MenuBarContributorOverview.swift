@@ -64,7 +64,7 @@ struct MenuBarContributorOverview: View {
                                 }.padding(10)
                             } else {
                                 MenuBarContributorInspection(
-                                    activity: overview.activity, node: node, duration: overview.duration,
+                                    node: node, duration: overview.duration,
                                     canInspect: node.process.map { identity in
                                         model.report.contributorProcesses(for: id).contains {
                                             $0.process == identity

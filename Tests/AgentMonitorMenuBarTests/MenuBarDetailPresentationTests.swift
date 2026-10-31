@@ -3,6 +3,7 @@ import AppKit
 import SwiftUI
 import Testing
 
+@testable import AgentMonitorCore
 @testable import AgentMonitorMenuBar
 
 @Test @MainActor func inspectionFieldsWrapCompletePathsAndIdentifiersDespiteInheritedRowLimits() async throws
@@ -265,4 +266,69 @@ func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool, selected: Bool)
                 "historical-path-\(dark ? "dark" : "light")\(selected ? "-selected" : "").png"))
     }
     await model.stop()
+}
+
+@Test @MainActor func copyAllContributorDetailsIncludesCollapsedEvidenceAndFullPaths() throws {
+    var overview = ContributorOverview()
+    overview.receive(try nativeOverviewFixture())
+    let node = try #require(overview.nodes.values.first { $0.process?.pid == 42001 })
+    let view = MenuBarContributorInspection(
+        node: node, duration: overview.duration, canInspect: true, inspect: {})
+    let text = view.copyText
+    #expect(text.contains(node.ownerHeadline))
+    #expect(text.contains("CPU "))
+    #expect(text.contains("Memory "))
+    for field in node.inspectionFields + node.populationFields {
+        #expect(text.contains(field.text))
+        if let help = field.help { #expect(text.contains(help)) }
+    }
+    #expect(!text.contains("CPU history"))
+    let button = MenuBarCopyDetailsButton(text: { view.copyText })
+    var clipboard = ""
+    #expect(
+        button.copy(using: {
+            clipboard = $0
+            return true
+        }))
+    #expect(clipboard == text)
+    #expect(!button.copy(using: { _ in false }))
+}
+
+@Test @MainActor func copyAllProcessDetailsIncludesArgumentsAndHiddenAttributionWithoutReading() async throws
+{
+    let original = try #require(try nativeOverviewFixture().findings.first)
+    let process = HeavyProcess(
+        process: original.process, executable: original.executable, name: original.name,
+        cpuPercent: original.cpuPercent, footprintBytes: original.footprintBytes,
+        cwd: "/very/long/workload/path/WORKSPACE-END",
+        command: ["node", "value with spaces", "ARGUMENT-END"],
+        metadataStatus: original.metadataStatus, attribution: original.attribution)
+    let model = MenuBarModel { _, _, _ in }
+    let view = MenuBarProcessDetails(model: model, process: process)
+    let text = view.copyText
+    #expect(text.contains("PID \(process.process.pid)"))
+    #expect(text.contains(process.cwd!))
+    #expect(text.contains(process.executable))
+    #expect(text.contains("ARGUMENT-END"))
+    #expect(text.contains("value with spaces"))
+    #expect(text.contains("Session: " + (process.attribution.threadID ?? "unresolved")))
+    #expect(text.contains("Agent: " + (process.attribution.provider?.rawValue ?? "unresolved")))
+    #expect(text.contains("Observed chain:"))
+    #expect(text.contains("Launch origin does not prove current use of shared daemons."))
+    #expect(model.commands.state == nil && !model.commands.isReading)
+    let host = NSHostingView(
+        rootView: view.padding(10).frame(width: 580)
+            .background(Color(nsColor: .windowBackgroundColor)))
+    host.appearance = NSAppearance(named: .aqua)
+    host.frame.size = host.fittingSize
+    let window = await mountOffscreenNativePreview(host)
+    defer { window.close() }
+    let bitmap = try detailBitmap(host)
+    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
+    #expect(recognized.contains { $0.text.localizedCaseInsensitiveContains("Copy all") })
+    #expect(host.fittingSize.width <= 580)
+    if let directory = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
+        try #require(bitmap.representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: directory).appendingPathComponent("process-details-copy-all.png"))
+    }
 }

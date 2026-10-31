@@ -9,6 +9,60 @@ struct MenuBarProcessDetails: View {
     var contributor: ContributorID?
     var keyboardTarget: LiveReportRowID?
 
+    private var resourceSummary: String {
+        "CPU "
+            + (process.cpuPercent.map {
+                $0.formatted(.number.precision(.fractionLength(1))) + "%"
+            }
+                ?? "unavailable")
+            + " · Memory "
+            + (process.footprintBytes.map {
+                ByteCountFormatter.string(
+                    fromByteCount: Int64(clamping: $0), countStyle: .decimal)
+            } ?? "unavailable")
+    }
+
+    private var evidenceLines: [String] {
+        var lines = AccountingContext.process(process)
+        if let window = model.report.snapshot?.window {
+            lines.append(AccountingContext.evidence(process, in: window))
+        }
+        if let peak = FootprintContext.kernelPeak(process) { lines.append(peak) }
+        let owner = process.attribution
+        lines += [
+            "Session: \(owner.threadID ?? (process.isSharedRuntime ? "shared runtime" : "unresolved"))",
+            "\(owner.evidence.rawValue) · \(owner.context.rawValue)",
+            "Terminal: \(owner.terminal ?? "unavailable")",
+            "Runtime: \(owner.runtime.map { String($0.pid) } ?? "unresolved")",
+            "Runtime directory: \(owner.runtimeDirectory ?? "unavailable")",
+            "Observed chain: \(owner.ancestry.map { String($0.pid) }.joined(separator: " ← "))",
+        ]
+        if let root = owner.rootSessionID { lines.append("Root session: " + root) }
+        if !owner.candidateThreadIDs.isEmpty {
+            lines.append("Candidates: " + owner.candidateThreadIDs.joined(separator: ", "))
+        }
+        lines.append("Launch origin does not prove current use of shared daemons.")
+        return lines
+    }
+
+    var copyText: String {
+        let arguments: [String]
+        if let inspection = model.commands.state, inspection.process == process.process {
+            arguments = inspection.lines
+        } else if let command = process.command {
+            arguments = ["Arguments:"] + command.enumerated().map { "[\($0.offset)] \($0.element)" }
+        } else {
+            arguments = [process.isHistorical ? "Arguments: unavailable" : "Arguments: not loaded"]
+        }
+        return
+            ([
+                process.name + " · PID \(process.process.pid)", resourceSummary,
+                "Agent: " + (process.attribution.provider?.rawValue ?? "unresolved"),
+                "Working directory: " + (process.cwd ?? "Unavailable"), "Executable: " + process.executable,
+            ]
+            + arguments + evidenceLines).joined(separator: "\n")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -21,19 +75,9 @@ struct MenuBarProcessDetails: View {
                                 && model.pidToCopy(for: .process(process.process)) != nil ? " (y)" : "")
                     )
                 Spacer(minLength: 0)
-                Text(
-                    "CPU "
-                        + (process.cpuPercent.map {
-                            $0.formatted(.number.precision(.fractionLength(1))) + "%"
-                        }
-                            ?? "unavailable")
-                        + " · Memory "
-                        + (process.footprintBytes.map {
-                            ByteCountFormatter.string(
-                                fromByteCount: Int64(clamping: $0), countStyle: .decimal)
-                        } ?? "unavailable")
-                )
-                .font(.system(size: 12, weight: .semibold)).monospacedDigit().fixedSize()
+                Text(resourceSummary)
+                    .font(.system(size: 12, weight: .semibold)).monospacedDigit().fixedSize()
+                MenuBarCopyDetailsButton(text: { copyText })
             }
             HStack {
                 Button("Terminal", systemImage: "terminal") { begin(.focus) }.disabled(!canBegin(.focus))
@@ -51,28 +95,10 @@ struct MenuBarProcessDetails: View {
             MenuBarCommandInspection(process: process, controller: model.commands)
             DisclosureGroup(isExpanded: $showsEvidence) {
                 VStack(alignment: .leading, spacing: 6) {
-                    ForEach(AccountingContext.process(process), id: \.self) { Text($0) }
-                    if let window = model.report.snapshot?.window {
-                        Text(AccountingContext.evidence(process, in: window))
+                    ForEach(Array(evidenceLines.dropLast().enumerated()), id: \.offset) { _, line in
+                        Text(line)
                     }
-                    if let peak = FootprintContext.kernelPeak(process) { Text(peak) }
-                    Text(
-                        "Session: \(process.attribution.threadID ?? (process.isSharedRuntime ? "shared runtime" : "unresolved"))"
-                    )
-                    Text("\(process.attribution.evidence.rawValue) · \(process.attribution.context.rawValue)")
-                    Text("Terminal: \(process.attribution.terminal ?? "unavailable")")
-                    Text("Runtime: \(process.attribution.runtime.map { String($0.pid) } ?? "unresolved")")
-                    Text("Runtime directory: \(process.attribution.runtimeDirectory ?? "unavailable")")
-                    Text(
-                        "Observed chain: \(process.attribution.ancestry.map { String($0.pid) }.joined(separator: " ← "))"
-                    )
-                    if let root = process.attribution.rootSessionID { Text("Root session: " + root) }
-
-                    if !process.attribution.candidateThreadIDs.isEmpty {
-                        Text("Candidates: " + process.attribution.candidateThreadIDs.joined(separator: ", "))
-                    }
-                    Text("Launch origin does not prove current use of shared daemons.").foregroundStyle(
-                        .secondary)
+                    Text(evidenceLines.last ?? "").foregroundStyle(.secondary)
                 }.fixedSize(horizontal: false, vertical: true)
             } label: {
                 Text("Attribution and measurement")

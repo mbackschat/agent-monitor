@@ -150,7 +150,7 @@ public enum ContributorLayout {
         guard let id = state.overview.selection, let node = state.overview.nodes[id] else { return [] }
         return InspectionField.terminalLines(
             node.inspectionFields.filter { $0.kind == .context }
-                + state.overview.activity.inspectionFields(for: id) + node.populationFields
+                + node.populationFields
                 + node.inspectionFields.filter { $0.kind == .evidence }, width: width)
     }
 

@@ -22,7 +22,7 @@ For UI/UX recommendations, design, implementation and review, use the repository
 
 Before recommending a UI framework or control, check the current platform's standard controls against the actual interaction requirements using the installed SDK or official documentation. For Mac content, evaluate SwiftUI first, including hierarchical `Table` for multi-column trees. Recommend AppKit or custom controls only with a specific demonstrated limitation or an established repository ownership requirement; unfamiliarity is not evidence of a limitation. Preserve AppKit's existing lifecycle ownership. Name the evidence and tradeoff in the recommendation, and leave unverified claims explicit.
 
-Diagnostic recording defaults off. Normal monitoring retains bounded working state and rolling in-memory history only; never add automatic process-data persistence or an unbounded in-memory log. Recording requires explicit opt-in under its [separate proposal](docs/proposals/diagnostic-recording.md).
+Do not add data retention solely for charts. Details must add information beyond the row rather than duplicate its chart. Diagnostic recording defaults off. Normal monitoring retains bounded working state and rolling in-memory history only; never add automatic process-data persistence or an unbounded in-memory log. Recording requires explicit opt-in under its [separate proposal](docs/proposals/diagnostic-recording.md).
 
 ## Start and scope
 

@@ -154,9 +154,7 @@ import Testing
                 == String(repeating: cpuCount == 8 ? "▁" : "▄", count: 6)
                 + String(repeating: cpuCount == 8 ? "▃" : "↑", count: 6))
         #expect(overview.activity.intervalLabel.contains("unequal durations"))
-        let fields = overview.activity.inspectionFields(for: id)
-        #expect(fields.map(\.value).contains { $0.contains("300.0%") && $0.contains("6.000 CPU s") })
-        #expect(fields.contains { $0.value.contains("above chart range") } == (cpuCount == 2))
+        #expect(samples[1]?.percent(in: overview.activity.spans[1]) == 300)
         overview.sort(by: .memory)
         #expect(overview.activity.ceiling == Double(cpuCount * 100))
     }

@@ -135,25 +135,6 @@ public struct ContributorActivity: Equatable, Sendable {
             + (unequal ? " · unequal durations" : "")
     }
 
-    public func inspectionFields(for id: ContributorID) -> [InspectionField] {
-        guard let values = samples[id], let start = spans.first?.startedAt else { return [] }
-        return [
-            InspectionField(
-                "CPU history", "\(scaleLabel) · oldest to newest; times relative to retained start")
-        ]
-            + spans.enumerated().map { index, span in
-                let label = String(format: "%.1f–%.1f s", span.startedAt - start, span.endedAt - start)
-                guard let sample = values[index], let percent = sample.percent(in: span) else {
-                    return InspectionField(label, "Unmeasured")
-                }
-                let value =
-                    String(format: "%.1f%% · %.3f CPU s / %.3f s", percent, sample.cpuSeconds, span.duration)
-                    + (percent > ceiling ? " · above chart range ↑" : "")
-                    + (sample.qualified ? " · incomplete observations or reduced detail" : "")
-                return InspectionField(label, value)
-            }
-    }
-
     public func terminalLane(for id: ContributorID, width: Int, level: Int = 0, rows: Int = 1) -> String {
         guard width > 0, !spans.isEmpty, let values = samples[id] else {
             return String(repeating: "·", count: max(0, width))
