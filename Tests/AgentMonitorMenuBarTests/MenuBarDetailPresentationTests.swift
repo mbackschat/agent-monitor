@@ -209,6 +209,37 @@ func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool, selected: Bool)
     manyPast.membershipChanged = []
     manyPast.processes = Set((1...133).map { .init(pid: Int32($0), startMicroseconds: 1) })
     #expect(MenuBarContributorCounts(stats: manyPast).help.contains("133 no longer observed"))
+    let countVariants =
+        [(7, 13), (99, 133), (0, 18), (7, 0), (0, 0)].map { current, past in
+            var stats = node.stats
+            stats.current = Set((0..<current).map { .init(pid: Int32($0), startMicroseconds: 1) })
+            stats.processes = Set((0..<(current + past)).map { .init(pid: Int32($0), startMicroseconds: 1) })
+            return stats
+        } + [mixed]
+    let countSizes = countVariants.map { stats in
+        NSHostingView(rootView: MenuBarContributorCounts(stats: stats).font(.system(size: 12))).fittingSize
+    }
+    #expect(
+        countSizes.allSatisfy { $0 == countSizes[0] },
+        "Counts must not move as populations change: \(countSizes)")
+    #expect(countSizes.allSatisfy { $0.width <= 40 && $0.height <= 32 })
+    if let directory = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
+        let countsHost = NSHostingView(
+            rootView: HStack(spacing: 12) {
+                ForEach(countVariants.indices, id: \.self) { index in
+                    MenuBarContributorCounts(stats: countVariants[index])
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(6).background(.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
+                }
+            }.padding(12).background(Color(nsColor: .windowBackgroundColor)))
+        countsHost.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        countsHost.frame.size = countsHost.fittingSize
+        let countsWindow = await mountOffscreenNativePreview(countsHost)
+        defer { countsWindow.close() }
+        try #require(detailBitmap(countsHost).representation(using: .png, properties: [:])).write(
+            to: URL(fileURLWithPath: directory).appendingPathComponent(
+                "stacked-counts-\(dark ? "dark" : "light").png"))
+    }
     let host = NSHostingView(
         rootView:
             MenuBarContributorRow(node: node, overview: model.report.overview)

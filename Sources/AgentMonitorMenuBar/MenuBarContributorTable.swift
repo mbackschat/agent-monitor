@@ -309,11 +309,12 @@ struct MenuBarContributorRow: View {
                 }
                 if let toggleDisclosure {
                     Button(action: toggleDisclosure) {
-                        HStack(spacing: 5) {
+                        HStack(spacing: 4) {
                             MenuBarContributorCounts(stats: node.stats)
                             Image(systemName: overview.isExpanded(node.id) ? "chevron.down" : "chevron.right")
+                                .frame(width: 8)
                         }.font(.system(size: 12, weight: .semibold))
-                            .padding(.horizontal, 6).frame(minWidth: 44, minHeight: 32)
+                            .padding(.horizontal, 6).frame(width: 62, height: 32)
                             .background(.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
                             .contentShape(Rectangle())
                     }.buttonStyle(.borderless).accessibilityIdentifier("contributor-disclosure")
@@ -361,26 +362,24 @@ struct MenuBarContributorCounts: View {
     }
 
     var body: some View {
-        HStack(spacing: 7) {
-            if !stats.currentAvailable {
-                Text("—")
-            } else {
-                if !stats.current.isEmpty || pastCount == 0 {
-                    HStack(spacing: 3) {
-                        Text(Self.countText(stats.current.count))
-                        Image(systemName: "circle.fill").font(.system(size: 6))
-                            .accessibilityHidden(true)
-                    }
+        VStack(alignment: .trailing, spacing: 1) {
+            HStack(spacing: 3) {
+                if stats.currentAvailable {
+                    Text(Self.countText(stats.current.count))
+                    Image(systemName: "circle.fill").font(.system(size: 6))
+                        .frame(width: 8).accessibilityHidden(true)
+                } else {
+                    Text("—")
                 }
-                if pastCount > 0 {
-                    HStack(spacing: 2) {
-                        Text(Self.countText(pastCount))
-                        Image(systemName: "archivebox").accessibilityHidden(true)
-                    }.font(.system(size: 8, weight: .regular)).foregroundStyle(
-                        prominence == .increased ? Color.white.opacity(0.7) : Color.secondary)
-                }
-            }
-        }.fixedSize().monospacedDigit()
+            }.frame(height: 15)
+            HStack(spacing: 2) {
+                Text(Self.countText(pastCount))
+                Image(systemName: "archivebox").frame(width: 8).accessibilityHidden(true)
+            }.font(.system(size: 8, weight: .regular))
+                .foregroundStyle(prominence == .increased ? Color.white.opacity(0.7) : Color.secondary)
+                .frame(height: 11)
+                .opacity(stats.currentAvailable && pastCount > 0 ? 1 : 0)
+        }.frame(width: 38, height: 28, alignment: .trailing).monospacedDigit()
             .accessibilityElement(children: .ignore).accessibilityLabel(help)
     }
 }
