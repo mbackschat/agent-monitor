@@ -443,14 +443,15 @@ public struct LiveReportState: Equatable, Sendable {
     public mutating func toggleDetails() {
         if showsOverview {
             overview.toggleDetails()
+            if !overview.detailsVisible { detailsMode = .minimized }
             return
         }
-        guard selected != nil || selectedGroup != nil else { return }
         returningDetails = nil
-        if detailsMode != .minimized, expanded == selected {
+        if detailsMode != .minimized {
             expanded = nil
             minimizeDetails()
         } else {
+            guard selected != nil || selectedGroup != nil else { return }
             restoreDetails()
         }
         detailOffset = 0
@@ -557,12 +558,14 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     public mutating func maximizeDetails() {
+        if showsOverview { showDetails() }
         returningDetails = nil
         expanded = selected
         detailsMode = .maximized
     }
 
     public mutating func restoreDetails() {
+        if showsOverview { showDetails() }
         returningDetails = nil
         expanded = selected
         detailsMode = .split

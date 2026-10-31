@@ -57,7 +57,12 @@ import Testing
         let context = lines.filter { $0.style == .normal && $0.text.contains("long-workload") }
         #expect(!context.isEmpty)
         if width >= 100 {
-            #expect(context.allSatisfy { TerminalCells.width($0.text) <= boundary })
+            #expect(
+                context.allSatisfy {
+                    TerminalCells.width(
+                        $0.runs.prefix { $0.style != .separator && $0.style != .chartFill }.map(\.text)
+                            .joined()) <= boundary
+                })
         } else {
             #expect(context.contains { TerminalCells.width($0.text) > boundary })
         }
@@ -91,24 +96,21 @@ import Testing
         #expect(detail.runs.contains { $0.style == .normal && $0.text.contains("session-1") })
     }
 
-    @Test func tableFoldingHasADiscoverableTerminalControl() throws {
+    @Test func terminalSectionsUseLettersAndTableFoldingIsNotBound() throws {
         var state = LiveReportState()
         state.receive(try overviewFixture())
-        let text = ContributorLayout.lines(state: state, width: 120, height: 30).map(\.text).joined(
-            separator: "\n")
-        #expect(text.contains("Overall CPU"))
-        let fold = try #require(ReportShortcut(rawValue: "8"))
+        #expect(TerminalChrome.shortcut(for: "8") == nil)
+        #expect(TerminalChrome.shortcut(for: "6") == nil)
+        let fold = try #require(TerminalChrome.shortcut(for: "S"))
         let selected = state.overview.selection
         state.apply(fold)
-        #expect(state.overview.visibleRows.isEmpty)
-        #expect(state.overview.selection == selected)
-        let folded = ContributorLayout.lines(state: state, width: 120, height: 30).map(\.text).joined(
-            separator: "\n")
-        #expect(folded.contains("8 expand"))
-        #expect(!folded.contains("CONTRIBUTOR"))
-        #expect(folded.contains("Overall CPU"))
+        #expect(state.overview.collapsedSections.contains(.sessions))
         state.apply(fold)
-        #expect(!state.overview.visibleRows.isEmpty)
+        #expect(!state.overview.collapsedSections.contains(.sessions))
+        #expect(state.overview.selection == selected)
+        let text = ContributorLayout.lines(state: state, width: 120, height: 30).map(\.text).joined()
+        #expect(text.contains("S▾ Sessions"))
+        #expect(!text.contains("8 table"))
     }
 
     @Test func borderlessLanesAndDetailsKeepTheSelectedRow() throws {

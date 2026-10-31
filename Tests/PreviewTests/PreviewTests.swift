@@ -48,6 +48,20 @@ import Testing
     let immediate = try await Preview.ledgerState()
     let delayedLines = LiveReportLayout.lines(state: delayed, width: 120, height: 32)
     let immediateLines = LiveReportLayout.lines(state: immediate, width: 120, height: 32)
+    if let directory = ProcessInfo.processInfo.environment["TUI_GROUPED_PREVIEW_DIRECTORY"] {
+        for page in [ReportReferencePage.keyboard, .glossary, .diagnostics] {
+            var reference = immediate
+            reference.showReference(page)
+            try Preview.svg(
+                lines: LiveReportLayout.lines(state: reference, width: 100, height: 46), width: 100,
+                height: 46
+            )
+            .write(
+                to: URL(fileURLWithPath: directory).appendingPathComponent("reference-\(page).svg"),
+                atomically: true, encoding: .utf8)
+        }
+    }
+
     #expect(
         Preview.svg(lines: delayedLines, width: 120, height: 32)
             == Preview.svg(lines: immediateLines, width: 120, height: 32))

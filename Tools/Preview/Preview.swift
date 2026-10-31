@@ -76,12 +76,17 @@ enum Preview {
                 case .heading: (color, weight) = ("#f0f6fc", "bold")
                 case .selected: (color, weight) = ("#0d1117", "bold")
                 case .separator: (color, weight) = ("#5ba3ff", "normal")
-                case .metric: (color, weight) = ("#56b6c2", "bold")
+                case .metric, .shortcut: (color, weight) = ("#56b6c2", "bold")
+                case .chartFill: (color, weight) = ("#5ba3ff", "normal")
                 case .warning: (color, weight) = ("#e3b341", "normal")
                 case .muted: (color, weight) = ("#8c92ac", "normal")
                 case .success: (color, weight) = ("#61c67b", "normal")
                 case .failure: (color, weight) = ("#e05757", "normal")
                 case .normal, .heavy: (color, weight) = ("#c9d1d9", "normal")
+                }
+                if run.style == .chartFill {
+                    output +=
+                        "<rect x=\"\(24 + column * 9)\" y=\"\(52 + index * 23)\" width=\"\(TerminalCells.width(run.text) * 9)\" height=\"23\" fill=\"#5ba3ff\"/>\n"
                 }
                 if run.style == .selected {
                     output +=
@@ -94,8 +99,9 @@ enum Preview {
                     guard character != " " else { return nil }
                     return "<tspan x=\"\(24 + column * 9)\">\(escape(String(character)))</tspan>"
                 }.joined()
+                let decoration = run.style == .shortcut ? " text-decoration=\"underline\"" : ""
                 output +=
-                    "<text y=\"\(69 + index * 23)\" fill=\"\(color)\" font-weight=\"\(weight)\">\(glyphs)</text>\n"
+                    "<text\(decoration) y=\"\(69 + index * 23)\" fill=\"\(color)\" font-weight=\"\(weight)\">\(glyphs)</text>\n"
             }
             output += "</g>\n"
         }

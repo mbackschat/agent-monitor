@@ -17,7 +17,7 @@ public enum ReportReferenceLayout {
         switch page {
         case .glossary:
             return ReportGlossary.entries.flatMap {
-                [ReportLine($0.title, style: .heading), ReportLine($0.definition), ReportLine("")]
+                [ReportLine($0.title, style: .title), ReportLine($0.definition), ReportLine("")]
             } + chartHelp
         case .keyboard:
             return keyboardHelp(state: state)
@@ -51,8 +51,10 @@ public enum ReportReferenceLayout {
                 lines += [ReportLine(summary.scanLabel, style: .heading)]
                 for metric in summary.metrics + summary.events {
                     lines += [
-                        ReportLine(
-                            metric.title + ": " + metric.value, style: metric.warning ? .warning : .heading),
+                        ReportLine(runs: [
+                            .init(metric.title + ": ", style: .identity),
+                            .init(metric.value, style: metric.warning ? .warning : .metric),
+                        ]),
                         ReportLine(metric.help),
                     ]
                 }
@@ -81,102 +83,102 @@ public enum ReportReferenceLayout {
     }
 
     private static func keyboardHelp(state: LiveReportState) -> [ReportLine] {
+        func key(_ key: String, _ action: String) -> ReportLine {
+            TerminalChrome.controls([(key, action)])
+        }
         var lines = [
-            ReportLine("Esc returns to your selection. These keys apply in the report.", style: .muted),
-            ReportLine("Navigation", style: .heading),
-            ReportLine("Space / Shift-Space scroll half a page down / up"),
-            ReportLine("PgUp/PgDn scroll a page; Tab selects rows/details in contributors."),
-            ReportLine("Help and glossary use the same paging keys."),
-            ReportLine("If your terminal sends Shift-Space as Space, use PgUp to go back."),
+            ReportLine("Navigation", style: .title),
+            key("u / d", "half-page up / down"),
+            key("Space", "half-page down"),
+            key("Ctrl-U / Ctrl-D", "half-page up / down"),
+            key("PgUp / PgDn", "full-page up / down"),
+            key(
+                "↑/↓",
+                state.showsOverview && state.overview.focus == .details ? "scroll Details" : "select row"),
+            key("←/→", "collapse / expand row"),
         ]
-        if !state.showsOverview || !state.overview.visibleRows.isEmpty {
-            lines.append(
-                ReportLine(
-                    state.showsOverview && state.overview.detailsVisible && state.overview.focus == .details
-                        ? "↑/↓ scroll details" : "↑/↓ select row"))
+        if state.showsOverview {
+            lines += [ReportLine(""), ReportLine("Sections", style: .title)]
+            for section in state.overview.tableSections {
+                lines.append(key(TerminalChrome.sectionKey(section), "fold " + section.rawValue))
+            }
+        } else if state.grouping == .session {
+            lines.append(key("Shift+←/→", "collapse / expand session groups"))
+        }
+        let details = state.showsOverview ? state.overview.detailsVisible : state.detailsMode != .minimized
+        lines += [
+            ReportLine(""), ReportLine("Details", style: .title),
+            key("i", "show/hide " + (state.showsOverview ? "contributor details" : "details")),
+            key("Enter", "show details"),
+            key("- / +", "smaller / larger"),
+            key("M", "maximize"), key("=", "restore split"),
+        ]
+        if details {
+            if state.showsOverview { lines.append(key("Tab", "switch rows / Details")) }
+            lines += [key("[/]", "scroll one line")]
+            if state.showsOverview { lines.append(key("Esc", "close Details")) }
+        }
+        if state.commandInspectionTarget != nil { lines.append(key("x", "read/hide full arguments")) }
+        lines += [ReportLine(""), ReportLine("View & sorting", style: .title)]
+        if state.canSelectOverview { lines.append(key("v", "switch contributors / processes")) }
+        lines += [key("g", "toggle process grouping"), key("c / m / o", "sort CPU / memory / stable")]
+        if !state.showsOverview { lines.append(key("n", "sort by PID")) }
+        if state.showsOverview ? state.overview.order != .stable : state.sortKey != .stable {
+            lines.append(key("r", "reverse sort direction"))
         }
         if state.showsOverview {
-            lines.append(ReportLine("8 collapse/expand table"))
-            for section in state.overview.tableSections {
-                lines.append(ReportLine(section.shortcut + " fold " + section.rawValue))
-            }
-            if state.overview.selectionIsVisible, let id = state.overview.selection,
-                let node = state.overview.nodes[id]
-            {
-                if !node.children.isEmpty { lines.append(ReportLine("←/→ collapse/expand row")) }
-                lines.append(ReportLine("i show/hide contributor details"))
-                if state.overview.pinTarget(for: id) != nil {
-                    lines.append(ReportLine(". pin/unpin session"))
-                }
-                lines.append(ReportLine("Enter show contributor details"))
-            }
-            if state.overview.detailsVisible {
-                lines += [
-                    ReportLine("Tab switch rows/details · Esc close details"),
-                    ReportLine("[/] scroll details one line"),
-                ]
-            }
-            lines += [ReportLine("a main/all contributors"), ReportLine("b change fixed CPU chart range")]
+            lines += [key("a", "main / all contributors"), key("b", "CPU chart range")]
         } else {
-            if state.selectedGroup != nil { lines.append(ReportLine("←/→ collapse/expand group")) }
-            if state.grouping == .session {
-                lines.append(ReportLine("Shift+←/→ collapse/expand session groups"))
+            lines += [key("h", "history metric"), key("t", "history time range")]
+        }
+        lines += [
+            ReportLine(""), ReportLine("Filters & updates", style: .title),
+            key("1 / 2", "lower/raise CPU filter"), key("3 / 4", "lower/raise memory filter"),
+            key("< / >", "slower/faster sampling"),
+        ]
+        if state.snapshot != nil { lines.append(key("p", state.frozen ? "resume updates" : "pause updates")) }
+        if state.showsOverview {
+            if let id = state.overview.selection, state.overview.pinTarget(for: id) != nil {
+                lines.append(key(".", "pin/unpin session"))
             }
-            if state.selection != nil {
-                lines += [
-                    ReportLine("i show/hide details · Enter show details"), ReportLine(". pin/unpin row"),
-                ]
-            }
-            if state.detailsMode != .minimized {
-                lines += [
-                    ReportLine("[/] scroll details one line"),
-                    ReportLine("-/+ resize details · 0 minimize · 9 maximize · = restore"),
-                ]
-            } else {
-                lines.append(ReportLine("9 maximize details · = restore details"))
-            }
-            if state.commandInspectionTarget != nil { lines.append(ReportLine("x read/hide full arguments")) }
+        } else if state.selection != nil {
+            lines.append(key(".", "pin/unpin row"))
+        }
+        if state.hasPins { lines.append(key("U", "unpin all")) }
+        if !state.showsOverview {
             if let row = state.rows.first(where: { $0.process == state.selected }), !row.isHistorical {
-                lines.append(ReportLine("k review process termination"))
+                lines.append(key("k", "review termination"))
             }
-            // Reuse beginAction's group/runtime resolution without performing its effect;
-            // the guide must not advertise a different target from the TUI action handler.
             var preview = state
             if case .focus(let target) = preview.beginAction(.focus),
                 !target.isHistorical, target.attribution.runtime != nil,
                 case .terminal = target.attribution.context
             {
-                lines.append(ReportLine("f show session terminal"))
+                lines.append(key("f", "show session terminal"))
             }
-            lines += [ReportLine("n sort by PID"), ReportLine("h history metric · t history time range")]
-        }
-        if state.hasPins { lines.append(ReportLine("u unpin all")) }
-        lines += [ReportLine(""), ReportLine("View & display", style: .heading)]
-        if state.canSelectOverview { lines.append(ReportLine("v switch overview/processes")) }
-        lines += [ReportLine("g toggle process grouping"), ReportLine("c/m/o sort CPU/memory/stable order")]
-        if state.showsOverview ? state.overview.order != .stable : state.sortKey != .stable {
-            lines.append(ReportLine("r reverse sort direction"))
-        }
-        if state.snapshot != nil {
-            lines.append(ReportLine(state.frozen ? "p resume updates" : "p pause updates"))
         }
         lines += [
-            ReportLine("1/2 lower/raise CPU filter · 3/4 lower/raise memory filter"),
-            ReportLine("</> slower/faster sampling"), ReportLine(""),
-            ReportLine("Help & investigation", style: .heading),
-            ReportLine("? keyboard shortcuts · G glossary · D diagnostics"),
-            ReportLine("D ! marks measurement warnings; D • marks notices."),
-            ReportLine("q/Ctrl-C quit"),
+            ReportLine(""), ReportLine("Help & investigation", style: .title),
+            key("?", "keyboard shortcuts"), key("G", "glossary"), key("D", "diagnostics"),
+            ReportLine(runs: [
+                .init("!", style: .warning), .init(" measurement warnings · "), .init("•", style: .identity),
+                .init(" notices"),
+            ]),
+            key("q / Ctrl-C", "quit"),
         ]
-        if !state.diagnosis.isRunning { lines.append(ReportLine("d start CPU investigation")) }
+        if !state.diagnosis.isRunning { lines.append(key("I", "start CPU investigation")) }
         return lines + chartHelp
     }
 
     private static var chartHelp: [ReportLine] {
         [
-            ReportLine(""), ReportLine("Contributor CPU charts", style: .heading),
-            ReportLine(TerminalChrome.chartLegend),
-            ReportLine("↑ means above the chart ceiling, not a rising trend. b changes the range."),
+            ReportLine(""), ReportLine("Contributor CPU charts", style: .title),
+            ReportLine(runs: [
+                .init("↑", style: .warning), .init(" above range; "), .init("·", style: .identity),
+                .init(" no measurement; "), .init("_", style: .identity), .init(" measured zero"),
+            ]),
+            ReportLine("↑ is above the ceiling, not a rising trend."),
+            TerminalChrome.controls([("b", "change chart range")]),
             ReportLine("Oldest left, newest right. Dots are gaps, never zero CPU."),
             ReportLine("Bars show retained interval averages; equal widths can cover unequal durations."),
             ReportLine("~ spans marks measurements crossing gaps in sampling."),
@@ -186,7 +188,7 @@ public enum ReportReferenceLayout {
     private static func wrapped(state: LiveReportState, page: ReportReferencePage, width: Int) -> [ReportLine]
     {
         content(state: state, page: page).flatMap { line in
-            TerminalCells.wrapped(line.text, to: max(1, width)).map { ReportLine($0, style: line.style) }
+            line.wrapped(to: max(1, width))
         }
     }
 
@@ -197,13 +199,12 @@ public enum ReportReferenceLayout {
 
     public static func lines(state: LiveReportState, width: Int, height: Int) -> [ReportLine] {
         guard let page = state.referencePage, width > 0, height > 0 else { return [] }
-        let controls = "Esc back | q/Ctrl-C quit"
         if width < 40 || height < 8 {
             return [
                 ReportLine(page.title, style: .title), ReportLine("Resize to 40x8 or larger"),
-                ReportLine(controls),
+                TerminalChrome.controls([("Esc", "back"), ("q/Ctrl-C", "quit")]),
             ]
-            .prefix(height).map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
+            .prefix(height).map { $0.clipped(to: width) }
         }
         let content = wrapped(state: state, page: page, width: width)
         let capacity = height - 4
@@ -214,12 +215,13 @@ public enum ReportReferenceLayout {
             [ReportLine(page.title + (position.isEmpty ? "" : " · " + position), style: .title)]
             + content.dropFirst(offset).prefix(capacity)
         lines += Array(repeating: ReportLine(""), count: max(0, height - 3 - lines.count))
-        let destination = page == .keyboard ? "G glossary | D diagnostics" : "? keys | D diagnostics"
         lines += [
-            ReportLine("Space/Shift-Space ½ page · PgUp/Dn page"),
-            ReportLine(destination),
-            ReportLine(controls),
+            TerminalChrome.controls([("u/d", "½ page"), ("PgUp/Dn", "page")]),
+            TerminalChrome.controls(
+                page == .keyboard
+                    ? [("G", "glossary"), ("D", "diagnostics")] : [("?", "keys"), ("D", "diagnostics")]),
+            TerminalChrome.controls([("Esc", "back"), ("q/Ctrl-C", "quit")]),
         ]
-        return lines.map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
+        return lines.map { $0.clipped(to: width) }
     }
 }

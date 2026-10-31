@@ -67,7 +67,7 @@ public struct DiagnosisViewState: Equatable, Sendable {
 
     private func wrapped(width: Int) -> [ReportLine] {
         lines.flatMap { line in
-            TerminalCells.wrapped(line.text, to: width).map { ReportLine($0, style: line.style) }
+            line.wrapped(to: width)
         }
     }
 
@@ -92,9 +92,13 @@ public struct DiagnosisViewState: Equatable, Sendable {
         var result = [heading] + Array(rows.dropFirst(first).prefix(capacity))
         result += Array(repeating: ReportLine(""), count: max(0, height - 2 - result.count))
         result += [
-            ReportLine("Space/Shift-Space ½ page · " + (isRunning ? "Running" : "d rerun")),
-            ReportLine(controls),
+            ReportLine(
+                runs: TerminalChrome.controls([("u/d", "½ page")]).runs + [.init(" · ")]
+                    + (isRunning
+                        ? [.init("Running", style: .warning)]
+                        : TerminalChrome.controls([("I", "rerun")]).runs)),
+            TerminalChrome.controls([("Esc", "back"), ("x", "cancel"), ("q/Ctrl-C", "quit")]),
         ]
-        return result.map { ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style) }
+        return result.map { $0.clipped(to: width) }
     }
 }

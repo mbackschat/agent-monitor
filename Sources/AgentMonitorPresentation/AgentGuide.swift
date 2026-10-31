@@ -108,21 +108,21 @@ public enum AgentGuide {
             b cycles the fixed contributor CPU chart range; h cycles process-view history CPU/memory/heavy count; t switches 10 minutes/one hour.
             1/2 lower/raise CPU by 10 percentage points; 3/4 lower/raise footprint by 1 GB.
             </> increase/decrease the period, or adaptive visible maximum: 0.1, 0.25, 0.5, 1, 2, 5, 10, 30 or 60 seconds; invalid steps are skipped.
-            Main contributors is the default: v switches overview/process views; a selects Main/All contributors.
-            ? opens available keyboard shortcuts; G opens Help & glossary; D opens passive collection Diagnostics without starting measurements. On these pages: Space/Shift-Space page half down/up; Page Up/Down page fully; ↑/↓ scroll one line; Esc returns. Shift-Space needs terminal modifier support; otherwise use Page Up. Selection, disclosure and pause are preserved.
-            Arrows disclose session → executable → process; i shows/hides details in either view; Space/Shift-Space page half down/up in the active pane; Page Up/Down use a full page; Return opens Details in place; v explicitly switches tables.
+            Main contributors is the default: v switches overview/process views; a selects Main/All contributors. P/S/O fold Pinned/Sessions/Other work. Digits 1–4 change filters; 8 has no TUI action.
+            ? opens available keyboard shortcuts; G opens Help & glossary; D opens passive collection Diagnostics without starting measurements. On these pages: u/d or Ctrl-U/Ctrl-D page half up/down; Space pages down; Page Up/Down page fully; ↑/↓ scroll one line; Esc returns. Shift-Space is optional and requires terminal modifier support; Apple Terminal users can use u for up. Selection, disclosure and pause are preserved.
+            Arrows disclose session → executable → process; i shows/hides details in either view; u/d or Ctrl-U/Ctrl-D page half up/down; Space pages down in the active pane; Page Up/Down use a full page; Return opens Details in place; v explicitly switches tables.
             . pins the owning overview session (or selected process/session in process view); p pauses/resumes the view while sampling continues.
-            u unpins all processes and sessions in both views.
+            U unpins all processes and sessions in both views.
             x reads/hides arguments for the expanded current process; read time is live even while paused.
             [/] scroll one detail line; Page Up/Down page the active pane; -/+ shrink/grow details by 5 percentage points (10–90%).
-            0 minimizes; 9 maximizes; = restores the chosen split (initially 50%).
-            d starts CPU diagnosis immediately: three one-second waits plus scans, using local observations without provider lookups.
+            i closes; M maximizes; = restores the chosen split (initially 50%).
+            I starts CPU diagnosis immediately: three one-second waits plus scans, using local observations without provider lookups.
             \(DiagnosisViewState.purpose) \(DiagnosisViewState.whenToRun)
             \(DiagnosisViewState.interpretation)
             Diagnosis keeps a fixed CPU-seconds ranking, separate from live values/history. It can run while paused; the live view stays paused.
-            Charts: ↑ means above range, not a trend; · means no measurement; _ means measured zero. b changes the fixed range. Single-line bars run oldest to newest and show equal-width retained averages, which can cover unequal durations. ~ spans marks sampling gaps.
+            Charts: ↑ means above range, not a trend; · means no measurement; _ means measured zero. b changes the fixed range. Three-row contributor bars run oldest to newest and show equal-width retained averages, which can cover unequal durations. ~ spans marks sampling gaps.
             Overflowing tables and pages show visible ranges. Details keeps the footer at the terminal bottom. D diagnostics ! marks warnings; full read failures and explanations stay inside Diagnostics.
-            In diagnosis: x cancels, Esc returns, d runs again (discarding the old result), ↑/↓ and Page Up/Down scroll. Rerun waits for cleanup; below 40x8 only cancellation, Back and quit remain available.
+            In diagnosis: x cancels, Esc returns, I runs again (discarding the old result), ↑/↓ and Page Up/Down scroll. Rerun waits for cleanup; below 40x8 only cancellation, Back and quit remain available.
             Monitor helper flags identify observed descendants of this instance; other instances and unobserved/reparented helpers may be unflagged. Totals include their CPU; diagnosis rows have no actions.
             k reviews SIGTERM; s reports messaging unavailable; f focuses the hosting terminal.
             \(ProviderRuntimeAvailability.messagingUnavailableReason)

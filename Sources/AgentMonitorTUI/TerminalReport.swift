@@ -72,26 +72,34 @@ public enum TerminalReport {
                     commands.reconcile(with: state.state)
                     inspection?.set(!state.state.frozen)
                 }
-                if state.state.actionPanel == nil,
-                    key.key == .space || key.key == .character(" "),
-                    key.modifiers.isEmpty || key.modifiers == .shift
+                let halfPageDirection: Int?
+                if (key.modifiers == .ctrl || key.modifiers.isEmpty) && key.key == .character("u") {
+                    halfPageDirection = -1
+                } else if (key.modifiers == .ctrl || key.modifiers.isEmpty) && key.key == .character("d") {
+                    halfPageDirection = 1
+                } else if (key.key == .space || key.key == .character(" "))
+                    && (key.modifiers.isEmpty || key.modifiers == .shift)
                 {
+                    halfPageDirection = key.modifiers == .shift ? -1 : 1
+                } else {
+                    halfPageDirection = nil
+                }
+                if state.state.actionPanel == nil, let direction = halfPageDirection {
                     let size = host.surfaceSize
                     state.mutate {
                         LiveReportLayout.page(
-                            state: &$0, width: size.width, height: size.height,
-                            direction: key.modifiers == .shift ? -1 : 1)
+                            state: &$0, width: size.width, height: size.height, direction: direction)
                     }
                     return .handled
                 }
                 if state.state.diagnosis.isVisible {
-                    guard key.modifiers.isEmpty else { return .handled }
+                    guard key.modifiers.isEmpty || key.modifiers == .shift else { return .handled }
                     let size = host.surfaceSize
                     switch key.key {
                     case .character("q"): return .exit(.userExit(key))
                     case .escape: diagnosis.dismiss()
                     case .character("x"): diagnosis.cancel()
-                    case .character("d"):
+                    case .character("I"):
                         if size.width >= 40, size.height >= 8 { diagnosis.start() }
                     case .arrowUp, .arrowDown, .pageUp, .pageDown:
                         let delta: Int
@@ -149,6 +157,27 @@ public enum TerminalReport {
                         return .handled
                     case .character("D"):
                         state.mutate { $0.showReference(.diagnostics) }
+                        return .handled
+                    default: break
+                    }
+                }
+                if key.modifiers.isEmpty || key.modifiers == .shift {
+                    switch key.key {
+                    case .character("P"), .character("S"), .character("O"), .character("U"):
+                        if case .character(let character) = key.key,
+                            let shortcut = TerminalChrome.shortcut(for: String(character))
+                        {
+                            state.mutate { $0.apply(shortcut) }
+                        }
+                        return .handled
+                    case .character("I"):
+                        if host.surfaceSize.width >= 40, host.surfaceSize.height >= 8 { diagnosis.start() }
+                        return .handled
+                    case .character("M"):
+                        state.mutate { $0.maximizeDetails() }
+                        return .handled
+                    case .character("+"):
+                        state.mutate { $0.adjustDetails(by: 5) }
                         return .handled
                     default: break
                     }
@@ -212,7 +241,7 @@ public enum TerminalReport {
                 }
                 let shortcut: ReportShortcut?
                 switch key.key {
-                case .character(let character): shortcut = ReportShortcut(rawValue: String(character))
+                case .character(let character): shortcut = TerminalChrome.shortcut(for: String(character))
                 default: shortcut = nil
                 }
                 if let shortcut {
@@ -225,8 +254,6 @@ public enum TerminalReport {
                 }
                 switch key.key {
                 case .character("q"): return .exit(.userExit(key))
-                case .character("d"):
-                    if host.surfaceSize.width >= 40, host.surfaceSize.height >= 8 { diagnosis.start() }
                 case .character("k"): begin(.terminate)
                 case .character("s"): begin(.message)
                 case .character("f"): begin(.focus)
@@ -252,8 +279,6 @@ public enum TerminalReport {
                 case .arrowRight: state.mutate { $0.setChildDisclosure(expanded: true) }
                 case .character("-"): state.mutate { $0.adjustDetails(by: -5) }
                 case .character("+"): state.mutate { $0.adjustDetails(by: 5) }
-                case .character("0"): state.mutate { $0.minimizeDetails() }
-                case .character("9"): state.mutate { $0.maximizeDetails() }
                 case .character("="): state.mutate { $0.restoreDetails() }
                 case .character("["), .character("]"):
                     scrollInspection(by: key.key == .character("[") ? -1 : 1)
@@ -400,6 +425,8 @@ private struct TerminalReportView: View {
         case .heading: return text.bold()
         case .identity: return text.foregroundStyle(.blue).bold()
         case .metric: return text.foregroundStyle(.cyan).bold()
+        case .shortcut: return text.foregroundStyle(.cyan).bold().underline()
+        case .chartFill: return text.foregroundStyle(.blue).cellBackground(.blue)
         case .separator: return text.foregroundStyle(.blue)
         case .selected: return text.bold().reverse()
         case .heavy: return text

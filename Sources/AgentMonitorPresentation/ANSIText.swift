@@ -11,6 +11,8 @@ public enum ANSIText {
             case .normal: nil
             case .title, .identity: "1;34"
             case .metric: "1;36"
+            case .shortcut: "1;4;36"
+            case .chartFill: "34;44"
             case .heading: "1"
             case .selected: "1;7"
             case .separator: "34"

@@ -289,8 +289,8 @@ func helpAndQuitRemainDiscoverableAcrossTerminalWidths(width: Int) {
     let text = LiveReportLayout.lines(state: state, width: 100, height: 24).map(\.text).joined(
         separator: "\n")
     let help = ReportReferenceLayout.content(state: state, page: .keyboard).map(\.text).joined()
-    #expect(help.contains("1/2 lower/raise CPU filter"))
-    #expect(help.contains("3/4 lower/raise memory filter"))
+    #expect(help.contains("1 / 2 lower/raise CPU filter"))
+    #expect(help.contains("3 / 4 lower/raise memory filter"))
     #expect(text.contains("pending"))
 }
 
@@ -690,7 +690,7 @@ func compactFooterKeepsHelpAndDiagnosisHints(width: Int, frozen: Bool) {
     let lines = LiveReportLayout.lines(state: state, width: width, height: width == 40 ? 8 : 11)
     let footer = lines.suffix(2).map(\.text).joined(separator: "\n")
     #expect(footer.contains("? help"))
-    #expect(footer.contains("d diagnosis"))
+    #expect(footer.contains("I investigate"))
     #expect(footer.contains(frozen ? "p resume" : "p pause"))
     #expect(footer.contains("q/Ctrl-C quit"))
 }
@@ -747,4 +747,20 @@ func processTableAndDetailsPreserveFieldColors(grouping: ReportGrouping, width: 
     let directory = try #require(lines.first { $0.text.hasPrefix("Work directory:") })
     #expect(directory.runs.contains { $0.style == .identity && $0.text == "Work directory: " })
     #expect(directory.runs.contains { $0.style == .normal && !$0.text.isEmpty })
+}
+
+@Test(arguments: [false, true])
+func detailsCanCloseAfterInspectionTargetClears(processDisappears: Bool) {
+    var state = LiveReportState(grouping: .none)
+    state.receive(liveSnapshot([liveRow(42)]))
+    state.toggleDetails()
+    if processDisappears {
+        state.receive(liveSnapshot([]))
+    } else {
+        state.toggleGrouping()
+        state.toggleGrouping()
+    }
+    #expect(state.detailsMode == .split && state.expanded == nil)
+    state.toggleDetails()
+    #expect(state.detailsMode == .minimized)
 }

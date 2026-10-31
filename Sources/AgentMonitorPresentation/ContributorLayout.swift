@@ -33,9 +33,9 @@ public enum ContributorLayout {
                 chart: overview.activity.terminalLane(width: columns.chart), cpu: "", memory: "",
                 style: .normal),
         ]
-        if !overview.tableCollapsed {
+        if !(overview.detailsVisible && state.detailsMode == .maximized) {
             let sections = overview.tableSections.map {
-                $0.shortcut + (overview.collapsedSections.contains($0) ? "▸ " : "▾ ")
+                TerminalChrome.sectionKey($0) + (overview.collapsedSections.contains($0) ? "▸ " : "▾ ")
                     + ($0 == .other ? "Other work" : $0.rawValue)
             }.joined(separator: " · ")
             header += [
@@ -77,7 +77,7 @@ public enum ContributorLayout {
                 : (row.id == .section(.uncertain) ? .warning : .identity)
             let cap =
                 columns.graphs
-                ? overview.activity.terminalLane(for: row.id, width: columns.chart) : ""
+                ? overview.activity.terminalLane(for: row.id, width: columns.chart, level: 0, rows: 3) : ""
             var lines = [
                 columns.styledRow(
                     prefix + headline, chart: cap,
@@ -97,7 +97,9 @@ public enum ContributorLayout {
             if columns.graphs {
                 lines.append(
                     columns.styledRow(
-                        inset + (includesPopulation ? "" : population), chart: "",
+                        inset + (includesPopulation ? "" : population),
+                        chart: overview.activity.terminalLane(
+                            for: row.id, width: columns.chart, level: 1, rows: 3),
                         cpu: overview.activity.samples[row.id]?.contains { $0?.qualified == true } == true
                             ? "~ spans" : "", memory: "", style: .normal, metricStyle: .warning))
             }
@@ -126,12 +128,26 @@ public enum ContributorLayout {
                 TerminalCells.width(prefix + headline) > columns.name
                 ? [ReportLine(TerminalCells.abbreviated(headline, to: contextWidth), style: .identity)] : []
             let wrapped = headingContinuation + ReportLine(runs: context).wrapped(to: contextWidth)
+            let bottom =
+                columns.graphs
+                ? overview.activity.terminalLane(for: row.id, width: columns.chart, level: 2, rows: 3) : ""
+            if columns.graphs && width < 100 {
+                lines.append(columns.styledRow(inset, chart: bottom, cpu: "", memory: "", style: .normal))
+            }
             for (index, line) in wrapped.prefix(2).enumerated() {
                 let suffix = index == 1 && wrapped.count > 2 ? "…" : ""
-                lines.append(
-                    ReportLine(
-                        runs: [.init(inset)]
-                            + line.clipped(to: contextWidth - suffix.count).runs + [.init(suffix)]))
+                let contextLine = ReportLine(
+                    runs: [.init(inset)] + line.clipped(to: contextWidth - suffix.count).runs + [
+                        .init(suffix)
+                    ])
+                if columns.graphs && width >= 100 && index == 0 {
+                    lines.append(columns.contextRow(contextLine, chart: bottom))
+                } else {
+                    lines.append(contextLine)
+                }
+            }
+            if columns.graphs && lines.count < 3 {
+                lines.append(columns.styledRow(inset, chart: bottom, cpu: "", memory: "", style: .normal))
             }
             if width >= 80, row.depth == 0,
                 index == 0
@@ -160,7 +176,10 @@ public enum ContributorLayout {
         }
         let available = max(0, height - header.count - footer.count)
         let proposedDetails =
-            overview.detailsVisible ? min(max(0, available - minimumBody), max(3, available / 2)) : 0
+            overview.detailsVisible
+            ? (state.detailsMode == .maximized
+                ? available
+                : min(max(0, available - minimumBody), max(3, available * state.detailsPercent / 100))) : 0
         let detailsHeight = proposedDetails >= 2 ? proposedDetails : 0
         if overview.detailsVisible, detailsHeight == 0 {
             footer[0] = ReportLine("Resize for details · Esc close", style: .muted)
@@ -181,7 +200,9 @@ public enum ContributorLayout {
         }
         while body.count < bodyHeight { body.append(ReportLine("")) }
         let details = detailLines(state: state, width: width, height: detailsHeight)
-        let position = TerminalChrome.position(start: start, count: visibleCount, total: blocks.count)
+        let position =
+            bodyHeight > 0
+            ? TerminalChrome.position(start: start, count: visibleCount, total: blocks.count) : ""
         if !position.isEmpty, !header.isEmpty {
             let index = 0
             let suffix = "  " + position
@@ -251,7 +272,9 @@ public enum ContributorLayout {
         let offset = min(overview.detailOffset, max(0, lines.count - height + 1))
         let count = min(lines.count - offset, max(0, height - 1))
         let position = TerminalChrome.position(start: offset, count: count, total: lines.count)
-        let heading = "DETAILS " + (overview.focus == .details ? "● " : "○ ") + title
+        let heading =
+            "DETAILS " + (overview.focus == .details ? "● " : "○ ") + title
+            + (state.detailsMode == .maximized ? " · max" : " · \(state.detailsPercent)%")
         let suffix = position.isEmpty ? "" : " · " + position
         var result =
             [
@@ -283,6 +306,32 @@ public enum ContributorLayout {
             chart = graphs ? min(24, width / 5) : 0
             name = max(1, width - cpu - memory - chart - (graphs ? 3 : 2))
         }
+        func chartRuns(_ chart: String) -> [ReportLine.Run] {
+            guard graphs else { return [] }
+            var runs = [ReportLine.Run(" ", style: .separator)]
+            var text = ""
+            var style: ReportLine.Style = .separator
+            for glyph in TerminalCells.padded(chart, to: self.chart) {
+                let next: ReportLine.Style = glyph == "█" ? .chartFill : .separator
+                if next != style && !text.isEmpty {
+                    runs.append(.init(text, style: style))
+                    text = ""
+                }
+                style = next
+                text.append(glyph)
+            }
+            if !text.isEmpty { runs.append(.init(text, style: style)) }
+            return runs
+        }
+
+        func contextRow(_ line: ReportLine, chart: String) -> ReportLine {
+            let content = line.clipped(to: name)
+            return ReportLine(
+                runs: content.runs + [
+                    .init(String(repeating: " ", count: max(0, name - TerminalCells.width(content.text))))
+                ] + chartRuns(chart))
+        }
+
         func styledRow(
             _ title: String, chart: String, cpu: String, memory: String,
             style: ReportLine.Style, metricStyle: ReportLine.Style = .heading, accentMetrics: Bool = false
@@ -295,8 +344,8 @@ public enum ContributorLayout {
                 runs: [
                     .init(
                         TerminalCells.padded(TerminalCells.abbreviated(title, to: name), to: name),
-                        style: style),
-                    .init(graphs ? " " + TerminalCells.padded(chart, to: self.chart) : "", style: .separator),
+                        style: style)
+                ] + chartRuns(chart) + [
                     .init(
                         " " + numeric(cpu, width: self.cpu),
                         style: accentMetrics && order == .cpu && cpu != "—" ? .metric : metricStyle),

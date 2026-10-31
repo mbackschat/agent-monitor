@@ -65,16 +65,45 @@ import Testing
         #expect(state.overview.selection == selection)
     }
 
-    @Test func contributorPlotsOccupyOneTextLineEach() throws {
+    @Test func contributorPlotsOccupyThreeTextLinesEach() throws {
         var state = LiveReportState()
         state.receive(try overviewFixture())
         let lines = LiveReportLayout.lines(state: state, width: 120, height: 60)
-        let charts = lines.filter { line in
-            line.runs.contains {
-                $0.style == .separator && $0.text.contains(where: { "▁▂▃▄▅▆▇█↑·_".contains($0) })
-            }
+        let row = try #require(lines.firstIndex { $0.style == .selected })
+        for index in row..<(row + 3) {
+            #expect(
+                lines[index].runs.filter { $0.style == .separator || $0.style == .chartFill }.map {
+                    TerminalCells.width($0.text)
+                }.reduce(0, +) >= 24)
         }
-        #expect(charts.count == state.overview.visibleRows.count + 1)
+    }
+
+    @Test func contributorDetailsHonorResizeAndAdvertiseIt() throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        state.showDetails()
+        let before = LiveReportLayout.lines(state: state, width: 120, height: 50)
+        let original = try #require(before.firstIndex { $0.text.hasPrefix("DETAILS") })
+        state.adjustDetails(by: 20)
+        let larger = LiveReportLayout.lines(state: state, width: 120, height: 50)
+        #expect(try #require(larger.firstIndex { $0.text.hasPrefix("DETAILS") }) < original)
+        #expect(larger.map(\.text).joined().contains("+ larger"))
+        state.adjustDetails(by: -20)
+        #expect(LiveReportLayout.lines(state: state, width: 120, height: 50) == before)
+    }
+
+    @Test func helpHighlightsKeysAndSeparatesFiltersFromSections() throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        state.showReference(.keyboard)
+        let lines = LiveReportLayout.lines(state: state, width: 100, height: 60)
+        let text = lines.map(\.text).joined(separator: "\n")
+        #expect(!text.contains("8 collapse") && !text.contains("6 fold"))
+        #expect(text.contains("S") && text.contains("Sessions"))
+        #expect(text.contains("Ctrl-U") && text.contains("Ctrl-D"))
+        let control = try #require(lines.first { $0.text.contains("sort CPU") })
+        #expect(control.runs.count > 1)
+        #expect(ANSIText.styled(control).contains("\u{1b}[1;4;36m"))
     }
 
     @Test func contributorDetailPagingKeepsTableSelectionAndSignalsMoreContent() throws {
@@ -100,6 +129,6 @@ import Testing
         #expect(content.contains("· no measurement"))
         let lines = LiveReportLayout.lines(state: state, width: 80, height: 12)
         #expect(lines.first?.text.contains("1–8/") == true)
-        #expect(lines.map(\.text).joined().contains("Space"))
+        #expect(lines.map(\.text).joined().contains("u/d"))
     }
 }

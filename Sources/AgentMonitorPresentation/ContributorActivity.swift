@@ -153,21 +153,22 @@ public struct ContributorActivity: Equatable, Sendable {
             + (unequal ? " · unequal durations" : "")
     }
 
-    public func terminalLane(for id: ContributorID? = nil, width: Int)
+    public func terminalLane(for id: ContributorID? = nil, width: Int, level: Int = 0, rows: Int = 1)
         -> String
     {
         let values = id.map { samples[$0] ?? [] } ?? totalSamples
         guard width > 0, !spans.isEmpty, values.count == spans.count else {
-            return String(repeating: "·", count: max(0, width))
+            return String(repeating: level == rows - 1 ? "·" : " ", count: max(0, width))
         }
         let levels = Array("▁▂▃▄▅▆▇█")
         return (0..<width).map { column in
             let index = min(spans.count - 1, column * spans.count / width)
             guard let sample = values[index], let percent = sample.percent(in: spans[index])
-            else { return "·" }
-            if percent > ceiling { return "↑" }
-            let filled = min(8, max(0, Int(ceil(percent / ceiling * 8))))
-            if filled == 0 { return "_" }
+            else { return level == rows - 1 ? "·" : " " }
+            if percent > ceiling && level == 0 { return "↑" }
+            let filled = min(
+                8, max(0, Int(ceil(percent / ceiling * Double(8 * rows))) - (rows - level - 1) * 8))
+            if filled == 0 { return level == rows - 1 ? "_" : " " }
             return String(levels[filled - 1])
         }.joined()
     }
