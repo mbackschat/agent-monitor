@@ -6,6 +6,15 @@ import Testing
 @testable import AgentMonitorPresentation
 
 @Suite struct TerminalCellLayoutTests {
+    @Test func styledClippingPreservesWideCellsAndStopsBeforeTheNextRun() {
+        let line = ReportLine(runs: [.init("A编", style: .heading), .init("Z", style: .warning)])
+        #expect(line.clipped(to: 2).text == "A")
+        #expect(line.clipped(to: 3).text == "A编")
+        #expect(line.clipped(to: 4).text == "A编Z")
+        #expect(line.wrapped(to: 2).map(\.text) == ["A", "编", "Z"])
+        #expect(line.wrapped(to: 2).last?.runs.last?.style == .warning)
+    }
+
     @Test(arguments: ["👩‍💻", "می\u{200C}روم", "क्\u{200D}ष"])
     func displaySanitizationPreservesShapingJoiners(text: String) {
         let line = ReportLine(text)

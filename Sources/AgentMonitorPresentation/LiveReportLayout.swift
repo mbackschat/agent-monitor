@@ -6,13 +6,66 @@ public struct ReportLine: Equatable, Sendable {
     public enum Style: Sendable {
         case normal, title, heading, selected, heavy, muted, separator, warning, success, failure
     }
-    public let text: String
+    public struct Run: Equatable, Sendable {
+        public let text: String
+        public let style: Style
+
+        public init(_ text: String, style: Style = .normal) {
+            self.text = TextReport.safe(text)
+            self.style = style
+        }
+    }
+
+    public let runs: [Run]
     public let style: Style
+    public var text: String { runs.map(\.text).joined() }
 
     public init(_ text: String, style: Style = .normal) {
-        self.text = TextReport.safe(text)
+        self.init(runs: [Run(text, style: style)], style: style)
+    }
+
+    public init(runs: [Run], style: Style = .normal) {
+        self.runs = runs
         self.style = style
     }
+
+    public func clipped(to width: Int) -> ReportLine {
+        var remaining = max(0, width)
+        var result: [Run] = []
+        for run in runs {
+            let text = TerminalCells.clipped(run.text, to: remaining)
+            result.append(Run(text, style: run.style))
+            remaining -= TerminalCells.width(text)
+            if text != run.text { break }
+        }
+        return ReportLine(runs: result, style: style)
+    }
+
+    func wrapped(to width: Int) -> [ReportLine] {
+        guard width > 0 else { return [] }
+        var lines: [ReportLine] = []
+        var runs: [Run] = []
+        var used = 0
+        for run in self.runs {
+            var text = ""
+            for character in run.text {
+                let cells = TerminalCells.width(character)
+                if used + cells > width && used > 0 {
+                    runs.append(Run(text, style: run.style))
+                    lines.append(ReportLine(runs: runs, style: style))
+                    runs = []
+                    text = ""
+                    used = 0
+                }
+                text.append(cells > width ? "�" : character)
+                used += min(cells, width)
+            }
+            runs.append(Run(text, style: run.style))
+        }
+        if !runs.isEmpty { lines.append(ReportLine(runs: runs, style: style)) }
+        return lines
+    }
+
 }
 
 public enum LiveReportLayout {

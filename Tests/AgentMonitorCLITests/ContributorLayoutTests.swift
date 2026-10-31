@@ -2,6 +2,49 @@ import AgentMonitorPresentation
 import Testing
 
 @Suite struct ContributorLayoutTests {
+    @Test func treeConnectsSiblingAndNestedRowsThroughContextLines() throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture(includeProcesses: true, mixedSession: true, splitWorkloads: true))
+        state.overview.sort(by: .memory)
+        let root = try #require(state.overview.main.first)
+        state.overview.setDisclosure(expanded: true, for: root)
+        let child = try #require(state.overview.visibleRows.first { $0.depth == 1 })
+        state.overview.setDisclosure(expanded: true, for: child.id)
+        let lines = ContributorLayout.lines(state: state, width: 120, height: 80)
+        let text = lines.map(\.text).joined(separator: "\n")
+        #expect(text.contains("├─ ▾ node"))
+        #expect(text.contains("│  └─ ·"))
+        #expect(text.contains("└─ ▸ node"))
+        #expect(lines.contains { $0.text.hasPrefix("  │  │ ") && $0.text.contains("1 process") })
+        #expect(lines.contains { $0.text.hasPrefix("  │    ") && $0.text.contains("/fixture") })
+        #expect(!text.contains("1 processes"))
+        #expect(lines.filter { $0.text.contains("/fixture") }.allSatisfy { $0.style == .normal })
+    }
+
+    @Test func syntheticGroupsShowTheirPopulationOnlyOnce() throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        let lines = ContributorLayout.lines(state: state, width: 120, height: 60).map(\.text)
+        let start = try #require(lines.firstIndex { $0.contains("Recent contributors") })
+        let group = lines.dropFirst(start).prefix(3).joined(separator: "\n")
+        #expect(group.components(separatedBy: "0 processes").count == 2)
+    }
+
+    @Test func rowStylesKeepIdentityPathsMetricsAndSelectionDistinct() throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        let lines = ContributorLayout.lines(state: state, width: 120, height: 60)
+        let selected = try #require(lines.first { $0.style == .selected })
+        #expect(selected.runs.contains { $0.style == .selected && $0.text.contains("session-") })
+        #expect(selected.runs.contains { $0.style == .separator && $0.text.contains("┌") })
+        #expect(selected.runs.contains { $0.style == .heading && $0.text.contains("MB") })
+        let context = try #require(lines.first { $0.text.contains("/fixture") })
+        #expect(context.runs.contains { $0.style == .normal && $0.text.contains("/fixture") })
+        #expect(context.runs.contains { $0.style == .heading && $0.text.contains("node") })
+        #expect(ANSIText.styled(selected).contains("\u{1B}[1;7m"))
+        #expect(ANSIText.styled(selected).contains("\u{1B}[36m"))
+    }
+
     @Test func tableFoldingHasADiscoverableTerminalControl() throws {
         var state = LiveReportState()
         state.receive(try overviewFixture())

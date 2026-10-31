@@ -26,11 +26,10 @@ public enum ContributorLayout {
                 style: .title),
             ReportLine(overview.totals.summary(duration: overview.duration)),
             coverage,
-            ReportLine(
-                columns.row(
-                    "Overall CPU · " + overview.activity.scaleLabel,
-                    chart: overview.activity.terminalLane(width: columns.chart), cpu: "", memory: ""),
-                style: .muted),
+            columns.styledRow(
+                "Overall CPU · " + overview.activity.scaleLabel,
+                chart: overview.activity.terminalLane(width: columns.chart), cpu: "", memory: "",
+                style: .normal),
         ]
         if !overview.tableCollapsed {
             let sections = overview.tableSections.map {
@@ -49,74 +48,99 @@ public enum ContributorLayout {
         }
         if let notice = overview.pinNotice { header.insert(ReportLine(notice, style: .warning), at: 3) }
         let rows = overview.visibleRows
+        var ancestorLast: [Bool] = []
         let blocks = rows.enumerated().map { index, row -> [ReportLine] in
             let selected = row.id == overview.selection
             let marker = TerminalRowMarker.text(selected: selected, pinned: overview.pinned.contains(row.id))
             let branch = row.node.children.isEmpty ? "·" : (overview.isExpanded(row.id) ? "▾" : "▸")
-            let indent = String(repeating: "│  ", count: min(row.depth, max(0, (width - 30) / 3)))
+            ancestorLast = Array(ancestorLast.prefix(row.depth))
+            let depth = min(row.depth, max(0, (width - 30) / 3))
+            let ancestors = (1..<max(1, depth)).map { ancestorLast[$0] ? "   " : "│  " }.joined()
+            let indent = ancestors + (depth > 0 ? (row.isLastSibling ? "└─ " : "├─ ") : "")
             let prefix = marker + indent + branch + " "
+            let hasVisibleChildren = rows.indices.contains(index + 1) && rows[index + 1].depth > row.depth
+            let inset =
+                "  " + ancestors
+                + (depth > 0 ? (row.isLastSibling ? "   " : "│  ") : "")
+                + (hasVisibleChildren ? "│ " : "  ")
+            ancestorLast.append(row.isLastSibling)
             let headline = TextReport.safe(row.node.label.headline)
-            let style: ReportLine.Style = selected ? .selected : .normal
+            let style: ReportLine.Style = selected ? .selected : .heading
             let cap =
                 columns.graphs
                 ? "┌"
                     + overview.activity.terminalLane(for: row.id, width: columns.chart - 2, level: 0, rows: 2)
                     + "┐" : ""
             var lines = [
-                ReportLine(
-                    columns.row(
-                        prefix + headline, chart: cap,
-                        cpu: row.node.stats.cpuText(duration: overview.duration),
-                        memory: row.node.stats.currentMemoryText), style: style)
+                columns.styledRow(
+                    prefix + headline, chart: cap,
+                    cpu: row.node.stats.cpuText(duration: overview.duration),
+                    memory: row.node.stats.currentMemoryText, style: style)
             ]
+            let includesPopulation: Bool
+            switch row.id {
+            case .session, .executable, .process: includesPopulation = false
+            case .section, .provider, .collapsed, .more: includesPopulation = true
+            }
+            let population =
+                row.node.stats.currentAvailable
+                ? "\(row.node.stats.current.count) "
+                    + (row.node.stats.current.count == 1 ? "process" : "processes")
+                : "Presence unavailable"
             if columns.graphs {
                 let lane =
                     "└"
                     + overview.activity.terminalLane(for: row.id, width: columns.chart - 2, level: 1, rows: 2)
                     + "┘"
-                let count =
-                    row.node.stats.currentAvailable
-                    ? "\(row.node.stats.current.count) processes" : "Presence unavailable"
                 lines.append(
-                    ReportLine(
-                        columns.row(
-                            String(repeating: " ", count: TerminalCells.width(prefix))
-                                + count,
-                            chart: lane,
-                            cpu: overview.activity.samples[row.id]?.contains { $0?.qualified == true } == true
-                                ? "~ spans" : "", memory: ""), style: style))
+                    columns.styledRow(
+                        inset + (includesPopulation ? "" : population), chart: lane,
+                        cpu: overview.activity.samples[row.id]?.contains { $0?.qualified == true } == true
+                            ? "~ spans" : "", memory: "", style: .muted, metricStyle: .warning))
             }
-            let count =
-                row.node.stats.currentAvailable ? "\(row.node.stats.current.count) procs · " : "Procs — · "
-            let populationPrefix: String
-            switch row.id {
-            case .section, .collapsed, .more: populationPrefix = ""
-            default: populationPrefix = columns.graphs ? "" : count
+            var context: [ReportLine.Run] = []
+            if !columns.graphs && !includesPopulation {
+                context.append(.init(population + " · ", style: .muted))
             }
-            let context = populationPrefix + overview.workloadContext(for: row.node)
-            let inset = String(repeating: " ", count: TerminalCells.width(prefix))
+            for part in overview.workloadParts(for: row.node) {
+                switch part {
+                case .executable(let text): context.append(.init(text, style: .heading))
+                case .context(let text): context.append(.init(text))
+                case .status(let text):
+                    if let status = row.node.retainedStatus, !includesPopulation {
+                        let compact =
+                            row.node.stats.isNoLongerObserved
+                            ? "No longer observed"
+                            : (row.node.stats.currentAvailable ? "No current members" : status)
+                        context.append(.init(" · " + compact, style: .muted))
+                    } else {
+                        context.append(.init(text, style: .muted))
+                    }
+                }
+            }
             let contextWidth = max(1, width - TerminalCells.width(inset))
             let headingContinuation =
                 TerminalCells.width(prefix + headline) > columns.name
-                ? [TerminalCells.abbreviated(headline, to: contextWidth)] : []
-            let wrapped =
-                headingContinuation + TerminalCells.wrapped(TextReport.safe(context), to: contextWidth)
-            for (index, text) in wrapped.prefix(2).enumerated() {
+                ? [ReportLine(TerminalCells.abbreviated(headline, to: contextWidth), style: .heading)] : []
+            let wrapped = headingContinuation + ReportLine(runs: context).wrapped(to: contextWidth)
+            for (index, line) in wrapped.prefix(2).enumerated() {
                 let suffix = index == 1 && wrapped.count > 2 ? "…" : ""
                 lines.append(
                     ReportLine(
-                        inset
-                            + TerminalCells.clipped(
-                                text, to: max(1, width - TerminalCells.width(inset) - suffix.count)) + suffix,
-                        style: selected ? .selected : .muted))
+                        runs: [.init(inset)]
+                            + line.clipped(to: contextWidth - suffix.count).runs + [.init(suffix)]))
             }
             if width >= 80, row.depth == 0,
                 index == 0
                     || overview.tableSection(for: rows[index - 1].id) != overview.tableSection(for: row.id)
             {
+                let heading = "── " + overview.tableSection(for: row.id).rawValue + " "
                 lines.insert(
-                    ReportLine("── " + overview.tableSection(for: row.id).rawValue + " ──", style: .heading),
-                    at: 0)
+                    ReportLine(
+                        heading
+                            + String(
+                                repeating: "─",
+                                count: max(0, width - TerminalCells.width(heading))), style: .heading), at: 0)
             }
             return lines
         }
@@ -152,7 +176,7 @@ public enum ContributorLayout {
         while body.count < bodyHeight { body.append(ReportLine("")) }
         let details = detailLines(state: state, width: width, height: detailsHeight)
         return Array((header + body + details + footer).prefix(height)).map {
-            ReportLine(TerminalCells.clipped($0.text, to: width), style: $0.style)
+            $0.clipped(to: width)
         }
     }
 
@@ -232,14 +256,28 @@ public enum ContributorLayout {
             chart = graphs ? min(24, width / 5) : 0
             name = max(1, width - cpu - memory - chart - (graphs ? 3 : 2))
         }
-        func row(_ title: String, chart: String, cpu: String, memory: String) -> String {
+        func styledRow(
+            _ title: String, chart: String, cpu: String, memory: String,
+            style: ReportLine.Style, metricStyle: ReportLine.Style = .heading
+        ) -> ReportLine {
             func numeric(_ text: String, width: Int) -> String {
                 let value = TerminalCells.abbreviated(text, to: width)
                 return String(repeating: " ", count: max(0, width - TerminalCells.width(value))) + value
             }
-            return TerminalCells.padded(TerminalCells.abbreviated(title, to: name), to: name)
-                + (graphs ? " " + TerminalCells.padded(chart, to: self.chart) : "")
-                + " " + numeric(cpu, width: self.cpu) + " " + numeric(memory, width: self.memory)
+            return ReportLine(
+                runs: [
+                    .init(
+                        TerminalCells.padded(TerminalCells.abbreviated(title, to: name), to: name),
+                        style: style),
+                    .init(graphs ? " " + TerminalCells.padded(chart, to: self.chart) : "", style: .separator),
+                    .init(
+                        " " + numeric(cpu, width: self.cpu) + " " + numeric(memory, width: self.memory),
+                        style: metricStyle),
+                ], style: style)
+        }
+
+        func row(_ title: String, chart: String, cpu: String, memory: String) -> String {
+            styledRow(title, chart: chart, cpu: cpu, memory: memory, style: .normal).text
         }
     }
 }

@@ -45,7 +45,8 @@ import Testing
 }
 
 func overviewFixture(
-    invocationName: String? = nil, includeProcesses: Bool = false, mixedSession: Bool = false
+    invocationName: String? = nil, includeProcesses: Bool = false, mixedSession: Bool = false,
+    splitWorkloads: Bool = false
 ) throws -> MonitoringSnapshot {
     var ledger = CounterLedger()
     func samples(_ time: Double, includeBurst: Bool) -> [ProcessSample] {
@@ -65,7 +66,8 @@ func overviewFixture(
         samples.map { value in
             HeavyProcess(
                 process: value.identity, executable: value.executable, name: value.name,
-                cpuPercent: nil, footprintBytes: value.footprintBytes, cwd: "/fixture", command: nil,
+                cpuPercent: nil, footprintBytes: value.footprintBytes,
+                cwd: splitWorkloads && value.identity.pid == 22 ? "/fixture/other" : "/fixture", command: nil,
                 metadataStatus: .markerRead,
                 attribution: Attribution(
                     provider: .codex, evidence: .marker,

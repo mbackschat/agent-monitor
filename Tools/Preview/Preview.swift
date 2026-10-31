@@ -66,31 +66,37 @@ enum Preview {
         for (index, line) in lines.enumerated() {
             let text = line.text.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression)
             guard !text.isEmpty else { continue }
-            let color: String
-            let weight: String
-            switch line.style {
-            // Approximates the TUI's SwiftTUI 0.14.0 colors (ShapeStyles.swift) on a dark theme.
-            case .title: (color, weight) = ("#5ba3ff", "bold")
-            case .heading: (color, weight) = ("#f0f6fc", "bold")
-            case .selected, .separator: (color, weight) = ("#79e4ff", "bold")
-            case .heavy, .warning: (color, weight) = ("#e3b341", "normal")
-            case .muted: (color, weight) = ("#8c92ac", "normal")
-            case .success: (color, weight) = ("#61c67b", "normal")
-            case .failure: (color, weight) = ("#e05757", "normal")
-            case .normal: (color, weight) = ("#c9d1d9", "normal")
-            }
-            // SVG 2 lengthAdjust can scale glyphs; terminal cells need positions, not fitted text.
-            // https://www.w3.org/TR/SVG2/text.html#TextElementLengthAdjustAttribute
+            output += "<g aria-label=\"\(escape(text))\">\n"
             var column = 0
-            let glyphs = text.compactMap { character -> String? in
-                defer { column += TerminalCells.width(character) }
-                guard character != " " else { return nil }
-                return "<tspan x=\"\(24 + column * 9)\">\(escape(String(character)))</tspan>"
-            }.joined()
-            output += """
-                <text y="\(69 + index * 23)" fill="\(color)" font-weight="\(weight)" aria-label="\(escape(text))">\(glyphs)</text>
-
-                """
+            for run in line.runs {
+                let color: String
+                let weight: String
+                switch run.style {
+                case .title: (color, weight) = ("#5ba3ff", "bold")
+                case .heading: (color, weight) = ("#f0f6fc", "bold")
+                case .selected: (color, weight) = ("#0d1117", "bold")
+                case .separator: (color, weight) = ("#56b6c2", "normal")
+                case .warning: (color, weight) = ("#e3b341", "normal")
+                case .muted: (color, weight) = ("#8c92ac", "normal")
+                case .success: (color, weight) = ("#61c67b", "normal")
+                case .failure: (color, weight) = ("#e05757", "normal")
+                case .normal, .heavy: (color, weight) = ("#c9d1d9", "normal")
+                }
+                if run.style == .selected {
+                    output +=
+                        "<rect x=\"\(24 + column * 9)\" y=\"\(52 + index * 23)\" width=\"\(TerminalCells.width(run.text) * 9)\" height=\"23\" fill=\"#c9d1d9\"/>\n"
+                }
+                // SVG 2 lengthAdjust scales glyphs; terminal cells need explicit positions.
+                // https://www.w3.org/TR/SVG2/text.html#TextElementLengthAdjustAttribute
+                let glyphs = run.text.compactMap { character -> String? in
+                    defer { column += TerminalCells.width(character) }
+                    guard character != " " else { return nil }
+                    return "<tspan x=\"\(24 + column * 9)\">\(escape(String(character)))</tspan>"
+                }.joined()
+                output +=
+                    "<text y=\"\(69 + index * 23)\" fill=\"\(color)\" font-weight=\"\(weight)\">\(glyphs)</text>\n"
+            }
+            output += "</g>\n"
         }
         return output + "</g>\n</svg>\n"
     }

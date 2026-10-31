@@ -369,19 +369,26 @@ private struct TerminalReportView: View {
         }
     }
 
-    @ViewBuilder
-    private func line(_ line: ReportLine) -> some View {
-        switch line.style {
-        case .title: Text(line.text).foregroundStyle(.blue).bold()
-        case .heading: Text(line.text).bold()
-        case .separator: Text(line.text).foregroundStyle(.cyan).bold()
-        case .selected: Text(line.text).foregroundStyle(.cyan).bold()
-        case .heavy: Text(line.text).foregroundStyle(.yellow)
-        case .muted: Text(line.text).foregroundStyle(.gray)
-        case .warning: Text(line.text).foregroundStyle(.yellow)
-        case .success: Text(line.text).foregroundStyle(.green)
-        case .failure: Text(line.text).foregroundStyle(.red)
-        case .normal: Text(line.text)
+    private func line(_ line: ReportLine) -> Text {
+        var content = Text.StringInterpolation(
+            literalCapacity: line.text.count, interpolationCount: line.runs.count)
+        for run in line.runs { content.appendInterpolation(styled(run)) }
+        return Text(Text.RichContent(stringInterpolation: content))
+    }
+
+    private func styled(_ run: ReportLine.Run) -> Text {
+        let text = Text(run.text)
+        switch run.style {
+        case .title: return text.foregroundStyle(.blue).bold()
+        case .heading: return text.bold()
+        case .separator: return text.foregroundStyle(.cyan)
+        case .selected: return text.bold().reverse()
+        case .heavy: return text
+        case .muted: return text.foregroundStyle(.secondary)
+        case .warning: return text.foregroundStyle(.warning)
+        case .success: return text.foregroundStyle(.success)
+        case .failure: return text.foregroundStyle(.danger)
+        case .normal: return text
         }
     }
 }

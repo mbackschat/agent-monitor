@@ -319,7 +319,8 @@ extension ContributorOverview {
         }
         let population =
             node.stats.currentAvailable
-            ? "\(node.stats.current.count) processes" : "Current presence unavailable"
+            ? "\(node.stats.current.count) " + (node.stats.current.count == 1 ? "process" : "processes")
+            : "Current presence unavailable"
         let departed =
             node.stats.noLongerObserved.isEmpty
             ? "" : " · \(node.stats.noLongerObserved.count) no longer observed"
