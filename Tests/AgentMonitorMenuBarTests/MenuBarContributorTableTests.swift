@@ -41,6 +41,34 @@ import Testing
     outline.enumerateAvailableRowViews { row, _ in
         #expect(row.backgroundColor.alphaComponent == 0)
     }
+    for index in dataRows.prefix(2) {
+        let row = try #require(outline.rowView(atRow: index, makeIfNecessary: true))
+        let button = try #require(
+            row.subviews.compactMap { $0 as? NSButton }.first {
+                $0.identifier == NSOutlineView.disclosureButtonIdentifier
+            })
+        func anchor(in view: NSView) -> MenuBarRowBackground.Anchor? {
+            if let anchor = view as? MenuBarRowBackground.Anchor { return anchor }
+            return view.subviews.lazy.compactMap { anchor(in: $0) }.first
+        }
+        let decoration = try #require(anchor(in: row))
+        let titleCenter = row.convert(decoration.bounds, from: decoration).minY + 20
+        #expect(
+            abs(row.convert(button.bounds, from: button).midY - titleCenter) < 0.5,
+            "Root and child disclosure controls must align with the headline/tree elbow")
+    }
+    let childRow = try #require(outline.rowView(atRow: dataRows[1], makeIfNecessary: true))
+    let childButton = try #require(
+        childRow.subviews.compactMap { $0 as? NSButton }.first {
+            $0.identifier == NSOutlineView.disclosureButtonIdentifier
+        })
+    let selected = model.report.overview.selection
+    for expanded in [false, true] {
+        childButton.performClick(nil)
+        await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+        #expect(model.report.overview.isExpanded(contributor) == expanded)
+        #expect(model.report.overview.selection == selected)
+    }
     let selectedRow = try #require(outline.rowView(atRow: outline.selectedRow, makeIfNecessary: true))
     #expect(selectedRow.isSelected)
     #expect(

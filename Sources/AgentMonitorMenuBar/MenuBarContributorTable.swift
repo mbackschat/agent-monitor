@@ -107,7 +107,8 @@ struct MenuBarContributorTable: View {
                             tint: (sections[node.id] == .pinned ? Color.accentColor : Color.primary).opacity(
                                 groupIndices.indices.contains(index) && groupIndices[index].isMultiple(of: 2)
                                     ? 0.09 : 0),
-                            depth: depth, last: positions[node.id].map { rows[$0].isLastSibling } ?? true,
+                            headlineOffset: 20, depth: depth,
+                            last: positions[node.id].map { rows[$0].isLastSibling } ?? true,
                             continuations: continuations[node.id] ?? [])
                     ).onHover { inside in
                         if inside { hovered = node.id } else if hovered == node.id { hovered = nil }
