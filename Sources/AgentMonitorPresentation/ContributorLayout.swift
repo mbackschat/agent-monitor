@@ -24,29 +24,28 @@ public enum ContributorLayout {
             memory: max(
                 10, overview.nodes.values.map { TerminalCells.width($0.stats.currentMemoryText) }.max() ?? 0))
         var footer = footerLines(state: state, width: width)
+        let totals = overview.totals.summary(duration: overview.duration)
+        let showsOverallChart = columns.graphs && TerminalCells.width(totals) <= columns.name
         var header = [
             TerminalChrome.title(state: state, width: width),
-            TerminalChrome.cadence(state: state),
-            ReportLine(overview.totals.summary(duration: overview.duration)),
-            columns.styledRow(
-                "Overall CPU · " + overview.activity.scaleLabel,
-                chart: overview.activity.terminalLane(width: columns.chart), cpu: "", memory: "",
-                style: .normal),
+            ReportLine(
+                TerminalChrome.cadence(state: state).text
+                    + (showsOverallChart ? " · Overall CPU · " + overview.activity.scaleLabel : "")),
+            showsOverallChart
+                ? columns.styledRow(
+                    totals, chart: overview.activity.terminalLane(width: columns.chart), cpu: "", memory: "",
+                    style: .normal)
+                : ReportLine(totals),
         ]
         if !(overview.detailsVisible && state.detailsMode == .maximized) {
-            let sections = overview.tableSections.map {
-                TerminalChrome.sectionKey($0) + (overview.collapsedSections.contains($0) ? "▸ " : "▾ ")
-                    + ($0 == .other ? "Other work" : $0.rawValue)
-            }.joined(separator: " · ")
             header += [
-                ReportLine(sections, style: .heading),
                 columns.styledRow(
                     "CONTRIBUTOR"
                         + (overview.order == .contributor ? (overview.ascending ? " ↑" : " ↓") : ""),
                     chart: "CPU HISTORY",
                     cpu: "CPU" + (overview.order == .cpu ? (overview.ascending ? " ↑" : " ↓") : ""),
                     memory: "MEMORY" + (overview.order == .memory ? (overview.ascending ? " ↑" : " ↓") : ""),
-                    style: .heading, accentMetrics: true),
+                    style: .heading, accentMetrics: true)
             ]
         }
         if !state.thresholds.isUnfiltered {
@@ -55,7 +54,16 @@ public enum ContributorLayout {
         if let notice = overview.pinNotice { header.insert(ReportLine(notice, style: .warning), at: 3) }
         let rows = overview.visibleRows
         var ancestorLast: [Bool] = []
-        let blocks = rows.enumerated().map { index, row -> [ReportLine] in
+        var pendingSections = overview.tableSections
+        func sectionHeading(_ section: ContributorTableSection) -> ReportLine {
+            let heading =
+                "── " + TerminalChrome.sectionKey(section)
+                + (overview.collapsedSections.contains(section) ? "▸ " : "▾ ") + section.rawValue + " "
+            return ReportLine(
+                heading + String(repeating: "─", count: max(0, width - TerminalCells.width(heading))),
+                style: .heading)
+        }
+        var blocks = rows.enumerated().map { index, row -> [ReportLine] in
             let selected = row.id == overview.selection
             let marker = TerminalRowMarker.text(selected: selected, pinned: overview.pinned.contains(row.id))
             let branch = row.node.children.isEmpty ? "·" : (overview.isExpanded(row.id) ? "▾" : "▸")
@@ -149,21 +157,18 @@ public enum ContributorLayout {
             if columns.graphs && lines.count < 3 {
                 lines.append(columns.styledRow(inset, chart: bottom, cpu: "", memory: "", style: .normal))
             }
-            if width >= 80, row.depth == 0,
-                index == 0
-                    || overview.tableSection(for: rows[index - 1].id) != overview.tableSection(for: row.id)
-            {
-                let heading = "── " + overview.tableSection(for: row.id).rawValue + " "
-                lines.insert(
-                    ReportLine(
-                        heading
-                            + String(
-                                repeating: "─",
-                                count: max(0, width - TerminalCells.width(heading))), style: .heading), at: 0)
+            let section = overview.tableSection(for: row.id)
+            if row.depth == 0, let sectionIndex = pendingSections.firstIndex(of: section) {
+                lines.insert(contentsOf: pendingSections.prefix(sectionIndex + 1).map(sectionHeading), at: 0)
+                pendingSections.removeFirst(sectionIndex + 1)
             } else if height >= 20, index > 0, rows[index - 1].depth >= row.depth {
                 lines.insert(ReportLine(depth > 0 ? "  " + ancestors + "│" : ""), at: 0)
             }
             return lines
+        }
+        if !pendingSections.isEmpty {
+            let headings = pendingSections.map(sectionHeading)
+            if blocks.isEmpty { blocks = [headings] } else { blocks[blocks.count - 1] += headings }
         }
         let selected = overview.visibleRows.firstIndex { $0.id == overview.selection } ?? 0
         let minimumBody = blocks.indices.contains(selected) ? blocks[selected].count : 1
@@ -202,7 +207,8 @@ public enum ContributorLayout {
         let details = detailLines(state: state, width: width, height: detailsHeight)
         let position =
             bodyHeight > 0
-            ? TerminalChrome.position(start: start, count: visibleCount, total: blocks.count) : ""
+            ? TerminalChrome.position(start: start, count: min(visibleCount, rows.count), total: rows.count)
+            : ""
         if !position.isEmpty, !header.isEmpty {
             let index = 0
             let suffix = "  " + position

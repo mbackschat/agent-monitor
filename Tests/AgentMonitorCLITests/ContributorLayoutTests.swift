@@ -105,12 +105,21 @@ import Testing
         let selected = state.overview.selection
         state.apply(fold)
         #expect(state.overview.collapsedSections.contains(.sessions))
+        let folded = ContributorLayout.lines(state: state, width: 120, height: 30)
+        #expect(folded.contains { $0.text.hasPrefix("── S▸ Sessions ") })
         state.apply(fold)
         #expect(!state.overview.collapsedSections.contains(.sessions))
         #expect(state.overview.selection == selected)
         let text = ContributorLayout.lines(state: state, width: 120, height: 30).map(\.text).joined()
         #expect(text.contains("S▾ Sessions"))
         #expect(!text.contains("8 table"))
+        let lines = ContributorLayout.lines(state: state, width: 120, height: 30)
+        #expect(lines[3].text.contains("CONTRIBUTOR"))
+        #expect(!lines.contains { $0.text.hasPrefix("S▾ Sessions") })
+        for section in state.overview.tableSections { state.overview.toggleSection(section) }
+        let closed = ContributorLayout.lines(state: state, width: 120, height: 30)
+        #expect(closed.contains { $0.text.hasPrefix("── S▸ Sessions ") })
+        #expect(closed.contains { $0.text.hasPrefix("── O▸ Other observed work ") })
     }
 
     @Test func borderlessLanesAndDetailsKeepTheSelectedRow() throws {

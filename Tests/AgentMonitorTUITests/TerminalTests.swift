@@ -687,7 +687,7 @@ func terminalActionsRequireConfirmationAndPasteCannotSubmit(quitWhileUndersized:
         _ = try await waitForScreen(
             on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
         ) {
-            !$0.contains("overview-project") && $0.contains("Overall CPU")
+            !$0.contains("overview-project") && $0.contains("Overall CPU") && $0.contains("── S▸ Sessions")
 
         }
         try writeAllBytes(Array(key.utf8), to: terminal.master)

@@ -124,7 +124,15 @@ public enum TerminalChrome {
                 state.diagnosis.isRunning ? ReportLine("CPU cleanup") : controls([("I", "investigate")])
             lines[last] = ReportLine(runs: hint.runs + [.init(" · ")] + lines[last].runs)
         }
-        return lines
+        return lines.map(footerHint)
+    }
+
+    public static func footerHint(_ line: ReportLine) -> ReportLine {
+        ReportLine(runs: line.runs.map { .init($0.text, style: $0.style == .normal ? .muted : $0.style) })
+    }
+
+    public static func rule(width: Int) -> ReportLine {
+        ReportLine(String(repeating: "─", count: max(0, width)), style: .muted)
     }
 
     public static func position(start: Int, count: Int, total: Int) -> String {

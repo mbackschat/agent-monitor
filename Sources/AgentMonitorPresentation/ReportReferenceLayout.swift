@@ -215,13 +215,17 @@ public enum ReportReferenceLayout {
             [ReportLine(page.title + (position.isEmpty ? "" : " · " + position), style: .title)]
             + content.dropFirst(offset).prefix(capacity)
         lines += Array(repeating: ReportLine(""), count: max(0, height - 3 - lines.count))
-        lines += [
-            TerminalChrome.controls([("u/d", "½ page"), ("PgUp/Dn", "page")]),
-            TerminalChrome.controls(
-                page == .keyboard
-                    ? [("G", "glossary"), ("D", "diagnostics")] : [("?", "keys"), ("D", "diagnostics")]),
-            TerminalChrome.controls([("Esc", "back"), ("q/Ctrl-C", "quit")]),
-        ]
+        let navigation = TerminalChrome.controls([("u/d", "½ page"), ("PgUp/Dn", "page")])
+        let destinations = TerminalChrome.controls(
+            page == .keyboard
+                ? [("G", "glossary"), ("D", "diagnostics")] : [("?", "keys"), ("D", "diagnostics")])
+        let exit = TerminalChrome.controls([("Esc", "back"), ("q/Ctrl-C", "quit")])
+        let combined = ReportLine(runs: navigation.runs + [.init(" · ")] + destinations.runs)
+        if TerminalCells.width(combined.text) <= width {
+            lines += [TerminalChrome.rule(width: width), combined, exit].map(TerminalChrome.footerHint)
+        } else {
+            lines += [navigation, destinations, exit].map(TerminalChrome.footerHint)
+        }
         return lines.map { $0.clipped(to: width) }
     }
 }

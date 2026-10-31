@@ -111,12 +111,12 @@ import Testing
         state.receive(try overviewFixture())
         state.showDetails()
         let selected = state.overview.selection
-        let before = LiveReportLayout.lines(state: state, width: 80, height: 24)
+        let before = LiveReportLayout.lines(state: state, width: 80, height: 20)
         #expect(before.contains { $0.text.hasPrefix("DETAILS") && $0.text.contains("↓") })
-        LiveReportLayout.page(state: &state, width: 80, height: 24, direction: 1)
+        LiveReportLayout.page(state: &state, width: 80, height: 20, direction: 1)
         #expect(state.overview.detailOffset > 0)
         #expect(state.overview.selection == selected)
-        LiveReportLayout.page(state: &state, width: 80, height: 24, direction: -1)
+        LiveReportLayout.page(state: &state, width: 80, height: 20, direction: -1)
         #expect(state.overview.detailOffset == 0)
     }
 
