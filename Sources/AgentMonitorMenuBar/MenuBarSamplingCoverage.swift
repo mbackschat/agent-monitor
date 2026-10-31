@@ -69,9 +69,11 @@ struct MenuBarCoverageSummary: View {
             HStack {
                 Text(summary.scanLabel).font(.caption2)
                 Spacer()
-                Image(systemName: "info.circle")
+                Image(systemName: "questionmark.circle")
+                    .frame(width: 24, height: 24).contentShape(Rectangle())
                     .help(SamplingCoverageSummary.interpretation)
                     .accessibilityLabel("Sampling limitations")
+                    .accessibilityHint(SamplingCoverageSummary.interpretation)
             }.foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
