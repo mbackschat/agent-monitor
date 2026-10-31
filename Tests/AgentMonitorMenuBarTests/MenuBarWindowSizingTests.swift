@@ -61,7 +61,7 @@ import Testing
     let host = NSHostingController(rootView: MenuBarView(model: model, maximumHeight: 1000))
     host.sizingOptions = [.intrinsicContentSize]
     host.view.setFrameSize(host.view.fittingSize)
-    let window = NSWindow(
+    let window = ResizeRecordingWindow(
         contentRect: host.view.frame, styleMask: [.titled, .closable], backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
     window.contentViewController = host
@@ -102,6 +102,7 @@ import Testing
     for _ in 0..<2 {
         model.report.overview.toggleTable()
         await settleWindowSize(in: host.view)
+        #expect(window.requestedAnimation == !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
         #expect(host.view.bounds.height < 300)
         #expect(host.view.bounds.height > 150)
         let summaryHeight = host.view.bounds.height
@@ -117,6 +118,7 @@ import Testing
         #expect(contributorOutline(in: host.view) === original)
         model.report.overview.toggleTable()
         await settleWindowSize(in: host.view)
+        #expect(window.requestedAnimation == !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
         #expect(abs(host.view.bounds.height - 775) < 1)
         #expect(model.panelHeight == 775)
         #expect(model.report.overview.selection == selected)
@@ -138,10 +140,17 @@ import Testing
     model.open()
     await model.waitForCollection()
     model.rememberPanelHeight(675)
-    let host = NSHostingView(rootView: MenuBarView(model: model, maximumHeight: 900))
+    let popover = NSPopover()
+    var sizing = MenuBarPopoverSizing()
+    let controller = NSHostingController(
+        rootView: MenuBarView(model: model, maximumHeight: 900) { size in
+            sizing.update(popover, size: size, summary: model.isSummaryOnly)
+        })
+    controller.sizingOptions = [.intrinsicContentSize]
+    let host = controller.view
     host.frame.size = host.fittingSize
-    let window = await mountOffscreenNativePreview(host)
-    defer { window.close() }
+    popover.contentViewController = controller
+    host.layoutSubtreeIfNeeded()
     #expect(host.fittingSize.height == 675)
     model.report.overview.toggleTable()
     for _ in 0..<20 {
@@ -151,6 +160,8 @@ import Testing
     }
     #expect(host.fittingSize.height < 300)
     #expect(host.fittingSize.height > 150)
+    #expect(popover.contentSize.height == host.fittingSize.height)
+    #expect(popover.animates == !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
     if let path = ProcessInfo.processInfo.environment["MENUBAR_COLLAPSED_PREVIEW_PATH"] {
         let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
         host.cacheDisplay(in: host.bounds, to: bitmap)
@@ -165,8 +176,10 @@ import Testing
     host.layoutSubtreeIfNeeded()
     #expect(host.fittingSize.height < 300)
     model.report.overview.toggleTable()
-    host.layoutSubtreeIfNeeded()
+    await settleWindowSize(in: host)
     #expect(host.fittingSize.height == 675)
+    #expect(popover.contentSize.height == 675)
+    #expect(popover.animates == !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
     await model.stop()
 }
 
@@ -175,4 +188,31 @@ import Testing
         host.layoutSubtreeIfNeeded()
         await Task.yield()
     }
+}
+
+@MainActor private final class ResizeRecordingWindow: NSWindow {
+    var requestedAnimation = false
+
+    override func animator() -> Self {
+        requestedAnimation = true
+        #expect(NSAnimationContext.current.duration == 0.18)
+        return self
+    }
+}
+
+@Test @MainActor func popoverSummaryResizeRequestsBriefAnimation() {
+    let popover = NSPopover()
+    var sizing = MenuBarPopoverSizing()
+    sizing.update(popover, size: NSSize(width: 620, height: 675), summary: false, reduceMotion: false)
+    #expect(!popover.animates)
+    for summary in [true, false] {
+        let size = NSSize(width: 620, height: summary ? 200 : 675)
+        sizing.update(popover, size: size, summary: summary, reduceMotion: false)
+        #expect(popover.animates)
+        #expect(popover.contentSize == size)
+    }
+    sizing.update(popover, size: NSSize(width: 620, height: 200), summary: true, reduceMotion: true)
+    #expect(!popover.animates)
+    sizing.update(popover, size: NSSize(width: 620, height: 230), summary: true, reduceMotion: false)
+    #expect(!popover.animates, "Notice changes must not repeatedly animate the window")
 }

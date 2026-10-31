@@ -49,14 +49,45 @@ import SwiftUI
             summary
                 ? host.sizeThatFits(in: NSSize(width: MenuBarLayout.width, height: model.panelHeight)).height
                 : model.panelHeight, host.rootView.maximumHeight)
-        window.contentMinSize = NSSize(
-            width: MenuBarLayout.width, height: summary ? height : min(420, host.rootView.maximumHeight))
-        window.contentMaxSize = NSSize(
-            width: MenuBarLayout.width, height: summary ? height : host.rootView.maximumHeight)
-        window.setContentSize(NSSize(width: MenuBarLayout.width, height: height))
-        window.setFrameOrigin(NSPoint(x: window.frame.minX, y: top - window.frame.height))
+        let animate = summary != showingSummary && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         showingSummary = summary
-        applyingPreset = false
+        var frame = window.frameRect(
+            forContentRect: NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: height))
+        frame.origin = NSPoint(x: window.frame.minX, y: top - frame.height)
+        func setBounds() {
+            window.contentMinSize = NSSize(
+                width: MenuBarLayout.width, height: summary ? height : min(420, host.rootView.maximumHeight))
+            window.contentMaxSize = NSSize(
+                width: MenuBarLayout.width, height: summary ? height : host.rootView.maximumHeight)
+        }
+        guard frame != window.frame else {
+            setBounds()
+            applyingPreset = false
+            return
+        }
+        if animate {
+            // Permit intermediate sizes; lock summary bounds only after the native animation.
+            // The resize observer must not persist an intermediate height as the user's preference.
+            window.contentMinSize = NSSize(
+                width: MenuBarLayout.width, height: min(height, window.contentLayoutRect.height))
+            window.contentMaxSize = NSSize(width: MenuBarLayout.width, height: host.rootView.maximumHeight)
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = MenuBarPopoverSizing.duration
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                window.animator().setFrame(frame, display: true)
+            } completionHandler: { [weak self] in
+                MainActor.assumeIsolated {
+                    guard let self, self.window != nil else { return }
+                    self.applyingPreset = false
+                    // Reconcile a quick second toggle or notice change received during motion.
+                    self.applyPreset()
+                }
+            }
+        } else {
+            setBounds()
+            window.setFrame(frame, display: true)
+            applyingPreset = false
+        }
     }
 
     func stop() {
@@ -64,5 +95,30 @@ import SwiftUI
         model.onPanelSizeChange = nil
         host?.rootView.detached = false
         host?.sizingOptions = [.intrinsicContentSize]
+        host = nil
+        window = nil
+    }
+}
+
+@MainActor struct MenuBarPopoverSizing {
+    static let duration: TimeInterval = 0.18
+    private var showingSummary = false
+
+    mutating func update(
+        _ popover: NSPopover, size: NSSize, summary: Bool,
+        reduceMotion: Bool = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    ) {
+        guard !popover.isDetached else { return }
+        let animate = summary != showingSummary && !reduceMotion
+        showingSummary = summary
+        guard popover.contentSize != size else { return }
+        // NSPopover.h documents animates for content-size changes; AppKit owns anchoring.
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Self.duration
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            popover.animates = animate
+            popover.contentSize = size
+        } completionHandler: {
+        }
     }
 }

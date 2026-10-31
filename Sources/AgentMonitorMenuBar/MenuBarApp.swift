@@ -16,6 +16,7 @@ enum MenuBarApp {
 final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var item: NSStatusItem?
     private var windowSizing: MenuBarWindowSizing?
+    private var popoverSizing = MenuBarPopoverSizing()
     private let popover = NSPopover()
     private lazy var statusMenu = MenuBarStatusMenu(model: model)
     private let model: MenuBarModel
@@ -37,9 +38,9 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
         popover.animates = false
         popover.delegate = self
         let host = NSHostingController(
-            rootView: MenuBarView(model: model) { [weak popover] size in
-                guard let popover, !popover.isDetached, popover.contentSize != size else { return }
-                popover.contentSize = size
+            rootView: MenuBarView(model: model) { [weak self] size in
+                guard let self else { return }
+                self.popoverSizing.update(self.popover, size: size, summary: self.model.isSummaryOnly)
             })
         host.sizingOptions = [.intrinsicContentSize]
         host.view.setFrameSize(host.view.fittingSize)
@@ -90,6 +91,7 @@ final class MenuBarDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate 
     }
 
     private func toggle() {
+        popover.animates = false
         if popover.isShown {
             popover.performClose(nil)
         } else if let button = item?.button {
