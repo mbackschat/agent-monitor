@@ -1,5 +1,6 @@
 import AgentMonitorCore
 import AgentMonitorPresentation
+import AppKit
 import SwiftUI
 import Testing
 
@@ -192,4 +193,100 @@ func nativeRowArrowsAcceptNonShortcutFlags(modifiers: EventModifiers) {
     #expect(model.handleShortcut("?", row: row))
     #expect(model.referencePage == .keyboard)
     await model.stop()
+}
+
+@Test @MainActor func reportShortcutsWorkAcrossFocusedControlsAndRespectEditors() async throws {
+    let snapshot = try nativeOverviewFixture()
+    let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
+    model.open()
+    await model.waitForCollection()
+    let host = NSHostingView(rootView: MenuBarView(model: model))
+    host.frame = NSRect(x: 0, y: 0, width: 620, height: 560)
+    let window = await mountOffscreenNativePreview(host)
+    defer { window.close() }
+    func settle() async {
+        for _ in 0..<10 {
+            host.layoutSubtreeIfNeeded()
+            await Task.yield()
+        }
+    }
+    func send(_ text: String, modifiers: NSEvent.ModifierFlags = []) throws -> Bool {
+        let event = try #require(
+            NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, characters: text,
+                charactersIgnoringModifiers: text, isARepeat: false, keyCode: 0))
+        return window.performKeyEquivalent(with: event)
+    }
+    model.report.overview.toggleTable()
+    await settle()
+    #expect(window.firstResponder !== contributorOutline(in: host))
+    try #require(try send("8"))
+    #expect(!model.report.overview.tableCollapsed)
+    await settle()
+    let options = try #require(shortcutOptions(in: host))
+    #expect(window.makeFirstResponder(options))
+    #expect(try send("p"))
+    #expect(model.report.frozen)
+    #expect(try send("6"))
+    #expect(model.report.overview.collapsedSections.contains(.sessions))
+    #expect(try send("6"))
+    #expect(!model.report.overview.collapsedSections.contains(.sessions))
+    let contributor = try #require(model.report.overview.visibleRows.first?.id)
+    model.report.overview.select(contributor)
+    try #require(try send("i"))
+    await settle()
+    #expect(window.makeFirstResponder(options))
+    #expect(try send("\u{1b}"))
+    #expect(!model.report.overview.detailsVisible)
+    let editor = NSTextView(frame: NSRect(x: 0, y: 0, width: 80, height: 20))
+    editor.isEditable = true
+    host.addSubview(editor)
+    #expect(window.makeFirstResponder(editor))
+    let beforeEditing = model.report
+    for key in ["8", "6", "p", "c", ".", "k", "q", "?"] {
+        _ = try send(key)
+    }
+    #expect(model.report == beforeEditing)
+    #expect(model.referencePage == nil)
+    #expect(model.report.frozen)
+    editor.removeFromSuperview()
+    #expect(window.makeFirstResponder(options))
+    for modifiers in [NSEvent.ModifierFlags.command, .control, .option, .shift] {
+        #expect(!(try send("p", modifiers: modifiers)))
+    }
+    for key in [" ", "\r", "\u{F702}", "\u{F703}"] {
+        #expect(!(try send(key)))
+    }
+    #expect(try send("?", modifiers: .shift))
+    #expect(model.referencePage == .keyboard)
+    await settle()
+    #expect(!(try send("p")))
+    #expect(model.report.frozen)
+    model.referencePage = nil
+    await settle()
+    try #require(try send("v"))
+    await settle()
+    let row = try #require(model.report.selection)
+    try #require(try send("."))
+    #expect(model.report.isPinned(row))
+    await settle()
+    try #require(try send("."))
+    #expect(!model.report.isPinned(row))
+    await settle()
+    try #require(try send("k"))
+    #expect(model.report.actionPanel != nil)
+    await settle()
+    for key in ["p", "v", "8", ".", "k", "q", "?"] {
+        #expect(!(try send(key)))
+    }
+    model.input(.escape)
+    model.close()
+    #expect(!(try send("8")))
+    await model.stop()
+}
+
+@MainActor private func shortcutOptions(in view: NSView) -> NSPopUpButton? {
+    if let button = view as? NSPopUpButton, button.menu?.title == "View options" { return button }
+    return view.subviews.lazy.compactMap { shortcutOptions(in: $0) }.first
 }

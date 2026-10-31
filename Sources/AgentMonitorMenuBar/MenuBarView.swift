@@ -108,6 +108,7 @@ struct MenuBarView: View {
                 : (detached ? maximumHeight : min(model.panelHeight, maximumHeight))
         )
         .fixedSize(horizontal: false, vertical: model.isSummaryOnly)
+        .background { MenuBarKeyboardCommands(perform: performShortcut) }
         .onChange(of: model.isSummaryOnly) { _, _ in model.onPanelSizeChange?() }
         .onChange(of: model.diagnosis.state.isVisible || model.report.actionPanel != nil) { _, inspecting in
             if inspecting {
@@ -156,16 +157,6 @@ struct MenuBarView: View {
                 ? (model.report.overview.tableCollapsed ? .overviewControl : .overview)
                 : initialFocus.open(rows: model.visibleRowIDs, preferred: model.report.selection)
         }
-        .onKeyPress(keys: MenuBarKeyboard.keys, phases: .down) { key in
-            guard !model.diagnosis.state.isVisible, model.report.actionPanel == nil,
-                MenuBarKeyboard.accepts(key.characters, modifiers: key.modifiers)
-            else { return .ignored }
-            if key.characters == "q" {
-                NSApplication.shared.terminate(nil)
-                return .handled
-            }
-            return model.handleShortcut(key.characters, row: focusedRow) ? .handled : .ignored
-        }
         .onChange(of: model.report.overview.tableCollapsed) { _, collapsed in
             if overviewVisible { focus = collapsed ? .overviewControl : .overview }
         }
@@ -174,6 +165,9 @@ struct MenuBarView: View {
         }
         .task(id: pendingPinFocus) {
             guard let row = pendingPinFocus else { return }
+            // Finish the old row's focus teardown before focusing its replacement (keyboard regression).
+            await Task.yield()
+            guard !Task.isCancelled else { return }
             if model.visibleRowIDs.contains(row) { focusedRow = row }
             pendingPinFocus = nil
         }
@@ -370,7 +364,6 @@ struct MenuBarView: View {
                     model.togglePin(pin.id)
                 }
                 .focused($focus, equals: .row(pin.id))
-                .pinShortcut { togglePinFromKeyboard(pin.id) }
             }.padding(6)
                 .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
                 .contextMenu { rowCommands(pin.id) }
@@ -384,7 +377,21 @@ struct MenuBarView: View {
             id: id, disclosure: disclosure, pinned: model.report.isPinned(id),
             arrived: model.arrivals.deadlines[id] != nil,
             focus: $focus,
-            onPin: { model.togglePin(id) }, onPinShortcut: { togglePinFromKeyboard(id) })
+            onPin: { model.togglePin(id) })
+    }
+
+    private func performShortcut(_ key: String) -> Bool {
+        guard model.isOpen, model.referencePage == nil, !model.diagnosis.state.isVisible,
+            model.report.actionPanel == nil
+        else { return false }
+        if key == "q" {
+            NSApplication.shared.terminate(nil)
+            return true
+        }
+        if key == ReportShortcut.pin.rawValue, !model.report.showsOverview, let row = focusedRow {
+            return togglePinFromKeyboard(row)
+        }
+        return model.handleShortcut(key, row: focusedRow)
     }
 
     private func togglePinFromKeyboard(_ row: LiveReportRowID) -> Bool {

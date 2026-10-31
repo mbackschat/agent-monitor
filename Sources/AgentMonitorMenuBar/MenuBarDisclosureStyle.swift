@@ -46,14 +46,13 @@ struct MenuBarDisclosureStyle: DisclosureGroupStyle {
     let arrived: Bool
     let focus: FocusState<MenuBarFocus?>.Binding
     let onPin: () -> Bool
-    let onPinShortcut: () -> Bool
 
     func makeBody(configuration: Configuration) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             MenuBarRowHeader(
                 id: id, disclosure: disclosure, pinned: pinned, expanded: configuration.isExpanded,
                 focus: focus,
-                onSetExpanded: { configuration.isExpanded = $0 }, onPin: onPin, onPinShortcut: onPinShortcut,
+                onSetExpanded: { configuration.isExpanded = $0 }, onPin: onPin,
                 label: configuration.label
             )
             .background(MenuBarArrivalBackground(highlighted: arrived))
@@ -73,7 +72,6 @@ private struct MenuBarRowHeader<Label: View>: View {
     let focus: FocusState<MenuBarFocus?>.Binding
     let onSetExpanded: (Bool) -> Void
     let onPin: () -> Bool
-    let onPinShortcut: () -> Bool
     let label: Label
     @State private var hovered = false
 
@@ -103,7 +101,6 @@ private struct MenuBarRowHeader<Label: View>: View {
                 .padding(.vertical, 1).contentShape(Rectangle())
             }
             .buttonStyle(.plain).focused(focus, equals: .row(id))
-            .pinShortcut(onPinShortcut)
             .onKeyPress(keys: [.leftArrow, .rightArrow], phases: .down) { key in
                 guard MenuBarKeyboard.accepts(key.characters, modifiers: key.modifiers) else {
                     return .ignored
@@ -117,18 +114,8 @@ private struct MenuBarRowHeader<Label: View>: View {
             )
             .opacity(pinned || hovered || focus.wrappedValue?.rowID == id ? 1 : 0)
             .focused(focus, equals: .pin(id))
-            .pinShortcut(onPinShortcut)
         }
         .onHover { hovered = $0 }
-    }
-}
-
-extension View {
-    func pinShortcut(_ action: @escaping () -> Bool) -> some View {
-        onKeyPress(keys: [KeyEquivalent(Character(ReportShortcut.pin.rawValue))], phases: .down) { key in
-            guard MenuBarKeyboard.accepts(key.characters, modifiers: key.modifiers) else { return .ignored }
-            return action() ? .handled : .ignored
-        }
     }
 }
 

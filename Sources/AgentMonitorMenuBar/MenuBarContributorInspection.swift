@@ -81,6 +81,7 @@ struct MenuBarContributorInspection: View {
     private var closeButton: some View {
         Button("Close details", systemImage: "xmark", action: close)
             .labelStyle(.iconOnly).help("Close details (Esc)")
+            .keyboardShortcut(.cancelAction)
     }
 
 }

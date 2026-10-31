@@ -163,15 +163,6 @@ struct MenuBarContributorTable: View {
                             && model.report.overview.detailsVisible == inspecting
                     })
             }
-            .onKeyPress(keys: MenuBarKeyboard.keys, phases: .down) { key in
-                guard acceptsInteraction, MenuBarKeyboard.accepts(key.characters, modifiers: key.modifiers)
-                else { return .ignored }
-                if key.characters == "q" {
-                    NSApplication.shared.terminate(nil)
-                    return .handled
-                }
-                return model.handleShortcut(key.characters, row: nil) ? .handled : .ignored
-            }
             .background {
                 MenuBarReadingSurface()
             }

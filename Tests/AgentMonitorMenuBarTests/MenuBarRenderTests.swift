@@ -79,7 +79,7 @@ private struct DisclosureChevronFixture: View {
         .disclosureGroupStyle(
             MenuBarDisclosureStyle(
                 id: .process(ProcessIdentity(pid: 42, startMicroseconds: 1)), disclosure: disclosure,
-                pinned: false, arrived: false, focus: $focus, onPin: { true }, onPinShortcut: { true })
+                pinned: false, arrived: false, focus: $focus, onPin: { true })
         )
         .frame(width: 420, height: 80, alignment: .topLeading)
         .background(Color.white)

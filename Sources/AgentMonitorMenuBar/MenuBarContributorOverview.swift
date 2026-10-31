@@ -61,6 +61,7 @@ struct MenuBarContributorOverview: View {
                                         Spacer()
                                         Button("Close details", systemImage: "xmark") { closeDetails() }
                                             .labelStyle(.iconOnly).help("Close details (Esc)")
+                                            .keyboardShortcut(.cancelAction)
                                     }
                                     ScrollView {
                                         MenuBarProcessDetails(
@@ -87,10 +88,6 @@ struct MenuBarContributorOverview: View {
                         }
                         .frame(height: min(260, geometry.size.height * 0.48))
                         .background(.background.opacity(0.92), in: RoundedRectangle(cornerRadius: 8))
-                        .onKeyPress(.escape) {
-                            closeDetails()
-                            return .handled
-                        }
                     }
                 }
             }.frame(height: overview.tableCollapsed ? 0 : nil)

@@ -1,4 +1,5 @@
 import AgentMonitorPresentation
+import AppKit
 import SwiftUI
 
 enum MenuBarKeyboard {
@@ -105,5 +106,42 @@ extension MenuBarModel {
         guard canBegin(kind, row: row) else { return false }
         begin(kind, row: row)
         return true
+    }
+}
+
+// SwiftUI onKeyPress depends on focus; unmodified keyboardShortcut intercepts editor input.
+// The native focus/editor regression in MenuBarKeyboardTests verifies this window-local route.
+struct MenuBarKeyboardCommands: NSViewRepresentable {
+    let perform: (String) -> Bool
+
+    func makeNSView(context: Context) -> CommandView {
+        let view = CommandView()
+        view.perform = perform
+        return view
+    }
+
+    func updateNSView(_ view: CommandView, context: Context) {
+        view.perform = perform
+    }
+
+    final class CommandView: NSView {
+        var perform: (String) -> Bool = { _ in false }
+
+        override func performKeyEquivalent(with event: NSEvent) -> Bool {
+            guard event.type == .keyDown, let window, event.window === window,
+                window.attachedSheet == nil,
+                let key = event.characters, key.count == 1,
+                MenuBarKeyboard.keys.contains(KeyEquivalent(Character(key)))
+            else { return false }
+            if let editor = window.firstResponder as? NSTextView, editor.isEditable { return false }
+            if let field = window.firstResponder as? NSTextField, field.isEditable { return false }
+            var modifiers: EventModifiers = []
+            if event.modifierFlags.contains(.command) { modifiers.insert(.command) }
+            if event.modifierFlags.contains(.control) { modifiers.insert(.control) }
+            if event.modifierFlags.contains(.option) { modifiers.insert(.option) }
+            if event.modifierFlags.contains(.shift) { modifiers.insert(.shift) }
+            guard MenuBarKeyboard.accepts(key, modifiers: modifiers) else { return false }
+            return perform(key)
+        }
     }
 }
