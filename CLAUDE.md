@@ -30,7 +30,7 @@ Read [PLAN.md](PLAN.md) when resuming; it owns unfinished work and scope decisio
 
 Before changing a subsystem, read its relevant contract below; do not reread unrelated guides or material already current in this session. If code bypasses its documented ownership, make the smallest authorized extraction before extending it. Surface a material scope conflict rather than building on the bypass. Keep implementation, architecture status and contributor guidance aligned in the same commit.
 
-For measurement and presentation changes, assess whether the Mac app and TUI would also benefit. Recommend useful shared improvements separately when they would expand the authorized scope; do not silently add them.
+For every reported issue, check Mac, TUI, text CLI and JSON, even when the user supplies only a Mac screenshot. Trace the shared behavior and verify each affected surface; fix applicable instances together. Report surfaces that are unaffected or have no corresponding feature, with the reason. Use platform-appropriate interactions rather than copying native controls into terminal or machine output. Unrelated feature expansion still needs its own scope decision. Follow the [cross-interface issue review](docs/development.md#cross-interface-issue-review).
 
 Do not fork or vendor-patch SwiftTUI; preserve the user's [dependency decision](docs/decisions/swifttui-fork.md).
 

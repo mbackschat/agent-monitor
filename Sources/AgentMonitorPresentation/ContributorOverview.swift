@@ -345,7 +345,8 @@ public struct ContributorOverview: Equatable, Sendable {
     private func includesInTable(_ id: ContributorID, hidingNoLongerObserved: Bool) -> Bool {
         guard let node = nodes[id] else { return false }
         return (node.process == nil || node.stats.filtered.isEmpty)
-            && !(hidingNoLongerObserved && node.stats.isNoLongerObserved)
+            && !(hidingNoLongerObserved && node.stats.currentAvailable && node.stats.current.isEmpty
+                && node.stats.hasContributions)
     }
 
     private func rows(hidingNoLongerObserved: Bool) -> [ContributorRow] {

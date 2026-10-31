@@ -191,6 +191,16 @@ extension ContributorOverviewTests {
         #expect(a.stats.memoryBytes == 0)
         #expect(a.stats.noLongerObserved.isEmpty)
         #expect(a.stats.membershipChanged == [identity])
+        let totalsBeforeFilter = overview.totals
+        overview.hideNoLongerObserved = true
+        #expect(!overview.includesInTable(a.id))
+        #expect(overview.includesInTable(b.id))
+        for node in overview.nodes.values where node.process == identity && node.stats.current.isEmpty {
+            #expect(!overview.includesInTable(node.id))
+        }
+        #expect(overview.totals == totalsBeforeFilter)
+        overview.hideNoLongerObserved = false
+        #expect(overview.includesInTable(a.id))
         #expect(b.stats.recentCPU == 2)
         #expect(b.stats.memoryBytes == 50_000_000)
         #expect(overview.nodes[.section(.uncertain)]?.stats.recentCPU == 1)
