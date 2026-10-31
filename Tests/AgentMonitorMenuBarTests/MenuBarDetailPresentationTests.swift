@@ -73,13 +73,26 @@ func contributorLedgerKeepsNeutralSurfaceAndSeparatesGroups(dark: Bool) async th
             abs(left.greenComponent - right.greenComponent),
             abs(left.blueComponent - right.blueComponent))
     }
-    let surround = try color(at: NSPoint(x: 3, y: 100))
+    let headings = (0..<outline.numberOfRows).filter { row in
+        guard let item = outline.item(atRow: row) else { return false }
+        return outline.delegate?.outlineView?(outline, isGroupItem: item) == true
+    }
+    try #require(headings.count >= 2)
+    let first = outline.rect(ofRow: headings[0])
+    let surround = try color(at: host.convert(NSPoint(x: 12, y: first.midY), from: outline))
+    let backdrop = try color(at: NSPoint(x: 3, y: 3))
+    let preceding = outline.rect(ofRow: headings[1] - 1)
+    let gap = try color(
+        at: host.convert(NSPoint(x: outline.bounds.midX, y: preceding.maxY + 3), from: outline))
+    #expect(difference(gap, backdrop) < 0.02, "Separate panels need an open gap")
+    let border = try color(at: host.convert(NSPoint(x: 2.5, y: first.maxY), from: outline))
+    #expect(difference(border, surround) > 0.04, "The panel edge must have a visible outline")
     #expect(
         abs(surround.blueComponent - surround.redComponent) < 0.15,
         "The reading surface must suppress desktop colors")
     #expect(
-        dark ? surround.redComponent < 0.2 : surround.redComponent > 0.9,
-        "Restore the original system reading surface without gray tint: \(surround)")
+        dark ? surround.redComponent < 0.25 : (0.80...0.94).contains(surround.redComponent),
+        "Use a soft neutral reading surface: \(surround)")
     let roots = model.report.overview.visibleRows.enumerated().filter { $0.element.depth == 0 }
     try #require(roots.count >= 2)
     let bands = try roots.prefix(2).map { row in
@@ -95,7 +108,7 @@ func contributorLedgerKeepsNeutralSurfaceAndSeparatesGroups(dark: Bool) async th
         for y in stride(from: last.maxY + 12, to: outline.visibleRect.maxY - 8, by: 12) {
             let empty = try color(at: host.convert(NSPoint(x: outline.bounds.midX, y: y), from: outline))
             #expect(
-                difference(empty, surround) < 0.02,
+                difference(empty, backdrop) < 0.02,
                 "Empty viewport must show the surround without native filler stripes at y=\(y): \(empty)")
         }
     }

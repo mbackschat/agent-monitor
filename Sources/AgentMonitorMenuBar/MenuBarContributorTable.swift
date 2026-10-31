@@ -20,9 +20,6 @@ struct MenuBarContributorTable: View {
         let inspecting = overview.detailsVisible
         let rows = overview.visibleRows
         let positions = Dictionary(uniqueKeysWithValues: rows.enumerated().map { ($0.element.id, $0.offset) })
-        let firstSection = overview.topLevel.first.map {
-            overview.tableSection(for: $0)
-        }
         var group = -1
         var currentSection = ContributorTableSection.sessions
         var sections: [ContributorID: ContributorTableSection] = [:]
@@ -140,7 +137,6 @@ struct MenuBarContributorTable: View {
                                 (overview.collapsedSections.contains(section) ? "Expand " : "Collapse ")
                                     + section.rawValue + " (" + section.shortcut + ")"
                             )
-                            .padding(.top, section == firstSection ? 0 : 12)
                             .padding(.bottom, 4)
                             .background(MenuBarRowBackground())
                         }
@@ -162,9 +158,6 @@ struct MenuBarContributorTable: View {
                         model.report.overview.selection == selectedIdentity && acceptsInteraction == active
                             && model.report.overview.detailsVisible == inspecting
                     })
-            }
-            .background {
-                MenuBarReadingSurface()
             }
             .contextMenu(forSelectionType: ContributorID.self) { ids in
                 if acceptsInteraction, let id = ids.first {
@@ -564,7 +557,6 @@ private struct MenuBarContributorHeading: View {
         .foregroundStyle(section == .pinned ? Color.accentColor : Color.primary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 8).padding(.vertical, 6)
-        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 5))
         .accessibilityAddTraits(.isHeader)
     }
 }

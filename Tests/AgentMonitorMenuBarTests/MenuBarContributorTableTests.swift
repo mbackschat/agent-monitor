@@ -267,6 +267,11 @@ import Testing
     #expect(model.report.overview.selection == id)
     #expect(!model.report.overview.selectionIsVisible)
     #expect(table.selectedRow == -1)
+    let collapsedHeader = table.rect(ofRow: 0)
+    let panelMask = try #require((table.layer?.mask as? CAShapeLayer)?.path)
+    #expect(panelMask.contains(table.convertToLayer(NSPoint(x: table.bounds.midX, y: collapsedHeader.midY))))
+    #expect(
+        !panelMask.contains(table.convertToLayer(NSPoint(x: table.bounds.midX, y: collapsedHeader.maxY + 2))))
     try save("sessions-folded")
     #expect(model.handleShortcut("6", row: nil))
     await settleContributorTable(in: host, expectedRows: rows.count)
