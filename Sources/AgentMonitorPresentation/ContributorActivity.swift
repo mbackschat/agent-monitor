@@ -169,7 +169,6 @@ public struct ContributorActivity: Equatable, Sendable {
             let filled = min(
                 8, max(0, Int(ceil(percent / ceiling * Double(8 * rows))) - (rows - level - 1) * 8))
             if filled == 0 { return level == rows - 1 ? "_" : " " }
-            if level < rows - 1 { return "█" }
             return String(levels[filled - 1])
         }.joined()
     }

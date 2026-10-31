@@ -60,6 +60,37 @@ import Testing
         }
     }
 
+    @Test(arguments: [0, 50, 100, 150, 200, 250, 300, 350, 400])
+    func stackedChartKeepsFractionalHeightAndSolidInterior(percent: Int) throws {
+        var feed = OverviewFeed()
+        let workers = [
+            OverviewFeed.Worker(
+                session: "fractional", executable: "java", pid: 1,
+                cpuPerSecond: Double(percent) / 100)
+        ]
+        _ = try feed.advance(workers)
+        var overview = ContributorOverview()
+        overview.receive(try feed.advance(workers))
+        overview.setChartRange(.percent(400))
+        let glyphs = Array(" ▁▂▃▄▅▆▇█")
+        let rows = (0..<3).map {
+            overview.activity.terminalLane(width: 1, level: $0, rows: 3)
+        }
+        let heights = try rows.map { row -> Int in
+            if row == "_" { return 0 }
+            let glyph = try #require(row.first)
+            return try #require(glyphs.firstIndex(of: glyph))
+        }
+        #expect(heights.reduce(0, +) == percent * 24 / 400)
+        if let cap = heights.firstIndex(where: { $0 > 0 }) {
+            #expect(heights.dropFirst(cap + 1).allSatisfy { $0 == 8 })
+        }
+        let id = ContributorID.session(provider: "claude", session: "fractional", root: nil)
+        for level in 0..<3 {
+            #expect(overview.activity.terminalLane(for: id, width: 1, level: level, rows: 3) == rows[level])
+        }
+    }
+
     @Test func hardwareRangeAndManualChoiceSurviveMonitoringTransitions() throws {
         let topology = ProcessorTopology(
             logicalCPUCount: 8,
@@ -208,9 +239,11 @@ import Testing
             overview.activity.terminalLane(for: id, width: 12)
                 == String(repeating: cpuCount == 8 ? "▁" : "▄", count: 6)
                 + String(repeating: cpuCount == 8 ? "▃" : "↑", count: 6))
-        for level in 0..<2 {
-            let upper = overview.activity.terminalLane(for: id, width: 12, level: level, rows: 3)
-            #expect(upper.allSatisfy { " █↑".contains($0) })
+        let upperRows = cpuCount == 2 ? [(" ", "↑"), ("▄", "█")] : [(" ", " "), (" ", "▁")]
+        for (level, glyphs) in upperRows.enumerated() {
+            #expect(
+                overview.activity.terminalLane(for: id, width: 12, level: level, rows: 3)
+                    == String(repeating: glyphs.0, count: 6) + String(repeating: glyphs.1, count: 6))
         }
         #expect(overview.activity.intervalLabel.contains("unequal durations"))
         #expect(samples[1]?.percent(in: overview.activity.spans[1]) == 300)

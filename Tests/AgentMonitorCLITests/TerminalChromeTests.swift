@@ -122,6 +122,27 @@ import Testing
         #expect(lines[3].text.contains("CPU HISTORY"))
     }
 
+    @Test func fractionalChartCapsKeepTheirShapeAboveSolidBackgroundCells() throws {
+        var feed = OverviewFeed()
+        let workers = [
+            OverviewFeed.Worker(session: "A", executable: "java", pid: 1, cpuPerSecond: 1.5)
+        ]
+        _ = try feed.advance(workers)
+        var state = LiveReportState()
+        state.receive(try feed.advance(workers))
+        state.overview.setChartRange(.percent(400))
+        let lines = ContributorLayout.lines(state: state, width: 160, height: 40)
+        let selected = try #require(lines.firstIndex { $0.style == .selected })
+        for start in [0, selected] {
+            #expect(lines[start + 1].runs.contains { $0.style == .separator && $0.text.contains("▁") })
+            #expect(lines[start + 2].runs.contains { $0.style == .chartFill && $0.text.contains("█") })
+        }
+        #expect(
+            lines.flatMap(\.runs).filter { $0.style == .chartFill }.allSatisfy { run in
+                run.text.allSatisfy { $0 == "█" }
+            })
+    }
+
     @Test func contributorDetailsHonorResizeAndAdvertiseIt() throws {
         var state = LiveReportState()
         state.receive(try overviewFixture())

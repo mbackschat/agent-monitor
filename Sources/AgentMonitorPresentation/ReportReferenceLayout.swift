@@ -181,7 +181,7 @@ public enum ReportReferenceLayout {
             TerminalChrome.controls([("b", "change chart range")], keyStyle: keyStyle),
             ReportLine("Oldest left, newest right. Dots are gaps, never zero CPU."),
             ReportLine("Bars show retained interval averages; equal widths can cover unequal durations."),
-            ReportLine("Chart heights are approximate: upper rows round up to whole-cell steps."),
+            ReportLine("Heights use ⅛-cell steps: 24 steps across three rows."),
             ReportLine("~ spans marks measurements crossing gaps in sampling."),
         ]
     }
