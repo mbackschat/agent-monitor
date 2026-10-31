@@ -51,7 +51,9 @@ let package = Package(
         .testTarget(name: "WorkloadCaptureTests", dependencies: ["monitor-workload-capture"]),
         .executableTarget(
             name: "monitor-tui-fixture",
-            dependencies: ["AgentMonitorCore", "AgentMonitorTUI", "AgentMonitorActions"],
+            dependencies: [
+                "AgentMonitorCore", "AgentMonitorPresentation", "AgentMonitorTUI", "AgentMonitorActions",
+            ],
             path: "Tests/Fixtures/TUIFixture"),
         .testTarget(
             name: "AgentMonitorTUITests",

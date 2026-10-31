@@ -18,7 +18,7 @@ public enum ReportReferenceLayout {
         case .glossary:
             return ReportGlossary.entries.flatMap {
                 [ReportLine($0.title, style: .title), ReportLine($0.definition), ReportLine("")]
-            } + chartHelp()
+            } + chartHelp(style: state.chartStyle)
         case .keyboard:
             return keyboardHelp(state: state)
         case .diagnostics:
@@ -167,10 +167,12 @@ public enum ReportReferenceLayout {
             key("q / Ctrl-C", "quit"),
         ]
         if !state.diagnosis.isRunning { lines.append(key("I", "start CPU investigation")) }
-        return lines + chartHelp(keyStyle: .shortcut)
+        return lines + chartHelp(style: state.chartStyle, keyStyle: .shortcut)
     }
 
-    private static func chartHelp(keyStyle: ReportLine.Style = .normal) -> [ReportLine] {
+    private static func chartHelp(style: ContributorChartStyle, keyStyle: ReportLine.Style = .normal)
+        -> [ReportLine]
+    {
         [
             ReportLine(""), ReportLine("Contributor CPU charts", style: .title),
             ReportLine(runs: [
@@ -181,7 +183,10 @@ public enum ReportReferenceLayout {
             TerminalChrome.controls([("b", "change chart range")], keyStyle: keyStyle),
             ReportLine("Oldest left, newest right. Dots are gaps, never zero CPU."),
             ReportLine("Bars show retained interval averages; equal widths can cover unequal durations."),
-            ReportLine("Heights use ⅛-cell steps: 24 steps across three rows."),
+            ReportLine(
+                style == .compact
+                    ? "Compact charts use 8 steps in one row; all CPU lanes share the same range."
+                    : "Heights use ⅛-cell steps: 24 steps across three rows."),
             ReportLine("~ spans marks measurements crossing gaps in sampling."),
         ]
     }

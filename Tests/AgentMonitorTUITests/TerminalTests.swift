@@ -767,3 +767,49 @@ func terminalActionsRequireConfirmationAndPasteCannotSubmit(quitWhileUndersized:
     try writeAllBytes(Array("q".utf8), to: terminal.master)
     try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
 }
+
+@Test(arguments: [false, true], ["compact", "auto"])
+func terminalCompactChartsKeepOneGlyphRowInColorAndMonochrome(noColor: Bool, chartMode: String) async throws {
+    let binary =
+        ProcessInfo.processInfo.environment["AGENT_MONITOR_TUI_FIXTURE"]
+        ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().appendingPathComponent(".build/debug/monitor-tui-fixture").path
+    let terminal = try RealTerminalPTYPair.open(size: .init(width: 160, height: 32), stallBudget: nil)
+    defer { terminal.close() }
+    var original = termios()
+    try #require(tcgetattr(terminal.slave, &original) == 0)
+    let pid = try launch(
+        binary, terminal: terminal.slave,
+        environment: [
+            "AGENT_MONITOR_OVERVIEW_FIXTURE": "1", "AGENT_MONITOR_CHART_FIXTURE": chartMode,
+            "TERM_PROGRAM": "Apple_Terminal", "TMUX": "synthetic-font-unavailable",
+            "NO_COLOR": noColor ? "1" : "",
+        ])
+    var reaped = false
+    defer {
+        if !reaped {
+            kill(pid, SIGKILL)
+            waitpid(pid, nil, 0)
+        }
+    }
+    var screen = ANSIVisibleScreen(size: .init(width: 160, height: 32))
+    _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(10)) {
+        $0.contains("overview-project") && $0.contains("compact")
+    }
+    try writeAllBytes(Array("b".utf8), to: terminal.master)
+    let rendered = try await waitForScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(5)
+    ) {
+        $0.contains("0–100% · compact") && $0.contains("▂")
+    }
+    let plottedRows = rendered.components(separatedBy: "\n").enumerated().filter { $0.element.contains("▂") }
+    #expect(plottedRows.count == 2)
+    #expect(plottedRows.first?.offset == 2)
+    #expect(plottedRows.last?.element.contains("codex") == true)
+    try writeAllBytes(Array("?".utf8), to: terminal.master)
+    _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)) {
+        $0.contains("Keyboard shortcuts")
+    }
+    try writeAllBytes(Array("q".utf8), to: terminal.master)
+    try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
+}

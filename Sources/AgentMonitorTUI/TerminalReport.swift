@@ -15,13 +15,17 @@ public typealias SnapshotSource =
 
 @MainActor
 public enum TerminalReport {
-    public static func run(session: MonitoringSession, grouping: ReportGrouping = .none, color: Bool = true)
+    public static func run(
+        session: MonitoringSession, grouping: ReportGrouping = .none, color: Bool = true,
+        chartStyle: ContributorChartStyle? = nil
+    )
         async throws
     {
         let inspection = session.inspectionObservations ? LiveInspection(active: true) : nil
         try await run(
             grouping: grouping, thresholds: session.initialThresholds, interval: session.initialInterval,
             sampling: session.initialSampling, cpuTopology: .readSystem(), color: color,
+            chartStyle: chartStyle,
             inspection: inspection
         ) { thresholds, interval, receive in
             try await session.run(thresholds: thresholds, interval: interval, inspection: inspection, receive)
@@ -31,7 +35,7 @@ public enum TerminalReport {
     public static func run(
         grouping: ReportGrouping = .none, thresholds: Thresholds = Thresholds(), interval: Double = 1,
         sampling: SamplingSettings? = nil, cpuTopology: ProcessorTopology? = nil,
-        color: Bool = true, inspection: LiveInspection? = nil,
+        color: Bool = true, chartStyle: ContributorChartStyle? = nil, inspection: LiveInspection? = nil,
         actions: any ProcessActions = SessionActions.local(),
         diagnosisSource: @escaping CPUDiagnosisSource = CPUDiagnosisSession.collectLocal,
         commandSource: @escaping CommandInspectionController.Source = NativeProcessReader.inspectCommand,
@@ -46,17 +50,18 @@ public enum TerminalReport {
         let identity = Identity(components: ["agent-monitor"])
         let settings = sampling ?? SamplingSettings(visibleMaximum: interval)
         let liveInterval = LiveInterval(settings: settings)
-        let state = StateContainer(
-            initialState: LiveReportState(
-                grouping: grouping, thresholds: thresholds, sampling: settings, cpuTopology: cpuTopology),
-            invalidationIdentities: [identity])
+        let environment = hostEnvironment(color: color, base: ProcessInfo.processInfo.environment)
+        var initialState = LiveReportState(
+            grouping: grouping, thresholds: thresholds, sampling: settings, cpuTopology: cpuTopology)
+        initialState.chartStyle = TerminalChartSelection.resolve(
+            requested: chartStyle, environment: environment)
+        let state = StateContainer(initialState: initialState, invalidationIdentities: [identity])
         let outcome = TerminalOutcome()
         let diagnosis = CPUDiagnosisController(source: diagnosisSource)
         let commands = CommandInspectionController(source: commandSource)
         commands.onChange = { [weak state] value in state?.mutate { $0.commandInspection = value } }
         diagnosis.onChange = { [weak state] value in state?.mutate { $0.diagnosis = value } }
         // SwiftTUI 0.14.0 defaults to mouse reporting, which captures terminal selection drags.
-        let environment = hostEnvironment(color: color, base: ProcessInfo.processInfo.environment)
         let isTerminal = isatty(STDOUT_FILENO) != 0
         var capabilities = TerminalCapabilityProfile.detect(environment: environment, isTTY: isTerminal)
         if RuntimeConfiguration.detect(environment: environment, isStdoutTTY: isTerminal).color == .never {

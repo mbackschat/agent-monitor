@@ -1,5 +1,6 @@
 import AgentMonitorActions
 import AgentMonitorCore
+import AgentMonitorPresentation
 import AgentMonitorTUI
 import Foundation
 import Synchronization
@@ -12,8 +13,15 @@ enum TUIFixture {
             SamplingSettings(
                 enabled: true, minimum: 0.4, visibleMaximum: 1, closedMultiplier: 2.5, window: 17)
         }
+        let chartStyle: ContributorChartStyle? =
+            switch ProcessInfo.processInfo.environment["AGENT_MONITOR_CHART_FIXTURE"] {
+            case "compact": .compact
+            case "auto": nil
+            default: .stacked
+            }
         try await TerminalReport.run(
             sampling: sampling, color: !CommandLine.arguments.contains("--no-color"),
+            chartStyle: chartStyle,
             actions: FixtureActions(),
             diagnosisSource: {
                 if let path = ProcessInfo.processInfo.environment["AGENT_MONITOR_DIAGNOSIS_GATE"] {

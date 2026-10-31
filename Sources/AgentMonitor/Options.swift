@@ -2,6 +2,18 @@ import AgentMonitorCore
 import AgentMonitorPresentation
 import ArgumentParser
 
+enum TUIChartOption: String, ExpressibleByArgument {
+    case auto, stacked, compact
+
+    var style: ContributorChartStyle? {
+        switch self {
+        case .auto: nil
+        case .stacked: .stacked
+        case .compact: .compact
+        }
+    }
+}
+
 enum GroupOption: String, ExpressibleByArgument { case none, session }
 
 /// Reusing the same group preserves flags consumed by Argument Parser's root command.
@@ -53,6 +65,12 @@ struct ReportOptions: ParsableArguments {
             "Live grouped contributor overview with a five-second display; requires an interactive terminal. See agent-monitor guide tui for all keys."
     )
     var tui = false
+
+    @Option(
+        help:
+            "CPU history style: auto, stacked (three rows), or compact (one row). Requires --tui. Default: auto; Apple Terminal falls back to compact for Meslo or unknown fonts."
+    )
+    var tuiChartStyle: TUIChartOption?
 
     @Flag(
         name: .customLong("adaptive-sampling"), inversion: .prefixedNo, exclusivity: .exclusive,
@@ -112,10 +130,13 @@ struct ReportOptions: ParsableArguments {
         requestedCPU != nil || requestedMemoryGB != nil || requestedInterval != nil || sampleLimit != nil
             || requestedGroup != nil || tui || inspectionObservations || allProcesses || commands || noColor
             || requestedAdaptiveSampling != nil || requestedSamplingMinimum != nil
-            || requestedSamplingWindow != nil
+            || requestedSamplingWindow != nil || tuiChartStyle != nil
     }
 
     mutating func validate() throws {
+        guard tuiChartStyle == nil || tui else {
+            throw ValidationError("--tui-chart-style requires --tui")
+        }
         guard !inspectionObservations || tui else {
             throw ValidationError("--inspection-observations requires --tui")
         }

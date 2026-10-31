@@ -14,8 +14,18 @@ public enum ContributorLayout {
 
     private static func layout(state: LiveReportState, width: Int, height: Int) -> Layout {
         let overview = state.overview
+        func lane(for id: ContributorID? = nil, level: Int, overall: Bool = false) -> String {
+            switch state.chartStyle {
+            case .stacked:
+                return overview.activity.terminalLane(for: id, width: columns.chart, level: level, rows: 3)
+            case .compact:
+                guard level == (overall ? 2 : 0) else { return "" }
+                return overview.activity.terminalLane(for: id, width: columns.chart)
+            }
+        }
         let columns = Columns(
             width: width, graphs: width >= 90 && height >= 20, order: overview.order,
+            chartStyle: state.chartStyle,
             cpu: max(
                 7,
                 overview.nodes.values.map {
@@ -25,7 +35,9 @@ public enum ContributorLayout {
                 10, overview.nodes.values.map { TerminalCells.width($0.stats.currentMemoryText) }.max() ?? 0))
         var footer = footerLines(state: state, width: width)
         let totals = overview.totals.summary(duration: overview.duration)
-        let chartCaption = " · Overall CPU · " + overview.activity.scaleLabel
+        let chartCaption =
+            " · Overall CPU · " + overview.activity.scaleLabel
+            + (state.chartStyle == .compact ? " · compact" : "")
         let cadence = TerminalChrome.cadence(state: state).text
         let showsOverallChart =
             columns.graphs
@@ -85,7 +97,7 @@ public enum ContributorLayout {
                 : (row.id == .section(.uncertain) ? .warning : .identity)
             let cap =
                 columns.graphs
-                ? overview.activity.terminalLane(for: row.id, width: columns.chart, level: 0, rows: 3) : ""
+                ? lane(for: row.id, level: 0) : ""
             var lines = [
                 columns.styledRow(
                     prefix + headline, chart: cap,
@@ -106,8 +118,7 @@ public enum ContributorLayout {
                 lines.append(
                     columns.styledRow(
                         inset + (includesPopulation ? "" : population),
-                        chart: overview.activity.terminalLane(
-                            for: row.id, width: columns.chart, level: 1, rows: 3),
+                        chart: lane(for: row.id, level: 1),
                         cpu: overview.activity.samples[row.id]?.contains { $0?.qualified == true } == true
                             ? "~ spans" : "", memory: "", style: .normal, metricStyle: .warning))
             }
@@ -138,7 +149,7 @@ public enum ContributorLayout {
             let wrapped = headingContinuation + ReportLine(runs: context).wrapped(to: contextWidth)
             let bottom =
                 columns.graphs
-                ? overview.activity.terminalLane(for: row.id, width: columns.chart, level: 2, rows: 3) : ""
+                ? lane(for: row.id, level: 2) : ""
             if columns.graphs && width < 100 {
                 lines.append(columns.styledRow(inset, chart: bottom, cpu: "", memory: "", style: .normal))
             }
@@ -244,7 +255,7 @@ public enum ContributorLayout {
             for level in 0..<3 {
                 header[level] = columns.contextRow(
                     header[level],
-                    chart: overview.activity.terminalLane(width: columns.chart, level: level, rows: 3))
+                    chart: lane(level: level, overall: true))
             }
         }
         if columns.graphs, visibleCount > 0 || rendersOverallChart {
@@ -328,12 +339,17 @@ public enum ContributorLayout {
     private struct Columns {
         let graphs: Bool
         let order: ContributorOrder
+        let chartStyle: ContributorChartStyle
         let name: Int
         let chart: Int
         let cpu: Int
         let memory: Int
-        init(width: Int, graphs: Bool, order: ContributorOrder, cpu: Int, memory: Int) {
+        init(
+            width: Int, graphs: Bool, order: ContributorOrder, chartStyle: ContributorChartStyle, cpu: Int,
+            memory: Int
+        ) {
             self.order = order
+            self.chartStyle = chartStyle
             self.cpu = cpu
             self.memory = memory
             self.graphs = graphs
@@ -346,7 +362,7 @@ public enum ContributorLayout {
             var text = ""
             var style: ReportLine.Style = .separator
             for glyph in TerminalCells.padded(chart, to: self.chart) {
-                let next: ReportLine.Style = glyph == "█" ? .chartFill : .separator
+                let next: ReportLine.Style = glyph == "█" && chartStyle == .stacked ? .chartFill : .separator
                 if next != style && !text.isEmpty {
                     runs.append(.init(text, style: style))
                     text = ""

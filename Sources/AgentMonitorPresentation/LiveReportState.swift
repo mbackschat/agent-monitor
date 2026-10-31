@@ -9,6 +9,8 @@ public enum ReportSort: String, CaseIterable, Sendable {
 
 public enum ThresholdAdjustment: Sendable { case cpuDown, cpuUp, memoryDown, memoryUp }
 
+public enum ContributorChartStyle: Sendable { case stacked, compact }
+
 public enum DetailsPaneMode: Sendable { case minimized, split, maximized }
 
 public enum IntervalAdjustment: Sendable { case faster, slower }
@@ -71,6 +73,7 @@ public struct LiveReportState: Equatable, Sendable {
     }
     mutating func setActionNotice(_ text: String) { notice = text }
 
+    public var chartStyle: ContributorChartStyle = .stacked
     public var overview = ContributorOverview()
     public var commandInspection: CommandInspection?
     public var showsOverview: Bool { overview.enabled && snapshot?.recentActivity != nil }

@@ -59,7 +59,8 @@ struct AgentMonitorCommand: AsyncParsableCommand {
             recentActivity: options.tui ? RecentActivityStore() : nil)
         if options.tui {
             try await TerminalReport.run(
-                session: session, grouping: options.grouping, color: !options.noColor)
+                session: session, grouping: options.grouping, color: !options.noColor,
+                chartStyle: options.report.tuiChartStyle?.style)
             return
         }
         let color = ColorPolicy.enabled(noColor: options.noColor, descriptor: STDOUT_FILENO)

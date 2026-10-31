@@ -143,6 +143,7 @@ The following options control reports; diagnosis has fixed defaults and its own 
 | `--interval <seconds>` | Requested acquisition period, or visible maximum with TUI adaptive sampling enabled, from 0.1 to 60 seconds; overruns delay collection. | `0.1` (seconds) |
 | `--samples <count>` | Number of accounting windows; slow readers may receive combined reports. `0` runs until you quit. | `1`; `0` with `--tui` |
 | `--tui`, `-tui` | Open the grouped contributor overview with a five-second display; requires interactive input and output. | Off; text reports |
+| `--tui-chart-style <style>` | `auto`, `stacked` (three rows), or `compact` (one row) for all contributor CPU charts; requires `--tui`. Apple Terminal auto falls back for Meslo or unknown fonts. | `auto` |
 | `--adaptive-sampling` / `--no-adaptive-sampling` | Enable/disable activity-based acquisition between the configured minimum and `--interval`; mutually exclusive and require `--tui`. | Off |
 | `--sampling-minimum <seconds>` | Adaptive minimum; must be at least 0.1 and no greater than `--interval`. Requires `--tui`; does not enable adaptation. | `0.1` (seconds) |
 | `--sampling-window <seconds>` | Rolling activity window, from 1 to 300 seconds. Requires `--tui`; does not enable adaptation. | `60` (seconds) |
