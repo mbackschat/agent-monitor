@@ -28,6 +28,38 @@ import Testing
         #expect(ContributorActivity().terminalLane(width: 4) == "····")
     }
 
+    @Test(arguments: [false, true])
+    func overallIntervalsEqualDisjointContributorsAndKnownWorkerCPU(pinned: Bool) throws {
+        var feed = OverviewFeed()
+        var workers = [
+            OverviewFeed.Worker(session: "A", executable: "java", pid: 1, cpuPerSecond: 0.8),
+            OverviewFeed.Worker(session: "B", executable: "node", pid: 2, cpuPerSecond: 0.4),
+            OverviewFeed.Worker(session: "C", executable: "rustc", pid: 3, cpuPerSecond: 0.15),
+            OverviewFeed.Worker(session: "D", executable: "python", pid: 4, cpuPerSecond: 0.05),
+        ]
+        _ = try feed.advance(workers)
+        _ = try feed.advance(workers)
+        for index in workers.indices { workers[index].cpuPerSecond *= 2 }
+        var overview = ContributorOverview()
+        overview.receive(try feed.advance(workers))
+        overview.setChartRange(.percent(400))
+        if pinned {
+            overview.togglePin(for: .session(provider: "claude", session: "A", root: nil))
+            overview.showAll = true
+        }
+        let activity = overview.activity
+        #expect(activity.spans.count == 2)
+        for (index, expected) in [140.0, 280.0].enumerated() {
+            let span = activity.spans[index]
+            let total = try #require(activity.totalSamples[index]?.percent(in: span))
+            let roots = overview.topLevel.reduce(0.0) { sum, id in
+                sum + (activity.samples[id]?[index]?.percent(in: span) ?? 0)
+            }
+            #expect(abs(total - expected) < 0.000001)
+            #expect(abs(roots - expected) < 0.000001)
+        }
+    }
+
     @Test func hardwareRangeAndManualChoiceSurviveMonitoringTransitions() throws {
         let topology = ProcessorTopology(
             logicalCPUCount: 8,
