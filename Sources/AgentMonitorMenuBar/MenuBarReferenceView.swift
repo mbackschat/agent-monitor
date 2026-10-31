@@ -29,6 +29,7 @@ struct MenuBarReferenceMenu: View {
             HelpLink { model.showGlossary() }
                 .accessibilityLabel("Help & glossary")
                 .help("Open help for resource use and contributor groups")
+            referenceButton(.keyboard)
             referenceButton(.diagnostics)
         }
         .controlSize(.small)
