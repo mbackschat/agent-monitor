@@ -28,6 +28,8 @@ The completed short-worker fixture confirms substantial loss despite timely poll
 
 ### Existing validation follow-ups
 
+- [ ] **TEST-01 — Verify the full serial test gate at the next broad checkpoint.** The 2026-10-31 unrestricted run produced PTY and acquisition/pipeline timing failures; every affected case passed in the explicit `--no-parallel` rerun. Two stale presentation assertions were corrected. Use the already-built test executable and the [lean validation policy](docs/development.md#choose-checks-for-the-change); do not repeat the broad run for routine UI edits or change collection semantics to satisfy timing assertions. A full serialized suite has not yet been run.
+
 - [ ] **MAC-TABLE-01 — Diagnose the native table reentrancy warning.** Synthetic selection/render checks on 2026-10-30 pass but emit an NSTableView delegate reentrant-operation warning that macOS says will become an assertion. Isolate the triggering callback and distinguish test scheduling from production reconciliation before changing the bridge; see the [section-header validation](docs/research/native-menu-design.md#nonselectable-section-headings--2026-10-30).
 
 - [ ] **TUI-INPUT-01 — Bound ordered input end to end.** The [proposal](docs/proposals/bounded-terminal-input.md) is on hold for an official upstream fix or verified supported-public-API solution. The [0.19.1 source review](docs/research/terminal-ui.md#upstream-0191-comparison--2026-10-29) found no supported end-to-end admission path. Reader/parser/runtime queues remain open; discarding paste after the reader does not bound its upstream storage. The [no-fork decision](docs/decisions/swifttui-fork.md) prohibits forks, vendored changes and checkout patches.

@@ -451,7 +451,8 @@ func selectedThresholdRejectsNegativeOrNonFiniteCPU(value: Double) {
     let model = MenuBarModel { _, _, _ in }
     let menu = MenuBarOptionsController(model: model).makeMenu()
     for page in [MenuBarReferencePage.glossary, .keyboard, .diagnostics] {
-        let item = try #require(menu.item(withTitle: page.title))
+        let title = page.title + (page == .keyboard ? " (?)" : "")
+        let item = try #require(menu.item(withTitle: title))
         #expect(item.image != nil)
         #expect(item.preferredImageVisibility == .visible)
     }
