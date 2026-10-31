@@ -23,12 +23,17 @@ struct MenuBarContributorTable: View {
         var group = -1
         var currentSection = ContributorTableSection.sessions
         var sections: [ContributorID: ContributorTableSection] = [:]
+        var ancestorLast: [Bool] = []
+        var continuations: [ContributorID: [Int]] = [:]
         let groupIndices = rows.map { row in
             if row.depth == 0 {
                 group += 1
                 currentSection = overview.tableSection(for: row.id)
             }
             sections[row.id] = currentSection
+            ancestorLast = Array(ancestorLast.prefix(row.depth))
+            continuations[row.id] = ancestorLast.indices.filter { $0 > 0 && !ancestorLast[$0] }
+            ancestorLast.append(row.isLastSibling)
             return group
         }
         VStack(spacing: 0) {
@@ -65,18 +70,8 @@ struct MenuBarContributorTable: View {
                     )
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .padding(.leading, CGFloat(depth) * 18)
-                    .background(
-                        (sections[node.id] == .pinned ? Color.accentColor : Color.primary).opacity(
-                            groupIndices.indices.contains(index)
-                                && groupIndices[index].isMultiple(of: 2) ? 0.09 : 0),
-                        in: Rectangle()
-                    )
                     .overlay(alignment: .leading) {
-                        if depth > 0 {
-                            MenuBarContributorBranch(last: rows[index].isLastSibling)
-                                .frame(width: 14).padding(.leading, CGFloat(depth) * 18 - 12)
-                                .allowsHitTesting(false).accessibilityHidden(true)
-                        } else if sections[node.id] == .pinned {
+                        if depth == 0 && sections[node.id] == .pinned {
                             RoundedRectangle(cornerRadius: 2).fill(Color.accentColor)
                                 .frame(width: 3).padding(.vertical, 8).accessibilityHidden(true)
                         }
@@ -107,7 +102,14 @@ struct MenuBarContributorTable: View {
                             .accessibilityLabel("Details for " + node.label.headline)
                         }.padding(.trailing, 4).padding(.bottom, 4)
                     }
-                    .background(MenuBarRowBackground()).onHover { inside in
+                    .background(
+                        MenuBarRowBackground(
+                            tint: (sections[node.id] == .pinned ? Color.accentColor : Color.primary).opacity(
+                                groupIndices.indices.contains(index) && groupIndices[index].isMultiple(of: 2)
+                                    ? 0.09 : 0),
+                            depth: depth, last: positions[node.id].map { rows[$0].isLastSibling } ?? true,
+                            continuations: continuations[node.id] ?? [])
+                    ).onHover { inside in
                         if inside { hovered = node.id } else if hovered == node.id { hovered = nil }
                     }.padding(.top, depth == 0 && index > 0 ? 8 : 0)
                 }.width(min: 280, ideal: 560)
@@ -424,21 +426,6 @@ enum MenuBarContributorPresence {
         case .changedOwnership:
             "Ownership changed; see Details"
         }
-    }
-}
-
-private struct MenuBarContributorBranch: View {
-    let last: Bool
-
-    var body: some View {
-        Canvas { context, size in
-            var branch = Path()
-            branch.move(to: CGPoint(x: 1, y: 0))
-            branch.addLine(to: CGPoint(x: 1, y: last ? size.height / 2 : size.height))
-            branch.move(to: CGPoint(x: 1, y: size.height / 2))
-            branch.addLine(to: CGPoint(x: size.width, y: size.height / 2))
-            context.stroke(branch, with: .foreground, lineWidth: 1.5)
-        }.foregroundStyle(.secondary.opacity(0.6))
     }
 }
 

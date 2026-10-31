@@ -119,6 +119,32 @@ func contributorLedgerKeepsNeutralSurfaceAndSeparatesGroups(dark: Bool) async th
         await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
         #expect(contributorOutline(in: host) === outline)
         bitmap = try detailBitmap(host)
+        if expanded {
+            let childIndex = try #require(model.report.overview.visibleRows.firstIndex { $0.depth == 1 })
+            let nativeIndex = outline.contributorRowIndexes[childIndex]
+            let rect = outline.rect(ofRow: nativeIndex)
+            let interior = try color(
+                at: host.convert(NSPoint(x: rect.maxX - 20, y: rect.midY), from: outline))
+            for y in [rect.minY + 1, rect.maxY - 1] {
+                let edge = try color(at: host.convert(NSPoint(x: rect.maxX - 20, y: y), from: outline))
+                #expect(difference(edge, interior) < 0.02, "Subtree shading must fill native row padding")
+            }
+            func backgroundAnchor(in view: NSView) -> MenuBarRowBackground.Anchor? {
+                if let anchor = view as? MenuBarRowBackground.Anchor { return anchor }
+                return view.subviews.lazy.compactMap { backgroundAnchor(in: $0) }.first
+            }
+            let nativeRow = try #require(outline.rowView(atRow: nativeIndex, makeIfNecessary: true))
+            let anchor = try #require(backgroundAnchor(in: nativeRow))
+            let x = outline.convert(anchor.bounds, from: anchor).minX + 7
+            let line = try color(at: host.convert(NSPoint(x: x, y: rect.minY + 1), from: outline))
+            let beside = try color(at: host.convert(NSPoint(x: x + 4, y: rect.minY + 1), from: outline))
+            #expect(difference(line, beside) > 0.04, "Tree lines must reach the row boundary")
+            if let output = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
+                try #require(bitmap.representation(using: .png, properties: [:])).write(
+                    to: URL(fileURLWithPath: output).appendingPathComponent(
+                        "hierarchy-\(dark ? "dark" : "light").png"))
+            }
+        }
         try checkEmptyViewport()
     }
     if let output = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {

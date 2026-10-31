@@ -47,6 +47,35 @@ import Testing
         outline.bounds.width <= MenuBarLayout.width - 28,
         "Column widths \(outline.tableColumns.map(\.width)); viewport \(String(describing: outline.enclosingScrollView?.contentSize))"
     )
+    let remainder = ContributorID.section(.remainder)
+    model.report.overview.setDisclosure(expanded: true, for: remainder)
+    let nestedParent = try #require(model.report.overview.nodes[remainder]?.children.first)
+    model.report.overview.setDisclosure(expanded: true, for: nestedParent)
+    await settleContributorTable(in: host, expectedRows: model.report.overview.visibleRows.count)
+    func guides(for id: ContributorID) async throws -> CGPath {
+        let index = try #require(model.report.overview.visibleRows.firstIndex { $0.id == id })
+        outline.scrollRowToVisible(outline.contributorRowIndexes[index])
+        for _ in 0..<4 {
+            host.layoutSubtreeIfNeeded()
+            await Task.yield()
+        }
+        let view = try #require(
+            outline.rowView(atRow: outline.contributorRowIndexes[index], makeIfNecessary: true))
+        func anchor(in view: NSView) -> MenuBarRowBackground.Anchor? {
+            if let anchor = view as? MenuBarRowBackground.Anchor { return anchor }
+            return view.subviews.lazy.compactMap { anchor(in: $0) }.first
+        }
+        let decoration = try #require(anchor(in: view))
+        decoration.decorateRow()
+        return try #require(decoration.guides.path)
+    }
+    let nestedChild = try #require(model.report.overview.nodes[nestedParent]?.children.first)
+    let parentPath = try await guides(for: nestedParent)
+    let childPath = try await guides(for: nestedChild)
+    #expect(
+        abs(parentPath.boundingBox.minX - childPath.boundingBox.minX) < 0.5,
+        "A parent's unfinished trunk continues through deeper child rows")
+    #expect(childPath.boundingBox.width > parentPath.boundingBox.width)
     window.contentView = nil
     await model.stop()
 }
