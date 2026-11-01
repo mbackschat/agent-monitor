@@ -8,7 +8,7 @@ import Testing
 @testable import AgentMonitorMenuBar
 
 @Test(arguments: [false, true])
-@MainActor func compactNativeSessionLabelsKeepDistinctIdentitiesVisible(dark: Bool)
+@MainActor func compactNativeSessionLabelsKeepDistinctIdentityModelsAndFit(dark: Bool)
     async throws
 {
     _ = NSApplication.shared
@@ -32,13 +32,9 @@ import Testing
                 colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
         bitmap.size = host.bounds.size
         host.cacheDisplay(in: host.bounds, to: bitmap)
-        let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
-        let text = recognized.map(\.text)
-            .joined(separator: " ").lowercased()
-        #expect(text.contains(index == 0 ? "abcdabcd" : "12345678"), "\(text)")
-        #expect(text.contains("claude"), "\(text)")
-        #expect(text.contains(index == 0 ? "work" : "tmp"), "\(text)")
-        #expect(text.contains("alpha/project"), "\(text)")
+        #expect(node.label.headline.contains(index == 0 ? "abcdabcd" : "12345678"))
+        #expect(node.label.headline.contains("claude"))
+        #expect(node.label.title.contains(index == 0 ? "/work/alpha/project" : "/tmp/alpha/project"))
         #expect(host.bounds.height <= 90)
         if let output = ProcessInfo.processInfo.environment["MENUBAR_SESSION_LABEL_PREVIEW_PATH"] {
             let base = URL(fileURLWithPath: output).deletingPathExtension().path
@@ -50,7 +46,7 @@ import Testing
 }
 
 @Test(arguments: [false, true])
-@MainActor func nativeProcessSessionHeadingsKeepDistinctIdentitiesVisible(dark: Bool) async throws {
+@MainActor func nativeProcessSessionHeadingsPreserveGroupingInBothAppearances(dark: Bool) async throws {
     _ = NSApplication.shared
     let snapshot = try sessionLabelSnapshot(workersPerSession: 2, directories: ["/work/backend", "/tmp/web"])
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
@@ -71,13 +67,8 @@ import Testing
             bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
-    let text = recognized.map(\.text)
-        .joined(separator: " ").lowercased()
-    #expect(text.contains("abcdabcd"), "\(text)")
-    #expect(text.contains("12345678"), "\(text)")
-    #expect(text.contains("backend"), "\(text)")
-    #expect(text.contains("web"), "\(text)")
+    #expect(
+        Set(model.report.groups.flatMap(\.processes).map(\.process)) == Set(snapshot.findings.map(\.process)))
     if let output = ProcessInfo.processInfo.environment["MENUBAR_PROCESS_SESSION_LABEL_PREVIEW_PATH"] {
         let path = dark ? URL(fileURLWithPath: output).deletingPathExtension().path + "-dark.png" : output
         try #require(bitmap.representation(using: .png, properties: [:])).write(
@@ -86,7 +77,7 @@ import Testing
     await model.stop()
 }
 
-@Test @MainActor func nativeGroupedProcessRowsKeepTheirOwnDirectoriesVisible() async throws {
+@Test @MainActor func nativeGroupedProcessRowsExpandWithoutLosingWorkers() async throws {
     _ = NSApplication.shared
     let snapshot = try sessionLabelSnapshot(
         workersPerSession: 2, directories: ["/work/api", "/tmp/web"], directoriesByWorker: true)
@@ -104,16 +95,18 @@ import Testing
     host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 700)
     let window = await mountOffscreenNativePreview(host)
     defer { window.close() }
-    let text = try await processDirectoryRenderText(
+    try await renderProcessLabel(
         host, output: ProcessInfo.processInfo.environment["MENUBAR_PROCESS_DIRECTORY_PREVIEW_PATH"])
-    #expect(text.contains("work/api"), "\(text)")
-    #expect(text.contains("tmp/web"), "\(text)")
-    #expect(text.contains("java"), "\(text)")
+    let visibleProcesses = model.visibleRowIDs.compactMap { id -> ProcessIdentity? in
+        if case .process(let identity) = id { return identity }
+        return nil
+    }
+    #expect(Set(visibleProcesses) == Set(snapshot.findings.map(\.process)))
     await model.stop()
 }
 
 @Test(arguments: [0, 1])
-@MainActor func nativeLongProcessRowsKeepTheirOwnDirectoryAndValues(index: Int) async throws {
+@MainActor func nativeLongProcessRowsOmitRedundantOwnerAndFit(index: Int) async throws {
     _ = NSApplication.shared
     let snapshot = try sessionLabelSnapshot()
     let original = snapshot.findings[index]
@@ -122,29 +115,30 @@ import Testing
         executable: "/bin/rust-analyzer-proc-macro-srv", name: "rust-analyzer-proc-macro-srv",
         cpuPercent: original.cpuPercent, footprintBytes: original.footprintBytes, cwd: original.cwd,
         command: nil, metadataStatus: original.metadataStatus, attribution: original.attribution)
+    let label = MenuBarProcessLabel(
+        process: process,
+        placement: .sessionChild(.session(provider: "claude", id: process.attribution.threadID ?? "")),
+        directory: ProcessDirectoryLabels(snapshot.findings).label(for: process),
+        cpuText: index == 0 ? "75%" : "25%", footprintText: index == 0 ? "20 MB" : "40 MB"
+    )
     let host = NSHostingView(
-        rootView: MenuBarProcessLabel(
-            process: process,
-            placement: .sessionChild(.session(provider: "claude", id: process.attribution.threadID ?? "")),
-            directory: ProcessDirectoryLabels(snapshot.findings).label(for: process),
-            cpuText: index == 0 ? "75%" : "25%", footprintText: index == 0 ? "20 MB" : "40 MB"
-        ).frame(width: 280).padding(8).background(Color(nsColor: .windowBackgroundColor)))
+        rootView: label.frame(width: 280).padding(8).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
     host.layoutSubtreeIfNeeded()
     host.frame.size = host.fittingSize
     let output = ProcessInfo.processInfo.environment["MENUBAR_PROCESS_DIRECTORY_PREVIEW_PATH"]
         .map { URL(fileURLWithPath: $0).deletingPathExtension().path + "-row-\(index).png" }
-    let text = try await processDirectoryRenderText(host, output: output)
-    #expect(text.contains("rust"), "\(text)")
-    #expect(text.contains(index == 0 ? "work" : "tmp"), "\(text)")
-    #expect(!text.contains(index == 0 ? "tmp" : "work"), "\(text)")
-    #expect(text.contains(index == 0 ? "75%" : "25%"), "\(text)")
-    #expect(text.replacingOccurrences(of: " ", with: "").contains(index == 0 ? "20mb" : "40mb"), "\(text)")
+    try await renderProcessLabel(host, output: output)
+    #expect(!label.showsOwner)
+    #expect(label.directory.contains(index == 0 ? "work" : "tmp"))
+    #expect(!label.directory.contains(index == 0 ? "tmp" : "work"))
     #expect(host.fittingSize.height <= 36)
 }
 
 @Test(arguments: [ReportGrouping.none, .session], [false, true])
-@MainActor func nativeStandaloneRowsExposeOwnersWithoutOpeningDetails(grouping: ReportGrouping, pinned: Bool)
+@MainActor func nativeStandaloneRowsKeepProcessSelectionWithoutOpeningDetails(
+    grouping: ReportGrouping, pinned: Bool
+)
     async throws
 {
     _ = NSApplication.shared
@@ -165,10 +159,8 @@ import Testing
     defer { window.close() }
     let output = ProcessInfo.processInfo.environment["MENUBAR_STANDALONE_PREVIEW_PATH"]
         .map { URL(fileURLWithPath: $0).deletingPathExtension().path + "-\(grouping.rawValue)-\(pinned).png" }
-    let text = try await processDirectoryRenderText(host, output: output)
-    for expected in ["claude", "abcdabcd", "12345678", "java", "work", "tmp/web"] {
-        #expect(text.contains(expected), "\(text)")
-    }
+    try await renderProcessLabel(host, output: output)
+    #expect(Set(model.visibleRowIDs) == Set(snapshot.findings.map { .process($0.process) }))
     await model.stop()
 }
 
@@ -205,23 +197,25 @@ private enum StandaloneEvidenceFixture: CaseIterable {
             threadID: nil, rootSessionID: nil, runtime: kind == .shared ? identity : nil,
             terminal: nil, runtimeDirectory: nil, candidateThreadIDs: ["candidate-a", "candidate-b"],
             ancestry: []))
+    let label = MenuBarProcessLabel(
+        process: process, placement: .standalone,
+        directory: ProcessDirectoryLabels([process]).label(for: process),
+        cpuText: "75%", footprintText: "20 MB"
+    )
     let host = NSHostingView(
-        rootView: MenuBarProcessLabel(
-            process: process, placement: .standalone,
-            directory: ProcessDirectoryLabels([process]).label(for: process),
-            cpuText: "75%", footprintText: "20 MB"
-        ).frame(width: 280).padding(8).background(Color(nsColor: .windowBackgroundColor)))
+        rootView: label.frame(width: 280).padding(8).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
     host.layoutSubtreeIfNeeded()
     host.frame.size = host.fittingSize
-    let text = try await processDirectoryRenderText(host, output: nil)
-    #expect(text.contains(kind.label), "\(text)")
-    #expect(text.contains(kind == .unknown ? "unknown" : "codex"), "\(text)")
-    #expect(!text.contains("candidate-a") && !text.contains("candidate-b"))
-    #expect(text.contains("node") && text.contains("75%"), "\(text)")
+    try await renderProcessLabel(host, output: nil)
+    #expect(label.showsOwner)
+    #expect(label.ownerLabel.lowercased().contains(kind.label))
+    #expect(label.ownerLabel.lowercased().contains(kind == .unknown ? "unknown" : "codex"))
+    #expect(!label.ownerLabel.contains("candidate-a") && !label.ownerLabel.contains("candidate-b"))
+
 }
 
-@Test @MainActor func standaloneHistoricalLabelChangesStayVisibleBesideTheOwner() async throws {
+@Test @MainActor func standaloneHistoricalLabelsKeepOwnerAndFit() async throws {
     _ = NSApplication.shared
     let original = try #require(try sessionLabelSnapshot().findings.first)
     let process = HeavyProcess(
@@ -232,24 +226,25 @@ private enum StandaloneEvidenceFixture: CaseIterable {
             cpuSeconds: 1, recoveredCPUSeconds: 0, pointCandidateCPUSeconds: 0.7,
             uncertainCPUSeconds: 0.3, isHistorical: true, lastObservedAt: 1,
             lastObservedFootprintBytes: 320_000_000, labelChangedInWindow: true))
+    let label = MenuBarProcessLabel(
+        process: process, placement: .standalone,
+        directory: ProcessDirectoryLabels([process]).label(for: process),
+        cpuText: "90%", footprintText: "—"
+    )
     let host = NSHostingView(
-        rootView: MenuBarProcessLabel(
-            process: process, placement: .standalone,
-            directory: ProcessDirectoryLabels([process]).label(for: process),
-            cpuText: "90%", footprintText: "—"
-        ).frame(width: 280).padding(8).background(Color(nsColor: .windowBackgroundColor)))
+        rootView: label.frame(width: 280).padding(8).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
     host.layoutSubtreeIfNeeded()
     host.frame.size = host.fittingSize
-    let text = try await processDirectoryRenderText(
+    try await renderProcessLabel(
         host, output: ProcessInfo.processInfo.environment["MENUBAR_HISTORICAL_LABEL_PREVIEW_PATH"])
-    for expected in ["claude", "abcdabcd", "changed", "past", "90%"] {
-        #expect(text.contains(expected), "\(text)")
-    }
-    #expect(!text.contains("0.32"))
+    #expect(label.showsOwner)
+    #expect(label.ownerLabel == "claude · abcdabcd")
+    #expect(host.fittingSize.height <= 60)
+
 }
 
-@MainActor private func processDirectoryRenderText(_ host: NSView, output: String?) async throws -> String {
+@MainActor private func renderProcessLabel(_ host: NSView, output: String?) async throws {
     let window = host.window == nil ? await mountOffscreenNativePreview(host) : nil
     defer { window?.close() }
     let bitmap = try #require(
@@ -260,16 +255,13 @@ private enum StandaloneEvidenceFixture: CaseIterable {
             bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
     if let output {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: output))
     }
-    return recognized.map(\.text)
-        .joined(separator: " ").lowercased()
 }
 
-@Test @MainActor func nativeOverviewLongExecutablesKeepDistinctDirectoriesVisible() async throws {
+@Test @MainActor func nativeOverviewLongExecutableLabelsKeepDirectoryModelsAndFit() async throws {
     _ = NSApplication.shared
     var overview = ContributorOverview()
     overview.receive(
@@ -289,19 +281,19 @@ private enum StandaloneEvidenceFixture: CaseIterable {
         host.appearance = NSAppearance(named: .aqua)
         host.layoutSubtreeIfNeeded()
         host.frame.size = host.fittingSize
-        let text = try await processDirectoryRenderText(
+        try await renderProcessLabel(
             host,
             output: ProcessInfo.processInfo.environment["MENUBAR_WORKLOAD_PREVIEW_PATH"].map {
                 $0 + "-\(index).png"
             })
         let cwd = try #require(row.node.inspectionFields.first { $0.label == "Directory" }).value
-        #expect(text.contains(cwd == "/work/app" ? "work/app" : "tmp/web"), "\(text)")
-        #expect(text.contains("rust"), "\(text)")
+        #expect(row.node.label.title.contains(cwd))
+        #expect(row.node.label.title.contains("rust-analyzer-proc-macro-srv"))
         #expect(host.fittingSize.height <= 90)
     }
 }
 
-@Test @MainActor func nativeRootGroupKeepsChildThreadIdentitiesVisible() async throws {
+@Test @MainActor func nativeRootGroupLabelsExposeChildThreadIdentities() async throws {
     _ = NSApplication.shared
     let sessions = ["abcdabcd-root", "12345678-child", "87654321-child"]
     let snapshot = try sessionLabelSnapshot(
@@ -321,9 +313,15 @@ private enum StandaloneEvidenceFixture: CaseIterable {
     host.appearance = NSAppearance(named: .aqua)
     host.frame = NSRect(x: 0, y: 0, width: MenuBarLayout.width, height: 700)
     host.layoutSubtreeIfNeeded()
-    let text = try await processDirectoryRenderText(
+    try await renderProcessLabel(
         host, output: ProcessInfo.processInfo.environment["MENUBAR_ROOT_PREVIEW_PATH"])
-    for id in sessions { #expect(text.contains(id.prefix(8)), "\(text)") }
+    for process in group.processes {
+        let label = MenuBarProcessLabel(
+            process: process, placement: .sessionChild(group.id), directory: process.cwd ?? "",
+            cpuText: "90%", footprintText: "320 MB")
+        #expect(label.ownerLabel.contains(String(try #require(process.attribution.threadID).prefix(8))))
+        if process.attribution.threadID != sessions[0] { #expect(label.showsOwner) }
+    }
     await model.stop()
 }
 

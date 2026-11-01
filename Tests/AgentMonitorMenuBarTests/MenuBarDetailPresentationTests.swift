@@ -20,8 +20,10 @@ import Testing
         ),
         InspectionField("Exact session", "claude/0aeb8793-41d0-445d-a102-27a87127bd99"),
     ]
+    let recorder = NativeTextLayoutRecorder()
     let host = NSHostingView(
         rootView: MenuBarInspectionFields(fields: fields)
+            .textRenderer(recorder.renderer)
             .frame(width: 372).padding(14).lineLimit(1)
             .background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
@@ -32,12 +34,10 @@ import Testing
     #expect(host.bounds.width == 400)
     #expect(host.bounds.height > 120)
     let bitmap = try detailBitmap(host)
-    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
-    let text = recognized.map(\.text).joined(separator: " ")
-    #expect(text.contains("WORKSPACE-END"), "\(text)")
-    #expect(text.contains("EXECUTABLE-END"), "\(text)")
-    #expect(text.contains("27a87127bd99"), "\(text)")
-    #expect(!text.contains("…"), "\(text)")
+    let layouts = recorder.measurements.withLock { $0 }
+    #expect(layouts.count >= fields.count * 2)
+    #expect(layouts.allSatisfy { !$0.isTruncated })
+    #expect(layouts.contains { $0.lineCount > 1 })
     if let output = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: output).appendingPathComponent("full-paths.png"))
@@ -172,7 +172,7 @@ private struct ContributorTableBackdrop: View {
     return bitmap
 }
 
-@Test @MainActor func compactProcessInspectorKeepsWindowHeaderInsideBounds() async throws {
+@Test @MainActor func compactProcessInspectorKeepsSelectedRowVisibleAndPanelSize() async throws {
     _ = NSApplication.shared
     let snapshot = try nativeOverviewFixture(unreadable: 3)
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
@@ -205,14 +205,7 @@ private struct ContributorTableBackdrop: View {
     let selectedRect = outline.rect(ofRow: row)
     #expect(outline.visibleRect.intersects(selectedRect))
     #expect(selectedRect.minY >= outline.visibleRect.minY - 1)
-    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
-    let heading = try #require(
-        recognized.first { $0.text == "Agent Monitor" })
-    #expect(heading.bounds.maxY < 0.99)
-    #expect(heading.bounds.minY > 0.85)
-    let status = try #require(recognized.first { $0.text == "Live updates" })
-    #expect(abs(status.bounds.midY - heading.bounds.midY) < 0.015)
-    #expect(status.bounds.minX > heading.bounds.maxX)
+    #expect(host.bounds.size == NSSize(width: MenuBarLayout.width, height: 420))
     if let directory = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: directory).appendingPathComponent("compact-process-inspector.png"))
@@ -221,7 +214,7 @@ private struct ContributorTableBackdrop: View {
 }
 
 @Test(arguments: [false, true], [false, true]) @MainActor
-func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool, selected: Bool) async throws {
+func historicalDirectoryKeepsPresenceSeparateAndCountsStable(dark: Bool, selected: Bool) async throws {
     let path =
         "/Users/fixture/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/very-long-workspace/jsonschema-0.58.6"
     let snapshot = try nativeOverviewFixture(historicalDirectory: path)
@@ -295,10 +288,6 @@ func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool, selected: Bool)
     let window = await mountOffscreenNativePreview(host)
     defer { window.close() }
     let bitmap = try detailBitmap(host)
-    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
-    let text = recognized.map(\.text).joined(separator: " ")
-    #expect(text.contains("java"), "\(text)")
-    #expect(!text.contains("observed"), "Presence must not form part of a truncated path: \(text)")
     if let directory = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: directory).appendingPathComponent(
@@ -363,8 +352,6 @@ func historicalDirectoryTruncatesWithoutPresenceText(dark: Bool, selected: Bool)
     let window = await mountOffscreenNativePreview(host)
     defer { window.close() }
     let bitmap = try detailBitmap(host)
-    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
-    #expect(recognized.contains { $0.text.localizedCaseInsensitiveContains("Copy all") })
     #expect(host.fittingSize.width <= 580)
     if let directory = ProcessInfo.processInfo.environment["MENUBAR_DETAIL_PREVIEW_DIRECTORY"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(

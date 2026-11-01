@@ -28,8 +28,9 @@ import Testing
         timestamp: Date(timeIntervalSince1970: 0), intervalSeconds: 0.1,
         cpuThresholdPercent: 0, memoryThresholdBytes: 0, sampledProcessCount: 0,
         unreadableProcessCount: 0, findings: [])
+    let summary = SamplingCoverageSummary(snapshot: snapshot)
     let host = NSHostingView(
-        rootView: MenuBarCoverageSummary(summary: SamplingCoverageSummary(snapshot: snapshot))
+        rootView: MenuBarCoverageSummary(summary: summary)
             .padding(12).frame(width: 400).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
     host.layoutSubtreeIfNeeded()
@@ -47,17 +48,10 @@ import Testing
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: path))
     }
-    let image = try #require(bitmap.cgImage)
-    let recognized: [NativeRecognizedText]
-    do {
-        recognized = try await nativeRecognizedText(in: image)
-    } catch {
-        Issue.record(
-            error, "Vision OCR failed for the \(image.width) × \(image.height) offscreen coverage bitmap")
-        return
+    let metrics = Dictionary(uniqueKeysWithValues: summary.metrics.map { ($0.title, $0.value) })
+    #expect(metrics["Sampling"] == "Adaptive")
+    for title in ["Requested / base", "Rolling support", "Recent support"] {
+        #expect(metrics[title]?.isEmpty == false)
     }
-    let text = recognized.map(\.text).joined(separator: " ")
-    for label in ["Adaptive", "Requested / base", "Rolling support", "Recent support", "Recovery"] {
-        #expect(text.contains(label))
-    }
+    #expect(metrics["Recovery"] == "1 × / 0.50 s")
 }

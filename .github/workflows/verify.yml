@@ -38,7 +38,7 @@ jobs:
           MENUBAR_ICON_PREVIEW_PATH="$PWD/.build/menubar-validation/icons.png" \
           MENUBAR_OVERVIEW_PREVIEW_PATH="$PWD/.build/menubar-validation/overview.png" \
           MENUBAR_REFERENCE_PREVIEW_DIRECTORY="$PWD/.build/menubar-validation" \
-          swift test
+          swift test --no-parallel
       - name: Retain synthetic native renders
         if: always()
         uses: actions/upload-artifact@v6

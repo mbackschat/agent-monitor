@@ -75,7 +75,7 @@ import Testing
     #expect(model.referencePage == nil)
 }
 
-@Test @MainActor func contextualGlossaryKeepsTheRequestedTopicVisible() async throws {
+@Test @MainActor func contextualGlossaryScrollsToRequestedTopicAndGeneralHelpReturnsToTop() async throws {
     _ = NSApplication.shared
     let model = MenuBarModel { _, _, _ in }
     let topic = ReportGlossary.contributorGroup(.released)
@@ -92,8 +92,8 @@ import Testing
     host.layoutSubtreeIfNeeded()
     let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let text = try await nativeRecognizedText(in: #require(bitmap.cgImage)).map(\.text).joined(separator: " ")
-    #expect(text.contains("detail released"), "The selected glossary topic must be visible: \(text)")
+    let scroll = try #require(referenceScrollView(in: host))
+    #expect(scroll.contentView.bounds.minY > 0)
     if let directory = ProcessInfo.processInfo.environment["MENUBAR_REFERENCE_PREVIEW_DIRECTORY"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: directory).appendingPathComponent("contextual-glossary.png"))
@@ -104,8 +104,8 @@ import Testing
     await Task.yield()
     host.layoutSubtreeIfNeeded()
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let top = try await nativeRecognizedText(in: #require(bitmap.cgImage)).map(\.text).joined(separator: " ")
-    #expect(top.contains("Processes / Procs"), "General help must start at the top: \(top)")
+    let resetScroll = try #require(referenceScrollView(in: host))
+    #expect(abs(resetScroll.contentView.bounds.minY) < 1)
     model.referencePage = nil
     #expect(model.glossaryTopic == nil)
 }

@@ -36,7 +36,7 @@ struct MenuBarProcessLabel: View {
         }
     }
 
-    private var showsOwner: Bool {
+    var showsOwner: Bool {
         switch placement {
         case .standalone: true
         case .sessionChild(let parent):
@@ -54,7 +54,7 @@ struct MenuBarProcessLabel: View {
         SessionCorroboration.isExactSession(process.attribution)
     }
 
-    private var ownerLabel: String {
+    var ownerLabel: String {
         let provider = process.attribution.provider?.rawValue ?? "Unknown agent"
         let session: String
         if exactSession, let id = process.attribution.threadID {

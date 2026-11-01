@@ -44,7 +44,7 @@ if [ "$mode" = prepare ]; then
     release_validation="$root/.build/release-validation"
     mkdir -p "$release_validation"
     CPU_DIAGNOSIS_FIXTURE_PATH="$release_validation/diagnosis.jsonl" \
-        JSON_REPORT_FIXTURE_PATH="$release_validation/reports.jsonl" swift test
+        JSON_REPORT_FIXTURE_PATH="$release_validation/reports.jsonl" swift test --no-parallel
     bash scripts/preview.sh check
     swift build -c release -debug-info-format none
     uv run scripts/verify-json-schema.py .build/release/agent-monitor \

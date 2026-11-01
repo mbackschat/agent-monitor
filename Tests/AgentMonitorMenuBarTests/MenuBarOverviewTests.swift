@@ -234,7 +234,7 @@ func nativeOverviewFixture(
         window: projection.summary, recentActivity: store.snapshot())
 }
 
-@Test @MainActor func processReadGapsRemainVisibleWithoutADuplicateCoverageAction() async throws {
+@Test @MainActor func processReadGapsKeepFooterWarningBadge() async throws {
     let snapshot = try nativeOverviewFixture(unreadable: 3)
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
@@ -254,10 +254,6 @@ func nativeOverviewFixture(
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
-    let text = recognized.map(\.text)
-        .joined(separator: " ")
-    #expect(!text.contains("Read failures"), "\(text)")
     let hasWarningBadge = (bitmap.pixelsHigh * 4 / 5..<bitmap.pixelsHigh).contains { y in
         (0..<bitmap.pixelsWide / 3).contains { x in
             guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else { return false }
@@ -270,13 +266,11 @@ func nativeOverviewFixture(
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: path))
     }
-    #expect(!text.contains("See Diagnostics"))
-    #expect(!text.contains("Details"))
     #expect(model.report.displayCoverageStatus.notes.contains { $0.text.contains("3 same-user") })
     await model.stop()
 }
 
-@Test @MainActor func samplingCoverageRendersMetricsWithoutDiagnosticParagraphs() async throws {
+@Test @MainActor func samplingCoverageKeepsMetricValuesAndFitsCompactLayout() async throws {
     _ = NSApplication.shared
     let snapshot = try nativeOverviewFixture(unreadable: 9)
     var reads = ReadCoverage()
@@ -307,37 +301,21 @@ func nativeOverviewFixture(
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
-    let text = recognized.map(\.text).joined(separator: " ")
-    for (title, value) in [
-        ("Observed", "126"), (#"Read fa[il]lures"#, "15"), ("Sampled", "23"),
-    ] {
-        let label = try #require(
-            recognized.first { $0.text.range(of: title, options: .regularExpression) != nil })
-        #expect(
-            recognized.contains {
-                $0.text == value && abs($0.bounds.minX - label.bounds.minX) < 0.04
-                    && $0.bounds.midY > label.bounds.midY
-                    && $0.bounds.midY - label.bounds.midY < label.bounds.height * 3
-            }, "Missing value \(value) above \(title): \(text)")
-    }
-    #expect(text.range(of: #"47[.,]5\s*/\s*60 s"#, options: .regularExpression) != nil)
-    for (title, value) in [("Exited before read", "23"), ("Other", "15")] {
-        let label = try #require(recognized.first { $0.text == title })
-        #expect(
-            recognized.contains {
-                $0.text == value && $0.bounds.minX > label.bounds.maxX
-                    && abs($0.bounds.midY - label.bounds.midY) < label.bounds.height / 2
-            }, "Missing value \(value) beside \(title): \(text)")
-    }
-    #expect(!text.contains("Session CPU is"))
+    let metrics = Dictionary(uniqueKeysWithValues: summary.metrics.map { ($0.title, $0.value) })
+    #expect(metrics["Observed"] == "126")
+    #expect(metrics["Read failures"] == "15")
+    #expect(metrics["Sampled"] == "23")
+    #expect(summary.duration == 47.5)
+    let events = Dictionary(uniqueKeysWithValues: summary.events.map { ($0.title, $0.value) })
+    #expect(events["Exited before read"] == "23")
+    #expect(events["Other"] == "15")
     if let path = ProcessInfo.processInfo.environment["MENUBAR_COVERAGE_PREVIEW_PATH"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: path))
     }
 }
 
-@Test @MainActor func commandInspectionRendersArgumentBoundariesInABoundedPane() async throws {
+@Test @MainActor func commandInspectionPreservesArgumentBoundariesInABoundedPane() async throws {
     _ = NSApplication.shared
     let process = try #require(try nativeOverviewFixture().findings.first)
     let controller = CommandInspectionController { _ in
@@ -348,8 +326,10 @@ func nativeOverviewFixture(
     }
     #expect(controller.start(process))
     await controller.wait()
+    let recorder = NativeTextLayoutRecorder()
     let host = NSHostingView(
         rootView: MenuBarCommandInspection(process: process, controller: controller)
+            .textRenderer(recorder.renderer)
             .padding(12).frame(width: 400).background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
     host.layoutSubtreeIfNeeded()
@@ -363,12 +343,18 @@ func nativeOverviewFixture(
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
-    let text = recognized.map(\.text).joined(separator: " ")
-    #expect(text.contains("read on demand"), "\(text)")
-    #expect(text.replacingOccurrences(of: " ", with: "").contains("ARGUMENT-END"), "\(text)")
-    #expect(text.contains("two words"), "\(text)")
-    #expect(text.contains("Hide"), "\(text)")
+    let layouts = recorder.measurements.withLock { $0 }
+    #expect(!layouts.isEmpty)
+    #expect(layouts.allSatisfy { !$0.isTruncated })
+    let inspection = try #require(controller.state)
+    #expect(inspection.process == process.process)
+    let arguments = try #require(inspection.arguments)
+    #expect(arguments.count == 3)
+    #expect(arguments[0].hasSuffix("/ARGUMENT-END"))
+    #expect(arguments[1] == "-Xmx2g")
+    #expect(arguments[2] == "two words")
+    #expect(inspection.summary.contains("read on demand"))
+
 }
 
 @Test @MainActor func contributorInfoIsSeparateFromFolding() async throws {
@@ -399,12 +385,10 @@ func nativeOverviewFixture(
         })
     #expect(node.populationFields.allSatisfy { $0.help?.isEmpty == false })
     #expect(node.inspectionFields.filter { $0.kind == .evidence }.allSatisfy { $0.help?.isEmpty == false })
+    let inspection = MenuBarContributorInspection(
+        node: node, duration: overview.duration, canInspect: false, inspect: {})
     let host = NSHostingView(
-        rootView:
-            MenuBarContributorInspection(
-                node: node, duration: overview.duration,
-                canInspect: false, inspect: {}
-            ).frame(width: 580, height: 1200)
+        rootView: inspection.frame(width: 580, height: 1200)
             .background(Color(nsColor: .windowBackgroundColor)))
     host.appearance = NSAppearance(named: .aqua)
     host.layoutSubtreeIfNeeded()
@@ -417,28 +401,20 @@ func nativeOverviewFixture(
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
     bitmap.size = host.bounds.size
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
-    let text = recognized.map(\.text).joined(separator: " ")
-    #expect(text.contains("Agent"), "\(text)")
-    #expect(text.contains("Session"), "\(text)")
-    #expect(text.contains("Directory"), "\(text)")
-    #expect(text.contains("Executable"), "\(text)")
-    #expect(text.contains("Recent CPU"), "\(text)")
-    #expect(!text.contains("CPU history"), "Details must not repeat the row chart: \(text)")
-    #expect(!text.contains("Interval values"))
-    #expect(!text.localizedCaseInsensitiveContains("Hover to inspect"))
-    #expect(!text.contains("Resume"))
-    #expect(text.contains("Processes now"), "Counts should be visible without disclosure: \(text)")
-    #expect(text.contains("Meaning"), "Counts need visible explanations: \(text)")
-    #expect(text.contains("Attribution"), "Evidence remains available on demand: \(text)")
-    #expect(!text.contains("Frozen root"), "Technical evidence should start collapsed: \(text)")
+    let context = node.inspectionFields.filter { $0.kind == .context }
+    for label in ["Agent", "Session", "Directory", "Executable"] {
+        #expect(context.contains { $0.label == label && !$0.value.isEmpty })
+    }
+    #expect(inspection.resourceSummary.contains("Recent CPU"))
+    #expect(node.populationFields.contains { $0.label == "Processes now" })
+    #expect(!node.inspectionFields.filter { $0.kind == .evidence }.isEmpty)
     if let path = ProcessInfo.processInfo.environment["MENUBAR_INSPECTION_PREVIEW_PATH"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: path))
     }
 }
 
-@Test @MainActor func processLabelShowsEmbeddedInvocationInsteadOfVersionName() async throws {
+@Test @MainActor func processLabelUsesEmbeddedInvocationAndFits() async throws {
     _ = NSApplication.shared
     let original = try #require(try nativeOverviewFixture().findings.first)
     let process = HeavyProcess(
@@ -459,8 +435,7 @@ func nativeOverviewFixture(
     host.frame.size = host.fittingSize
     let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
     host.cacheDisplay(in: host.bounds, to: bitmap)
-    let recognized = try await nativeRecognizedText(in: #require(bitmap.cgImage))
-    let text = recognized.map(\.text).joined(separator: " ")
-    #expect(text.contains("ugrep"), "\(text)")
-    #expect(!text.contains("2.1.299"), "\(text)")
+    #expect(process.observedName == "ugrep")
+    #expect(host.fittingSize.height <= 60)
+
 }

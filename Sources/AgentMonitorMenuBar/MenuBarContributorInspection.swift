@@ -14,7 +14,7 @@ struct MenuBarContributorInspection: View {
         node.ownerHeadline + (node.ownerHeadline == node.label.headline ? "" : " / " + node.label.headline)
     }
 
-    private var resourceSummary: String {
+    var resourceSummary: String {
         "CPU " + node.stats.cpuText(duration: duration) + " · Memory "
             + node.stats.currentMemoryText + " · Recent CPU " + node.stats.recentCPUText
     }
