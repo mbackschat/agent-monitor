@@ -64,7 +64,7 @@ Actions require frozen identity, fresh same-user/target verification and explici
 | TUI or resource history | [TUI contract](docs/architecture.md#tui-contract), [history contract](docs/architecture.md#resource-history), [terminal checks](docs/development.md#terminal-and-machine-output-checks). |
 | CLI options or JSONL | [Wire/presentation boundary](docs/architecture.md#boundary-for-multiple-presentations), [usage](docs/usage.md). Verify defaults, units and combinations against `Options.swift` and generated `--help`; update the README option table/examples and affected usage, including TUI's unlimited report default. |
 | Research note, proposal or decision record | [Research index](docs/research/README.md), [proposal lifecycle and folder indices](docs/development.md#documentation-and-instruction-maintenance); change statuses with `python3 scripts/docs.py status`. |
-| Rendered documentation | [Preview maintenance](docs/development.md#readme-preview), [native image generation](docs/development.md#build-and-coverage-details). |
+| Rendered documentation | [Preview maintenance](docs/development.md#readme-preview), [native image generation](docs/development.md#build-and-coverage-details). Update the tracked `menubar-preview.webp` only for releases; keep intermediate review PNGs ignored. |
 | Dependencies, skills or packaging | [Dual-host skills](docs/development.md#skills-shared-by-codex-cli-and-claude-code), [release packaging](docs/releasing.md). Pin changes require [third-party notices](THIRD_PARTY_NOTICES.md) from locked sources, including vendored components/fonts; retain notices and licenses in archives. |
 
 ## Skill activation

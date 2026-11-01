@@ -122,7 +122,7 @@ The generator places each visible grapheme at its terminal-cell coordinate and l
 
 PREVIEW-01 was resolved on 2026-10-29: deliberately delaying metadata made the previous fixture's first report lose all seven agent contributors; synchronous launch evidence and controlled acquisition/publication remove that scheduling dependency. The published SVG remained byte-identical. An earlier isolated stale check did not retain its differing output, so this reproduction does not establish that incident's exact cause.
 
-Size documentation images for their displayed dimensions, allowing 2× resolution for raster icons. Keep optimized web assets rather than full-resolution masters, and check file size and visual quality before committing. The README logo is a 256 × 256 WebP displayed at 128 × 128; preserve explicit display dimensions and descriptive alternative text. The native header bundles the same artwork in [its resources](../Sources/AgentMonitorMenuBar/Resources/agent-monitor.webp); the resource test requires byte equality with the README asset, so update both copies together. Keep the additional [native panel screenshot](assets/menubar-preview.webp) alongside the TUI preview, using the [synthetic offscreen render](#build-and-coverage-details); it does not establish live anchoring.
+Size documentation images for their displayed dimensions, allowing 2× resolution for raster icons. Keep optimized web assets rather than full-resolution masters, and check file size and visual quality before committing. The README logo is a 256 × 256 WebP displayed at 128 × 128; preserve explicit display dimensions and descriptive alternative text. The native header bundles the same artwork in [its resources](../Sources/AgentMonitorMenuBar/Resources/agent-monitor.webp); the resource test requires byte equality with the README asset, so update both copies together. Keep the additional [native panel screenshot](assets/menubar-preview.webp) alongside the TUI preview. Update this tracked WebP only during [release preparation](releasing.md#release-in-three-steps), using the [synthetic offscreen render](#build-and-coverage-details); intermediate review PNGs stay in ignored `.build/design-studies/`. This limits binary history growth and does not establish live anchoring.
 
 ## Documentation and instruction maintenance
 
@@ -404,13 +404,24 @@ Pass `--history` to the optimized standalone probe for four sequential 40-sample
 
 This development-only probe is not a package product or a release component. Both probes use local-only production collection and record process CPU time and elapsed time without saving process identities or paths. This debug test-harness measurement includes native attribution/summary collection, but excludes provider resolution and menu bar drawing and is not an app wakeup or battery measurement.
 
-The additional [README native screenshot](assets/menubar-preview.webp) comes from the production SwiftUI hosting view with synthetic identities and measurements, showing Main contributors and recent activity. Keep the contributor-overview TUI preview as well. Regenerate the native asset after visible native changes:
+The additional [README native screenshot](assets/menubar-preview.webp) comes from the production SwiftUI hosting view with synthetic identities and measurements, showing Main contributors and recent activity. Refresh the tracked WebP only for releases; ordinary native UI changes still need visual review, with PNGs kept in ignored `.build/design-studies/`. The generated TUI SVG keeps its existing per-change drift check. Render native review images with:
 
 ```sh
-TZ=UTC MENUBAR_OVERVIEW_PREVIEW_PATH=/tmp/agent-monitor-menubar.png swift test --filter nativeContributorOverviewRenders
-TZ=UTC MENUBAR_PREVIEW_PATH=/tmp/agent-monitor-processes.png MENUBAR_ICON_PREVIEW_PATH=/tmp/agent-monitor-icons.png swift test --filter menuBarNativeLayoutRendersAtPopoverSize
-cwebp -lossless /tmp/agent-monitor-menubar.png -o docs/assets/menubar-preview.webp
-cwebp -lossless /tmp/agent-monitor-icons.png -o docs/assets/menubar-load-icons.webp
+mkdir -p .build/design-studies
+TZ=UTC MENUBAR_OVERVIEW_PREVIEW_PATH="$PWD/.build/design-studies/menubar-preview.png" swift test --filter nativeContributorOverviewRenders
+TZ=UTC MENUBAR_PREVIEW_PATH="$PWD/.build/design-studies/menubar-processes.png" MENUBAR_ICON_PREVIEW_PATH="$PWD/.build/design-studies/menubar-icons.png" swift test --filter menuBarNativeLayoutRendersAtPopoverSize
+```
+
+During release preparation, convert the reviewed light overview and commit it with the release version change; skip the asset commit if its bytes are unchanged:
+
+```sh
+cwebp -lossless .build/design-studies/menubar-preview.png -o docs/assets/menubar-preview.webp
+```
+
+The separate icon-strip asset can be regenerated when its documented appearance changes:
+
+```sh
+cwebp -lossless .build/design-studies/menubar-icons.png -o docs/assets/menubar-load-icons.webp
 ```
 
 `cwebp` is an optional documentation tool (Homebrew `webp`), not an app/build dependency. The render produces light appearance at the requested path and dark appearance at its `-dark.png` sibling; AppKit supplies native typography and controls. Keep the dark panel render as temporary validation output; only the light panel screenshot belongs in README and the tracked assets. README displays the image at 620 × 560 points; retain up to 2× pixel density. Inspect the output for clipping and spacing; keep each optimized WebP below 200 KB. The additional 300 × 92-point icon strip uses synthetic levels in borderless buttons, with explicit light/dark tints; it shows startup geometry and CPU load levels, not an actual status bar capture. This is an offscreen panel capture, without simulated menu bar chrome; it does not validate anchoring, dismissal, keyboard focus or Automation. Successful image encoding alone is not a visual oracle.

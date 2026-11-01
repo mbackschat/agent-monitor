@@ -22,7 +22,7 @@ Agent Monitor shows which **coding agents, sessions and processes** are consumin
 
 <p><img src="docs/assets/menubar-preview.webp" width="620" height="560" alt="Native menu bar app showing contributor sessions, resource charts and expandable process groups."></p>
 
-*Both previews use synthetic data. This README describes the current source build; the menu bar app requires a source build, and newer controls may be ahead of the [latest release](https://github.com/mbackschat/agent-monitor/releases/latest).*
+*Both previews use synthetic data. The terminal preview follows the current source; the Mac preview is refreshed only for releases and may lag development. The menu bar app requires a source build, and newer controls may be ahead of the [latest release](https://github.com/mbackschat/agent-monitor/releases/latest).*
 
 ## What you can do
 
