@@ -6,6 +6,31 @@ import Testing
 
 @testable import monitor_preview
 
+@Test(arguments: [ContributorChartStyle.compact, .stacked], [false, true])
+func previewKeepsOverflowDistinctInColorAndMonochrome(style: ContributorChartStyle, monochrome: Bool)
+    async throws
+{
+    var state = try await Preview.ledgerState()
+    state.chartStyle = style
+    state.overview.setChartRange(.percent(100))
+    if style == .compact { state.overview.sort(by: .memory) }
+    let lines = LiveReportLayout.lines(state: state, width: 160, height: 32)
+    let bar = try #require(
+        lines.flatMap(\.runs).first {
+            ($0.style == .chartOverflow || $0.style == .chartOverflowFill) && $0.text.count > 1
+        })
+    let svg = Preview.svg(lines: lines, width: 160, height: 32, monochrome: monochrome)
+    let chart = Preview.svg(lines: [ReportLine(runs: [bar])], width: 24, height: 1, monochrome: monochrome)
+    #expect(chart.contains("fill=\"#e3b341\"") == !monochrome)
+    #expect(chart.contains("↑</tspan>") == monochrome)
+    #expect(chart.contains("<rect x=\"24\" y=\"52\"") == (!monochrome && style == .stacked))
+    if let directory = ProcessInfo.processInfo.environment["TUI_GROUPED_PREVIEW_DIRECTORY"] {
+        try svg.write(
+            to: URL(fileURLWithPath: directory).appendingPathComponent("overflow-\(style)-\(monochrome).svg"),
+            atomically: true, encoding: .utf8)
+    }
+}
+
 @Test(.timeLimit(.minutes(1))) func ledgerPreviewKeepsOwnershipAndHistoryWithDelayedMetadata() async throws {
     let held = DispatchSemaphore(value: 0)
     defer { held.signal() }

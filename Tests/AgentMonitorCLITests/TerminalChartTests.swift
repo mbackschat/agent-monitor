@@ -6,6 +6,31 @@ import Testing
 @testable import AgentMonitorTUI
 
 @Suite struct TerminalChartTests {
+    @Test(arguments: [ContributorChartStyle.compact, .stacked])
+    func aboveRangeChartsKeepFilledBarsWithWarningColor(style: ContributorChartStyle) throws {
+        var feed = OverviewFeed()
+        let workers = [OverviewFeed.Worker(session: "A", executable: "java", pid: 1, cpuPerSecond: 4.5)]
+        _ = try feed.advance(workers)
+        var state = LiveReportState()
+        state.chartStyle = style
+        state.receive(try feed.advance(workers))
+        state.overview.setChartRange(.percent(400))
+        let lines = ContributorLayout.lines(state: state, width: 160, height: 60)
+        let selected = try #require(lines.firstIndex { $0.style == .selected })
+        for index in [style == .compact ? 2 : 0, selected] {
+            let bar = try #require(
+                lines[index].runs.first {
+                    !$0.text.isEmpty && $0.text.allSatisfy { $0 == "█" || $0 == "↑" }
+                })
+            #expect(bar.text.allSatisfy { $0 == "█" })
+            #expect(bar.renderedText(monochrome: true).allSatisfy { $0 == "↑" })
+            let ansi = ANSIText.styled(ReportLine(runs: [bar]))
+            #expect(ansi.contains(style == .compact ? "\u{1B}[33m" : "\u{1B}[33;43m"))
+        }
+        #expect(
+            state.overview.activity.totalSamples.first??.percent(in: state.overview.activity.spans[0]) == 450)
+    }
+
     @Test(arguments: [
         "MesloLGLDZForPowerline-Regular", "Meslo LG L DZ Regular for Powerline",
         "MesloLGS-NerdFont-Regular", "Unknown Font", "",
@@ -63,10 +88,11 @@ import Testing
         let expected =
             percent == 0
             ? "_"
-            : (percent > 400 ? "↑" : String(Array("▁▂▃▄▅▆▇█")[Int((percent / 400 * 8).rounded(.up)) - 1]))
+            : String(Array("▁▂▃▄▅▆▇█")[min(8, Int((percent / 400 * 8).rounded(.up))) - 1])
         let selected = try #require(lines.firstIndex { $0.style == .selected })
-        #expect(lines[2].runs.contains { $0.style == .separator && $0.text.contains(expected) })
-        #expect(lines[selected].runs.contains { $0.style == .separator && $0.text.contains(expected) })
+        let expectedStyle: ReportLine.Style = percent > 400 ? .chartOverflow : .separator
+        #expect(lines[2].runs.contains { $0.style == expectedStyle && $0.text.contains(expected) })
+        #expect(lines[selected].runs.contains { $0.style == expectedStyle && $0.text.contains(expected) })
         #expect(!lines.flatMap(\.runs).contains { $0.style == .chartFill })
         let bars = Set("▁▂▃▄▅▆▇█")
         for index in [0, 1, selected + 1, selected + 2] {

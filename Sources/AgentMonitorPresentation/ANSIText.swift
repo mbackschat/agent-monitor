@@ -13,6 +13,8 @@ public enum ANSIText {
             case .metric: "1;36"
             case .shortcut: "1;4;36"
             case .chartFill: "34;44"
+            case .chartOverflow: "33"
+            case .chartOverflowFill: "33;43"
             case .heading: "1"
             case .selected: "1;7"
             case .separator: "34"

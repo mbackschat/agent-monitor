@@ -238,7 +238,8 @@ private func assertCleanExit(
 }
 
 private func launch(
-    _ binary: String, terminal: Int32, environment additions: [String: String] = [:]
+    _ binary: String, terminal: Int32, environment additions: [String: String] = [:],
+    removingEnvironment: Set<String> = []
 ) throws -> pid_t {
     var actions: posix_spawn_file_actions_t?
     try #require(posix_spawn_file_actions_init(&actions) == 0)
@@ -247,6 +248,7 @@ private func launch(
         try #require(posix_spawn_file_actions_adddup2(&actions, terminal, descriptor) == 0)
     }
     let environment = ProcessInfo.processInfo.environment
+        .filter { !removingEnvironment.contains($0.key) }
         .merging(["TERM": "xterm-256color"]) { _, new in new }
         .merging(additions) { _, new in new }
     var arguments = [strdup(binary), nil]
@@ -767,8 +769,13 @@ func terminalActionsRequireConfirmationAndPasteCannotSubmit(quitWhileUndersized:
     try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
 }
 
-@Test(arguments: [false, true], ["compact", "auto"])
-func terminalCompactChartsKeepOneGlyphRowInColorAndMonochrome(noColor: Bool, chartMode: String) async throws {
+@Test(arguments: [false, true], [("compact", 0.2), ("auto", 0.2), ("compact", 4.5), ("stacked", 4.5)])
+func terminalChartsPreserveCompactHeightAndOverflowInColorAndMonochrome(
+    noColor: Bool, scenario: (String, Double)
+) async throws {
+    let (chartMode, cpuPerSecond) = scenario
+    let compact = chartMode != "stacked"
+    let overflow = cpuPerSecond > 1
     let binary =
         ProcessInfo.processInfo.environment["AGENT_MONITOR_TUI_FIXTURE"]
         ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -781,9 +788,10 @@ func terminalCompactChartsKeepOneGlyphRowInColorAndMonochrome(noColor: Bool, cha
         binary, terminal: terminal.slave,
         environment: [
             "AGENT_MONITOR_OVERVIEW_FIXTURE": "1", "AGENT_MONITOR_CHART_FIXTURE": chartMode,
+            "AGENT_MONITOR_CPU_FIXTURE": String(cpuPerSecond),
             "TERM_PROGRAM": "Apple_Terminal", "TMUX": "synthetic-font-unavailable",
-            "NO_COLOR": noColor ? "1" : "",
-        ])
+        ].merging(noColor ? ["NO_COLOR": "1"] : [:]) { _, new in new },
+        removingEnvironment: ["NO_COLOR"])
     var reaped = false
     defer {
         if !reaped {
@@ -793,18 +801,26 @@ func terminalCompactChartsKeepOneGlyphRowInColorAndMonochrome(noColor: Bool, cha
     }
     var screen = ANSIVisibleScreen(size: .init(width: 160, height: 32))
     _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(10)) {
-        $0.contains("overview-project") && $0.contains("compact")
+        $0.contains("overview-project") && $0.contains("Overall CPU")
     }
     try writeAllBytes(Array("b".utf8), to: terminal.master)
+    let glyph = overflow ? (noColor ? "↑" : "█") : "▂"
     let rendered = try await waitForScreen(
         on: terminal.master, screen: &screen, deadline: .now() + .seconds(5)
     ) {
-        $0.contains("0–100% · compact") && $0.contains("▂")
+        $0.contains("0–100%") && $0.contains(String(repeating: glyph, count: 2))
     }
-    let plottedRows = rendered.components(separatedBy: "\n").enumerated().filter { $0.element.contains("▂") }
-    #expect(plottedRows.count == 2)
-    #expect(plottedRows.first?.offset == 2)
-    #expect(plottedRows.last?.element.contains("codex") == true)
+    let plottedRows = rendered.components(separatedBy: "\n").enumerated().filter {
+        $0.element.contains(String(repeating: glyph, count: 2))
+    }
+    #expect(plottedRows.count == (compact || noColor ? 2 : 6))
+    #expect(plottedRows.first?.offset == (compact ? 2 : 0))
+    #expect(plottedRows.contains { $0.element.contains("codex") })
+    #expect(rendered.contains("compact") == compact)
+    try writeAllBytes(Array("m".utf8), to: terminal.master)
+    _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)) {
+        $0.contains("Memory ↓") && $0.contains("Memory 400.0 MB")
+    }
     try writeAllBytes(Array("?".utf8), to: terminal.master)
     _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)) {
         $0.contains("Keyboard shortcuts")

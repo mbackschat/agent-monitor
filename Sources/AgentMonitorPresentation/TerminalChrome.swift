@@ -105,8 +105,13 @@ public enum TerminalChrome {
     }
 
     static func withChartLegend(_ footer: [ReportLine], width: Int) -> [ReportLine] {
-        let legend = ["↑  above chart range", "·  no measurement", "_  measured zero"]
-        let legendWidth = legend.map(TerminalCells.width).max() ?? 0
+        let legend = [
+            ReportLine(runs: [.init("█", style: .chartOverflow), .init("  above chart range", style: .muted)]
+            ),
+            ReportLine("·  no measurement", style: .muted),
+            ReportLine("_  measured zero", style: .muted),
+        ]
+        let legendWidth = legend.map { TerminalCells.width($0.text) }.max() ?? 0
         let column = width - legendWidth
         let startsWithRule = footer.first?.text.allSatisfy { $0 == "─" } == true
         guard footer.count == legend.count,
@@ -119,8 +124,9 @@ public enum TerminalChrome {
             let content = index == 0 && startsWithRule ? rule(width: column - 3) : line
             return ReportLine(
                 runs: content.runs + [
-                    .init(String(repeating: " ", count: column - TerminalCells.width(content.text))),
-                    .init(TerminalCells.padded(label, to: legendWidth), style: .muted),
+                    .init(String(repeating: " ", count: column - TerminalCells.width(content.text)))
+                ] + label.runs + [
+                    .init(String(repeating: " ", count: legendWidth - TerminalCells.width(label.text)))
                 ])
         }
     }

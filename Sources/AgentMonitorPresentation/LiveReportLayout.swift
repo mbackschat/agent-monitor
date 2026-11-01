@@ -4,7 +4,8 @@ import Foundation
 public struct ReportLine: Equatable, Sendable {
     /// Display roles; the TUI maps them to colors, which NO_COLOR removes.
     public enum Style: Sendable {
-        case normal, title, heading, identity, metric, shortcut, chartFill, selected, heavy, muted, separator,
+        case normal, title, heading, identity, metric, shortcut, chartFill, chartOverflow, chartOverflowFill,
+            selected, heavy, muted, separator,
             warning, success,
             failure
     }
@@ -15,6 +16,14 @@ public struct ReportLine: Equatable, Sendable {
         public init(_ text: String, style: Style = .normal) {
             self.text = TextReport.safe(text)
             self.style = style
+        }
+
+        public func renderedText(monochrome: Bool) -> String {
+            switch style {
+            case .chartOverflow, .chartOverflowFill:
+                monochrome ? String(repeating: "↑", count: TerminalCells.width(text)) : text
+            default: text
+            }
         }
     }
 

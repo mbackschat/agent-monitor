@@ -435,7 +435,7 @@ private struct TerminalReportView: View {
     }
 
     private func styled(_ run: ReportLine.Run) -> Text {
-        let text = Text(run.text)
+        let text = Text(run.renderedText(monochrome: monochrome))
         switch run.style {
         case .title: return text.foregroundStyle(.blue).bold()
         case .heading: return text.bold()
@@ -446,6 +446,10 @@ private struct TerminalReportView: View {
             return monochrome
                 ? Text(String(repeating: " ", count: TerminalCells.width(run.text))).reverse()
                 : text.foregroundStyle(.blue).cellBackground(.blue)
+        case .chartOverflow:
+            return monochrome ? text.bold() : text.foregroundStyle(.warning)
+        case .chartOverflowFill:
+            return monochrome ? text.bold() : text.foregroundStyle(.warning).cellBackground(.warning)
         case .separator: return text.foregroundStyle(.blue)
         case .selected: return text.bold().reverse()
         case .heavy: return text

@@ -40,7 +40,11 @@ enum TUIFixture {
                         configuration: try MonitoringConfiguration(
                             intervalSeconds: 0.1, samples: 0, collectAgentLoad: true, reportIntervalSeconds: 1
                         ),
-                        reader: FixtureOverviewReader(), recentActivity: RecentActivityStore())
+                        reader: FixtureOverviewReader(
+                            cpuPerSecond: Double(
+                                ProcessInfo.processInfo.environment["AGENT_MONITOR_CPU_FIXTURE"] ?? "") ?? 0.2
+                        ),
+                        recentActivity: RecentActivityStore())
                     try await session.run(thresholds: currentThresholds, interval: interval, receive)
                     return
                 }
@@ -122,6 +126,9 @@ private final class FixtureDiagnosisReader: DiagnosisReading, Sendable {
 
 private final class FixtureOverviewReader: ProcessReading, Sendable {
     let tick = Mutex(0)
+    let cpuPerSecond: Double
+
+    init(cpuPerSecond: Double) { self.cpuPerSecond = cpuPerSecond }
     func snapshot(excluding: Set<Int32>) throws -> ProcessSnapshot {
         let step = tick.withLock { value in
             defer { value += 1 }
@@ -130,7 +137,7 @@ private final class FixtureOverviewReader: ProcessReading, Sendable {
         let sample = ProcessSample(
             identity: ProcessIdentity(pid: 42, startMicroseconds: 1), parentPID: 0,
             executable: "/fixture/node", name: "fixture-worker", sampledAt: Double(step),
-            cpuSeconds: Double(step) * 0.2, footprintBytes: 400_000_000)
+            cpuSeconds: Double(step) * cpuPerSecond, footprintBytes: 400_000_000)
         return ProcessSnapshot(
             samples: [sample], enumeratedCount: 1, unreadableCount: 0,
             listedAt: Double(step), scanSeconds: 0, hostCounters: nil, logicalCPUCount: 8)

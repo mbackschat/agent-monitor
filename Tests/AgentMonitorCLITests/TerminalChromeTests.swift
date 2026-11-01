@@ -2,6 +2,19 @@ import AgentMonitorPresentation
 import Testing
 
 @Suite struct TerminalChromeTests {
+    @Test(arguments: [ContributorOrder.cpu, .memory, .stable, .contributor], [60, 160])
+    func summaryEmphasizesBothMetricsAndColorsTheActiveSort(order: ContributorOrder, width: Int) throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture())
+        state.overview.sort(by: order)
+        let summary = ContributorLayout.lines(state: state, width: width, height: 40)[2]
+        let cpu = try #require(summary.runs.first { $0.text.hasPrefix("CPU ") })
+        let memory = try #require(summary.runs.first { $0.text.hasPrefix("Memory ") })
+        #expect(cpu.style == (order == .cpu ? .metric : .heading))
+        #expect(memory.style == (order == .memory ? .metric : .heading))
+        #expect(summary.text.hasPrefix(state.overview.totals.summary(duration: state.overview.duration)))
+    }
+
     @Test(arguments: [ReportView.mainContributors, .sessions, .processes], [40, 120])
     func reportChromeKeepsViewSortAndEssentialControls(view: ReportView, width: Int) throws {
         var state = LiveReportState()
@@ -75,7 +88,10 @@ import Testing
         let row = try #require(lines.firstIndex { $0.style == .selected })
         for index in row..<(row + 3) {
             #expect(
-                lines[index].runs.filter { $0.style == .separator || $0.style == .chartFill }.map {
+                lines[index].runs.filter {
+                    $0.style == .separator || $0.style == .chartFill || $0.style == .chartOverflow
+                        || $0.style == .chartOverflowFill
+                }.map {
                     TerminalCells.width($0.text)
                 }.reduce(0, +) >= 24)
         }
@@ -90,10 +106,15 @@ import Testing
         let lines = ContributorLayout.lines(state: state, width: width, height: height)
         let chartWidth = min(24, width / 5)
         for level in 0..<3 {
-            let chart = lines[level].runs.filter { $0.style == .separator || $0.style == .chartFill }
-                .map(\.text).joined()
+            let chart = lines[level].runs.filter {
+                $0.style == .separator || $0.style == .chartFill || $0.style == .chartOverflow
+                    || $0.style == .chartOverflowFill
+            }
+            .map(\.text).joined()
             #expect(
-                chart == " " + state.overview.activity.terminalLane(width: chartWidth, level: level, rows: 3))
+                chart == " "
+                    + state.overview.activity.terminalLane(width: chartWidth, level: level, rows: 3)
+                    .replacingOccurrences(of: "↑", with: "█"))
         }
         #expect(
             lines[0].text.contains("CPU ↓")
@@ -117,7 +138,10 @@ import Testing
         #expect(lines[2].text == state.overview.totals.summary(duration: state.overview.duration))
         #expect(
             lines.prefix(3).allSatisfy { line in
-                !line.runs.contains { $0.style == .separator || $0.style == .chartFill }
+                !line.runs.contains {
+                    $0.style == .separator || $0.style == .chartFill || $0.style == .chartOverflow
+                        || $0.style == .chartOverflowFill
+                }
             })
         #expect(lines[3].text.contains("CPU HISTORY"))
     }
@@ -190,7 +214,8 @@ import Testing
         var state = LiveReportState()
         state.showReference(page)
         let content = ReportReferenceLayout.content(state: state, page: page).map(\.text).joined()
-        #expect(content.contains("↑ above range"))
+        #expect(content.contains("█ above range"))
+        #expect(content.contains("monochrome uses ↑"))
         #expect(content.contains("· no measurement"))
         let lines = LiveReportLayout.lines(state: state, width: 80, height: 12)
         #expect(lines.first?.text.contains("1–8/") == true)
@@ -202,7 +227,7 @@ import Testing
         state.receive(try overviewFixture())
         let footer = TerminalChrome.footer(state: state, width: width)
         let rendered = ContributorLayout.lines(state: state, width: width, height: height)
-        let legend = ["↑  above chart range", "·  no measurement", "_  measured zero"]
+        let legend = ["█  above chart range", "·  no measurement", "_  measured zero"]
         let fits = footer.dropFirst().allSatisfy { TerminalCells.width($0.text) + 3 + 20 <= width }
         let expected = height >= 20 && fits
         #expect(rendered.count == height)

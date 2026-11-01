@@ -36,20 +36,29 @@ public enum ContributorLayout {
             memory: max(
                 10, overview.nodes.values.map { TerminalCells.width($0.stats.currentMemoryText) }.max() ?? 0))
         var footer = footerLines(state: state, width: width)
-        let totals = overview.totals.summary(duration: overview.duration)
+        let totals = ReportLine(runs: [
+            .init(
+                "CPU " + overview.totals.cpuText(duration: overview.duration),
+                style: overview.order == .cpu ? .metric : .heading),
+            .init(" · "),
+            .init(
+                "Memory " + overview.totals.memoryText,
+                style: overview.order == .memory ? .metric : .heading),
+            .init(" · Recent CPU " + overview.totals.recentCPUText),
+        ])
         let chartCaption =
             " · Overall CPU · " + overview.activity.scaleLabel
             + (state.chartStyle == .compact ? " · compact" : "")
         let cadence = TerminalChrome.cadence(state: state).text
         let showsOverallChart =
             columns.graphs
-            && TerminalCells.width(totals) <= columns.name
+            && TerminalCells.width(totals.text) <= columns.name
             && TerminalCells.width(cadence + chartCaption) <= columns.name
         let summaryWidth = showsOverallChart ? columns.name : width
         var header = [
             TerminalChrome.title(state: state, width: summaryWidth),
             ReportLine(cadence + (columns.graphs ? chartCaption : "")),
-            ReportLine(totals),
+            totals,
         ]
         if !(overview.detailsVisible && state.detailsMode == .maximized) {
             header += [
@@ -380,13 +389,18 @@ public enum ContributorLayout {
             var text = ""
             var style: ReportLine.Style = .separator
             for glyph in TerminalCells.padded(chart, to: self.chart) {
-                let next: ReportLine.Style = glyph == "█" && chartStyle == .stacked ? .chartFill : .separator
+                let next: ReportLine.Style
+                switch glyph {
+                case "↑": next = chartStyle == .stacked ? .chartOverflowFill : .chartOverflow
+                case "█": next = chartStyle == .stacked ? .chartFill : .separator
+                default: next = .separator
+                }
                 if next != style && !text.isEmpty {
                     runs.append(.init(text, style: style))
                     text = ""
                 }
                 style = next
-                text.append(glyph)
+                text.append(glyph == "↑" ? "█" : glyph)
             }
             if !text.isEmpty { runs.append(.init(text, style: style)) }
             return runs

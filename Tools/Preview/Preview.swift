@@ -64,7 +64,8 @@ enum Preview {
 
             """
         for (index, line) in lines.enumerated() {
-            let text = line.text.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression)
+            let text = line.runs.map { $0.renderedText(monochrome: monochrome) }.joined()
+                .replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression)
             guard !text.isEmpty else { continue }
             output += "<g aria-label=\"\(escape(text))\">\n"
             var column = 0
@@ -78,6 +79,7 @@ enum Preview {
                 case .separator: (color, weight) = ("#5ba3ff", "normal")
                 case .metric, .shortcut: (color, weight) = ("#56b6c2", "bold")
                 case .chartFill: (color, weight) = ("#5ba3ff", "normal")
+                case .chartOverflow, .chartOverflowFill: (color, weight) = ("#e3b341", "normal")
                 case .warning: (color, weight) = ("#e3b341", "normal")
                 case .muted: (color, weight) = ("#8c92ac", "normal")
                 case .success: (color, weight) = ("#61c67b", "normal")
@@ -86,11 +88,15 @@ enum Preview {
                 }
                 if monochrome, run.style != .selected {
                     color = "#c9d1d9"
-                    if run.style == .warning || run.style == .failure { weight = "bold" }
+                    if run.style == .warning || run.style == .failure || run.style == .chartOverflow
+                        || run.style == .chartOverflowFill
+                    {
+                        weight = "bold"
+                    }
                 }
-                if run.style == .chartFill {
+                if run.style == .chartFill || (!monochrome && run.style == .chartOverflowFill) {
                     output +=
-                        "<rect x=\"\(24 + column * 9)\" y=\"\(52 + index * 23)\" width=\"\(TerminalCells.width(run.text) * 9)\" height=\"23\" fill=\"\(monochrome ? "#c9d1d9" : "#5ba3ff")\"/>\n"
+                        "<rect x=\"\(24 + column * 9)\" y=\"\(52 + index * 23)\" width=\"\(TerminalCells.width(run.text) * 9)\" height=\"23\" fill=\"\(color)\"/>\n"
                 }
                 if run.style == .selected {
                     output +=
@@ -98,7 +104,7 @@ enum Preview {
                 }
                 // SVG 2 lengthAdjust scales glyphs; terminal cells need explicit positions.
                 // https://www.w3.org/TR/SVG2/text.html#TextElementLengthAdjustAttribute
-                let glyphs = run.text.compactMap { character -> String? in
+                let glyphs = run.renderedText(monochrome: monochrome).compactMap { character -> String? in
                     defer { column += TerminalCells.width(character) }
                     guard character != " " else { return nil }
                     return "<tspan x=\"\(24 + column * 9)\">\(escape(String(character)))</tspan>"

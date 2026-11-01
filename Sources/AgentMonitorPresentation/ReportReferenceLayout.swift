@@ -176,10 +176,10 @@ public enum ReportReferenceLayout {
         [
             ReportLine(""), ReportLine("Contributor CPU charts", style: .title),
             ReportLine(runs: [
-                .init("↑", style: .warning), .init(" above range; "), .init("·", style: .identity),
+                .init("█", style: .chartOverflow), .init(" above range; "), .init("·", style: .identity),
                 .init(" no measurement; "), .init("_", style: .identity), .init(" measured zero"),
             ]),
-            ReportLine("↑ is above the ceiling, not a rising trend."),
+            ReportLine("Above-range bars use the warning color; monochrome uses ↑."),
             TerminalChrome.controls([("b", "change chart range")], keyStyle: keyStyle),
             ReportLine("Oldest left, newest right. Dots are gaps, never zero CPU."),
             ReportLine("Bars show retained interval averages; equal widths can cover unequal durations."),
