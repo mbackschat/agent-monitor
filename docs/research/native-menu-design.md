@@ -61,7 +61,9 @@ Icon Composer 27.2 rendered the document with `ictool`. `xcrun actool` successfu
 
 An offscreen `NSWorkspace.icon(forFile:)` render of the ad-hoc-signed assembled `.app` resolved to the approved artwork. The initial unsigned assembly showed a prohibited badge because its copied executable retained an invalid inherited signature; signing the complete disposable bundle removed that badge. Inspecting only the unsigned intermediate would have misclassified this as an artwork defect.
 
-The packaging regression first failed on the missing declaration. Ten passing bundle tests now cover real source compilation, retained resources and rejection of missing/wrong declarations, missing/corrupt files and incomplete catalogs, including rejection before downloaded-archive signature checks. Notarization recovery tests also pass. These checks do not prove live Finder caching or all appearance customizations; [PLAN](../../PLAN.md#mac-app-icon-release-correction) retains release/installed acceptance.
+The packaging regression first failed on the missing declaration. Ten passing bundle tests now cover real source compilation, retained resources and rejection of missing/wrong declarations, missing/corrupt files and incomplete catalogs, including rejection before downloaded-archive signature checks. Notarization recovery tests also pass.
+
+[Release 0.4.1](https://github.com/mbackschat/agent-monitor/releases/tag/v0.4.1) was published from `a767cb7` after all 893 Swift tests, release gates and [Verify](https://github.com/mbackschat/agent-monitor/actions/runs/41334715185) passed. Apple accepted submission `f3f3e296-7300-42ee-8abe-eb72845d2607` without issues. The release download, Homebrew-fetched ZIP and upgraded `/Applications/Agent Monitor.app` passed icon, version, signature, ticket and Gatekeeper checks. An offscreen `NSWorkspace` render of the installed app resolved to the approved artwork. These checks do not prove live Finder caching or all appearance customizations; [PLAN](../../PLAN.md#mac-app-icon-release-correction) retains physical acceptance.
 
 ## Apple guidance
 

@@ -8,7 +8,7 @@ Finish the [product goal](docs/product.md): identify agent → session → CWD �
 
 ### Mac app icon release correction
 
-- [ ] Release the correction as 0.4.1, update the Homebrew cask and verify the installed bundle under the [Mac release checks](docs/macos-release.md#required-app-icon-review). Preserve published 0.4.0 assets. Live Finder/appearance acceptance remains user-owned.
+- [ ] Confirm the upgraded 0.4.1 app's icon in live Finder and the user's chosen appearance, then reopen the app from Applications. Publication, Homebrew upgrade and headless installed-bundle checks passed; see the [retained evidence](docs/research/native-menu-design.md#approved-revision-and-build-verification). Physical appearance and application interaction remain user-owned under the [Mac release checks](docs/macos-release.md#required-app-icon-review).
 
 ### Resource accounting priority
 
