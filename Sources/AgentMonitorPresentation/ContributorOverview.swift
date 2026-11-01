@@ -273,12 +273,16 @@ public struct ContributorOverview: Equatable, Sendable {
             return survivors + contributionOrder(ids.filter { !known.contains($0) })
         }
         var result: [ContributorID] = []
+        // Parallel to `result`: each placed id's metric, looked up once instead of per comparison.
+        var metrics: [Double] = []
         for id in survivors + contributionOrder(ids.filter { !known.contains($0) }) {
             let metric = value(id, order)
-            if let index = result.firstIndex(where: { metric > 1.2 * value($0, order) }) {
+            if let index = metrics.firstIndex(where: { metric > 1.2 * $0 }) {
                 result.insert(id, at: index)
+                metrics.insert(metric, at: index)
             } else {
                 result.append(id)
+                metrics.append(metric)
             }
         }
         return result
@@ -705,6 +709,8 @@ public struct ContributorOverview: Equatable, Sendable {
         var projects: [ContributorID: Set<String?>] = [:]
         var runtimeContributors: Set<ContributorID> = []
         var exact: Set<ContributorID> = []
+        // Mirrors every child appended below, so duplicate checks avoid a linear scan per category.
+        var childIDs: [ContributorID: Set<ContributorID>] = [:]
         for (key, var stats) in entries {
             stats.currentAvailable = recent.currentContextAvailable
             if recent.currentContextAvailable {
@@ -724,7 +730,7 @@ public struct ContributorOverview: Equatable, Sendable {
                 if case .session = id, !key.isAgentRuntime {
                     projects[id, default: []].insert(key.cwd)
                 }
-                if index + 1 < path.count, !(nodes[id]?.children.contains(path[index + 1].0) ?? false) {
+                if index + 1 < path.count, childIDs[id, default: []].insert(path[index + 1].0).inserted {
                     nodes[id]?.children.append(path[index + 1].0)
                 }
             }
@@ -804,7 +810,7 @@ public struct ContributorOverview: Equatable, Sendable {
                     nodes[thread] = ContributorNode(id: thread, title: "Thread · " + session)
                 }
                 nodes[thread]?.stats.merge(stats)
-                if !(nodes[parent]?.children.contains(thread) ?? false) {
+                if childIDs[parent, default: []].insert(thread).inserted {
                     nodes[parent]?.children.append(thread)
                 }
                 leafParent = thread
@@ -819,6 +825,7 @@ public struct ContributorOverview: Equatable, Sendable {
                 (collapsedDisplay[key].map { InspectionField.collapsed($0, window: "Display window") } ?? [])
                 + (collapsedRecent[key].map { InspectionField.collapsed($0, window: "Recent history") } ?? [])
             nodes[id] = node
+            childIDs[leafParent, default: []].insert(id)
             nodes[leafParent]?.children.append(id)
         }
         let directoryLabels = WorkloadDirectory.compactLabels(
