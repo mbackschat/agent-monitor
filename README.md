@@ -118,8 +118,7 @@ Native performance, short-worker coverage, a process-wide memory ceiling and bro
 
 With no options, `agent-monitor` prints one report after a one-second accounting window. It includes your user’s agent-associated processes by default. `--tui` runs until quit; `--all-processes` expands scope to all processes owned by your user.
 
-<details>
-<summary>Report options</summary>
+### Report options
 
 | Option | Purpose | Default |
 | --- | --- | --- |
@@ -144,10 +143,7 @@ With no options, `agent-monitor` prints one report after a one-second accounting
 
 Filters match CPU **or** memory above an enabled threshold and never redefine totals. Sampling minimum/window options do not themselves enable adaptation. Choose one of `--tui`, `--json` or `--json-schema`; JSON modes cannot be combined with `--group session`.
 
-</details>
-
-<details>
-<summary>Commands and actions</summary>
+### Commands and actions
 
 | Command | Purpose |
 | --- | --- |
@@ -159,8 +155,6 @@ Filters match CPU **or** memory above an enabled threshold and never redefine to
 | `message [--no-color]` | Report that provider messaging is unavailable, without sending anything. |
 
 Termination requires confirmation, or explicit `--yes` in scripts. Terminal.app focus can select the session’s tab; other supported terminals are brought to the front. macOS may request Automation permission. See [action behavior and exit statuses](docs/usage.md#actions-from-the-command-line).
-
-</details>
 
 ## Documentation and contributing
 
