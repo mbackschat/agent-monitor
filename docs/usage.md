@@ -8,7 +8,7 @@ agent-monitor diagnose cpu     # Short, finite CPU investigation
 agent-monitor --json --samples 3
 ```
 
-For the source-built Mac app, run `bash scripts/menubar.sh run` from the checkout. For a complete topic index, see [usage topics](usage/README.md).
+[Install the Mac app](installation.md#install-the-mac-app) or, for a source build, run `bash scripts/menubar.sh run` from the checkout. For a complete topic index, see [usage topics](usage/README.md).
 
 ## Reading responsibility and retaining data
 

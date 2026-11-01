@@ -18,6 +18,7 @@ Start with the [project README](../README.md) for a quick introduction and scree
 | Build, change code and select checks | [Development](development.md) and its [reference guides](development/README.md) |
 | Understand subsystem ownership and accepted behavior | [Architecture](architecture.md) and its [detailed contracts](architecture/README.md) |
 | Prepare a version and update release assets | [Releasing](releasing.md) |
+| Set up Developer ID, sign and notarize the Mac app | [Mac release workflow](macos-release.md) |
 | Review the deferred SwiftTUI follow-up | [Upstream follow-up](swifttui-upstream-follow-up.md) |
 
 ## Trace evidence and decisions

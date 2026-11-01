@@ -7,12 +7,12 @@ Status: **deferred**, 2026-10-15. The maintained, source-built menu bar app is s
 Keep these product questions out of the maintained app:
 
 - Launch at login.
-- Distribution: signing identity, formula versus cask, installation location and whether the app also distributes the CLI.
+- A Homebrew cask, installer, automatic updater or an app-bundled CLI.
 - A shared collector or IPC service; the app and the TUI keep independent collectors.
 
 ## Reason
 
-No signing or Gatekeeper behavior has been established by a GUI install test, and production distribution, login items and background services are outside the current [scope](../../PLAN.md#scope-and-pending-decisions).
+The user authorized direct Mac app distribution on 2026-11-01: a Developer ID-signed and notarized app ZIP on GitHub, separate from the CLI formula. The [release workflow](../macos-release.md) owns signing, Gatekeeper checks and installation validation. Login items, additional packaging and background services remain outside that scope.
 
 ## Reconsider when
 

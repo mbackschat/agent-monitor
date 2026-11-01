@@ -53,7 +53,7 @@ bash scripts/skills.sh check
 
 Updates fetch each upstream `main`, select its current commit, and refresh the lock. The script refuses dirty source checkouts, missing root licenses or conflicting discovery paths. Review the lock changes and upstream instructions before continuing agent work.
 
-`bash scripts/test-skills.sh` checks dual-host discovery, retained references/licenses, pinned reinstalls, shared-source upgrades and edit protection against disposable local Git repositories without contacting GitHub. Additional profiling helpers and app-release skills are not installed; distribution remains deferred.
+`bash scripts/test-skills.sh` checks dual-host discovery, retained references/licenses, pinned reinstalls, shared-source upgrades and edit protection against disposable local Git repositories without contacting GitHub. Additional profiling helpers and app-release skills are not installed. The repository owns its [Mac release workflow](../macos-release.md).
 
 ## Restricted agent environments
 

@@ -23,6 +23,10 @@ AppKit owns the status item, popover and window lifecycle; SwiftUI owns native c
 
 ## Native menu bar app
 
+### Bundle and distribution
+
+Local builds assemble a fresh `.app` with the shared release version, both resource bundles and license notices, then apply an ad-hoc signature. Direct release ZIPs require Developer ID signing with Hardened Runtime, the Apple Events entitlement for terminal focus, Apple notarization and a stapled ticket. Release verification checks the extracted bundle before upload and again after download. The [Mac release workflow](../macos-release.md) owns credentials, commands and first-install validation; packaging does not add a collector, runtime network access or a login item.
+
 ### Process-view row index
 
 The legacy process/session inspection view retains one immutable `MenuBarRowIndex` for the displayed report projection. Shared `ReportProjection` owns child membership/order; the native index adds singleton flattening, visible-row lookup, process lookup and group-focus candidates. New displayed samples, grouping, sorting, pins and session disclosure replace it; selection, interval and history-only changes do not. Paused pending samples cannot change action eligibility. Row/context-menu predicates use this index without regrouping or sorting the whole table. Actions still recheck current visibility and UI state at invocation and perform their independent fresh native verification. See the [measured row-command stall](../research/menu-bar-load-cost.md#native-row-command-stall--2026-10-24).

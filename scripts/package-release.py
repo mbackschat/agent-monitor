@@ -15,6 +15,8 @@ import sys
 import tarfile
 import tempfile
 
+from release_licenses import copy_licenses
+
 
 def run(*args, **kwargs):
     return subprocess.check_output(args, text=True, **kwargs).strip()
@@ -59,33 +61,7 @@ def main():
             products / "AgentMonitor_AgentMonitorPresentation.bundle",
             stage / "AgentMonitor_AgentMonitorPresentation.bundle",
         )
-        shutil.copy2(root / "LICENSE", stage / "LICENSE")
-        shutil.copy2(root / "THIRD_PARTY_NOTICES.md", stage / "THIRD_PARTY_NOTICES.md")
-        notices = stage / "licenses"
-        notices.mkdir()
-        for dependency in json.loads((root / "Package.resolved").read_text())["pins"]:
-            identity = dependency["identity"]
-            checkout = root / ".build/checkouts" / identity
-            candidates = [checkout / "LICENSE", checkout / "LICENSE.txt"]
-            license_file = next((path for path in candidates if path.is_file()), None)
-            if license_file is None:
-                raise SystemExit(f"Missing license for {identity}")
-            destination = notices / identity
-            destination.mkdir()
-            shutil.copy2(license_file, destination / license_file.name)
-            for path in checkout.glob("NOTICE*"):
-                shutil.copy2(path, destination / path.name)
-
-        vendor = root / ".build/checkouts/swift-tui/Vendor"
-        for pattern in ("*/LICENSE*", "*/NOTICE*"):
-            for path in vendor.glob(pattern):
-                destination = notices / "swift-tui/Vendor" / path.relative_to(vendor)
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(path, destination)
-        shutil.copytree(
-            vendor / "swift-figlet/Fonts", notices / "swift-tui/Vendor/swift-figlet/Fonts"
-        )
-        shutil.copy2(root / "Package.resolved", notices / "Package.resolved")
+        copy_licenses(root, stage)
         (stage / "INSTALL.txt").write_text(
             f"Agent Monitor {version} — macOS 27+, Apple Silicon\n\n"
             "From this extracted directory:\n"

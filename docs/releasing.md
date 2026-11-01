@@ -1,6 +1,6 @@
 # Releasing
 
-Releases target Apple Silicon and macOS 27 with Xcode 27 and Swift 6.4. They are ad-hoc signed, not Developer ID signed or notarized; never describe them otherwise. Release notes live only on [GitHub Releases](https://github.com/mbackschat/agent-monitor/releases).
+Releases target Apple Silicon and macOS 27 with Xcode 27 and Swift 6.4. Publish two downloads: the CLI archive remains ad-hoc signed; the separate Mac app ZIP requires Developer ID signing, notarization and a stapled ticket. Release notes live only on [GitHub Releases](https://github.com/mbackschat/agent-monitor/releases).
 
 ## Release in three steps
 
@@ -16,7 +16,7 @@ Generate and visually review the [README native screenshot](development.md#build
 bash scripts/release.sh <version>
 ```
 
-Preparation requires a clean `main` and an unused tag. It runs the doctor, documentation, formatting, Swift test, preview and release terminal checks with synthetic fixtures; it does not use live workloads or provider listings. It then builds and packages the release.
+Preparation requires a clean `main` and an unused tag. It runs the doctor, documentation, formatting, Swift test, preview and release terminal checks with synthetic fixtures; it does not use live workloads or provider listings. It then builds and packages the CLI and builds the local Mac app. Complete [Mac signing and notarization](macos-release.md) to produce the app ZIP before publishing.
 
 Review `dist/notes-<version>.md`, drafted from `feat`, `fix` and `perf` commits since the previous tag. Write the summary, group or reword changes for users, and remove every `TODO`. Release notes are reviewed input, not an automatically published commit list.
 
@@ -29,11 +29,11 @@ bash scripts/release.sh <version> --publish
 Publication performs these external changes:
 
 1. Check that the Git email matches the previous release's author, then tag and push `main` and the tag.
-2. Create the GitHub release with archive, checksum and reviewed notes.
-3. Download the published assets again and verify checksum, version and schema.
+2. Create the GitHub release with both archives, their checksums and reviewed notes.
+3. Download the published assets again and verify checksums, CLI version/schema, and the Mac app’s version, signature, stapled ticket and Gatekeeper assessment.
 4. Update, audit, install/test and push the Homebrew formula.
 
-Publication refuses a changed HEAD or archive checksum after preparation.
+Publication refuses changed HEAD or checksums, mismatched CLI/Mac source revisions, and missing or unverifiable native artifacts.
 
 ### Keep artifacts and recover deliberately
 
@@ -59,7 +59,7 @@ The helper accepts its own exact pending formula edit or one unpushed release co
 
 If the GitHub release does not yet exist, inspect the tag/push/release state and finish those commands from [release.sh](../scripts/release.sh) before running the helper. Release notes remain reviewed input, not an automatically published raw commit list.
 
-Run `python3 scripts/test_release.py` for regression coverage with disposable Git repositories and fake Homebrew commands. These checks run in CI and before preparation; publication performs the real installed-binary checks.
+Run `python3 scripts/test_macos_bundle.py` for native bundle/version/license guards and `python3 scripts/test_release.py` for regression coverage with disposable Git repositories and fake Homebrew commands. These checks run in CI and before preparation; publication performs the real installed-binary checks.
 
 ## Packaging details
 

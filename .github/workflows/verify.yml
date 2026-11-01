@@ -28,7 +28,9 @@ jobs:
           python3 scripts/test_docs.py
           python3 scripts/docs.py check
       - name: Check release automation with fake Homebrew and disposable repositories
-        run: python3 scripts/test_release.py
+        run: |
+          python3 scripts/test_release.py
+          python3 scripts/test_macos_bundle.py
       - name: Check Swift formatting
         run: swift format lint --strict --recursive Sources Tests Tools Package.swift
       - name: Enable keyboard navigation for native focus checks

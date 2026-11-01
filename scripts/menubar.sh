@@ -26,30 +26,13 @@ if [[ "$configuration" == release ]]; then build_flags=(-debug-info-format none)
 swift build --build-system "$build_system" -j "${AGENT_MONITOR_BUILD_JOBS:-2}" --disable-sandbox -c "$configuration" "${build_flags[@]}" --product agent-monitor-menubar
 products=$(swift build --build-system "$build_system" --disable-sandbox -c "$configuration" --show-bin-path)
 app="$root/.build/Agent Monitor.app"
-mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-cp "$products/agent-monitor-menubar" "$app/Contents/MacOS/agent-monitor-menubar"
-cp -R "$products/AgentMonitor_AgentMonitorPresentation.bundle" "$app/Contents/Resources/"
-cp -R "$products/AgentMonitor_AgentMonitorMenuBar.bundle" "$app/Contents/Resources/"
-cp LICENSE "$app/Contents/Resources/LICENSE"
-cp THIRD_PARTY_NOTICES.md "$app/Contents/Resources/THIRD_PARTY_NOTICES.md"
-python3 - "$app/Contents/Info.plist" <<'PY'
-import plistlib
-import sys
-
-with open(sys.argv[1], "wb") as output:
-    plistlib.dump({
-        "CFBundleExecutable": "agent-monitor-menubar",
-        "CFBundleIdentifier": "de.mbackschat.agent-monitor.menubar",
-        "CFBundleName": "Agent Monitor",
-        "CFBundlePackageType": "APPL",
-        "CFBundleShortVersionString": "0.0.1",
-        "CFBundleVersion": "1",
-        "LSMinimumSystemVersion": "27.0",
-        "LSUIElement": True,
-        "NSAppleEventsUsageDescription": "Select the terminal tab hosting the agent session you choose.",
-    }, output)
-PY
-codesign --force --sign - "$app"
+stage=$(mktemp -d "$root/.build/menubar-package.XXXXXX")
+trap 'rm -rf "$stage"' EXIT
+python3 scripts/macos_bundle.py "$products" "$stage/Agent Monitor.app"
+codesign --force --sign - "$stage/Agent Monitor.app"
+codesign --verify --deep --strict "$stage/Agent Monitor.app"
+rm -rf "$app"
+mv "$stage/Agent Monitor.app" "$app"
 python3 scripts/clean-build.py check
 echo "$app"
 if [[ "$mode" == run ]]; then

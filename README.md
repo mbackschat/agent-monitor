@@ -24,7 +24,7 @@ Agent Monitor shows CPU and memory use by **coding agents**—AI assistants such
 
 *Synthetic previews: the terminal image follows current source; the Mac image updates only for releases and may lag development.*
 
-This README describes the current source build. The menu bar app requires a source checkout; newer controls may be ahead of the [latest release](https://github.com/mbackschat/agent-monitor/releases/latest).
+This README describes the current source build. Newer controls may be ahead of the [latest release](https://github.com/mbackschat/agent-monitor/releases/latest).
 
 ## What you can do
 
@@ -73,7 +73,7 @@ Keys depend on the active view; **?** shows the available controls. See the [usa
 
 ### Menu bar app
 
-From a [source checkout](docs/installation.md#build-from-source), run:
+[Download the signed Mac app](docs/installation.md#install-the-mac-app), move it to Applications and open it. To run from a [source checkout](docs/installation.md#build-from-source):
 
 ```sh
 bash scripts/menubar.sh run

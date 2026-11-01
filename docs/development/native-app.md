@@ -1,6 +1,6 @@
 # Build and validate the Mac app
 
-Build the source-only Mac app, validate it with synthetic inputs, and hand physical interaction checks to the user. Start with [check selection](../development.md#choose-checks-for-the-change); the specialist probes below are not routine acceptance prerequisites.
+Build the Mac app from source, validate it with synthetic inputs, and hand physical interaction checks to the user. Start with [check selection](../development.md#choose-checks-for-the-change); the specialist probes below are not routine acceptance prerequisites.
 
 [Development guide](../development.md) · [All development references](README.md)
 
@@ -118,7 +118,7 @@ Build with `bash scripts/menubar.sh build`; the default is an optimized release 
 
 The local ad-hoc bundle is `.build/Agent Monitor.app`; its resources include the presentation schema bundle and native logo bundle, and retain the project license and [third-party notices](../../THIRD_PARTY_NOTICES.md), including the full MIT terms for the shared terminal-width code. Use `bash scripts/menubar.sh run` to launch with the shell PATH, or `swift run agent-monitor-menubar` for direct executable development.
 
-The menu bar app is a maintained source-built feature. Its local bundle is not included in CLI release archives or Homebrew installation; distribution is deferred until the app is finished. It adds no third-party dependencies. CI builds the local app bundle and checks its property list, ad-hoc signature and bundled license/notice copies.
+The menu bar app has a local source build and a separate [signed release ZIP](../macos-release.md). It is not included in the CLI archive or Homebrew formula. It adds no third-party dependencies. CI builds the local app bundle and checks its property list, ad-hoc signature and bundled license/notice copies.
 
 Run `swift test --filter AgentMonitorMenuBarTests` for lifecycle, controlled collection, fake-action, layout, pause/pin, task ownership, menu and status-menu regressions. It uses injected readers, clocks, actions and synthetic reports; it sends no messages or signals to live workloads. The production `MenuBarCollection` is tested with `MonitoringSession` and injected native process readers. Offscreen renders cover compact layouts, appearance changes and panel geometry. Simulated delegate tracking and source-call counts do not establish physical input delivery, live submenu tracking or desktop behavior.
 

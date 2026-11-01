@@ -24,6 +24,8 @@ tag="v$version"
 name="agent-monitor-$version-macos-arm64"
 archive="dist/$name.tar.gz"
 notes="dist/notes-$version.md"
+app_name="agent-monitor-app-$version-macos-arm64"
+app_archive="dist/$app_name.zip"
 
 source_version=$(sed -n 's/.*current = "\(.*\)".*/\1/p' Sources/AgentMonitorCore/Version.swift)
 [ "$source_version" = "$version" ] \
@@ -38,15 +40,17 @@ if [ "$mode" = prepare ]; then
     [ ! -e "$archive" ] || fail "$archive exists; delete dist/$name* to prepare again"
     bash scripts/doctor.sh
     python3 scripts/test_release.py
+    python3 scripts/test_macos_bundle.py
     python3 scripts/test_docs.py
     python3 scripts/docs.py check
     swift format lint --strict --recursive Sources Tests Tools Package.swift
     release_validation="$root/.build/release-validation"
     mkdir -p "$release_validation"
     CPU_DIAGNOSIS_FIXTURE_PATH="$release_validation/diagnosis.jsonl" \
-        JSON_REPORT_FIXTURE_PATH="$release_validation/reports.jsonl" swift test --no-parallel
+        JSON_REPORT_FIXTURE_PATH="$release_validation/reports.jsonl" swift test -j 2 --no-parallel
     bash scripts/preview.sh check
-    swift build -c release -debug-info-format none
+    swift build -j 2 -c release -debug-info-format none
+    bash scripts/menubar.sh build
     uv run scripts/verify-json-schema.py .build/release/agent-monitor \
         --records "$release_validation/reports.jsonl"
     uv run scripts/verify-json-schema.py .build/release/agent-monitor --diagnosis \
@@ -68,6 +72,7 @@ if [ "$mode" = prepare ]; then
         } >"$notes"
     fi
     echo "Prepared $archive."
+    echo "Prepare the signed/notarized $app_archive using docs/macos-release.md before publishing."
     echo "Edit $notes (remove every TODO), then run: bash scripts/release.sh $version --publish"
     exit 0
 fi
@@ -76,6 +81,11 @@ fi
 [ -f "dist/$name.commit" ] && [ "$(cat "dist/$name.commit")" = "$(git rev-parse HEAD)" ] \
     || fail 'HEAD differs from the prepared release; prepare from the committed release revision'
 (cd dist && shasum -a 256 -c "$name.tar.gz.sha256")
+[ -f "$app_archive" ] && [ -f "$app_archive.sha256" ] || fail 'prepare the notarized Mac app archive first (docs/macos-release.md)'
+[ -f "dist/$app_name.commit" ] && [ "$(cat "dist/$app_name.commit")" = "$prepared_revision" ] \
+    || fail 'Mac app was not prepared from this release revision'
+(cd dist && shasum -a 256 -c "$app_name.zip.sha256")
+python3 scripts/macos_bundle.py --verify-archive "$app_archive" "$version"
 if [ ! -f "$notes" ] || grep -q TODO "$notes"; then fail "finish $notes first"; fi
 # A push under the wrong identity cannot be taken back; the previous release's author is the reference.
 if [ -n "$previous" ]; then
@@ -86,7 +96,7 @@ fi
 
 git tag -a "$tag" -m "Agent Monitor $version"
 git push origin main "$tag"
-gh release create "$tag" "$archive" "$archive.sha256" --title "Agent Monitor $version" --notes-file "$notes"
+gh release create "$tag" "$archive" "$archive.sha256" "$app_archive" "$app_archive.sha256" --title "Agent Monitor $version" --notes-file "$notes"
 
 check=$(mktemp -d)
 trap 'rm -rf "$check"' EXIT
@@ -94,6 +104,8 @@ gh release download "$tag" --dir "$check"
 (cd "$check" && shasum -a 256 -c "$name.tar.gz.sha256" && tar -xzf "$name.tar.gz")
 [ "$("$check/$name/agent-monitor" --version)" = "$version" ] || fail 'downloaded executable reports the wrong version'
 "$check/$name/agent-monitor" --json-schema >/dev/null
+(cd "$check" && shasum -a 256 -c "$app_name.zip.sha256")
+python3 scripts/macos_bundle.py --verify-archive "$check/$app_name.zip" "$version"
 
 echo "Published $tag and verified the downloaded archive."
 echo "Homebrew tap: url https://github.com/mbackschat/agent-monitor/releases/download/$tag/$name.tar.gz"

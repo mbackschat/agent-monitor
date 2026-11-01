@@ -35,9 +35,21 @@ install -m 755 agent-monitor "$HOME/.local/bin/agent-monitor"
 cp -R AgentMonitor_AgentMonitorPresentation.bundle "$HOME/.local/bin/"
 ```
 
-Release binaries are ad-hoc signed, not Developer ID signed or notarized. macOS may block a downloaded copy; building locally from source is an alternative. Intel Macs and older macOS versions are not covered by releases.
+CLI release binaries are ad-hoc signed, not Developer ID signed or notarized. macOS may block a downloaded copy; building locally from source is an alternative. Intel Macs and older macOS versions are not covered by releases.
 
 Keep the resource bundle beside the executable: it contains the schema used by `--json-schema`. The archive includes the project and dependency licenses; retain them when redistributing the package.
+
+## Install the Mac app
+
+Download `agent-monitor-app-<version>-macos-arm64.zip` and its `.sha256` from the [release](https://github.com/mbackschat/agent-monitor/releases/latest). Check the checksum, extract the ZIP, then drag **Agent Monitor.app** to Applications and open it. It appears in the menu bar, without a Dock icon.
+
+```sh
+shasum -a 256 -c agent-monitor-app-*-macos-arm64.zip.sha256
+```
+
+The native release app is Developer ID-signed and notarized, with the ticket attached. It requires Apple Silicon and macOS 27 or later; Xcode is not needed. The CLI Homebrew formula does not install the app. To update, quit the running app and replace it with the new copy; to uninstall, quit and remove it. There is no automatic updater or login item.
+
+Terminal focus may ask for Automation permission when explicitly requested. Monitoring needs no launch wrapper or provider login. See [Mac controls](usage/mac.md) for inspection, sampling and actions.
 
 ## Build from source
 
