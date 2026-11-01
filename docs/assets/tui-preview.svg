@@ -59,7 +59,7 @@
 <text y="184" fill="#56b6c2" font-weight="bold"><tspan x="933">1</tspan><tspan x="942">4</tspan><tspan x="951">2</tspan><tspan x="960">.</tspan><tspan x="969">0</tspan><tspan x="978">%</tspan></text>
 <text y="184" fill="#f0f6fc" font-weight="bold"><tspan x="1032">1</tspan><tspan x="1041">.</tspan><tspan x="1050">8</tspan><tspan x="1068">G</tspan><tspan x="1077">B</tspan></text>
 <text y="184" fill="#c9d1d9" font-weight="normal"></text>
-<text y="184" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="184" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="    1 process                                                                    ▁▁    ▂▂  ▂▂▁▁▂▂▁▁                    █">
 <text y="207" fill="#c9d1d9" font-weight="normal"><tspan x="60">1</tspan><tspan x="78">p</tspan><tspan x="87">r</tspan><tspan x="96">o</tspan><tspan x="105">c</tspan><tspan x="114">e</tspan><tspan x="123">s</tspan><tspan x="132">s</tspan></text>
@@ -68,7 +68,7 @@
 <text y="207" fill="#e3b341" font-weight="normal"></text>
 <text y="207" fill="#e3b341" font-weight="normal"></text>
 <text y="207" fill="#c9d1d9" font-weight="normal"></text>
-<text y="207" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="207" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="    java · …/atlas/api 142.0%                                              ▁▁▂▂▅▅████▇▇████████████                    █">
 <text y="230" fill="#c9d1d9" font-weight="normal"></text>
@@ -84,12 +84,12 @@
 <rect x="807" y="213" width="108" height="23" fill="#5ba3ff"/>
 <text y="230" fill="#5ba3ff" font-weight="normal"><tspan x="807">█</tspan><tspan x="816">█</tspan><tspan x="825">█</tspan><tspan x="834">█</tspan><tspan x="843">█</tspan><tspan x="852">█</tspan><tspan x="861">█</tspan><tspan x="870">█</tspan><tspan x="879">█</tspan><tspan x="888">█</tspan><tspan x="897">█</tspan><tspan x="906">█</tspan></text>
 <text y="230" fill="#c9d1d9" font-weight="normal"></text>
-<text y="230" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="230" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="                                                                                                                       █">
 <text y="253" fill="#c9d1d9" font-weight="normal"></text>
 <text y="253" fill="#c9d1d9" font-weight="normal"></text>
-<text y="253" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="253" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="  ▸ claude · 00000003                                                                                 37.0%   900.0 MB █">
 <text y="276" fill="#5ba3ff" font-weight="bold"><tspan x="42">▸</tspan><tspan x="60">c</tspan><tspan x="69">l</tspan><tspan x="78">a</tspan><tspan x="87">u</tspan><tspan x="96">d</tspan><tspan x="105">e</tspan><tspan x="123">·</tspan><tspan x="141">0</tspan><tspan x="150">0</tspan><tspan x="159">0</tspan><tspan x="168">0</tspan><tspan x="177">0</tspan><tspan x="186">0</tspan><tspan x="195">0</tspan><tspan x="204">3</tspan></text>
@@ -98,7 +98,7 @@
 <text y="276" fill="#56b6c2" font-weight="bold"><tspan x="942">3</tspan><tspan x="951">7</tspan><tspan x="960">.</tspan><tspan x="969">0</tspan><tspan x="978">%</tspan></text>
 <text y="276" fill="#f0f6fc" font-weight="bold"><tspan x="1014">9</tspan><tspan x="1023">0</tspan><tspan x="1032">0</tspan><tspan x="1041">.</tspan><tspan x="1050">0</tspan><tspan x="1068">M</tspan><tspan x="1077">B</tspan></text>
 <text y="276" fill="#c9d1d9" font-weight="normal"></text>
-<text y="276" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="276" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="    1 process                                                                                                          █">
 <text y="299" fill="#c9d1d9" font-weight="normal"><tspan x="60">1</tspan><tspan x="78">p</tspan><tspan x="87">r</tspan><tspan x="96">o</tspan><tspan x="105">c</tspan><tspan x="114">e</tspan><tspan x="123">s</tspan><tspan x="132">s</tspan></text>
@@ -107,7 +107,7 @@
 <text y="299" fill="#e3b341" font-weight="normal"></text>
 <text y="299" fill="#e3b341" font-weight="normal"></text>
 <text y="299" fill="#c9d1d9" font-weight="normal"></text>
-<text y="299" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="299" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="    node · …/atlas/web 37.0%                                               ▂▂▂▂▃▃▂▂▃▃▃▃▃▃▃▃▁▁▁▁▂▂▃▃                    █">
 <text y="322" fill="#c9d1d9" font-weight="normal"></text>
@@ -118,12 +118,12 @@
 <text y="322" fill="#5ba3ff" font-weight="normal"></text>
 <text y="322" fill="#5ba3ff" font-weight="normal"><tspan x="699">▂</tspan><tspan x="708">▂</tspan><tspan x="717">▂</tspan><tspan x="726">▂</tspan><tspan x="735">▃</tspan><tspan x="744">▃</tspan><tspan x="753">▂</tspan><tspan x="762">▂</tspan><tspan x="771">▃</tspan><tspan x="780">▃</tspan><tspan x="789">▃</tspan><tspan x="798">▃</tspan><tspan x="807">▃</tspan><tspan x="816">▃</tspan><tspan x="825">▃</tspan><tspan x="834">▃</tspan><tspan x="843">▁</tspan><tspan x="852">▁</tspan><tspan x="861">▁</tspan><tspan x="870">▁</tspan><tspan x="879">▂</tspan><tspan x="888">▂</tspan><tspan x="897">▃</tspan><tspan x="906">▃</tspan></text>
 <text y="322" fill="#c9d1d9" font-weight="normal"></text>
-<text y="322" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="322" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="                                                                                                                       █">
 <text y="345" fill="#c9d1d9" font-weight="normal"></text>
 <text y="345" fill="#c9d1d9" font-weight="normal"></text>
-<text y="345" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="345" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="&gt; ▸ codex · 00000002                                                                                  12.6%     2.4 GB █">
 <rect x="24" y="351" width="666" height="23" fill="#c9d1d9"/>
@@ -135,7 +135,7 @@
 <rect x="987" y="351" width="99" height="23" fill="#c9d1d9"/>
 <text y="368" fill="#0d1117" font-weight="bold"><tspan x="1032">2</tspan><tspan x="1041">.</tspan><tspan x="1050">4</tspan><tspan x="1068">G</tspan><tspan x="1077">B</tspan></text>
 <text y="368" fill="#c9d1d9" font-weight="normal"></text>
-<text y="368" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="368" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="    1 process                                                                                                          █">
 <text y="391" fill="#c9d1d9" font-weight="normal"><tspan x="60">1</tspan><tspan x="78">p</tspan><tspan x="87">r</tspan><tspan x="96">o</tspan><tspan x="105">c</tspan><tspan x="114">e</tspan><tspan x="123">s</tspan><tspan x="132">s</tspan></text>
@@ -144,7 +144,7 @@
 <text y="391" fill="#e3b341" font-weight="normal"></text>
 <text y="391" fill="#e3b341" font-weight="normal"></text>
 <text y="391" fill="#c9d1d9" font-weight="normal"></text>
-<text y="391" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="391" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="    rustc · /projects/orbit 12.6%                                          ▃▃▄▄▄▄▃▃▅▅▄▄▅▅▄▄▅▅▄▄▁▁▁▁                    █">
 <text y="414" fill="#c9d1d9" font-weight="normal"></text>
@@ -155,12 +155,12 @@
 <text y="414" fill="#5ba3ff" font-weight="normal"></text>
 <text y="414" fill="#5ba3ff" font-weight="normal"><tspan x="699">▃</tspan><tspan x="708">▃</tspan><tspan x="717">▄</tspan><tspan x="726">▄</tspan><tspan x="735">▄</tspan><tspan x="744">▄</tspan><tspan x="753">▃</tspan><tspan x="762">▃</tspan><tspan x="771">▅</tspan><tspan x="780">▅</tspan><tspan x="789">▄</tspan><tspan x="798">▄</tspan><tspan x="807">▅</tspan><tspan x="816">▅</tspan><tspan x="825">▄</tspan><tspan x="834">▄</tspan><tspan x="843">▅</tspan><tspan x="852">▅</tspan><tspan x="861">▄</tspan><tspan x="870">▄</tspan><tspan x="879">▁</tspan><tspan x="888">▁</tspan><tspan x="897">▁</tspan><tspan x="906">▁</tspan></text>
 <text y="414" fill="#c9d1d9" font-weight="normal"></text>
-<text y="414" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="414" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="                                                                                                                       █">
 <text y="437" fill="#c9d1d9" font-weight="normal"></text>
 <text y="437" fill="#c9d1d9" font-weight="normal"></text>
-<text y="437" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="437" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="  ▸ codex · 00000004                                                                                   9.0%   400.0 MB █">
 <text y="460" fill="#5ba3ff" font-weight="bold"><tspan x="42">▸</tspan><tspan x="60">c</tspan><tspan x="69">o</tspan><tspan x="78">d</tspan><tspan x="87">e</tspan><tspan x="96">x</tspan><tspan x="114">·</tspan><tspan x="132">0</tspan><tspan x="141">0</tspan><tspan x="150">0</tspan><tspan x="159">0</tspan><tspan x="168">0</tspan><tspan x="177">0</tspan><tspan x="186">0</tspan><tspan x="195">4</tspan></text>
@@ -169,7 +169,7 @@
 <text y="460" fill="#56b6c2" font-weight="bold"><tspan x="951">9</tspan><tspan x="960">.</tspan><tspan x="969">0</tspan><tspan x="978">%</tspan></text>
 <text y="460" fill="#f0f6fc" font-weight="bold"><tspan x="1014">4</tspan><tspan x="1023">0</tspan><tspan x="1032">0</tspan><tspan x="1041">.</tspan><tspan x="1050">0</tspan><tspan x="1068">M</tspan><tspan x="1077">B</tspan></text>
 <text y="460" fill="#c9d1d9" font-weight="normal"></text>
-<text y="460" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="460" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="    1 process                                                                                                          █">
 <text y="483" fill="#c9d1d9" font-weight="normal"><tspan x="60">1</tspan><tspan x="78">p</tspan><tspan x="87">r</tspan><tspan x="96">o</tspan><tspan x="105">c</tspan><tspan x="114">e</tspan><tspan x="123">s</tspan><tspan x="132">s</tspan></text>
@@ -178,7 +178,7 @@
 <text y="483" fill="#e3b341" font-weight="normal"></text>
 <text y="483" fill="#e3b341" font-weight="normal"></text>
 <text y="483" fill="#c9d1d9" font-weight="normal"></text>
-<text y="483" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="483" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="    python · /projects/harbor 9.0%                                         ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁                    █">
 <text y="506" fill="#c9d1d9" font-weight="normal"></text>
@@ -189,12 +189,12 @@
 <text y="506" fill="#5ba3ff" font-weight="normal"></text>
 <text y="506" fill="#5ba3ff" font-weight="normal"><tspan x="699">▁</tspan><tspan x="708">▁</tspan><tspan x="717">▁</tspan><tspan x="726">▁</tspan><tspan x="735">▁</tspan><tspan x="744">▁</tspan><tspan x="753">▁</tspan><tspan x="762">▁</tspan><tspan x="771">▁</tspan><tspan x="780">▁</tspan><tspan x="789">▁</tspan><tspan x="798">▁</tspan><tspan x="807">▁</tspan><tspan x="816">▁</tspan><tspan x="825">▁</tspan><tspan x="834">▁</tspan><tspan x="843">▁</tspan><tspan x="852">▁</tspan><tspan x="861">▁</tspan><tspan x="870">▁</tspan><tspan x="879">▁</tspan><tspan x="888">▁</tspan><tspan x="897">▁</tspan><tspan x="906">▁</tspan></text>
 <text y="506" fill="#c9d1d9" font-weight="normal"></text>
-<text y="506" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="506" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="                                                                                                                       █">
 <text y="529" fill="#c9d1d9" font-weight="normal"></text>
 <text y="529" fill="#c9d1d9" font-weight="normal"></text>
-<text y="529" fill="#f0f6fc" font-weight="bold"><tspan x="1095">█</tspan></text>
+<text y="529" fill="#8c92ac" font-weight="normal"><tspan x="1095">█</tspan></text>
 </g>
 <g aria-label="  ▸ codex · 00000006                                                                                   0.2%     3.2 GB │">
 <text y="552" fill="#5ba3ff" font-weight="bold"><tspan x="42">▸</tspan><tspan x="60">c</tspan><tspan x="69">o</tspan><tspan x="78">d</tspan><tspan x="87">e</tspan><tspan x="96">x</tspan><tspan x="114">·</tspan><tspan x="132">0</tspan><tspan x="141">0</tspan><tspan x="150">0</tspan><tspan x="159">0</tspan><tspan x="168">0</tspan><tspan x="177">0</tspan><tspan x="186">0</tspan><tspan x="195">6</tspan></text>

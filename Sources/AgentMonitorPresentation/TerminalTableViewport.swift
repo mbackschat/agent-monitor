@@ -103,7 +103,7 @@ struct TerminalTableViewport<ID: Equatable & Sendable> {
                 runs: content.runs + [
                     .init(
                         String(repeating: " ", count: max(1, width - TerminalCells.width(content.text) - 1))),
-                    .init(glyph, style: glyph == "█" ? .heading : .muted),
+                    .init(glyph, style: .muted),
                 ], style: line.style)
         }
     }
