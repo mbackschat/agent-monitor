@@ -19,7 +19,7 @@ struct MenuBarView: View {
     }
 
     private var overviewVisible: Bool {
-        model.report.showsOverview && !model.diagnosis.state.isVisible && model.report.actionPanel == nil
+        model.report.showsOverview && model.isReportUnobstructed
     }
 
     var body: some View {
@@ -110,7 +110,7 @@ struct MenuBarView: View {
         .fixedSize(horizontal: false, vertical: model.isSummaryOnly)
         .background { MenuBarKeyboardCommands(perform: performShortcut) }
         .onChange(of: model.isSummaryOnly) { _, _ in model.onPanelSizeChange?() }
-        .onChange(of: model.diagnosis.state.isVisible || model.report.actionPanel != nil) { _, inspecting in
+        .onChange(of: !model.isReportUnobstructed) { _, inspecting in
             if inspecting {
                 focus = .inspection
             } else if model.isOpen {
@@ -118,8 +118,7 @@ struct MenuBarView: View {
             }
         }
         .onChange(of: model.visibleRowIDs) { _, rows in
-            guard model.isOpen, !model.report.showsOverview, !model.diagnosis.state.isVisible,
-                model.report.actionPanel == nil,
+            guard model.isOpen, !model.report.showsOverview, model.isReportUnobstructed,
                 let row = initialFocus.rowsChanged(rows, focus: focus)
             else { return }
             model.selectRow(row)
@@ -129,7 +128,7 @@ struct MenuBarView: View {
             if model.report.showsOverview {
                 return .ignored
             }
-            guard model.isOpen, !model.diagnosis.state.isVisible, model.report.actionPanel == nil,
+            guard model.isOpen, model.isReportUnobstructed,
                 focus != nil, MenuBarKeyboard.isBulkDisclosure(modifiers: key.modifiers),
                 model.report.setSessionDisclosure(
                     expanded: key.key == .rightArrow, from: focusedRow, flattenSingletons: true)
@@ -149,7 +148,7 @@ struct MenuBarView: View {
             return moveFocus(by: key.key == .upArrow ? -1 : 1)
         }
         .onChange(of: model.report.showsOverview) { _, overview in
-            guard model.isOpen, !model.diagnosis.state.isVisible, model.report.actionPanel == nil else {
+            guard model.isOpen, model.isReportUnobstructed else {
                 return
             }
             focus =
@@ -172,7 +171,7 @@ struct MenuBarView: View {
             pendingPinFocus = nil
         }
         .task(id: model.isOpen) {
-            if model.isOpen, !model.diagnosis.state.isVisible, model.report.actionPanel == nil {
+            if model.isOpen, model.isReportUnobstructed {
                 restoreReportFocus()
             } else {
                 focus = nil
@@ -200,7 +199,7 @@ struct MenuBarView: View {
                         .task {
                             await Task.yield()
                             guard !Task.isCancelled, model.isOpen, !model.report.showsOverview,
-                                !model.diagnosis.state.isVisible, model.report.actionPanel == nil
+                                model.isReportUnobstructed
                             else { return }
                             if let row = model.report.selection { proxy.scrollTo(row, anchor: .center) }
                             restoreReportFocus()
@@ -381,8 +380,7 @@ struct MenuBarView: View {
     }
 
     private func performShortcut(_ key: String) -> Bool {
-        guard model.isOpen, model.referencePage == nil, !model.diagnosis.state.isVisible,
-            model.report.actionPanel == nil
+        guard model.isOpen, model.referencePage == nil, model.isReportUnobstructed
         else { return false }
         if key == "q" {
             NSApplication.shared.terminate(nil)
@@ -431,7 +429,7 @@ struct MenuBarView: View {
     }
 
     private func moveFocus(by delta: Int) -> KeyPress.Result {
-        guard focus != nil, !model.diagnosis.state.isVisible, model.report.actionPanel == nil else {
+        guard focus != nil, model.isReportUnobstructed else {
             return .ignored
         }
         focusedRow = model.moveFocus(from: focusedRow, by: delta)

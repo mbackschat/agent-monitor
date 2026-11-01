@@ -25,15 +25,20 @@ struct MenuBarKeyboardShortcuts: View {
 }
 
 extension MenuBarModel {
+    /// Labels shared browsing keys from their bindings so the guide cannot drift from `ReportShortcut`.
+    private static func keys(_ shortcuts: ReportShortcut...) -> String {
+        shortcuts.map(\.rawValue).joined(separator: " / ")
+    }
+
     var availableKeyboardShortcuts: [(key: String, description: String)] {
         var keys: [(key: String, description: String)] = [("Esc", "Close this guide")]
-        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil else { return keys }
+        guard isOpen, isReportUnobstructed else { return keys }
         keys.append(("Tab / ⇧Tab", "Next / previous control"))
         if !report.showsOverview || !report.overview.visibleRows.isEmpty {
             keys.append(("↑ / ↓", "Previous / next row"))
         }
         if report.showsOverview {
-            keys.append(("8", "Collapse / expand table"))
+            keys.append((Self.keys(.foldTable), "Collapse / expand table"))
             for section in report.overview.tableSections {
                 keys.append((section.shortcut, "Fold " + section.rawValue))
             }
@@ -42,7 +47,9 @@ extension MenuBarModel {
             {
                 if !node.children.isEmpty { keys.append(("← / →", "Collapse / expand row")) }
                 keys.append(("i", "Show / hide contributor details"))
-                if report.overview.pinTarget(for: id) != nil { keys.append((".", "Pin / unpin session")) }
+                if report.overview.pinTarget(for: id) != nil {
+                    keys.append((Self.keys(.pin), "Pin / unpin session"))
+                }
                 if report.overview.detailsVisible, report.overview.inspectedProcess != nil {
                     if let process = report.contributorProcessTarget {
                         if canBegin(.terminate, contributor: id, process: process.process) {
@@ -64,29 +71,40 @@ extension MenuBarModel {
                     }
                 }
             }
-            keys += [("a", "Main / all contributors"), ("b", "Change fixed CPU chart range")]
+            keys += [
+                (Self.keys(.allContributors), "Main / all contributors"),
+                (Self.keys(.chartRange), "Change fixed CPU chart range"),
+            ]
         } else {
             if let row = report.selection {
-                keys += [("← / →", "Close / open row details"), (".", "Pin / unpin row")]
+                keys += [("← / →", "Close / open row details"), (Self.keys(.pin), "Pin / unpin row")]
                 if pidToCopy(for: row) != nil { keys.append(("y", "Copy PID")) }
                 if canBegin(.terminate, row: row) { keys.append(("k", "Review process termination")) }
                 if canBegin(.focus, row: row) { keys.append(("f", "Show terminal")) }
             }
             if report.grouping == .session { keys.append(("⇧← / ⇧→", "Collapse / expand session groups")) }
             keys += [
-                ("n", "Sort by PID"), ("h", "Change history metric"), ("t", "Change history time range"),
+                (Self.keys(.pid), "Sort by PID"), (Self.keys(.historyMetric), "Change history metric"),
+                (Self.keys(.historyWindow), "Change history time range"),
             ]
         }
-        if report.hasPins { keys.append(("u", "Unpin all")) }
-        if report.canSelectOverview { keys.append(("v", "Switch overview / processes")) }
-        keys += [("g", "Toggle process grouping"), ("c / m / o", "Sort by CPU / memory / stable order")]
-        if report.showsOverview ? report.overview.order != .stable : report.sortKey != .stable {
-            keys.append(("r", "Reverse sort direction"))
-        }
-        if report.snapshot != nil { keys.append(("p", report.frozen ? "Resume updates" : "Pause updates")) }
+        if report.hasPins { keys.append((Self.keys(.unpinAll), "Unpin all")) }
+        if report.canSelectOverview { keys.append((Self.keys(.overview), "Switch overview / processes")) }
         keys += [
-            ("1 / 2", "Lower / raise CPU filter"), ("3 / 4", "Lower / raise memory filter"),
-            ("< / >", "Slower / faster sampling"), ("?", "Show available shortcuts"), ("q / ⌘Q", "Quit"),
+            (Self.keys(.grouping), "Toggle process grouping"),
+            (Self.keys(.cpu, .memory, .stable), "Sort by CPU / memory / stable order"),
+        ]
+        if report.showsOverview ? report.overview.order != .stable : report.sortKey != .stable {
+            keys.append((Self.keys(.reverse), "Reverse sort direction"))
+        }
+        if report.snapshot != nil {
+            keys.append((Self.keys(.pause), report.frozen ? "Resume updates" : "Pause updates"))
+        }
+        keys += [
+            (Self.keys(.cpuDown, .cpuUp), "Lower / raise CPU filter"),
+            (Self.keys(.memoryDown, .memoryUp), "Lower / raise memory filter"),
+            (Self.keys(.slower, .faster), "Slower / faster sampling"), ("?", "Show available shortcuts"),
+            ("q / ⌘Q", "Quit"),
         ]
         return keys
     }

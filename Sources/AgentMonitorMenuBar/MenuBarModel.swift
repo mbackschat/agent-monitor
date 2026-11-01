@@ -35,9 +35,11 @@ final class MenuBarModel {
     }
     private(set) var customPanelHeight: CGFloat?
     var panelHeight: CGFloat { customPanelHeight ?? panelSize.height }
+    /// No diagnosis or action panel covers the report. Callers still check panel visibility and reference pages.
+    var isReportUnobstructed: Bool { !diagnosis.state.isVisible && report.actionPanel == nil }
     var isSummaryOnly: Bool {
         report.showsOverview && report.overview.tableCollapsed
-            && !diagnosis.state.isVisible && report.actionPanel == nil
+            && isReportUnobstructed
     }
     @ObservationIgnored var onPanelSizeChange: (() -> Void)?
 
@@ -168,7 +170,7 @@ final class MenuBarModel {
     }
 
     func toggleFreeze() {
-        guard isOpen, !diagnosis.state.isVisible, report.snapshot != nil, report.actionPanel == nil else {
+        guard isOpen, isReportUnobstructed, report.snapshot != nil else {
             return
         }
         report.toggleFreeze()
@@ -261,7 +263,7 @@ final class MenuBarModel {
     }
 
     func canBegin(_ kind: ProcessActionKind, row: LiveReportRowID) -> Bool {
-        guard isOpen, !isPerformingAction, !diagnosis.state.isVisible, report.actionPanel == nil,
+        guard isOpen, !isPerformingAction, isReportUnobstructed,
             rowIndex.visible.contains(row)
         else { return false }
         switch row {
@@ -281,7 +283,7 @@ final class MenuBarModel {
     }
 
     func begin(_ kind: ProcessActionKind, row: LiveReportRowID) {
-        guard isOpen, !isPerformingAction, !diagnosis.state.isVisible, report.actionPanel == nil else {
+        guard isOpen, !isPerformingAction, isReportUnobstructed else {
             return
         }
         guard canBegin(kind, row: row) else { return }
@@ -299,13 +301,13 @@ final class MenuBarModel {
     }
 
     @discardableResult func togglePin(_ row: LiveReportRowID) -> Bool {
-        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, rowIndex.visible.contains(row)
+        guard isOpen, isReportUnobstructed, rowIndex.visible.contains(row)
         else { return false }
         return report.togglePin(row)
     }
 
     func unpinAll() {
-        guard !diagnosis.state.isVisible, report.actionPanel == nil else { return }
+        guard isReportUnobstructed else { return }
         report.unpinAll()
     }
 

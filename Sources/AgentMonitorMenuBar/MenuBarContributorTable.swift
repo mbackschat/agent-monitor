@@ -9,8 +9,7 @@ struct MenuBarContributorTable: View {
 
     private var acceptsInteraction: Bool {
         model.isOpen && model.report.showsOverview && !model.report.overview.tableCollapsed
-            && !model.diagnosis.state.isVisible
-            && model.report.actionPanel == nil
+            && model.isReportUnobstructed
     }
 
     var body: some View {

@@ -96,7 +96,7 @@ struct MenuBarContributorActions: View {
 
 extension MenuBarModel {
     func canBeginContributorTermination(_ contributor: ContributorID) -> Bool {
-        isOpen && !isPerformingAction && !diagnosis.state.isVisible && report.actionPanel == nil
+        isOpen && !isPerformingAction && isReportUnobstructed
             && !report.contributorProcesses(for: contributor).isEmpty
     }
 
@@ -106,7 +106,7 @@ extension MenuBarModel {
     }
 
     func canBegin(_ kind: ProcessActionKind, contributor: ContributorID, process: ProcessIdentity) -> Bool {
-        guard isOpen, !isPerformingAction, !diagnosis.state.isVisible, report.actionPanel == nil,
+        guard isOpen, !isPerformingAction, isReportUnobstructed,
             let target = report.contributorProcesses(for: contributor).first(where: { $0.process == process })
         else { return false }
         switch kind {

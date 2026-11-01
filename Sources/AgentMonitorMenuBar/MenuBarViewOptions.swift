@@ -144,7 +144,7 @@ enum MenuBarOption: Equatable {
         menu.addItem(.separator())
         add("Unpin all", .unpinAll, checked: false, to: menu)
         menu.items.last?.isEnabled =
-            model.report.hasPins && model.report.actionPanel == nil && !model.diagnosis.state.isVisible
+            model.report.hasPins && model.isReportUnobstructed
         menu.addItem(.separator())
         menu.addItem(.sectionHeader(title: "Sort by"))
         let overview = model.report.view.isOverview

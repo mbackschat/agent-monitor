@@ -21,7 +21,7 @@ enum MenuBarKeyboard {
 
 extension MenuBarModel {
     func pidToCopy(for row: LiveReportRowID) -> String? {
-        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil, rowIndex.visible.contains(row),
+        guard isOpen, isReportUnobstructed, rowIndex.visible.contains(row),
             case .process(let identity) = row,
             rowIndex.processes[identity] != nil
         else { return nil }
@@ -41,7 +41,7 @@ extension MenuBarModel {
         _ key: String, row: LiveReportRowID?,
         writeClipboard: @MainActor (String) -> Bool = MenuBarClipboard.copy
     ) -> Bool {
-        guard isOpen, !diagnosis.state.isVisible, report.actionPanel == nil else { return false }
+        guard isOpen, isReportUnobstructed else { return false }
         if key == "?" {
             referencePage = .keyboard
             return true
