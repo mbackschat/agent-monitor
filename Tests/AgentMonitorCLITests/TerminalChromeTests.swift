@@ -7,12 +7,26 @@ import Testing
         var state = LiveReportState()
         state.receive(try overviewFixture())
         state.overview.sort(by: order)
-        let summary = ContributorLayout.lines(state: state, width: width, height: 40)[2]
-        let cpu = try #require(summary.runs.first { $0.text.hasPrefix("CPU ") })
-        let memory = try #require(summary.runs.first { $0.text.hasPrefix("Memory ") })
+        let lines = ContributorLayout.lines(state: state, width: width, height: 40)
+        let summary = lines[width >= 100 ? 1 : 2]
+        let cpuValue = state.overview.totals.cpuText(duration: state.overview.duration)
+        let memoryValue = state.overview.totals.memoryText
+        let cpu = try #require(summary.runs.first { $0.text.contains(cpuValue) })
+        let memory = try #require(summary.runs.first { $0.text.contains(memoryValue) })
         #expect(cpu.style == (order == .cpu ? .metric : .heading))
         #expect(memory.style == (order == .memory ? .metric : .heading))
-        #expect(summary.text.hasPrefix(state.overview.totals.summary(duration: state.overview.duration)))
+        if width < 100 {
+            #expect(summary.text.hasPrefix(state.overview.totals.summary(duration: state.overview.duration)))
+        } else {
+            #expect(lines[0].text.hasSuffix(order == .memory ? "MEMORY ↓" : "MEMORY"))
+            #expect(lines[2].text.contains("Recent CPU " + state.overview.totals.recentCPUText))
+            #expect(!lines[3].text.contains("MEMORY"))
+            let row = try #require(lines.first { $0.style == .selected })
+            #expect(
+                summary.runs.suffix(2).map { TerminalCells.width($0.text) }
+                    == row.runs.suffix(2).map { TerminalCells.width($0.text) })
+            #expect(TerminalCells.width(summary.text) == TerminalCells.width(row.text))
+        }
     }
 
     @Test(arguments: [ReportView.mainContributors, .sessions, .processes], [40, 120])
@@ -123,7 +137,7 @@ import Testing
             lines[1].text.contains("Overall CPU")
                 && lines[1].text.contains(state.overview.activity.scaleLabel))
         #expect(lines[0].runs.contains { $0.style == .chartFill })
-        #expect(lines[2].text.contains("Memory"))
+        #expect(lines[1].text.contains(state.overview.totals.memoryText))
         #expect(lines[3].text.hasPrefix("CONTRIBUTOR"))
         #expect(lines.count == height)
         #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })

@@ -8,25 +8,7 @@ struct MenuBarContributorOverview: View {
     var body: some View {
         let overview = model.report.overview
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 14) {
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Text(overview.totals.cpuText(duration: overview.duration)).font(.title2.bold())
-                    Text("CPU").font(.caption)
-                }
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Text(overview.totals.memoryText).font(.title3.weight(.semibold))
-                    Text("memory").font(.caption)
-                }
-                Spacer(minLength: 0)
-                MenuBarContributorLane(activity: overview.activity)
-                    .frame(width: 100, height: 32)
-                Text(
-                    overview.totals.currentAvailable
-                        ? "\(overview.totals.current.count) processes" : "Presence unavailable"
-                )
-                .font(.caption).foregroundStyle(.secondary)
-                .frame(width: 180, alignment: .trailing)
-            }.padding(.trailing, 22).monospacedDigit().accessibilityLabel("Measured total")
+            MenuBarContributorHeader(model: model)
             if let notice = overview.pinNotice { Text(notice).font(.caption).foregroundStyle(.orange) }
             if overview.hideNoLongerObserved {
                 Button(

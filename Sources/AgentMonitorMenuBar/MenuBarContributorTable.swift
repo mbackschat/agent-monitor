@@ -36,14 +36,6 @@ struct MenuBarContributorTable: View {
             return group
         }
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                sortButton("Contributor", field: .contributor)
-                Spacer(minLength: 0)
-                Text("CPU history · " + overview.activity.scaleLabel).font(.system(size: 11)).foregroundStyle(
-                    .secondary)
-                sortButton("CPU", field: .cpu).frame(width: 80, alignment: .trailing)
-                sortButton("Memory", field: .memory).frame(width: 88, alignment: .trailing)
-            }.padding(.horizontal, 14).padding(.vertical, 7)
             Table(
                 of: ContributorNode.self,
                 selection: Binding(
@@ -182,31 +174,6 @@ struct MenuBarContributorTable: View {
         }
     }
 
-    private func sortButton(_ title: String, field: ContributorOrder) -> some View {
-        Button {
-            guard acceptsInteraction else { return }
-            let overview = model.report.overview
-            model.report.overview.sort(
-                by: field, ascending: overview.order == field ? !overview.ascending : field == .contributor)
-        } label: {
-            HStack(spacing: 3) {
-                Text(title)
-                if model.report.overview.order == field {
-                    Image(systemName: model.report.overview.ascending ? "chevron.up" : "chevron.down").font(
-                        .caption2)
-                }
-            }.font(.system(size: 11, weight: .semibold))
-        }.buttonStyle(.plain)
-            .accessibilityIdentifier("contributor-sort-" + title.lowercased())
-            .accessibilityLabel("Sort by " + title)
-            .accessibilityValue(
-                model.report.overview.order == field
-                    ? (model.report.overview.ascending ? "Ascending" : "Descending") : "Not sorted"
-            )
-            .help(
-                "Sort by " + title + (field == .cpu ? " (c)" : field == .memory ? " (m)" : "")
-                    + "; click again or press r to reverse")
-    }
 }
 
 private struct MenuBarContributorRows: TableRowContent {
@@ -272,7 +239,7 @@ struct MenuBarContributorRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
+            HStack(spacing: MenuBarContributorColumns.spacing) {
                 HStack(spacing: 6) {
                     Image(
                         systemName: node.id.summarySymbol
@@ -294,14 +261,15 @@ struct MenuBarContributorRow: View {
                         MenuBarGroupHelp(entry: entry) { showGroupHelp(entry) }
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
-                MenuBarContributorLane(activity: overview.activity, id: node.id).frame(width: 100, height: 32)
+                MenuBarContributorLane(activity: overview.activity, id: node.id).frame(
+                    width: MenuBarContributorColumns.chart, height: 32)
                 Text(node.stats.cpuText(duration: overview.duration)).font(
                     .system(size: 17, weight: .semibold)
                 )
-                .frame(width: 80, alignment: .trailing).accessibilityLabel(
+                .frame(width: MenuBarContributorColumns.cpu, alignment: .trailing).accessibilityLabel(
                     "CPU: " + node.stats.cpuText(duration: overview.duration))
                 Text(node.stats.currentMemoryText).font(.system(size: 15, weight: .medium))
-                    .frame(width: 88, alignment: .trailing).accessibilityLabel(
+                    .frame(width: MenuBarContributorColumns.memory, alignment: .trailing).accessibilityLabel(
                         "Memory: " + node.stats.currentMemoryText)
             }.monospacedDigit()
                 .opacity(node.stats.isNoLongerObserved ? (prominence == .increased ? 0.65 : 0.55) : 1)

@@ -29,12 +29,13 @@ public enum ContributorLayout {
             width: width, graphs: width >= 90 && height >= 20, order: overview.order,
             chartStyle: state.chartStyle,
             cpu: max(
-                7,
+                max(7, TerminalCells.width(overview.totals.cpuText(duration: overview.duration))),
                 overview.nodes.values.map {
                     TerminalCells.width($0.stats.cpuText(duration: overview.duration))
                 }.max() ?? 0),
             memory: max(
-                10, overview.nodes.values.map { TerminalCells.width($0.stats.currentMemoryText) }.max() ?? 0))
+                max(10, TerminalCells.width(overview.totals.memoryText)),
+                overview.nodes.values.map { TerminalCells.width($0.stats.currentMemoryText) }.max() ?? 0))
         var footer = footerLines(state: state, width: width)
         let totals = ReportLine(runs: [
             .init(
@@ -50,15 +51,22 @@ public enum ContributorLayout {
             " · Overall CPU · " + overview.activity.scaleLabel
             + (state.chartStyle == .compact ? " · compact" : "")
         let cadence = TerminalChrome.cadence(state: state).text
+        let recent = "Recent CPU " + overview.totals.recentCPUText
+        let alignedTotals =
+            columns.graphs && width >= 100
+            && TerminalCells.width(cadence + chartCaption) <= columns.name
+            && TerminalCells.width(recent) <= columns.cpu + columns.memory + 1
         let showsOverallChart =
             columns.graphs
-            && TerminalCells.width(totals.text) <= columns.name
+            && (alignedTotals || TerminalCells.width(totals.text) <= columns.name)
             && TerminalCells.width(cadence + chartCaption) <= columns.name
         let summaryWidth = showsOverallChart ? columns.name : width
+        let cpuHeading = "CPU" + (overview.order == .cpu ? (overview.ascending ? " ↑" : " ↓") : "")
+        let memoryHeading = "MEMORY" + (overview.order == .memory ? (overview.ascending ? " ↑" : " ↓") : "")
         var header = [
             TerminalChrome.title(state: state, width: summaryWidth),
             ReportLine(cadence + (columns.graphs ? chartCaption : ""), style: .muted),
-            totals,
+            alignedTotals ? ReportLine("") : totals,
         ]
         if !(overview.detailsVisible && state.detailsMode == .maximized) {
             header += [
@@ -66,8 +74,8 @@ public enum ContributorLayout {
                     "CONTRIBUTOR"
                         + (overview.order == .contributor ? (overview.ascending ? " ↑" : " ↓") : ""),
                     chart: "CPU HISTORY",
-                    cpu: "CPU" + (overview.order == .cpu ? (overview.ascending ? " ↑" : " ↓") : ""),
-                    memory: "MEMORY" + (overview.order == .memory ? (overview.ascending ? " ↑" : " ↓") : ""),
+                    cpu: alignedTotals ? "" : cpuHeading,
+                    memory: alignedTotals ? "" : memoryHeading,
                     style: .heading, accentMetrics: true)
             ]
         }
@@ -288,6 +296,22 @@ public enum ContributorLayout {
                     chart: lane(level: level, overall: true))
             }
         }
+        if alignedTotals {
+            header[0] = ReportLine(
+                runs: header[0].runs
+                    + columns.metricRuns(
+                        cpu: cpuHeading, memory: memoryHeading, accentMetrics: true))
+            header[1] = ReportLine(
+                runs: header[1].runs
+                    + columns.metricRuns(
+                        cpu: overview.totals.cpuText(duration: overview.duration),
+                        memory: overview.totals.memoryText, accentMetrics: true))
+            let padding = columns.cpu + columns.memory + 2 - TerminalCells.width(recent)
+            header[2] = ReportLine(
+                runs: header[2].runs + [
+                    .init(String(repeating: " ", count: padding) + recent, style: .muted)
+                ])
+        }
         if columns.graphs, visibleCount > 0 || rendersOverallChart {
             footer = TerminalChrome.withChartLegend(footer, width: width)
         }
@@ -424,27 +448,37 @@ public enum ContributorLayout {
             _ title: String, chart: String, cpu: String, memory: String,
             style: ReportLine.Style, metricStyle: ReportLine.Style = .heading, accentMetrics: Bool = false
         ) -> ReportLine {
-            func numeric(_ text: String, width: Int) -> String {
-                let value = TerminalCells.abbreviated(text, to: width)
-                return String(repeating: " ", count: max(0, width - TerminalCells.width(value))) + value
-            }
-            return ReportLine(
+            ReportLine(
                 runs: [
                     .init(
                         TerminalCells.padded(TerminalCells.abbreviated(title, to: name), to: name),
                         style: style)
-                ] + chartRuns(chart) + [
-                    .init(
-                        " " + numeric(cpu, width: self.cpu),
-                        style: style == .selected
-                            ? .selected
-                            : (accentMetrics && order == .cpu && cpu != "—" ? .metric : metricStyle)),
-                    .init(
-                        " " + numeric(memory, width: self.memory),
-                        style: style == .selected
-                            ? .selected
-                            : (accentMetrics && order == .memory && memory != "—" ? .metric : metricStyle)),
-                ], style: style)
+                ] + chartRuns(chart)
+                    + metricRuns(
+                        cpu: cpu, memory: memory, style: style, metricStyle: metricStyle,
+                        accentMetrics: accentMetrics), style: style)
+        }
+
+        func metricRuns(
+            cpu: String, memory: String, style: ReportLine.Style = .normal,
+            metricStyle: ReportLine.Style = .heading, accentMetrics: Bool = false
+        ) -> [ReportLine.Run] {
+            func numeric(_ text: String, width: Int) -> String {
+                let value = TerminalCells.abbreviated(text, to: width)
+                return String(repeating: " ", count: max(0, width - TerminalCells.width(value))) + value
+            }
+            return [
+                .init(
+                    " " + numeric(cpu, width: self.cpu),
+                    style: style == .selected
+                        ? .selected
+                        : (accentMetrics && order == .cpu && cpu != "—" ? .metric : metricStyle)),
+                .init(
+                    " " + numeric(memory, width: self.memory),
+                    style: style == .selected
+                        ? .selected
+                        : (accentMetrics && order == .memory && memory != "—" ? .metric : metricStyle)),
+            ]
         }
 
     }

@@ -825,7 +825,8 @@ func terminalChartsPreserveCompactHeightAndOverflowInColorAndMonochrome(
     #expect(rendered.contains("compact") == compact)
     try writeAllBytes(Array("m".utf8), to: terminal.master)
     _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)) {
-        $0.contains("Memory ↓") && $0.contains("Memory 400.0 MB")
+        $0.contains("Memory ↓")
+            && $0.components(separatedBy: "\n").prefix(3).joined().contains("400.0 MB")
     }
     try writeAllBytes(Array("?".utf8), to: terminal.master)
     _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)) {
