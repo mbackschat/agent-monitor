@@ -31,6 +31,7 @@ jobs:
         run: |
           python3 scripts/test_release.py
           python3 scripts/test_macos_bundle.py
+          python3 scripts/test_notarize_macos.py
       - name: Check Swift formatting
         run: swift format lint --strict --recursive Sources Tests Tools Package.swift
       - name: Enable keyboard navigation for native focus checks

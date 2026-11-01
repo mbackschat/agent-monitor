@@ -16,7 +16,7 @@ Generate and visually review the [README native screenshot](development.md#build
 bash scripts/release.sh <version>
 ```
 
-Preparation requires a clean `main` and an unused tag. It runs the doctor, documentation, formatting, Swift test, preview and release terminal checks with synthetic fixtures; it does not use live workloads or provider listings. It then builds and packages the CLI and builds the local Mac app. Complete [Mac signing and notarization](macos-release.md) to produce the app ZIP before publishing.
+Preparation requires a clean `main` and an unused tag. It runs the doctor, documentation, formatting, Swift test, preview and release terminal checks with synthetic fixtures; it does not use live workloads or provider listings. It then builds and packages the CLI and builds the local Mac app. Run `python3 scripts/notarize-macos.py VERSION --identity DEVELOPER_ID_SHA1` to produce the app ZIP; [Mac signing and notarization](macos-release.md) covers Keychain setup and recovery.
 
 Review `dist/notes-<version>.md`, drafted from `feat`, `fix` and `perf` commits since the previous tag. Write the summary, group or reword changes for users, and remove every `TODO`. Release notes are reviewed input, not an automatically published commit list.
 
@@ -59,7 +59,13 @@ The helper accepts its own exact pending recipe edits or one unpushed release co
 
 If the GitHub release does not yet exist, inspect the tag/push/release state and finish those commands from [release.sh](../scripts/release.sh) before running the helper. Release notes remain reviewed input, not an automatically published raw commit list.
 
-Run `python3 scripts/test_macos_bundle.py` for native bundle/version/license guards and `python3 scripts/test_release.py` for regression coverage with disposable Git repositories and fake Homebrew commands. These checks run in CI and before preparation; publication performs the real installed-binary checks.
+Release automation checks use disposable files and fake external commands:
+
+- `python3 scripts/test_macos_bundle.py` — native bundle, version and license guards.
+- `python3 scripts/test_notarize_macos.py` — submission recovery, source identity and archive protection without Keychain access or Apple uploads.
+- `python3 scripts/test_release.py` — Homebrew publication and retry behavior with disposable Git repositories.
+
+These checks run in CI and before preparation; publication performs the real installed-binary and downloaded-app checks.
 
 ## Packaging details
 

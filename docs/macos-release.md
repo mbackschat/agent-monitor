@@ -1,6 +1,6 @@
 # Sign and notarize the Mac app
 
-Distribute the native app as a Developer ID-signed, notarized ZIP alongside the CLI archive on GitHub. The CLI Homebrew formula remains separate. This workflow runs locally with Xcode; private keys and notarization credentials stay in Keychain.
+Distribute the native app as a Developer ID-signed, notarized ZIP alongside the CLI archive on GitHub. The `agent-monitor-app` Homebrew cask uses that same ZIP; the CLI formula remains separate. Signing runs locally with Xcode, and private keys and notarization credentials stay in Keychain.
 
 [Release guide](releasing.md) · [Installation](installation.md)
 
@@ -15,73 +15,62 @@ xcrun notarytool store-credentials agent-monitor-notary \
   --apple-id "YOUR_APPLE_ACCOUNT_EMAIL" --team-id YOUR_TEAM_ID
 ```
 
-The command validates the credentials before storing them. Do not put passwords, private keys or certificate exports into source, release notes or chat. See Apple's [Developer ID certificate guide](https://developer.apple.com/help/account/certificates/create-developer-id-certificates/) and [app-specific password instructions](https://support.apple.com/en-us/102654).
+The command validates the credentials before storing them. Never put passwords, private keys or certificate exports into source, release notes or chat. See Apple's [Developer ID certificate guide](https://developer.apple.com/help/account/certificates/create-developer-id-certificates/) and [app-specific password instructions](https://support.apple.com/en-us/102654).
 
 ## Prepare the app
 
-First complete the version, preview, commit and checks in [release preparation](releasing.md#release-in-three-steps). `release.sh` builds the local app but deliberately leaves it ad-hoc signed. Signing a release requires the explicit identity below.
-
-Use the intended version and the SHA-1 identity from `security find-identity`. Start in the repository root with an unused staging directory:
+Complete [release preparation](releasing.md#release-in-three-steps) first. It builds the local app and records the validated source revision. Then, from the repository root, supply the release version and the Developer ID Application certificate's SHA-1:
 
 ```sh
-release_version=0.4.0
-signing_identity=YOUR_DEVELOPER_ID_APPLICATION_SHA1
-mac_stage="dist/macos-$release_version"
-mkdir "$mac_stage"
-ditto '.build/Agent Monitor.app' "$mac_stage/Agent Monitor.app"
-cp "$mac_stage/Agent Monitor.app/Contents/MacOS/agent-monitor-menubar" \
-  "dist/agent-monitor-app-$release_version-macos-arm64-unstripped"
-strip "$mac_stage/Agent Monitor.app/Contents/MacOS/agent-monitor-menubar"
-codesign --force --sign "$signing_identity" --options runtime --timestamp \
-  --entitlements scripts/macos-release.entitlements "$mac_stage/Agent Monitor.app"
-codesign --verify --deep --strict "$mac_stage/Agent Monitor.app"
-ditto -c -k --keepParent "$mac_stage/Agent Monitor.app" "$mac_stage/submission.zip"
-git rev-parse HEAD > "$mac_stage/source.commit"
+python3 scripts/notarize-macos.py 0.4.0 \
+  --identity YOUR_DEVELOPER_ID_APPLICATION_SHA1
 ```
 
-Stop if any command fails. The bundle's release and build versions come from `AgentMonitorVersion.current`. Both resource bundles, project notices and locked dependency licenses are included. Retain the unstripped native executable for published releases, just as for the CLI.
+The script stages the app, retains its unstripped executable, strips and signs it, submits it to Apple, waits for acceptance, staples the ticket, and creates the final ZIP. It verifies the extracted app's version, bundle identity, signature, ticket and Gatekeeper assessment before writing the checksum and source receipt. The default Keychain profile is `agent-monitor-notary`; override it with `--keychain-profile NAME`.
 
-Hardened Runtime uses only the [Apple Events entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.automation.apple-events), needed by the existing Terminal focus action. It does not enable App Sandbox, debugging access or relaxed library validation. Runtime collection remains offline; the development-time signing/notarization tools contact Apple.
+Allow any macOS Keychain prompt locally. A long authorization wait can cause signing to fail with differing timestamps; rerun the command to sign with a fresh timestamp. No notarization upload occurs until signing succeeds.
+
+Both bundle versions come from `AgentMonitorVersion.current`. Resources and locked dependency notices are retained. Hardened Runtime uses only the [Apple Events entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.automation.apple-events), required by the existing Terminal focus action. It does not enable App Sandbox, debugging access or relaxed library validation. Runtime monitoring remains offline; development-time signing and notarization contact Apple.
 
 ## Submit once and keep the submission ID
 
-```sh
-xcrun notarytool submit "$mac_stage/submission.zip" \
-  --keychain-profile agent-monitor-notary --output-format json > "$mac_stage/submission.json"
-```
+The script saves Apple's ID before waiting. The default wait timeout is ten minutes; `--timeout 20m` changes it. A timeout does not cancel Apple's work: rerun the same command to resume that submission without signing or uploading again.
 
-Read the returned `id`, then wait for that submission:
+If the upload itself is interrupted before its ID is saved, the script refuses to upload another copy. Inspect Apple's history, identify the original submission, and supply its ID explicitly:
 
 ```sh
-xcrun notarytool wait SUBMISSION_ID --keychain-profile agent-monitor-notary --timeout 10m
-xcrun notarytool log SUBMISSION_ID --keychain-profile agent-monitor-notary "$mac_stage/notary-log.json"
+xcrun notarytool history --keychain-profile agent-monitor-notary
+python3 scripts/notarize-macos.py 0.4.0 \
+  --identity YOUR_DEVELOPER_ID_APPLICATION_SHA1 \
+  --submission-id ORIGINAL_SUBMISSION_ID
 ```
 
-Proceed only when the status is **Accepted**, and inspect the log even after success. If waiting times out, Apple continues processing: use `info` or `wait` with the same ID, without uploading another copy. For **Invalid**, inspect the log, fix the reported issue and prepare a new signed submission. Keep the prior ID and source revision for diagnosis. Apple's [custom notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow) explains submission, recovery and ticket handling.
+The accepted log's SHA-256 must match the retained submission ZIP before the script staples anything. An **Invalid** submission stops packaging and leaves the log for diagnosis. Fix the reported cause; preserve the failed staging directory and its ID before preparing a new attempt. Never replace published release assets.
+
+Source changes stop resumption: rebuild and revalidate the release from the final commit instead of relabeling old artifacts. Concurrent invocations for the same version are refused. Apple's [custom notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow) explains submission recovery and ticket handling.
 
 ## Staple, package and verify
 
-Staple the ticket to the app, then create a new ZIP containing that app. The submission ZIP predates stapling and is not the download artifact.
+The script proceeds only after **Accepted** and reads the notarization log even on success. It staples the app before building the download ZIP; the earlier submission ZIP is not the release download. Once a complete archive and matching receipts exist, rerunning verifies them without another submission or app signature.
 
-```sh
-xcrun stapler staple "$mac_stage/Agent Monitor.app"
-xcrun stapler validate "$mac_stage/Agent Monitor.app"
-mac_name="agent-monitor-app-$release_version-macos-arm64"
-ditto -c -k --keepParent "$mac_stage/Agent Monitor.app" "dist/$mac_name.zip"
-python3 scripts/macos_bundle.py --verify-archive "dist/$mac_name.zip" "$release_version"
-```
+Retained files under ignored `dist/`:
 
-The verifier extracts to a temporary directory and checks version, bundle identity, signature, stapled ticket and Gatekeeper assessment without launching the app. After it passes, record the checksum and original source revision:
+| File | Purpose |
+| --- | --- |
+| `macos-VERSION/source.commit` | Original source revision; must match the prepared CLI release. |
+| `macos-VERSION/submission.json` | Apple's submission ID. |
+| `macos-VERSION/submission-started.json` | Prevents another upload when the result is uncertain. |
+| `macos-VERSION/submission.zip` | Exact uploaded bytes, checked against Apple's log. |
+| `macos-VERSION/notary-log.json` | Apple's result and any reported issues. |
+| `agent-monitor-app-VERSION-macos-arm64.zip`, `.zip.sha256`, `.commit` | Verified download and publication receipts. |
+| `agent-monitor-app-VERSION-macos-arm64-unstripped` | Symbols for crash analysis; retain for every published version. |
 
-```sh
-(cd dist && shasum -a 256 "$mac_name.zip" > "$mac_name.zip.sha256")
-cp "$mac_stage/source.commit" "dist/$mac_name.commit"
-```
-
-If source changed since preparation, rebuild and revalidate the release instead of relabeling the old archive. Do not modify resources or re-sign after notarization.
+Do not modify app resources or re-sign after notarization. `python3 scripts/test_notarize_macos.py` exercises recovery and publication guards with fake Apple commands and disposable files; it neither accesses Keychain nor submits an app.
 
 ## Installation check and publication
 
-For the first signed release, the user checks the final extracted app through Finder: copy it to Applications, open it, confirm the menu bar panel and sampling work, and exercise Terminal focus with a disposable target if available. Signature and Gatekeeper checks do not establish physical interaction or Automation consent. Record unperformed checks as pending.
+Return to [publication](releasing.md#3-publish). It verifies both CLI and Mac artifacts from the prepared revision, uploads them, downloads them again and repeats their checks. The Homebrew update publishes the `agent-monitor` formula and `agent-monitor-app` cask; the cask installs only the app. Its Homebrew-fetched ZIP passes the same verifier before the tap is pushed. If Homebrew refuses to audit a newly added local cask as untrusted, trust only that reviewed package with `brew trust --cask mbackschat/tap/agent-monitor-app`.
 
-Return to [publication](releasing.md#3-publish). It requires both CLI and Mac artifacts from the prepared revision, verifies their checksums, uploads both, downloads them again and repeats the Mac archive checks. The Homebrew update publishes the `agent-monitor` CLI formula and the separate `agent-monitor-app` cask. The cask installs only the app and reuses the notarized ZIP; its fetched archive passes the same verifier before the tap is pushed. Install it with `brew install --cask mbackschat/tap/agent-monitor-app` for the user-run installation check. An installer, in-app updater, login item and shared background collector remain separate work.
+For the first signed release, the user installs with `brew install --cask mbackschat/tap/agent-monitor-app`, opens the app from Applications, and checks the menu bar panel and sampling. Exercise Terminal focus with a disposable target if available. Signature and Gatekeeper checks do not establish physical interaction or Automation consent; record unperformed checks as pending.
+
+An installer, in-app updater, login item and shared background collector remain separate work.

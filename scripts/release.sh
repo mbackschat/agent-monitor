@@ -41,6 +41,7 @@ if [ "$mode" = prepare ]; then
     bash scripts/doctor.sh
     python3 scripts/test_release.py
     python3 scripts/test_macos_bundle.py
+    python3 scripts/test_notarize_macos.py
     python3 scripts/test_docs.py
     python3 scripts/docs.py check
     swift format lint --strict --recursive Sources Tests Tools Package.swift
@@ -72,7 +73,8 @@ if [ "$mode" = prepare ]; then
         } >"$notes"
     fi
     echo "Prepared $archive."
-    echo "Prepare the signed/notarized $app_archive using docs/macos-release.md before publishing."
+    echo "Sign and notarize: python3 scripts/notarize-macos.py $version --identity YOUR_DEVELOPER_ID_SHA1"
+    echo "See docs/macos-release.md for Keychain setup and recovery."
     echo "Edit $notes (remove every TODO), then run: bash scripts/release.sh $version --publish"
     exit 0
 fi
