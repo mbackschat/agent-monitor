@@ -60,6 +60,7 @@ Start with **Main contributors**. Expand a session to find the command using res
 | Sort by CPU / memory | `c` / `m` |
 | Open Details | `i` or Enter |
 | Pin / pause | `.` / `p` |
+| Hide/show no longer observed | `H` (Shift+H) |
 | Switch to process view / toggle grouping | `v` / `g` |
 | Keyboard help / diagnostics | `?` / `D` |
 | Investigate CPU / quit | `I` / `q` |

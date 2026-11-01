@@ -74,6 +74,12 @@ public enum ContributorLayout {
         if !state.thresholds.isUnfiltered {
             header.insert(ReportLine(ThresholdContext.text(state.thresholds), style: .muted), at: 3)
         }
+        if overview.hideNoLongerObserved {
+            header.insert(
+                TerminalChrome.controls([
+                    ("H", "show no longer observed · \(overview.hiddenHistoricalRowCount) rows hidden")
+                ]), at: 3)
+        }
         if let notice = overview.pinNotice { header.insert(ReportLine(notice, style: .warning), at: 3) }
         let rows = overview.visibleRows
         var ancestorLast: [Bool] = []

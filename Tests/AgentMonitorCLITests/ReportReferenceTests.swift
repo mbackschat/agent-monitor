@@ -3,6 +3,41 @@ import AgentMonitorPresentation
 import Testing
 
 @Suite struct ReportReferenceTests {
+    @Test(arguments: [ContributorChartStyle.compact, .stacked])
+    func keyboardChartLegendFitsTheNarrowestHelpColumn(style: ContributorChartStyle) throws {
+        var state = LiveReportState()
+        state.chartStyle = style
+        let source = ReportReferenceLayout.content(state: state, page: .keyboard)
+        let start = try #require(source.lastIndex { $0.text == "Contributor CPU charts" })
+        let chart = source.suffix(from: start)
+        #expect(chart.allSatisfy { TerminalCells.width($0.text) <= 48 })
+        for symbol in ["█", "·", "_", "~"] {
+            #expect(chart.contains { $0.runs.first?.text == symbol })
+        }
+        #expect(chart.contains { $0.runs.contains { $0.style == .shortcut && $0.text == "G" } })
+    }
+
+    @Test func historicalFilterIsDiscoverableAndReversibleWithoutChangingTotals() throws {
+        var state = LiveReportState()
+        state.receive(try overviewFixture(includeProcesses: true))
+        state.view = .allContributors
+        let rows = state.overview.visibleRows
+        let totals = state.overview.totals
+        let activity = state.overview.activity
+        let help = ReportReferenceLayout.content(state: state, page: .keyboard)
+        #expect(help.contains { $0.text == "H hide/show no longer observed" })
+        state.overview.hideNoLongerObserved.toggle()
+        #expect(state.overview.hideNoLongerObserved)
+        #expect(state.overview.visibleRows.count < rows.count)
+        #expect(state.overview.visibleRows.allSatisfy { !$0.node.stats.isNoLongerObserved })
+        let lines = ContributorLayout.lines(state: state, width: 100, height: 30)
+        #expect(lines.contains { $0.text.contains("H show no longer observed") })
+        #expect(state.overview.totals == totals)
+        #expect(state.overview.activity == activity)
+        state.overview.hideNoLongerObserved.toggle()
+        #expect(state.overview.visibleRows == rows)
+    }
+
     @Test func liveProcessHeaderKeepsInspectionContextAndMovesCollectionDetailsToDiagnostics() throws {
         var state = LiveReportState()
         state.receive(try overviewFixture(includeProcesses: true))
@@ -69,6 +104,11 @@ import Testing
         let lines = ReportReferenceLayout.lines(state: state, width: width, height: 60)
         let first = lines[1]
         #expect(first.runs.filter { $0.style == .title }.count == 2)
+        let secondHeading = try #require(first.runs.last { $0.style == .title })
+        let headingIndex = try #require(first.runs.lastIndex { $0 == secondHeading })
+        let secondColumn = TerminalCells.width(first.runs[..<headingIndex].map(\.text).joined())
+        #expect(secondColumn < width / 2)
+
         let expectedKeys = source.flatMap(\.runs).filter { $0.style == .shortcut }.map(\.text).sorted()
         let renderedKeys = lines.flatMap(\.runs).filter { $0.style == .shortcut }.map(\.text).sorted()
         #expect(renderedKeys == expectedKeys)

@@ -51,21 +51,23 @@ import Testing
         #expect(spread.nodes[session]?.title == "codex · 11111111 · 2 dirs")
     }
 
-    @Test func contributorsAggregateExecutableAndDirectoryWithWorkerCounts() throws {
+    @Test func contributorsKeepCountsSeparateFromExecutableHeadings() throws {
         let value = try overview([
             worker("java", pid: 1, cpu: 0.9), worker("java", pid: 2, cpu: 0.8),
             worker("java", pid: 3, cpu: 0.5, cwd: "/work/web"), worker("rustc", pid: 4, cpu: 0.3),
         ])
         let titles = value.nodes[session]?.children.compactMap { value.nodes[$0]?.title }
-        #expect(titles == ["java ×2 · /work/api", "java · /work/web", "rustc · /work/api"])
+        #expect(titles == ["java · /work/api", "java · /work/web", "rustc · /work/api"])
         let grouped = ContributorID.executable(parent: session, name: "java", cwd: "/work/api")
+        #expect(value.nodes[grouped]?.stats.processes.count == 2)
+        #expect(value.nodes[grouped]?.populationFields.first { $0.label == "Recent workers" }?.value == "2")
         #expect(value.nodes[grouped]?.children.compactMap { value.nodes[$0]?.process?.pid } == [1, 2])
     }
 
     @Test func singleDirectorySessionKeepsTheDirectoryOnTheSessionRowOnly() throws {
         let value = try overview([worker("java", pid: 1, cpu: 0.9), worker("java", pid: 2, cpu: 0.8)])
         let child = try #require(value.nodes[session]?.children.first)
-        #expect(value.nodes[child]?.title == "java ×2")
+        #expect(value.nodes[child]?.title == "java")
     }
 
     @Test func adapterRecognisedRuntimeUsesItsProviderNameAndNoWorkloadDirectory() throws {

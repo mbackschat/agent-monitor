@@ -848,11 +848,10 @@ public struct ContributorOverview: Equatable, Sendable {
                 let owner = sequence(first: parent, next: \.parent).first {
                     if case .session = $0 { true } else { false }
                 }
-                let workers = nodes[id]?.stats.processes.count ?? 0
                 // A single directory is already shown on the owning session row.
                 let directoryOnOwner = owner.map { (projects[$0]?.count ?? 0) <= 1 } ?? false
                 nodes[id]?.label = .workload(
-                    name: name + (workers > 1 ? " ×\(workers)" : ""),
+                    name: name,
                     directory: runtimeContributors.contains(id) || directoryOnOwner
                         ? nil
                         : (cwd.map { directoryLabels[$0] ?? WorkloadDirectory.compact($0) }

@@ -185,6 +185,11 @@ public enum TerminalReport {
                             state.mutate { $0.apply(shortcut) }
                         }
                         return .handled
+                    case .character("H"):
+                        state.mutate {
+                            if $0.showsOverview { $0.overview.hideNoLongerObserved.toggle() }
+                        }
+                        return .handled
                     case .character("I"):
                         if host.surfaceSize.width >= 40, host.surfaceSize.height >= 8 { diagnosis.start() }
                         return .handled

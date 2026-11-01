@@ -18,7 +18,7 @@ public enum ReportReferenceLayout {
         case .glossary:
             return ReportGlossary.entries.flatMap {
                 [ReportLine($0.title, style: .title), ReportLine($0.definition), ReportLine("")]
-            } + chartHelp(style: state.chartStyle)
+            } + chartHelp(style: state.chartStyle, page: .glossary)
         case .keyboard:
             return keyboardHelp(state: state)
         case .diagnostics:
@@ -136,6 +136,7 @@ public enum ReportReferenceLayout {
             key("1 / 2", "lower/raise CPU filter"), key("3 / 4", "lower/raise memory filter"),
             key("< / >", "slower/faster sampling"),
         ]
+        if state.showsOverview { lines.append(key("H", "hide/show no longer observed")) }
         if state.snapshot != nil { lines.append(key("p", state.frozen ? "resume updates" : "pause updates")) }
         if state.showsOverview {
             if let id = state.overview.selection, state.overview.pinTarget(for: id) != nil {
@@ -167,28 +168,42 @@ public enum ReportReferenceLayout {
             key("q / Ctrl-C", "quit"),
         ]
         if !state.diagnosis.isRunning { lines.append(key("I", "start CPU investigation")) }
-        return lines + chartHelp(style: state.chartStyle, keyStyle: .shortcut)
+        return lines + chartHelp(style: state.chartStyle, page: .keyboard)
     }
 
-    private static func chartHelp(style: ContributorChartStyle, keyStyle: ReportLine.Style = .normal)
+    private static func chartHelp(style: ContributorChartStyle, page: ReportReferencePage)
         -> [ReportLine]
     {
-        [
+        let keyStyle: ReportLine.Style = page == .keyboard ? .shortcut : .normal
+        var lines = [
             ReportLine(""), ReportLine("Contributor CPU charts", style: .title),
-            ReportLine(runs: [
-                .init("█", style: .chartOverflow), .init(" above range; "), .init("·", style: .identity),
-                .init(" no measurement; "), .init("_", style: .identity), .init(" measured zero"),
-            ]),
-            ReportLine("Above-range bars use the warning color; monochrome uses ↑."),
             TerminalChrome.controls([("b", "change chart range")], keyStyle: keyStyle),
-            ReportLine("Oldest left, newest right. Dots are gaps, never zero CPU."),
-            ReportLine("Bars show retained interval averages; equal widths can cover unequal durations."),
+            ReportLine(runs: [
+                .init("█", style: .chartOverflow), .init(" above range (monochrome uses ↑)"),
+            ]),
+            ReportLine(runs: [.init("·", style: .identity), .init(" no measurement")]),
+            ReportLine(runs: [.init("_", style: .identity), .init(" measured zero")]),
+            ReportLine(runs: [.init("~", style: .identity), .init(" incomplete sampling")]),
+            ReportLine("Oldest → newest"),
             ReportLine(
                 style == .compact
-                    ? "Compact charts use 8 steps in one row; all CPU lanes share the same range."
-                    : "Heights use ⅛-cell steps: 24 steps across three rows."),
-            ReportLine("~ spans marks measurements crossing gaps in sampling."),
+                    ? "8 steps in one row"
+                    : "24 steps across three rows"),
         ]
+        if page == .keyboard {
+            lines.append(TerminalChrome.controls([("G", "chart details in glossary")], keyStyle: keyStyle))
+        } else {
+            lines += [
+                ReportLine("All CPU lanes share one fixed range."),
+                ReportLine(
+                    "Bars average measured CPU over retained intervals. Equal widths may cover unequal durations."
+                ),
+                ReportLine(
+                    "Dots mark missing measurements, never zero CPU. ~ marks incomplete sampling, including intervals crossing gaps."
+                ),
+            ]
+        }
+        return lines
     }
 
     private static func wrapped(state: LiveReportState, page: ReportReferencePage, width: Int) -> [ReportLine]
@@ -198,28 +213,33 @@ public enum ReportReferenceLayout {
             return source.flatMap { $0.wrapped(to: max(1, width)) }
         }
         let gap = 4
-        let columnWidth = (width - gap) / 2
-        let sections = source.split(whereSeparator: { $0.text.isEmpty }).map { section in
-            section.flatMap { $0.wrapped(to: columnWidth) }
+        let available = width - gap
+        let sections = source.split(whereSeparator: { $0.text.isEmpty })
+        func column(_ sections: ArraySlice<ArraySlice<ReportLine>>, width: Int) -> [ReportLine] {
+            Array(sections.map { $0.flatMap { $0.wrapped(to: width) } }.joined(separator: [ReportLine("")]))
         }
-        func column(_ sections: ArraySlice<[ReportLine]>) -> [ReportLine] {
-            Array(sections.joined(separator: [ReportLine("")]))
+        let candidates = (1..<sections.count).map { split in
+            let preferred = sections[..<split].flatMap { $0 }.map { TerminalCells.width($0.text) }.max() ?? 0
+            let leftWidth = min(available * 2 / 3, max(available / 3, preferred))
+            return (
+                left: column(sections[..<split], width: leftWidth),
+                right: column(sections[split...], width: available - leftWidth),
+                width: leftWidth
+            )
         }
         guard
-            let split = (1..<sections.count).min(by: { lhs, rhs in
-                max(column(sections[..<lhs]).count, column(sections[lhs...]).count)
-                    < max(column(sections[..<rhs]).count, column(sections[rhs...]).count)
+            let columns = candidates.min(by: {
+                max($0.left.count, $0.right.count) < max($1.left.count, $1.right.count)
             })
         else { return source.flatMap { $0.wrapped(to: width) } }
-        let left = column(sections[..<split])
-        let right = column(sections[split...])
-        return (0..<max(left.count, right.count)).map { row in
-            let first = row < left.count ? left[row] : ReportLine("")
-            guard row < right.count else { return first }
+        return (0..<max(columns.left.count, columns.right.count)).map { row in
+            let first = row < columns.left.count ? columns.left[row] : ReportLine("")
+            guard row < columns.right.count else { return first }
             return ReportLine(
                 runs: first.runs + [
-                    .init(String(repeating: " ", count: columnWidth - TerminalCells.width(first.text) + gap))
-                ] + right[row].runs)
+                    .init(
+                        String(repeating: " ", count: columns.width - TerminalCells.width(first.text) + gap))
+                ] + columns.right[row].runs)
         }
     }
 

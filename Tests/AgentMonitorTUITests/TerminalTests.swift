@@ -678,6 +678,12 @@ func terminalActionsRequireConfirmationAndPasteCannotSubmit(quitWhileUndersized:
     ) {
         $0.contains("Main contributors") && $0.contains("overview-project")
     }
+    for hidden in [true, false] {
+        try writeAllBytes(Array("H".utf8), to: terminal.master)
+        _ = try await waitForScreen(
+            on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+        ) { $0.contains("H show no longer observed") == hidden }
+    }
     try writeAllBytes(Array("8".utf8), to: terminal.master)
     try writeAllBytes(Array("b".utf8), to: terminal.master)
     _ = try await waitForScreen(
