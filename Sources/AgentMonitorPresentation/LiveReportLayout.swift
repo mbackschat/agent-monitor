@@ -186,16 +186,48 @@ public enum LiveReportLayout {
                 state: &state, width: width, height: height, direction: direction, half: half)
         } else {
             let layout = paneLayout(state: state, width: width, height: height)
-            if state.detailsMode != .minimized {
+            if state.detailsFocused {
                 state.scrollDetails(
                     by: direction * max(1, (layout.detailHeight - 1) / (half ? 2 : 1)),
                     maximum: maximumDetailOffset(state: state, width: width, height: height))
             } else {
-                let rowHeight = width < 85 ? 2 : 1
-                state.moveSelection(
-                    by: direction * max(1, (layout.processHeight - 2) / rowHeight / (half ? 2 : 1)))
+                let viewport = processViewport(state: state, width: width, height: layout.processHeight)
+                if let next = viewport.page(direction: direction, half: half) {
+                    state.select(next.selection)
+                    state.processTableAnchor = next.anchor
+                }
             }
         }
+    }
+
+    public static func moveSelection(state: inout LiveReportState, by delta: Int, width: Int, height: Int) {
+        func sync() {
+            if state.showsOverview {
+                state.contributorTableAnchor = ContributorLayout.anchor(
+                    state: state, width: width, height: height)
+            } else {
+                let layout = paneLayout(state: state, width: width, height: height)
+                state.processTableAnchor =
+                    processViewport(state: state, width: width, height: layout.processHeight).anchor
+            }
+        }
+        sync()
+        state.moveSelection(by: delta)
+        sync()
+    }
+
+    private static func processViewport(state: LiveReportState, width: Int, height: Int)
+        -> TerminalTableViewport<LiveReportRowID>
+    {
+        let rows = state.visibleRows
+        let heights = rows.map { row in
+            if case .unavailable = row { return 1 }
+            return width < 85 ? 2 : 1
+        }
+        let indicator = heights.reduce(0, +) > height - 1 && height > 3 ? 1 : 0
+        return TerminalTableViewport(
+            ids: rows.map(\.id), heights: heights, capacity: height - indicator - 1,
+            anchor: state.processTableAnchor, selection: state.selection)
     }
 
     private static func abbreviated(_ text: String, width: Int) -> String {
@@ -214,8 +246,12 @@ public enum LiveReportLayout {
         return max(0, min(available - minimumProcess, height))
     }
 
-    private static func processLines(state: LiveReportState, width: Int, height: Int) -> [ReportLine] {
+    private static func processLines(state: LiveReportState, width outerWidth: Int, height: Int)
+        -> [ReportLine]
+    {
         guard height > 0 else { return [] }
+        let width = max(1, outerWidth - 2)
+        let viewport = processViewport(state: state, width: outerWidth, height: height)
         let projection = state.projection
         let rows = state.visibleRows(in: projection)
         let branches = childBranches(rows: rows, projection: projection, expanded: state.openGroups)
@@ -236,38 +272,18 @@ public enum LiveReportLayout {
             metrics: metrics,
             processNames: state.rows.map { (branches[$0.process] ?? "") + processName($0) },
             identifiers: identifiers)
-        let narrow = width < 85
+        let narrow = outerWidth < 85
         let hasGroups = rows.contains { if case .group = $0 { true } else { false } }
         let columns = table.columns(for: width, leadingInset: narrow ? 0 : 2)
         let heading =
             narrow
             ? table.directoryHeader(grouped: state.grouping == .session || hasGroups)
             : "  " + table.header(columns: columns, grouped: state.grouping == .session, hasGroups: hasGroups)
-        var lines = [ReportLine(heading, style: .muted)]
-        let indicatorHeight = rows.count * (narrow ? 2 : 1) > height - 1 && height > 3 ? 1 : 0
-        let tableHeight = height - indicatorHeight
-        let capacity = tableHeight - 1
-        func rowHeight(_ row: LiveReportRow) -> Int {
-            if case .unavailable = row { return 1 }
-            return narrow ? 2 : 1
-        }
-        let selectedIndex = rows.firstIndex { $0.id == state.selection } ?? 0
-        var start = selectedIndex
-        var occupied = rows.isEmpty ? 0 : rowHeight(rows[selectedIndex])
-        while start > 0 && occupied + rowHeight(rows[start - 1]) <= capacity {
-            start -= 1
-            occupied += rowHeight(rows[start])
-        }
+        let indicatorHeight = viewport.scrolls && height > 3 ? 1 : 0
+        var lines: [ReportLine] = []
         let directories = ProcessDirectoryLabels(state.rows)
-        var visibleCount = 0
-        for entry in rows.dropFirst(start) {
-            guard lines.count + rowHeight(entry) <= tableHeight else {
-                if lines.count == 1 && capacity > 0 {
-                    lines.append(ReportLine("Resize for identity and resources", style: .muted))
-                }
-                break
-            }
-            visibleCount += 1
+        for index in viewport.visibleRows {
+            let entry = rows[index]
             let selected = entry.id == state.selection
             switch entry {
             case .group(let group):
@@ -304,12 +320,12 @@ public enum LiveReportLayout {
                         : "No processes match the display filters in this scope.")
             )
         }
+        let firstOffset = viewport.visibleRows.first.map { viewport.offsets[$0] } ?? 0
+        lines = Array(lines.dropFirst(viewport.start - firstOffset).prefix(viewport.capacity))
+        lines = viewport.decorate(padded(lines, to: viewport.capacity), width: outerWidth)
+        lines.insert(ReportLine(heading, style: .muted), at: 0)
         if indicatorHeight > 0 {
-            lines = padded(lines, to: tableHeight)
-            lines.append(
-                ReportLine(
-                    "Rows " + TerminalChrome.position(start: start, count: visibleCount, total: rows.count),
-                    style: .heading))
+            lines.append(ReportLine("Rows " + viewport.position, style: .heading))
         }
         return padded(lines, to: height)
     }
@@ -506,7 +522,8 @@ public enum LiveReportLayout {
         let range =
             details.isEmpty || visible == 0
             ? "" : " | \(offset + 1)-\(min(offset + visible, details.count))/\(details.count)"
-        let divider = String(("─ " + title + range + " ").prefix(width)).padding(
+        let focus = state.detailsMode == .minimized ? "" : (state.detailsFocused ? " ●" : " ○")
+        let divider = String(("─ " + title + focus + range + " ").prefix(width)).padding(
             toLength: width, withPad: "─", startingAt: 0)
         var lines = [ReportLine(divider, style: .separator)]
         if visible > 0 {

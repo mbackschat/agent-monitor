@@ -58,9 +58,10 @@ enum TUIFixture {
                         recordedSettings = settings
                     }
                     tick += 1
-                    let rows = try [
-                        row(pid: 42, cpu: tick.isMultiple(of: 2) ? 40 : 90), row(pid: 84, cpu: 60),
-                    ]
+                    let rows =
+                        try ProcessInfo.processInfo.environment["AGENT_MONITOR_SCROLL_FIXTURE"] == "1"
+                        ? (42..<66).map { try row(pid: Int32($0), cpu: 90) }
+                        : [row(pid: 42, cpu: tick.isMultiple(of: 2) ? 40 : 90), row(pid: 84, cpu: 60)]
                     let thresholds = await currentThresholds()
                     let findings = rows.filter {
                         thresholds.includes(cpu: $0.cpuPercent, footprint: $0.footprintBytes)
@@ -73,7 +74,7 @@ enum TUIFixture {
                             timestamp: Date(), intervalSeconds: 1,
                             cpuThresholdPercent: thresholds.cpuPercent,
                             memoryThresholdBytes: thresholds.memoryBytes,
-                            sampledProcessCount: 2, unreadableProcessCount: 0, findings: findings,
+                            sampledProcessCount: rows.count, unreadableProcessCount: 0, findings: findings,
                             agentLoad: AgentLoadSummary(processes: rows), observedFindings: rows))
                     try await Task.sleep(for: .seconds(1))
                 }
@@ -134,17 +135,27 @@ private final class FixtureOverviewReader: ProcessReading, Sendable {
             defer { value += 1 }
             return value
         }
-        let sample = ProcessSample(
-            identity: ProcessIdentity(pid: 42, startMicroseconds: 1), parentPID: 0,
-            executable: "/fixture/node", name: "fixture-worker", sampledAt: Double(step),
-            cpuSeconds: Double(step) * cpuPerSecond, footprintBytes: 400_000_000)
+        let count = ProcessInfo.processInfo.environment["AGENT_MONITOR_SCROLL_FIXTURE"] == "1" ? 24 : 1
+        let samples = (0..<count).map { index in
+            ProcessSample(
+                identity: ProcessIdentity(pid: Int32(42 + index), startMicroseconds: 1), parentPID: 0,
+                executable: "/fixture/node", name: "fixture-worker", sampledAt: Double(step),
+                cpuSeconds: Double(step) * cpuPerSecond, footprintBytes: 400_000_000)
+        }
         return ProcessSnapshot(
-            samples: [sample], enumeratedCount: 1, unreadableCount: 0,
+            samples: samples, enumeratedCount: count, unreadableCount: 0,
             listedAt: Double(step), scanSeconds: 0, hostCounters: nil, logicalCPUCount: 8)
     }
+
     func metadata(for sample: ProcessSample, includeCommand: Bool) -> ProcessMetadata {
         ProcessMetadata(
-            markers: [SessionMarker(threadID: "11111111-1111-4111-8111-111111111111", provider: .codex)],
+            markers: [
+                SessionMarker(
+                    threadID: sample.identity.pid == 42
+                        ? "11111111-1111-4111-8111-111111111111"
+                        : String(format: "%08d-1111-4111-8111-111111111111", sample.identity.pid),
+                    provider: .codex)
+            ],
             status: .markerRead, cwd: "/fixture/overview-project")
     }
 }

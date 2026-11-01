@@ -86,7 +86,7 @@ public enum TerminalChrome {
         let navigation =
             details
             ? [("u/d", "½ page"), ("M", "max"), ("=", "restore")]
-                + (state.showsOverview ? [("Tab", "focus")] : [])
+                + [("Tab", "focus")]
             : [("↑/↓", "select"), ("←/→", "fold"), ("u/d", "½ page"), ("Space", "down")]
         let status = state.displayCoverageStatus
         let diagnostics =

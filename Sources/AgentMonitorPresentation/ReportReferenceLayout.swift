@@ -94,7 +94,7 @@ public enum ReportReferenceLayout {
             key("PgUp / PgDn", "full-page up / down"),
             key(
                 "↑/↓",
-                state.showsOverview && state.overview.focus == .details ? "scroll Details" : "select row"),
+                state.detailsFocused ? "scroll Details" : "select row"),
             key("←/→", "collapse / expand row"),
         ]
         if state.showsOverview {
@@ -114,7 +114,7 @@ public enum ReportReferenceLayout {
             key("M", "maximize"), key("=", "restore split"),
         ]
         if details {
-            if state.showsOverview { lines.append(key("Tab", "switch rows / Details")) }
+            lines.append(key("Tab", "switch rows / Details"))
             lines += [key("[/]", "scroll one line")]
             if state.showsOverview { lines.append(key("Esc", "close Details")) }
         }

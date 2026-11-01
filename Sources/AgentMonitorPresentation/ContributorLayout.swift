@@ -7,8 +7,7 @@ public enum ContributorLayout {
 
     private struct Layout {
         let lines: [ReportLine]
-        let blockHeights: [Int]
-        let bodyHeight: Int
+        let viewport: TerminalTableViewport<ContributorID>
         let detailsHeight: Int
         /// Index of the DETAILS heading in `lines`; nil when the pane is not rendered.
         let detailsStart: Int?
@@ -116,10 +115,12 @@ public enum ContributorLayout {
                 + (hasVisibleChildren ? "│ " : "  ")
             ancestorLast.append(row.isLastSibling)
             let headline: String
+            var needsIdentityContinuation = false
             if case .session(let owner, let id, _) = row.node.label {
                 // Session IDs keep all eight characters; only the owner abbreviates (docs/usage.md).
                 let kept = " · " + TextReport.safe(id)
                 let ownerWidth = columns.name - TerminalCells.width(prefix) - TerminalCells.width(kept)
+                needsIdentityContinuation = ownerWidth < min(4, TerminalCells.width(owner))
                 headline =
                     ownerWidth > 0
                     ? TerminalCells.abbreviated(TextReport.safe(owner), to: ownerWidth) + kept
@@ -175,10 +176,14 @@ public enum ContributorLayout {
                     }
                 }
             }
-            let contextWidth = max(1, (width >= 100 ? columns.name : width) - TerminalCells.width(inset))
+            let contextWidth = max(1, (width >= 100 ? columns.name : width - 2) - TerminalCells.width(inset))
             let headingContinuation =
-                TerminalCells.width(prefix + headline) > columns.name
-                ? [ReportLine(TerminalCells.abbreviated(headline, to: contextWidth), style: .identity)] : []
+                needsIdentityContinuation || TerminalCells.width(prefix + headline) > columns.name
+                ? [
+                    ReportLine(
+                        TerminalCells.abbreviated(TextReport.safe(row.node.label.headline), to: contextWidth),
+                        style: .identity)
+                ] : []
             let wrapped = headingContinuation + ReportLine(runs: context).wrapped(to: contextWidth)
             let bottom =
                 columns.graphs
@@ -236,42 +241,15 @@ public enum ContributorLayout {
             footer[0] = ReportLine("Resize for details · Esc close", style: .muted)
         }
         let bodyHeight = available - detailsHeight
-        var start = min(selected, max(0, blocks.count - 1))
-        var used = blocks.indices.contains(start) ? blocks[start].count : 0
-        while start > 0, used + blocks[start - 1].count <= bodyHeight {
-            start -= 1
-            used += blocks[start].count
-        }
-        var body: [ReportLine] = []
-        var visibleCount = 0
-        var partialLastRow = false
-        for block in blocks.dropFirst(start) {
-            let remaining = bodyHeight - body.count
-            guard remaining > 0 else { break }
-            let visible = block.prefix(remaining)
-            if visible.count < block.count {
-                guard
-                    visible.contains(where: {
-                        $0.style == .selected || $0.style == .identity || $0.style == .warning
-                    })
-                else { break }
-                partialLastRow = true
-            }
-            body += visible
-            visibleCount += 1
-            if partialLastRow { break }
-        }
+        let viewport = TerminalTableViewport(
+            ids: rows.map(\.id), heights: blocks.map(\.count), capacity: bodyHeight,
+            anchor: state.contributorTableAnchor, selection: overview.selection)
+        var body = Array(blocks.flatMap { $0 }.dropFirst(viewport.start).prefix(bodyHeight))
         while body.count < bodyHeight { body.append(ReportLine("")) }
+        body = viewport.decorate(body, width: width)
+        let visibleCount = viewport.visibleRows.count
         let details = detailLines(state: state, width: width, height: detailsHeight)
-        var position =
-            bodyHeight > 0
-            ? TerminalChrome.position(start: start, count: min(visibleCount, rows.count), total: rows.count)
-            : ""
-        if partialLastRow {
-            position =
-                (start > 0 ? "↑ " : "")
-                + "\(start + 1)–\(min(start + visibleCount, rows.count))/\(rows.count) ↓"
-        }
+        let position = viewport.position
         if !position.isEmpty, !header.isEmpty {
             let index = 0
             let suffix = "  " + position
@@ -293,7 +271,7 @@ public enum ContributorLayout {
                     chart: lane(level: level, overall: true))
             }
         }
-        if alignedTotals {
+        if alignedTotals && header.count >= 3 {
             header[0] = ReportLine(
                 runs: header[0].runs
                     + columns.metricRuns(
@@ -315,7 +293,7 @@ public enum ContributorLayout {
         let detailsIndex = header.count + body.count
         return Layout(
             lines: Array((header + body + details + footer).prefix(height)).map { $0.clipped(to: width) },
-            blockHeights: blocks.map(\.count), bodyHeight: bodyHeight, detailsHeight: detailsHeight,
+            viewport: viewport, detailsHeight: detailsHeight,
             detailsStart: details.isEmpty || detailsIndex >= height ? nil : detailsIndex)
     }
 
@@ -329,17 +307,14 @@ public enum ContributorLayout {
             )
             return
         }
-        let rows = state.overview.visibleRows
-        guard let selected = rows.firstIndex(where: { $0.id == state.overview.selection }) else { return }
-        let target = max(1, layout.bodyHeight / (half ? 2 : 1))
-        var index = selected
-        var traversed = 0
-        while rows.indices.contains(index + direction) {
-            index += direction
-            traversed += layout.blockHeights[index]
-            if traversed >= target { break }
+        if let next = layout.viewport.page(direction: direction, half: half) {
+            state.overview.select(next.selection)
+            state.contributorTableAnchor = next.anchor
         }
-        state.overview.move(by: index - selected)
+    }
+
+    static func anchor(state: LiveReportState, width: Int, height: Int) -> TableScrollAnchor<ContributorID>? {
+        layout(state: state, width: width, height: height).viewport.anchor
     }
 
     public static func hasDetailPane(state: LiveReportState, width: Int, height: Int) -> Bool {
@@ -408,7 +383,7 @@ public enum ContributorLayout {
             self.memory = memory
             self.graphs = graphs
             chart = graphs ? min(24, width / 5) : 0
-            name = max(1, width - cpu - memory - chart - (graphs ? 3 : 2))
+            name = max(1, width - 2 - cpu - memory - chart - (graphs ? 3 : 2))
         }
         func chartRuns(_ chart: String) -> [ReportLine.Run] {
             guard graphs else { return [] }

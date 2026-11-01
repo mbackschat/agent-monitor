@@ -234,11 +234,23 @@ public enum TerminalReport {
                         }
                     }
                 }
+                if key.key == .tab {
+                    state.mutate { $0.togglePaneFocus() }
+                    return .handled
+                }
+                if state.state.detailsFocused, !state.state.showsOverview {
+                    switch key.key {
+                    case .arrowUp:
+                        scrollInspection(by: -1)
+                        return .handled
+                    case .arrowDown:
+                        scrollInspection(by: 1)
+                        return .handled
+                    default: break
+                    }
+                }
                 if state.state.showsOverview, state.state.overview.detailsVisible {
                     switch key.key {
-                    case .tab:
-                        state.mutate { $0.overview.toggleFocus() }
-                        return .handled
                     case .escape:
                         state.mutate { $0.overview.toggleDetails() }
                         return .handled
@@ -293,8 +305,17 @@ public enum TerminalReport {
                             state: &$0, width: size.width, height: size.height,
                             direction: key.key == .pageUp ? -1 : 1, half: false)
                     }
-                case .arrowUp: state.mutate { $0.moveSelection(by: -1) }
-                case .arrowDown: state.mutate { $0.moveSelection(by: 1) }
+                case .arrowUp:
+                    state.mutate {
+                        LiveReportLayout.moveSelection(
+                            state: &$0, by: -1, width: host.surfaceSize.width, height: host.surfaceSize.height
+                        )
+                    }
+                case .arrowDown:
+                    state.mutate {
+                        LiveReportLayout.moveSelection(
+                            state: &$0, by: 1, width: host.surfaceSize.width, height: host.surfaceSize.height)
+                    }
                 case .arrowLeft: state.mutate { $0.setChildDisclosure(expanded: false) }
                 case .arrowRight: state.mutate { $0.setChildDisclosure(expanded: true) }
                 case .character("-"): state.mutate { $0.adjustDetails(by: -5) }

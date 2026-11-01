@@ -110,6 +110,23 @@ public struct LiveReportState: Equatable, Sendable {
     public private(set) var detailOffset = 0
     public private(set) var detailsMode: DetailsPaneMode = .minimized
     public private(set) var detailsPercent = 50
+    var contributorTableAnchor: TableScrollAnchor<ContributorID>?
+    var processTableAnchor: TableScrollAnchor<LiveReportRowID>?
+    public private(set) var processFocus: ContributorOverview.Focus = .rows
+    public var detailsFocused: Bool {
+        showsOverview
+            ? overview.detailsVisible && overview.focus == .details
+            : detailsMode != .minimized && processFocus == .details
+    }
+
+    public mutating func togglePaneFocus() {
+        if showsOverview {
+            overview.toggleFocus()
+        } else if detailsMode != .minimized {
+            processFocus = processFocus == .rows ? .details : .rows
+        }
+    }
+
     public private(set) var updates = 0
 
     public private(set) var thresholds: Thresholds
@@ -559,6 +576,7 @@ public struct LiveReportState: Equatable, Sendable {
     public mutating func minimizeDetails() {
         returningDetails = nil
         detailsMode = .minimized
+        processFocus = .rows
     }
 
     public mutating func maximizeDetails() {
@@ -566,6 +584,7 @@ public struct LiveReportState: Equatable, Sendable {
         returningDetails = nil
         expanded = selected
         detailsMode = .maximized
+        processFocus = .details
     }
 
     public mutating func restoreDetails() {
@@ -573,6 +592,7 @@ public struct LiveReportState: Equatable, Sendable {
         returningDetails = nil
         expanded = selected
         detailsMode = .split
+        processFocus = .details
     }
 
     public mutating func adjustDetails(by percentagePoints: Int) {

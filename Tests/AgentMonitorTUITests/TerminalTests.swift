@@ -835,3 +835,65 @@ func terminalChartsPreserveCompactHeightAndOverflowInColorAndMonochrome(
     try writeAllBytes(Array("q".utf8), to: terminal.master)
     try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
 }
+
+@Test(arguments: [false, true])
+func terminalTableScrollbarTracksPagingAndDetailsFocus(overview: Bool) async throws {
+    let binary =
+        ProcessInfo.processInfo.environment["AGENT_MONITOR_TUI_FIXTURE"]
+        ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().appendingPathComponent(".build/debug/monitor-tui-fixture").path
+    let terminal = try RealTerminalPTYPair.open(size: .init(width: 120, height: 20), stallBudget: nil)
+    defer { terminal.close() }
+    var original = termios()
+    try #require(tcgetattr(terminal.slave, &original) == 0)
+    let pid = try launch(
+        binary, terminal: terminal.slave,
+        environment: [
+            "AGENT_MONITOR_SCROLL_FIXTURE": "1", "AGENT_MONITOR_OVERVIEW_FIXTURE": overview ? "1" : "0",
+        ])
+    var reaped = false
+    defer {
+        if !reaped {
+            kill(pid, SIGKILL)
+            waitpid(pid, nil, 0)
+        }
+    }
+    var screen = ANSIVisibleScreen(size: .init(width: 120, height: 20))
+    func rail(_ text: String) -> String {
+        String(
+            text.components(separatedBy: "\n").compactMap { line in
+                guard line.count == 120, let last = line.last, "│█↑↓".contains(last) else { return nil }
+                return last
+            })
+    }
+    _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(10)) {
+        rail($0).contains("█") && rail($0).last == "↓"
+    }
+    try writeAllBytes(Array("p".utf8), to: terminal.master)
+    for (down, up) in [("d", "u"), ("\u{4}", "\u{15}"), (" ", "u"), ("\u{1b}[6~", "\u{1b}[5~")] {
+        try writeAllBytes(Array(down.utf8), to: terminal.master)
+        _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)) {
+            rail($0).first == "↑"
+        }
+        try writeAllBytes(Array(up.utf8), to: terminal.master)
+        _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)) {
+            !rail($0).isEmpty && rail($0).first != "↑"
+        }
+    }
+    try writeAllBytes(Array("i".utf8), to: terminal.master)
+    _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)) {
+        $0.contains("●") && $0.contains("Tab focus")
+    }
+    try writeAllBytes(Array("\t".utf8), to: terminal.master)
+    let focused = try await waitForScreen(
+        on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)
+    ) {
+        $0.contains("○")
+    }
+    try writeAllBytes(Array("d".utf8), to: terminal.master)
+    _ = try await waitForScreen(on: terminal.master, screen: &screen, deadline: .now() + .seconds(4)) {
+        $0 != focused && rail($0).first == "↑"
+    }
+    try writeAllBytes(Array("q".utf8), to: terminal.master)
+    try await assertCleanExit(pid, terminal: terminal, original: original, reaped: &reaped)
+}

@@ -62,12 +62,13 @@ Adaptive sampling defaults off. With `--adaptive-sampling`, acquisition starts a
 | `i` | Show/hide selected details in either view without folding children |
 | `u` / `d` or Ctrl-U / Ctrl-D | Move half a page up/down in the active table, Details or reference page |
 | Space | Move half a page down; `p` remains pause/resume |
-| Page Up / Page Down | Move a full page up/down; in contributors, Tab chooses rows or Details; in process views, open Details receives paging |
+| Page Up / Page Down | Move a full page up/down in the focused pane |
 | **?** | Open available keyboard shortcuts |
 | **G** | Open the metric glossary |
 | **D** | Open passive diagnostics |
 | **I** | Start a finite CPU diagnosis immediately; three one-second waits plus native scans and metadata reads |
-| ↑ / ↓ | Select a row |
+| ↑ / ↓ | Select a row, or scroll focused Details |
+| Tab | Switch focus between table and open Details |
 | ← / → | Collapse/expand children; process leaves do not expand |
 | Shift+← / Shift+→ | Collapse/expand displayed session groups at the current level |
 | `g` | Toggle session grouping |
@@ -108,7 +109,7 @@ agent-monitor --tui --tui-chart-style stacked
 ```
 
 
-Overflowing tables, Details and reference pages show the visible range and arrows for more content. Footer controls stay at the terminal bottom even when Details has little content. **D diagnostics !** indicates measurement warnings; the read-failure counts and technical explanation stay inside Diagnostics. Apple Terminal may send Shift-Space identically to Space; use `u` or Ctrl-U for half-page up. Encoded Shift-Space remains supported on terminals that transmit the modifier.
+Overflowing tables have a right-edge scrollbar: the thumb shows the visible share, and ↑/↓ mark hidden content above/below. It includes expanded children and wrapped lines, disappears when everything fits, and works without color. `u`/`d` scroll the table by half its visible height while keeping selection in view; Tab directs paging to the table or open Details. Tables, Details and reference pages also show their visible range. Footer controls stay at the terminal bottom even when Details has little content. **D diagnostics !** indicates measurement warnings; the read-failure counts and technical explanation stay inside Diagnostics. Apple Terminal may send Shift-Space identically to Space; use `u` or Ctrl-U for half-page up. Encoded Shift-Space remains supported on terminals that transmit the modifier.
 
 Executable headings show the name without a population multiplier in both TUI and Mac. Current process counts remain below the heading; Details keeps recent worker counts. In the TUI, `H` hides or restores no-longer-observed rows, with an active-filter reminder showing how many rows are hidden. Mac exposes the same filter in **View options → Hide no longer observed**. Neither filter changes measured totals or CPU history.
 
