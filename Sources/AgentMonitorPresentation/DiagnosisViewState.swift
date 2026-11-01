@@ -16,8 +16,6 @@ public struct DiagnosisViewState: Equatable, Sendable {
         "Start with the largest CPU-seconds contributors. Use their PID and session evidence to find the workload in the live table; check coverage and Monitor helper flags before drawing conclusions."
     public static let help =
         "Measures from now: three one-second waits plus scan time. Attribution uses local observations; provider helpers are unavailable."
-    public static let keyHint = "d CPU diagnosis"
-    public static let cleanupHint = "CPU diagnosis cleanup in progress"
     public static let limits =
         "Collection adds resource use. Monitor helper flags cover only observed relations to this interface; reparented/unobserved helpers and other monitor instances may be unflagged."
 

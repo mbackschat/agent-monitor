@@ -142,9 +142,10 @@ import Testing
         live.diagnosis = controller.state
         for (width, height) in [(40, 8), (60, 12), (100, 24)] {
             let lines = LiveReportLayout.lines(state: live, width: width, height: height)
-            #expect(
-                lines.contains { $0.text.contains("CPU cleanup") })
-            #expect(!lines.contains { $0.text.contains("d CPU diagnosis") })
+            // Like the investigate hint it replaces, the cleanup status is an optional footer item
+            // that does not fit at 40 columns (docs/architecture.md#tui-contract).
+            if width >= 60 { #expect(lines.contains { $0.text.contains("CPU cleanup") }) }
+            #expect(!lines.contains { $0.text.contains("I investigate") })
             #expect(lines.contains { $0.text.contains("q/Ctrl-C quit") })
             if height < 24 { #expect(lines.contains { $0.text.contains("? help") }) }
         }
@@ -152,8 +153,8 @@ import Testing
         await controller.waitForCompletion()
         live.diagnosis = controller.state
         let lines = LiveReportLayout.lines(state: live, width: 100, height: 24)
-        #expect(lines.contains { $0.text.contains("d CPU diagnosis") })
-        #expect(!lines.contains { $0.text.contains("cleanup in progress") })
+        #expect(lines.contains { $0.text.contains("I investigate") })
+        #expect(!lines.contains { $0.text.contains("CPU cleanup") })
     }
 
     @Test func stopCancelsAndWaitsForOwnedWork() async {

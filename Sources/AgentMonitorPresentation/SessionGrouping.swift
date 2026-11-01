@@ -50,8 +50,7 @@ public struct SessionGroup: Equatable, Sendable {
         guard let sessionID else {
             return .text("\(provider) · \(sessionDescription) · \(project)")
         }
-        return .session(
-            identity: "\(provider) · \(sessionID.prefix(8))", directory: project)
+        return .session(owner: provider, id: String(sessionID.prefix(8)), directory: project)
     }
 
     public var headingHelp: String {
@@ -240,16 +239,5 @@ enum WorkloadDirectory {
         default: base = "\(known.count) dirs"
         }
         return directories.contains(nil) ? base + " + CWD unavailable" : base
-    }
-}
-
-enum ProjectLabel {
-    static func make(_ directories: [String?]) -> String {
-        let known = Set(directories.compactMap { $0 })
-        if known.count > 1 { return "Multiple directories" }
-        guard directories.allSatisfy({ $0 != nil }), let directory = known.first else {
-            return "Unknown project"
-        }
-        return directory.split(separator: "/").last.map(String.init) ?? "/"
     }
 }

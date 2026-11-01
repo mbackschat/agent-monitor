@@ -14,10 +14,10 @@ struct MenuBarContributorLabel<Resources: View>: View {
         switch label {
         case .text:
             singleRow(naturalTitle: false)
-        case .session(let identity, let directory):
+        case .session(_, _, let directory):
             ViewThatFits(in: .horizontal) {
                 singleRow(naturalTitle: true)
-                sessionRows(identity: identity, directory: directory)
+                sessionRows(identity: label.headline, directory: directory)
             }
         case .workload(let name, let directory):
             HStack(spacing: 6) {

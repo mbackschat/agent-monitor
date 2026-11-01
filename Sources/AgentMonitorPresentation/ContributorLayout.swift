@@ -92,7 +92,18 @@ public enum ContributorLayout {
                 + (depth > 0 ? (row.isLastSibling ? "   " : "│  ") : "")
                 + (hasVisibleChildren ? "│ " : "  ")
             ancestorLast.append(row.isLastSibling)
-            let headline = TextReport.safe(row.node.label.headline)
+            let headline: String
+            if case .session(let owner, let id, _) = row.node.label {
+                // Session IDs keep all eight characters; only the owner abbreviates (docs/usage.md).
+                let kept = " · " + TextReport.safe(id)
+                let ownerWidth = columns.name - TerminalCells.width(prefix) - TerminalCells.width(kept)
+                headline =
+                    ownerWidth > 0
+                    ? TerminalCells.abbreviated(TextReport.safe(owner), to: ownerWidth) + kept
+                    : TextReport.safe(row.node.label.headline)
+            } else {
+                headline = TextReport.safe(row.node.label.headline)
+            }
             let style: ReportLine.Style =
                 selected
                 ? .selected

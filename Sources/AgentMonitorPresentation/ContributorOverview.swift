@@ -836,7 +836,7 @@ public struct ContributorOverview: Equatable, Sendable {
             case .session(let provider, let session, let root):
                 let directories = projects[id] ?? []
                 nodes[id]?.label = .session(
-                    identity: (root == nil ? "\(provider) · " : "Thread · ") + session.prefix(8),
+                    owner: root == nil ? provider : "Thread", id: String(session.prefix(8)),
                     directory: directories.isEmpty
                         ? nil : WorkloadDirectory.summary(directories, labels: directoryLabels))
                 nodes[id]?.labels =

@@ -138,6 +138,4 @@ public enum TerminalChrome {
         return (start > 0 ? "↑ " : "") + "\(start + 1)–\(min(total, start + count))/\(total)"
             + (start + count < total ? " ↓" : "")
     }
-
-    public static let chartLegend = "↑ above range; · no measurement; _ measured zero"
 }

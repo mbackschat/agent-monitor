@@ -98,25 +98,6 @@ public struct CoverageStatus: Equatable, Sendable {
     public var help: String {
         notes.isEmpty ? SamplingCoverageSummary.interpretation : notes.map(\.help).joined(separator: "\n")
     }
-    public var lineStyle: ReportLine.Style {
-        switch severity {
-        case .warning: .warning
-        case .notice: .normal
-        case nil: .muted
-        }
-    }
-
-    var compactText: String {
-        guard !notes.isEmpty else { return Self.clearText }
-        let warnings = notes.filter { $0.severity == .warning }.count
-        let notices = notes.count - warnings
-        let counts = [
-            warnings > 0 ? "\(warnings) \(warnings == 1 ? "warning" : "warnings")" : nil,
-            notices > 0 ? "\(notices) \(notices == 1 ? "notice" : "notices")" : nil,
-        ].compactMap { $0 }.joined(separator: " · ")
-        return "Coverage: " + counts
-    }
-
     static func reads(_ coverage: ReadCoverage) -> [Note] {
         var notes: [Note] = []
         if coverage.readFailurePIDCount.maximum > 0 {

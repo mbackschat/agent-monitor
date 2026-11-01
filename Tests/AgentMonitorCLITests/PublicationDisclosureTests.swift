@@ -80,8 +80,7 @@ func processHeadersExposeReadGapsAndOverruns(width: Int) throws {
     state.receive(snapshot)
     state.overview.enabled = false
     let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
-    let warnings = lines.prefix(10).filter { $0.style == .warning }.map(\.text).joined(separator: " ")
-    #expect(warnings.contains("D diagnostics"))
+    #expect(showsCoverageWarningBadge(lines))
     state.showReference(.diagnostics)
     let details = ReportReferenceLayout.content(state: state, page: .diagnostics).map(\.text).joined(
         separator: "\n")
@@ -108,5 +107,5 @@ func processHeadersExposeReadGapsAndOverruns(width: Int) throws {
     #expect(summary.metrics.first { $0.id == "failed" }?.warning == true)
     let content = ReportReferenceLayout.content(state: state, page: .diagnostics)
     #expect(content.contains { $0.text == "Sampled: 653" })
-    #expect(content.contains { $0.text == "Read gaps: 9" && $0.style == .warning })
+    #expect(content.contains { $0.text == "Read gaps: 9" && $0.runs.contains { $0.style == .warning } })
 }

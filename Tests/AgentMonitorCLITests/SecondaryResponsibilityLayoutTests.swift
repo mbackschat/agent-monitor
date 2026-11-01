@@ -17,7 +17,7 @@ import Testing
         state.toggleFreeze()
         state.setActionNotice("Pin limit reached: remove a pin first.")
         let lines = LiveReportLayout.lines(state: state, width: 40, height: 8)
-        #expect(lines[0].text.hasPrefix("PAUSED at "))
+        #expect(lines[0].text.hasPrefix("PAUSED | "))
         #expect(lines.contains { $0.text == "Pin limit reached: remove a pin first." })
         #expect(lines.filter { $0.style == .selected }.count == 2)
         #expect(lines.last?.text.contains("q/Ctrl-C quit") == true)
@@ -57,10 +57,10 @@ import Testing
         #expect(selected.contains("80.00"))
         #expect(selected.contains("0.32"))
         #expect(selected.contains("tmp"))
-        #expect(lines.contains { $0.style == .warning })
+        #expect(showsCoverageWarningBadge(lines))
         #expect(lines.map(\.text).joined().contains("q/Ctrl-C quit"))
         if mode.paused {
-            #expect(lines[0].text.hasPrefix("PAUSED at "))
+            #expect(lines[0].text.hasPrefix("PAUSED | "))
             #expect(lines.contains { $0.text.contains("CPU > 25.00%") })
         }
         #expect(lines.count <= 8)

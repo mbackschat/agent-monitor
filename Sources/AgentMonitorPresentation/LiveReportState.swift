@@ -411,11 +411,6 @@ public struct LiveReportState: Equatable, Sendable {
             sessions.enumerated().map { ($0.element, $0.offset) }, uniquingKeysWith: min)
     }
 
-    public var sortDescription: String {
-        sortKey == .stable
-            ? sortKey.rawValue : "\(sortKey.rawValue) \(ascending ? "ascending" : "descending")"
-    }
-
     public mutating func moveSelection(by delta: Int) {
         if showsOverview {
             overview.move(by: delta)

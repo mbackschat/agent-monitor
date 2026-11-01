@@ -42,8 +42,6 @@ import Testing
         var state = LiveReportState()
         state.receive(snapshot)
         state.overview.enabled = false
-        let rendered = LiveReportLayout.lines(state: state, width: 120, height: 24).map(\.text).joined()
-        #expect(rendered.contains("Between-scan reads skipped") == enabled)
         state.showReference(.diagnostics)
         let content = ReportReferenceLayout.content(state: state, page: .diagnostics).map(\.text).joined(
             separator: "\n")

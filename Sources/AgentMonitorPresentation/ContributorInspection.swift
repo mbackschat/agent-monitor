@@ -3,13 +3,14 @@ import Foundation
 
 public enum ContributorLabel: Equatable, Sendable {
     case text(String)
-    case session(identity: String, directory: String?)
+    /// `owner` names the provider or thread; `id` is the short session ID, which renderers must not abbreviate.
+    case session(owner: String, id: String, directory: String?)
     case workload(name: String, directory: String?)
 
     public var headline: String {
         switch self {
         case .text(let title): title
-        case .session(let identity, _): identity
+        case .session(let owner, let id, _): owner + " · " + id
         case .workload(let name, _): name
         }
     }
@@ -17,8 +18,8 @@ public enum ContributorLabel: Equatable, Sendable {
     public var title: String {
         switch self {
         case .text(let text): text
-        case .session(let identity, let directory):
-            ([identity] + [directory].compactMap { $0 }).joined(separator: " · ")
+        case .session(_, _, let directory):
+            ([headline] + [directory].compactMap { $0 }).joined(separator: " · ")
         case .workload(let name, let directory):
             ([name] + [directory].compactMap { $0 }).joined(separator: " · ")
         }

@@ -148,7 +148,7 @@ import Testing
     @Test func adaptiveHeaderIdentifiesTheConfiguredMaximum() {
         let state = LiveReportState(sampling: SamplingSettings(enabled: true, visibleMaximum: 2))
         let lines = LiveReportLayout.lines(state: state, width: 120, height: 24)
-        #expect(lines.first?.text.contains("max 2 s") == true)
-        #expect(lines.first?.text.contains("every 2 s") == false)
+        #expect(lines.contains { $0.text.contains("acquire max 2 s") })
+        #expect(!lines.contains { $0.text.contains("every 2 s") })
     }
 }

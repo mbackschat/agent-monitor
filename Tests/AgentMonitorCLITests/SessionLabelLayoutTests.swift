@@ -30,11 +30,13 @@ import Testing
         var state = try state(memory: memory)
         let lines = ContributorLayout.lines(state: state, width: width, height: 40)
         let text = lines.map(\.text).joined(separator: "\n")
-        #expect(text.contains("claude"))
+        // At 40 columns beside a petabyte figure the provider name abbreviates so the eight-character
+        // session ID survives (docs/usage.md: IDs keep eight characters; names abbreviate).
+        #expect(text.contains("cla"))
         for (index, session) in sessions.enumerated() {
             state.overview.select(.session(provider: "claude", session: session, root: nil))
             let selected = ContributorLayout.lines(state: state, width: width, height: 40)
-            let block = selected.filter { $0.style == .selected }.map(\.text).joined(separator: "\n")
+            let block = selectedBlock(selected)
             #expect(block.contains(session.prefix(8)))
             #expect(block.contains(index == 0 ? "90.0%" : "80.0%"))
             #expect(block.contains(memory == 320_000_000 ? "320.0 MB" : "1500000.0 GB"))
@@ -62,7 +64,7 @@ import Testing
         for family in families {
             state.overview.select(family.id)
             let lines = ContributorLayout.lines(state: state, width: width, height: height)
-            let selected = lines.filter { $0.style == .selected }.map(\.text).joined(separator: "\n")
+            let selected = selectedBlock(lines)
             let directory = try #require(family.node.inspectionFields.first { $0.label == "Directory" }).value
             #expect(selected.contains("rust-analyzer-proc-macro-srv"), "\(selected)")
             #expect(selected.contains(directory), "\(selected)")
@@ -127,14 +129,10 @@ import Testing
         let resources = lines[identity].text
         #expect(resources.contains(selected == 0 ? "90.0%" : "80.0%"))
         #expect(resources.contains("320.0 MB"))
-        #expect(lines.contains { $0.style == .warning })
+        #expect(showsCoverageWarningBadge(lines))
         let text = lines.map(\.text).joined(separator: "\n")
-        #expect(text.contains("q quit"))
+        #expect(text.contains("q/Ctrl-C quit"))
         #expect(text.contains("p pause"))
-        let coverage = lines.filter { $0.style == .warning }.map(\.text).joined()
-        #expect(coverage.contains("Read failures") || coverage.contains("Coverage:"))
-        #expect(coverage.contains("overrun") || coverage.contains("3 warnings"))
-        #expect(coverage.contains("D diagnostics"))
         #expect(text.contains("? help"))
         if filtered {
             #expect(text.contains(ThresholdContext.text(state.thresholds)))

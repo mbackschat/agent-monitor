@@ -619,7 +619,6 @@ func terminalActionsRequireConfirmationAndPasteCannotSubmit(quitWhileUndersized:
     ) {
         $0.contains("Agent Monitor") && !$0.contains("diagnosis")
     }
-    // The normal footer contains DiagnosisViewState.keyHint; its absence only identifies a partial frame.
     var large = winsize(ws_row: 24, ws_col: 100, ws_xpixel: 0, ws_ypixel: 0)
     try #require(ioctl(terminal.slave, TIOCSWINSZ, &large) == 0)
     screen = ANSIVisibleScreen(size: .init(width: 100, height: 24))
