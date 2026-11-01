@@ -195,7 +195,9 @@ import Testing
 }
 
 @Test @MainActor func nativeContributorNavigationSelectsOnceAndTabsAway() async throws {
-    _ = NSApplication.shared
+    try #require(
+        NSApplication.shared.isFullKeyboardAccessEnabled,
+        "Enable Keyboard navigation in System Settings > Keyboard")
     let snapshot = try nativeOverviewFixture()
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()

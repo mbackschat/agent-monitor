@@ -45,7 +45,7 @@ Checked dates are when the evidence was gathered; later editorial edits do not r
 | [Transparent coalition coverage](cpu-accounting.md#transparent-coalition-coverage-feasibility--2026-10-26) | 2026-10-26 | Source/SDK SPI review and bounded owned-fixture follow-up: CLI access observed, shared-coalition reconciliation inconclusive, invalid harness cross-check excluded; ordinary app launch supplies no documented isolation guarantee or unseen-session attribution. |
 | [Existing tools and reusable mechanisms](existing-solutions.md) | 2026-10-14; follow-ups to 2026-10-17 | Pinned source/licenses, CLI discovery/schema comparisons, constrained helper exercise and finite-diagnosis/helper-identity feasibility; live usability remains unmeasured. |
 | [Development tools](development-tools.md) | 2026-10-14–15; source audit 2026-10-26 | Skill contents/discovery, first source trial, grouping/sizing observations and [test-oracle limitations](development-tools.md#test-value-audit--2026-10-26). |
-| [Verify scheduling and native OCR](development-tools.md#verify-scheduling-and-native-ocr--2026-11-01) | 2026-11-01 | Concurrent CI failures, serial ownership/native checks, accurate Vision stalls and replacement with direct presentation/text-layout checks; hosted confirmation remains open. |
+| [Verify scheduling and native OCR](development-tools.md#verify-scheduling-and-native-ocr--2026-11-01) | 2026-11-01 | Concurrent CI failures, Vision replacement with direct presentation/text-layout checks, keyboard-navigation prerequisites and 1×/2× pixel checks; hosted confirmation remains open. |
 
 ## Retained measurements
 

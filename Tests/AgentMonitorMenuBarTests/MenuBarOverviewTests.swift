@@ -122,19 +122,18 @@ import Testing
     await model.stop()
 }
 
-@Test @MainActor func intervalBarsHaveEqualPixelWidthsDespiteUnequalDurations() async throws {
+@Test(arguments: [1.0, 2.0], [101.0, 102.0]) @MainActor
+func intervalBarsHaveEqualPixelWidthsDespiteUnequalDurations(scale: Double, width: Double) throws {
     var overview = ContributorOverview()
     overview.receive(try nativeOverviewFixture(secondSampleTime: 3))
     #expect(overview.activity.spans.map(\.duration) == [1, 2])
     let id = try #require(overview.main.first)
-    let host = NSHostingView(
-        rootView: MenuBarContributorLane(activity: overview.activity, id: id)
-            .accentColor(.red).frame(width: 101, height: 32).background(.black))
-    host.frame = NSRect(x: 0, y: 0, width: 101, height: 32)
-    let window = await mountOffscreenNativePreview(host)
-    defer { window.close() }
-    let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-    host.cacheDisplay(in: host.bounds, to: bitmap)
+    let renderer = ImageRenderer(
+        content: MenuBarContributorLane(activity: overview.activity, id: id)
+            .environment(\.displayScale, scale)
+            .accentColor(.red).frame(width: width, height: 32).background(.black))
+    renderer.scale = scale
+    let bitmap = NSBitmapImageRep(cgImage: try #require(renderer.cgImage))
     if let output = ProcessInfo.processInfo.environment["MENUBAR_BAR_PREVIEW_PATH"] {
         try #require(bitmap.representation(using: .png, properties: [:])).write(
             to: URL(fileURLWithPath: output))
@@ -142,7 +141,7 @@ import Testing
     var widths: [Int] = []
     var width = 0
     for x in 0..<bitmap.pixelsWide {
-        let color = try #require(bitmap.colorAt(x: x, y: bitmap.pixelsHigh - 2)?.usingColorSpace(.deviceRGB))
+        let color = try #require(bitmap.colorAt(x: x, y: bitmap.pixelsHigh - 1)?.usingColorSpace(.deviceRGB))
         let filled = max(color.redComponent, color.greenComponent, color.blueComponent) > 0.5
         if filled {
             width += 1

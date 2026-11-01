@@ -196,6 +196,9 @@ func nativeRowArrowsAcceptNonShortcutFlags(modifiers: EventModifiers) {
 }
 
 @Test @MainActor func reportShortcutsWorkAcrossFocusedControlsAndRespectEditors() async throws {
+    try #require(
+        NSApplication.shared.isFullKeyboardAccessEnabled,
+        "Enable Keyboard navigation in System Settings > Keyboard")
     let snapshot = try nativeOverviewFixture()
     let model = MenuBarModel { _, _, receive in try await receive(snapshot) }
     model.open()
