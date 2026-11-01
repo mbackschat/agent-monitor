@@ -1,26 +1,34 @@
 # Installation
 
-Agent Monitor runs on macOS 27 or later and has been tested on Apple Silicon. Install with Homebrew, use a release download, or build from source, then run `agent-monitor` from any directory.
+Agent Monitor requires Apple Silicon and macOS 27 or later. Install the CLI/TUI, the Mac menu bar app, or both through Homebrew or release downloads; source builds require Xcode.
 
 ## Homebrew (recommended)
 
-With [Homebrew](https://brew.sh) installed:
+With [Homebrew](https://brew.sh) installed, choose either or both packages:
+
+| Interface | Install | Start |
+| --- | --- | --- |
+| CLI and terminal dashboard | `brew install mbackschat/tap/agent-monitor` | `agent-monitor --tui` |
+| Mac menu bar app | `brew install --cask mbackschat/tap/agent-monitor-app` | Open **Agent Monitor** from Applications. |
+
+For example, install and open the terminal dashboard:
 
 ```sh
 brew install mbackschat/tap/agent-monitor
 agent-monitor --tui --group session
 ```
 
-The [tap](https://github.com/mbackschat/homebrew-tap) installs the verified release archive and its schema resource bundle. Xcode and manual PATH changes are not required when Homebrew is already on your PATH. The formula requires Apple Silicon and macOS 27 or later.
+The [tap](https://github.com/mbackschat/homebrew-tap) verifies each download's checksum. The formula installs the CLI and its schema bundle; the cask installs the signed, notarized app without adding another CLI executable. Neither package requires Xcode.
 
 To update:
 
 ```sh
 brew update
 brew upgrade agent-monitor
+brew upgrade --cask agent-monitor-app
 ```
 
-To remove it, run `brew uninstall agent-monitor`. If you previously installed a copy manually, use `which -a agent-monitor` to check whether an older copy takes precedence on your PATH.
+Run the upgrade command for each installed package; quit the Mac app before upgrading it. To remove a package, use `brew uninstall agent-monitor` or `brew uninstall --cask agent-monitor-app`. If you previously installed a CLI copy manually, use `which -a agent-monitor` to check whether an older copy takes precedence on your PATH.
 
 ## Install the release
 
@@ -47,7 +55,7 @@ Download `agent-monitor-app-<version>-macos-arm64.zip` and its `.sha256` from th
 shasum -a 256 -c agent-monitor-app-*-macos-arm64.zip.sha256
 ```
 
-The native release app is Developer ID-signed and notarized, with the ticket attached. It requires Apple Silicon and macOS 27 or later; Xcode is not needed. The CLI Homebrew formula does not install the app. To update, quit the running app and replace it with the new copy; to uninstall, quit and remove it. There is no automatic updater or login item.
+The native release app is Developer ID-signed and notarized, with the ticket attached. For a manual installation, quit and replace the app to update it, or quit and remove it to uninstall. For a Homebrew installation, use the cask commands above. There is no in-app updater or login item.
 
 Terminal focus may ask for Automation permission when explicitly requested. Monitoring needs no launch wrapper or provider login. See [Mac controls](usage/mac.md) for inspection, sampling and actions.
 

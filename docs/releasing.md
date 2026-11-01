@@ -31,7 +31,7 @@ Publication performs these external changes:
 1. Check that the Git email matches the previous release's author, then tag and push `main` and the tag.
 2. Create the GitHub release with both archives, their checksums and reviewed notes.
 3. Download the published assets again and verify checksums, CLI version/schema, and the Mac app’s version, signature, stapled ticket and Gatekeeper assessment.
-4. Update, audit, install/test and push the Homebrew formula.
+4. Update both Homebrew recipes, audit them, install/test the CLI, verify the cask's fetched app archive, and push the tap.
 
 Publication refuses changed HEAD or checksums, mismatched CLI/Mac source revisions, and missing or unverifiable native artifacts.
 
@@ -43,9 +43,9 @@ To prepare again, delete `dist/agent-monitor-<version>-macos-arm64*`. If publish
 
 ## Update Homebrew
 
-The [Homebrew tap](https://github.com/mbackschat/homebrew-tap) owns the canonical formula. It distributes the CLI, not the native app. Publication calls [update-homebrew.py](../scripts/update-homebrew.py) with the released version.
+The [Homebrew tap](https://github.com/mbackschat/homebrew-tap) owns two recipes: `agent-monitor` installs the CLI/TUI; `agent-monitor-app` installs only the Mac app. They use the same release version and separate checksummed downloads, so users can install either or both. Publication calls [update-homebrew.py](../scripts/update-homebrew.py) with the released version.
 
-The helper reads the checksum from the published release, verifies the tap remote, `main` branch and GitHub email, and changes only the versioned URL/checksum. Before committing and pushing, it runs `brew audit --strict`, installs or upgrades the CLI, runs `brew test`, and checks the installed version, guides and both schema resources. Homebrew auto-update and cleanup are disabled for this operation.
+The helper reads both checksums from the published release and verifies the tap remote, `main` branch and GitHub email. It updates the formula URL/checksum and creates or updates the app cask's version/checksum. Before committing and pushing, it audits both recipes, installs or upgrades the CLI, runs `brew test`, and checks the installed version, guides and both schemas. It fetches the cask through Homebrew and verifies the extracted app's version, signature, ticket and Gatekeeper assessment. It does not launch or replace a running Mac app; the [user-run installation check](macos-release.md#installation-check-and-publication) remains separate. Homebrew auto-update and cleanup are disabled for this operation.
 
 ### Resume only the Homebrew step
 
@@ -55,7 +55,7 @@ If Homebrew fails after the GitHub release was published, fix the reported prere
 python3 scripts/update-homebrew.py <version>
 ```
 
-The helper accepts its own exact pending formula edit or one unpushed release commit; repeating a completed update is safe. It refuses unrelated working changes or unpushed commits, downgrades and changed checksums for a published version. Remote divergence stops for reconciliation; it never force-pushes or overwrites release assets.
+The helper accepts its own exact pending recipe edits or one unpushed release commit; repeating a completed update is safe. It refuses unrelated working changes or unpushed commits, downgrades and changed checksums for a published version. Remote divergence stops for reconciliation; it never force-pushes or overwrites release assets. Cask changes beyond its generated version/checksum need review and a matching helper update.
 
 If the GitHub release does not yet exist, inspect the tag/push/release state and finish those commands from [release.sh](../scripts/release.sh) before running the helper. Release notes remain reviewed input, not an automatically published raw commit list.
 

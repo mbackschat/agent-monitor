@@ -171,7 +171,7 @@ The panel reuses shared action review and `SessionActions` services for verified
 
 ### Local packaging boundaries
 
-The source-build script defaults to an optimized release build and assembles an ad-hoc-signed, unsandboxed local bundle with `LSUIElement` and an Automation usage description. This is separate from CLI release packaging; signing identity, notarization, Finder/login PATH discovery, login items and production installation are deferred. App and TUI collectors are independent; there is no IPC or background service.
+The source-build script defaults to an optimized release build and assembles an ad-hoc-signed, unsandboxed local bundle with `LSUIElement` and an Automation usage description. The [Mac release workflow](../macos-release.md) signs and notarizes a separate app ZIP, also distributed by the `agent-monitor-app` Homebrew cask. Finder/login PATH discovery and login items remain deferred. App and TUI collectors are independent; there is no IPC or background service.
 
 ### Keyboard routing and clipboard
 

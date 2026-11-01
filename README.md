@@ -42,7 +42,11 @@ Requires **Apple Silicon and macOS 27 or later**. Release downloads need neither
 
 ### Mac menu bar app
 
-[Download the signed, notarized Mac app](docs/installation.md#install-the-mac-app), extract the ZIP, and move **Agent Monitor.app** to Applications. Open it to start monitoring from the menu bar.
+```sh
+brew install --cask mbackschat/tap/agent-monitor-app
+```
+
+Open **Agent Monitor** from Applications. Update with `brew update && brew upgrade --cask agent-monitor-app`. The app is signed and notarized; a [direct download](docs/installation.md#install-the-mac-app) is also available.
 
 ### CLI and terminal dashboard
 
@@ -52,7 +56,7 @@ Install with [Homebrew](https://brew.sh):
 brew install mbackschat/tap/agent-monitor
 ```
 
-Update with `brew update && brew upgrade agent-monitor`. The Homebrew formula installs the CLI and terminal dashboard; download the Mac app separately above. For manual CLI installation or a source build, follow the [installation guide](docs/installation.md).
+Update with `brew update && brew upgrade agent-monitor`. The formula installs the CLI and terminal dashboard; the separate `agent-monitor-app` cask installs the Mac app. You can install either or both. For manual installation or a source build, follow the [installation guide](docs/installation.md).
 
 ## Quick start
 
