@@ -10,6 +10,8 @@ Current behavior and accepted contracts belong in the [README](../../README.md) 
 
 Checked dates are when the evidence was gathered; later editorial edits do not revalidate it.
 
+### Attribution and actions
+
 | Note | Checked | Covers |
 | --- | --- | --- |
 | [Codex process and session identities](codex-terminal-attribution.md) | 2026-10-14; follow-ups to 2026-10-16 | Pinned marker injection, logical thread/root semantics, writer descriptors and tool-call correlation limits; the 2026-10-16 follow-up checks 0.163.0 listing scope, null OS PIDs, connection effects and one live call. |
@@ -17,6 +19,13 @@ Checked dates are when the evidence was gathered; later editorial edits do not r
 | [Claude runtime and workload attribution signals](claude-runtime-attribution.md) | 2026-10-16 | Runtime-to-session binding sources, embedded tools invoked under another name, workload environment variables and directories within one session. |
 | [Process signaling and messaging interfaces](session-actions.md) | 2026-10-14 | Signal races, queue/resume interfaces, recipient identity and acceptance versus delivery. |
 | [Terminal focus mechanisms](terminal-focus.md) | 2026-10-14; follow-up 2026-10-15 | Host identifiers, per-terminal APIs, macOS permission/activation behavior and untested desktop states. |
+| [Local process observations](terminal-process-observations.md) | 2026-10-14 | Anonymized process topology, marker readability and synthetic orphan experiments. |
+| [macOS measurement and attribution](macos-process-attribution.md) | 2026-10-14 | Native APIs, counter units, process identity, permissions and event-collection limits. |
+
+### Terminal presentation
+
+| Note | Checked | Covers |
+| --- | --- | --- |
 | [TUI report chrome and paging](terminal-ui.md#report-chrome-and-paging-correction--2026-10-31) | 2026-10-31 | Shared headers/controls, bottom-anchored Details, visible ranges, half-page navigation and single-line CPU chart symbols; synthetic render/PTY checks and physical modifier limits. |
 | [TUI keys, emphasis and chart follow-up](terminal-ui.md#terminal-keys-text-emphasis-and-three-row-charts--2026-10-31) | 2026-10-31 | Apple Terminal feedback, accepted u/d plus Space controls, letter section keys, styled Help and resizing parity, with three-row chart fill. |
 | [Meslo Powerline chart constraint](terminal-ui.md#meslo-powerline-remains-a-required-case--2026-11-01) | 2026-11-01 | Confirmed live font/seam failure; failed combining-mark and inverted-mask probes at 12/24 pt; accurate filled-chart rendering remains unresolved. |
@@ -26,18 +35,46 @@ Checked dates are when the evidence was gathered; later editorial edits do not r
 | [Executable headings and keyboard help](terminal-ui.md#executable-headings-and-keyboard-help--2026-11-01) | 2026-11-01 | Remove ambiguous lifetime multipliers, size Help columns to content, simplify chart legends and expose historical-row filtering with Shift+H. |
 | [Summary emphasis and chart overflow](terminal-ui.md#summary-emphasis-and-chart-overflow--2026-11-01) | 2026-11-01 | Bold sort-aware totals, warning-colored overflow bars, neutral attribution headings, monochrome markers and exact process-count interpretation. |
 | [Font detection and compact fallback](terminal-ui.md#font-detection-and-compact-fallback--2026-11-01) | 2026-11-01 | Terminal font/spacing evidence, accepted one-row fallback, measured Meslo glyph proportions and limits of automatic family matching. |
+| [Swift terminal UI findings](terminal-ui.md) | 2026-10-14; follow-up 2026-10-29 | Host/library probes, ordered-input retention and [upstream 0.19.1 review](terminal-ui.md#upstream-0191-comparison--2026-10-29), original feedback and [source triage](terminal-ui.md#feedback-triage--2026-10-26), including truncation and [viewport pressure](terminal-ui.md#process-viewport-under-coverage-pressure--2026-10-26). |
+
+### Native presentation
+
+| Note | Checked | Covers |
+| --- | --- | --- |
 | [Menu bar feasibility](menubar-app.md) | 2026-10-15 | UI/lifecycle APIs, launch environment, process access, signing and Homebrew evidence, with unverified inferences identified. |
-| [Menu bar load collection cost](menu-bar-load-cost.md) | 2026-10-15; follow-ups to 2026-10-29 | Native sampling/argument costs, row-command and aggregation measurements, population feedback, compact-history capacity, provider feedback loops, and aggregate/ordinary-launch acceptance limits. |
-| [Retained-state ownership](menu-bar-load-cost.md#retained-state-ownership-audit--2026-10-26) | 2026-10-26 | Task/input/draft ownership, [collapsed-count birth provenance](menu-bar-load-cost.md#collapsed-count-birth-provenance--2026-10-26), command-sharing requirements and [population/scratch boundaries](menu-bar-load-cost.md#population-and-scratch-ownership-follow-up--2026-10-26); logical caps do not establish a heap ceiling. |
-| [Synthetic allocation export feasibility](menu-bar-load-cost.md#synthetic-allocation-export-feasibility--2026-10-29) | 2026-10-29 | Authorized ownership/compaction traces exposed intermediate allocation; prefix export inconsistencies invalidate a cumulative-counter peak bound. Raw data was deleted. |
-| [Native menu design](native-menu-design.md) | 2026-10-15; follow-ups to 2026-10-31 | Apple interface guidance, pinned CodexBar/RepoBar/Trimmy source and screenshots, content sizing, iStat Menus/btop/htop references, user-confirmed interaction checkpoints, [secondary-row context](native-menu-design.md#secondary-process-row-context--2026-10-26), [SwiftUI expansion control and following-root triage](native-menu-design.md#swiftui-following-root-triage--2026-10-27), [restoration alternatives and retained SwiftUI adoption](native-menu-design.md#retained-swiftui-table-adoption--2026-10-27), user-confirmed reproduction, [transparency and inspection-value corrections](native-menu-design.md#transparency-full-inspection-values-and-coverage-links--2026-10-27), the [native interaction and control audit](native-menu-design.md#native-interaction-and-control-audit--2026-10-27), [ledger studies and temporal publication](native-menu-design.md#ledger-studies-and-temporal-publication--2026-10-28), [counted headings, fixed CPU scale and hierarchy](native-menu-design.md#counts-fixed-scale-and-hierarchy-follow-up--2026-10-29), [physical workflow/surface feedback](native-menu-design.md#physical-workflow-and-surface-feedback--2026-10-30), [resize affordance/historical-row follow-up](native-menu-design.md#resize-affordance-and-historical-row-follow-up--2026-10-30), and [native surfaces/context-only shortcuts](native-menu-design.md#native-surfaces-and-context-only-shortcuts--2026-10-30) with the [alternation/filler correction](native-menu-design.md#alternation-and-empty-viewport-correction--2026-10-30) and [restored pre-gray surface](native-menu-design.md#restore-the-pre-gray-reading-surface--2026-10-30), plus [terminal field contrast and connected branches](native-menu-design.md#terminal-field-contrast-and-connected-branches--2026-10-31) the [color/wide-row follow-up](native-menu-design.md#terminal-color-and-wide-row-follow-up--2026-10-31), and [in-place terminal Details/process color parity](native-menu-design.md#in-place-terminal-details-and-process-view-color-parity--2026-10-31). |
+| [Native menu design](native-menu-design.md) | 2026-10-15; follow-ups to 2026-10-31 | Apple guidance; pinned CodexBar, RepoBar and Trimmy source/screenshots; sizing; iStat Menus/btop/htop references; user-confirmed interaction and reproduction checkpoints. Focused follow-ups are listed below. |
 | [Nonselectable section headings](native-menu-design.md#nonselectable-section-headings--2026-10-30) | 2026-10-30 | Native table sections, distinct header bands, contributor-only selection and keyboard/retention validation. |
 | [Hardware-informed chart range](native-menu-design.md#hardware-informed-chart-range--2026-10-29) | 2026-10-29 | Apple core-topology documentation, measured M1 names/counts, Super-tier hardware evidence and [fixed-range implementation with safe fallback](native-menu-design.md#fixed-range-implementation-and-resettest-corrections--2026-10-29). |
 | [iStat Menus surface study](native-menu-design.md#istat-menus-surface-study--2026-10-29) | 2026-10-29 | User screenshot analysis, accepted calm-surface direction, local synthetic studies and [interaction/surface corrections](native-menu-design.md#native-interaction-and-surface-corrections--2026-10-29); no live interaction evidence. |
 | [Sorting and view-menu correction](native-menu-design.md#sorting-without-navigation-and-exclusive-view-choices--2026-10-29) | 2026-10-29 | Sorting accidentally navigated to process mode; overlapping view checkmarks, shared shortcut routing and retained-outline/action guards. |
-| [Swift terminal UI findings](terminal-ui.md) | 2026-10-14; follow-up 2026-10-29 | Host/library probes, ordered-input retention and [upstream 0.19.1 review](terminal-ui.md#upstream-0191-comparison--2026-10-29), original feedback and [source triage](terminal-ui.md#feedback-triage--2026-10-26), including truncation and [viewport pressure](terminal-ui.md#process-viewport-under-coverage-pressure--2026-10-26). |
-| [Local process observations](terminal-process-observations.md) | 2026-10-14 | Anonymized process topology, marker readability and synthetic orphan experiments. |
-| [macOS measurement and attribution](macos-process-attribution.md) | 2026-10-14 | Native APIs, counter units, process identity, permissions and event-collection limits. |
+
+#### Interaction and layout follow-ups
+
+| Investigation | Checked |
+| --- | --- |
+| [Secondary-row context](native-menu-design.md#secondary-process-row-context--2026-10-26) | 2026-10-26 |
+| [SwiftUI expansion control and following-root triage](native-menu-design.md#swiftui-following-root-triage--2026-10-27) | 2026-10-27 |
+| [Restoration alternatives and retained SwiftUI adoption](native-menu-design.md#retained-swiftui-table-adoption--2026-10-27) | 2026-10-27 |
+| [Transparency and inspection-value corrections](native-menu-design.md#transparency-full-inspection-values-and-coverage-links--2026-10-27) | 2026-10-27 |
+| [Native interaction and control audit](native-menu-design.md#native-interaction-and-control-audit--2026-10-27) | 2026-10-27 |
+| [Ledger studies and temporal publication](native-menu-design.md#ledger-studies-and-temporal-publication--2026-10-28) | 2026-10-28 |
+| [Counted headings, fixed CPU scale and hierarchy](native-menu-design.md#counts-fixed-scale-and-hierarchy-follow-up--2026-10-29) | 2026-10-29 |
+| [Physical workflow/surface feedback](native-menu-design.md#physical-workflow-and-surface-feedback--2026-10-30) | 2026-10-30 |
+| [Resize affordance/historical-row follow-up](native-menu-design.md#resize-affordance-and-historical-row-follow-up--2026-10-30) | 2026-10-30 |
+| [Native surfaces/context-only shortcuts](native-menu-design.md#native-surfaces-and-context-only-shortcuts--2026-10-30) | 2026-10-30 |
+| [Alternation/filler correction](native-menu-design.md#alternation-and-empty-viewport-correction--2026-10-30) | 2026-10-30 |
+| [Restored pre-gray surface](native-menu-design.md#restore-the-pre-gray-reading-surface--2026-10-30) | 2026-10-30 |
+| [Terminal field contrast and connected branches](native-menu-design.md#terminal-field-contrast-and-connected-branches--2026-10-31) | 2026-10-31 |
+| [Color/wide-row follow-up](native-menu-design.md#terminal-color-and-wide-row-follow-up--2026-10-31) | 2026-10-31 |
+| [In-place terminal Details/process color parity](native-menu-design.md#in-place-terminal-details-and-process-view-color-parity--2026-10-31) | 2026-10-31 |
+
+### Resource accounting and performance
+
+| Note | Checked | Covers |
+| --- | --- | --- |
+| [Menu bar load collection cost](menu-bar-load-cost.md) | 2026-10-15; follow-ups to 2026-10-29 | Native sampling/argument costs, row-command and aggregation measurements, population feedback, compact-history capacity, provider feedback loops, and aggregate/ordinary-launch acceptance limits. |
+| [Retained-state ownership](menu-bar-load-cost.md#retained-state-ownership-audit--2026-10-26) | 2026-10-26 | Task/input/draft ownership, [collapsed-count birth provenance](menu-bar-load-cost.md#collapsed-count-birth-provenance--2026-10-26), command-sharing requirements and [population/scratch boundaries](menu-bar-load-cost.md#population-and-scratch-ownership-follow-up--2026-10-26); logical caps do not establish a heap ceiling. |
+| [Synthetic allocation export feasibility](menu-bar-load-cost.md#synthetic-allocation-export-feasibility--2026-10-29) | 2026-10-29 | Authorized ownership/compaction traces exposed intermediate allocation; prefix export inconsistencies invalidate a cumulative-counter peak bound. Raw data was deleted. |
 | [GPU accounting feasibility](gpu-accounting.md) | 2026-10-29 | Public IOKit access, driver-time and graphics-memory limits, and [creator identity/aggregate continuity](gpu-accounting.md#creator-identity-and-aggregate-continuity-follow-up--2026-10-29). |
 | [Bounded Metal calibration and review](gpu-accounting.md#bounded-metal-calibration-falsifies-client-total-retention--2026-10-29) | 2026-10-29 | Live-sum retirement, retained-contribution replay, sparse-observation losses and timing bounds; [review reconciliation and task-counter source check](gpu-accounting.md#review-reconciliation-and-task-counter-source-check--2026-10-29) distinguish arm64 task/coalition accounting and conditional matching guarantees. |
 | [Bounded GPU matching model](gpu-accounting.md#bounded-anonymous-matching-has-a-conditional-lower-bound--2026-10-29) | 2026-10-29 | Conditional lower-bound proof, independent finite oracle/history checks, bounded retained ledger and unresolved native admission premises. |
@@ -48,6 +85,11 @@ Checked dates are when the evidence was gathered; later editorial edits do not r
 | [Exit accounting alternatives and workload evidence](cpu-accounting.md#exit-accounting-alternatives-and-workload-evidence--2026-10-26) | 2026-10-26 | User-reported build/runtime workload families; source-supported cumulative exit CPU and exact-lifetime trace linkage; root/private-interface, endpoint and event-loss limits; ES/BSD accounting and Docker/Linux alternatives. No complete native CPU/memory backend is validated. |
 | [Activity Monitor data path](cpu-accounting.md#activity-monitor-data-path--2026-10-26) | 2026-10-26 | Installed binary imports, private client entitlements and sysmond access checks; separate host/process/coalition mechanisms and limits of Apple's documented process and energy views. No complete exited-worker accounting or public replacement API established. |
 | [Transparent coalition coverage](cpu-accounting.md#transparent-coalition-coverage-feasibility--2026-10-26) | 2026-10-26 | Source/SDK SPI review and bounded owned-fixture follow-up: CLI access observed, shared-coalition reconciliation inconclusive, invalid harness cross-check excluded; ordinary app launch supplies no documented isolation guarantee or unseen-session attribution. |
+
+### Development and related tools
+
+| Note | Checked | Covers |
+| --- | --- | --- |
 | [Existing tools and reusable mechanisms](existing-solutions.md) | 2026-10-14; follow-ups to 2026-10-17 | Pinned source/licenses, CLI discovery/schema comparisons, constrained helper exercise and finite-diagnosis/helper-identity feasibility; live usability remains unmeasured. |
 | [Development tools](development-tools.md) | 2026-10-14–15; source audit 2026-10-26 | Skill contents/discovery, first source trial, grouping/sizing observations and [test-oracle limitations](development-tools.md#test-value-audit--2026-10-26). |
 | [Verify scheduling and native OCR](development-tools.md#verify-scheduling-and-native-ocr--2026-11-01) | 2026-11-01 | Concurrent CI failures, Vision replacement with direct presentation/text-layout checks, keyboard-navigation prerequisites and 1×/2× pixel checks; hosted Verify passed all 880 tests and packaging checks. |
@@ -83,15 +125,6 @@ Checked dates are when the evidence was gathered; later editorial edits do not r
 - [Native grouping getter benchmark on 2026-10-15](native-grouping-2026-10-15.json): synthetic microbenchmark from the [development tools trial](development-tools.md).
 - [Codex session listing on 2026-10-16](codex-session-listing-2026-10-16.json): one connection to an existing 0.163.0 server on macOS 27.0.1 returned ten loaded threads and one background terminal with null OS PID. Total wall time was 61.277 ms; proxy-only CPU was 22.798 ms. Server CPU, network and filesystem effects were not measured. See [method and limits](codex-terminal-attribution.md#cost-and-side-effects).
 
-### Earlier process measurements
-
-These observations were collected on Apple Silicon, macOS 27.0.1, Xcode 27 and Swift 6.4 on 2026-10-14. Session IDs and project paths/names are anonymized replacements; measurements and process relationships are retained. They describe the measured binaries and sampling windows, not current performance guarantees.
-
-- [Sustained-watch trace and binary SHA-256](sustained-watch-2026-10-14.json): a 600.817-second headless JSONL run at the default one-second interval delivered 569 reports across 561–604 same-user processes, including 120 deliberately short-lived owned children. Average CPU was 0.805% of one core; physical footprint peaked at 8.37 MB, with warm-up/final-minute medians of 7.72/5.42 MB. No sustained growth appeared in this bounded run. The [harness](../../scripts/verify-sustained.py) uses native physical footprint (not RSS) and user/system Mach ticks converted with `mach_timebase_info`; see [reproduction commands](../development.md#terminal-and-machine-output-checks). This is not a long-duration leak guarantee or a sustained TUI measurement.
-- [Claude terminal observations and independent evidence](claude-terminal-validation-2026-10-14.json): a real Java child at 13:15:45 UTC used 34.51% CPU and 85.87 MB footprint; an earlier child used 423.51% CPU. Both mapped to the same session/runtime/TTY. Allowlisted Claude session metadata, a native runtime birth-identity query and an `lsof` stdin-device check independently matched the attribution. Only relevant metadata was inspected, not transcripts. This validated native Claude terminal attribution; no heavy terminal Codex workload was observed.
-
-Short optimized TUI smoke runs on that date used approximately 1.9–4.2% of one core, including startup and rendering. These are historical smoke observations without a retained full trace, not a sustained benchmark; rerun the [terminal check](../../scripts/verify-tui-terminal.py) for a current measurement.
-
 - [Controlled CPU exit and scheduler probes on 2026-10-23](cpu-exit-probes-2026-10-23.json): independent `wait4` oracles, native polling conservation/cost, exit-notification and retained-port failures, scheduler-trace results, and kernel footprint peaks across free/exec; [method and limits](cpu-accounting.md#controlled-exit-and-scheduler-probes--2026-10-23).
 
 - [Display-window aggregation measurements — 2026-10-24](display-window-accounting-2026-10-24.json): initial, repeated and final synthetic aggregation timings; [method and limits](menu-bar-load-cost.md#independent-display-windows--2026-10-24).
@@ -99,3 +132,17 @@ Short optimized TUI smoke runs on that date used approximately 1.9–4.2% of one
 - [Recent overview measurements — 2026-10-24](recent-overview-2026-10-24.json): synthetic 90/613-lifetime retention, aggregation/projection cost and whole-process RSS; [method and limits](menu-bar-load-cost.md#overview-implementation-validation--2026-10-24).
 
 - [Review-follow-up live pipeline measurement](live-pipeline-review-2026-10-24.json): intermediate optimized collector, real provider listings, full period distribution and retention diagnostics; interpretation in the [load-cost note](menu-bar-load-cost.md#review-follow-up-live-profile--2026-10-24).
+
+
+### Earlier process measurements
+
+These observations were collected on Apple Silicon, macOS 27.0.1, Xcode 27 and Swift 6.4 on 2026-10-14. Session IDs and project paths/names are anonymized replacements; measurements and process relationships are retained. They describe the measured binaries and sampling windows, not current performance guarantees.
+
+- [Sustained-watch trace and binary SHA-256](sustained-watch-2026-10-14.json): a 600.817-second headless JSONL run at the default one-second interval delivered 569 reports across 561–604 same-user processes, including 120 deliberately short-lived owned children. Average CPU was 0.805% of one core; physical footprint peaked at 8.37 MB, with warm-up/final-minute medians of 7.72/5.42 MB. No sustained growth appeared in this bounded run.
+
+The [harness](../../scripts/verify-sustained.py) uses native physical footprint (not RSS) and user/system Mach ticks converted with `mach_timebase_info`; see [reproduction commands](../development.md#terminal-and-machine-output-checks). This is not a long-duration leak guarantee or a sustained TUI measurement.
+- [Claude terminal observations and independent evidence](claude-terminal-validation-2026-10-14.json): a real Java child at 13:15:45 UTC used 34.51% CPU and 85.87 MB footprint; an earlier child used 423.51% CPU. Both mapped to the same session/runtime/TTY.
+
+Allowlisted Claude session metadata, a native runtime birth-identity query and an `lsof` stdin-device check independently matched the attribution. Only relevant metadata was inspected, not transcripts. This validated native Claude terminal attribution; no heavy terminal Codex workload was observed.
+
+Short optimized TUI smoke runs on that date used approximately 1.9–4.2% of one core, including startup and rendering. These are historical smoke observations without a retained full trace, not a sustained benchmark; rerun the [terminal check](../../scripts/verify-tui-terminal.py) for a current measurement.

@@ -2,6 +2,18 @@
 
 Research date: 2026-10-14. This is a source review, not an installation, runtime benchmark, or endorsement. GitHub default-branch trees, license contents, repository metadata, and release metadata were fetched directly; important implementation links below are pinned to the observed commits. A recent push demonstrates activity, not correctness. No fetched activity date was later than the research date.
 
+## Read by task
+
+| Task | Comparison |
+| --- | --- |
+| Study session attribution and resource-monitor UX | [Agent resource monitors](#agent-resource-monitors) |
+| Find native sampling or general monitoring references | [General monitors and libraries](#general-monitors-and-libraries) |
+| Check specific mechanisms, licenses and dated activity | [Source mechanisms and maintenance evidence](#source-mechanisms-and-maintenance-evidence) |
+| Design a diagnostic CLI that coding agents can discover | [Agent-oriented CLI investigation, 2026-10-16](#agent-oriented-cli-investigation--2026-10-16) |
+| Understand the finite interactive diagnosis tradeoff | [Interactive assessment, 2026-10-17](#interactive-diagnosis-assessment--2026-10-17) |
+
+All comparisons are dated source evidence. Historical references to provider listings and messaging describe the inspected revision; the current [offline runtime contract](../architecture.md#offline-runtime) governs shipped behavior.
+
 ## Agent resource monitors
 
 ### Cited Findings
@@ -119,7 +131,11 @@ Local source observations refer to Agent Monitor base commit `8e9387c`. [AgentMo
 
 [NativeProcessReader.swift](../../Sources/AgentMonitorCore/NativeProcessReader.swift) filters readable process records by current UID and verifies PID/start identity around sampling. Its unreadable count includes failed identity reads before UID is known and identity races, while a failed resource read can yield a retained sample with nil CPU/footprint without incrementing that count. Therefore this counter is neither complete whole-system visibility nor a count of every missing resource metric. Sampling can miss processes that start and exit between observations. The existing report contains no exact host-wide CPU utilization denominator.
 
-A fresh `gpt-6-luna` helper at medium reasoning received the user CPU question and could inspect only executable help, JSON schema, version and subcommand help; repository reading, sampling and actions were excluded. It read `--help` (4,308 bytes) and `--json-schema` (4,763 bytes), then redundantly ran `--help | wc -c`, which returned 4,308. That was three executable invocations and 9,071 unique help/schema bytes, **not measured model tokens or billing**. It proposed `agent-monitor --all-processes --cpu 1 --memory-gb 1 --samples 1 --json`, correctly retaining same-user and launch-origin limitations but independently choosing low thresholds and one report. Its criticism that one-sample semantics were absent was incorrect: current help documents them. No live diagnostic effectiveness was evaluated.
+A fresh `gpt-6-luna` helper at medium reasoning received the user CPU question and could inspect only executable help, JSON schema, version and subcommand help; repository reading, sampling and actions were excluded.
+
+It read `--help` (4,308 bytes) and `--json-schema` (4,763 bytes), then redundantly ran `--help | wc -c`, which returned 4,308. That was three executable invocations and 9,071 unique help/schema bytes, **not measured model tokens or billing**.
+
+It proposed `agent-monitor --all-processes --cpu 1 --memory-gb 1 --samples 1 --json`, correctly retaining same-user and launch-origin limitations but independently choosing low thresholds and one report. Its criticism that one-sample semantics were absent was incorrect: current help documents them. No live diagnostic effectiveness was evaluated.
 
 ### Inferences
 

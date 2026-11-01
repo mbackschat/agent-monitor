@@ -19,7 +19,9 @@ For immediate opt-in recording of the next representative workload, prepare the 
 
 ## Adaptive offline comparison
 
-The retained [adaptive scenario sweep](../../Tests/AgentMonitorCoreTests/AdaptiveSamplingComparisonTests.swift) is a research reproduction, excluded from ordinary test runs. Run `AGENT_MONITOR_ADAPTIVE_COMPARISON=1 swift test --filter AdaptiveSamplingComparisonTests > /tmp/agent-monitor-adaptive-comparison.log 2>&1` and read the same log for failures and `ADAPTIVE_RESULT ` JSON lines. The fixture uses virtual time and fake observations; it performs no native workload collection or provider queries. Focused policy, production-composition and independent conservation guards remain in the default suite. [Dated results and limits](../../docs/research/cpu-accounting.md#adaptive-sampling-offline-prototype--2026-10-27) own the earlier findings; retaining new measurement output requires a separate evidence decision.
+The retained [adaptive scenario sweep](../../Tests/AgentMonitorCoreTests/AdaptiveSamplingComparisonTests.swift) is a research reproduction, excluded from ordinary test runs. Run `AGENT_MONITOR_ADAPTIVE_COMPARISON=1 swift test --filter AdaptiveSamplingComparisonTests > /tmp/agent-monitor-adaptive-comparison.log 2>&1` and read the same log for failures and `ADAPTIVE_RESULT ` JSON lines.
+
+The fixture uses virtual time and fake observations; it performs no native workload collection or provider queries. Focused policy, production-composition and independent conservation guards remain in the default suite. [Dated results and limits](../../docs/research/cpu-accounting.md#adaptive-sampling-offline-prototype--2026-10-27) own the earlier findings; retaining new measurement output requires a separate evidence decision.
 
 ## Exit probes
 
@@ -32,7 +34,9 @@ clang -O2 Tools/CPUAccountingProbe/task-port.c -o .build/cpu-coverage/task-port
 
 ## Native collection
 
-Compile one main file at a time. Core's `package` declarations require `-package-name`; the process reader and attribution adapters are the actual production sources. Conservation records counters only for direct children of the disposable parent, rejects observed PID reuse, and never queries real provider sessions. The CPU sum retains contributions across reports for comparison; it is not a claim that the live table retains departed workers.
+Compile one main file at a time. Core's `package` declarations require `-package-name`; the process reader and attribution adapters are the actual production sources.
+
+Conservation records counters only for direct children of the disposable parent, rejects observed PID reuse, and never queries real provider sessions. The CPU sum retains contributions across reports for comparison; it is not a claim that the live table retains departed workers.
 
 ```sh
 swiftc -parse-as-library -O -swift-version 6 -package-name agent-monitor Sources/AgentMonitorCore/*.swift Sources/AgentMonitorCore/AttributionAdapters/*.swift Tools/CPUAccountingProbe/CollectionCost.swift -o .build/cpu-coverage/collection-cost
@@ -44,7 +48,9 @@ swiftc -parse-as-library -O -swift-version 6 -package-name agent-monitor Sources
 
 ## Scheduler trace comparison
 
-A single-process `--launch` trace did not include the fixture children in its target process inventory. The successful comparison used `--all-processes`, started the owned workload four seconds after starting the recorder, and allowed recording to finish before export. The raw-span interpreter failed conservation in a second run (246% of its CPU oracle) and must not be used as a trusted accounting backend. A ten-second trace generated gigabytes of temporary data and took minutes to finalize/export on the test machine. Raw traces contain system-wide observations; retain only the owned-worker summary in the repository. The workload's eight-mebibyte allocation is not a measured physical-footprint peak.
+A single-process `--launch` trace did not include the fixture children in its target process inventory. The successful comparison used `--all-processes`, started the owned workload four seconds after starting the recorder, and allowed recording to finish before export.
+
+The raw-span interpreter failed conservation in a second run (246% of its CPU oracle) and must not be used as a trusted accounting backend. A ten-second trace generated gigabytes of temporary data and took minutes to finalize/export on the test machine. Raw traces contain system-wide observations; retain only the owned-worker summary in the repository. The workload's eight-mebibyte allocation is not a measured physical-footprint peak.
 
 ```sh
 python3 scripts/clean-build.py run -- python3 - <<'PY'
@@ -83,7 +89,15 @@ subprocess.run([
 PY
 ```
 
-Compare every worker and duration group as well as the aggregate. Confirm all workers fall inside the recorded interval; a plausible aggregate alone is insufficient. `Running` spans describe scheduler occupancy, while `wait4` reports kernel CPU accounting, so small differences are expected. The exported state table can contain spans outside actual lifetimes, including suspicious long `Running` spans with missing termination evidence in the failed trial; they are not process birth/death evidence. The parser includes these suspicious Running spans, which explains why its output must not be trusted as conserved CPU. The parser does not diagnose trace-buffer loss, establish exact session attribution or provide a complete memory oracle.
+Compare every worker and duration group as well as the aggregate. Confirm all workers fall inside the recorded interval; a plausible aggregate alone is insufficient. `Running` spans describe scheduler occupancy, while `wait4` reports kernel CPU accounting, so small differences are expected.
+
+The exported state table can contain spans outside actual lifetimes, including suspicious long
+
+`Running` spans with missing termination evidence in the failed trial; they are not process birth/death evidence.
+
+The parser includes these suspicious Running spans, which explains why its output must not be trusted as conserved CPU.
+
+The parser does not diagnose trace-buffer loss, establish exact session attribution or provide a complete memory oracle.
 
 ## Kernel footprint peak
 
@@ -116,12 +130,36 @@ The pipe protocol observes only the disposable child. `protocol_ok` must be true
 
 ## Live pipeline profile
 
-Run only with explicit authorization to observe the user's current workload. Build the production core with `-O -whole-module-optimization -swift-version 6 -package-name agent_monitor -module-name AgentMonitorCore`, emitting an object and module into the disposable `AGENT_MONITOR_SCRATCH` directory supplied by [the cleanup wrapper](../../scripts/clean-build.py). Link `LivePipeline.swift` against that object with `-O`, the same package name and scratch include path. The wrapper removes the module, object and executable after analysis. Run builds and tests before collection; no builds may overlap the profile.
+Run only with explicit authorization to observe the user's current workload. Build the production core with `-O -whole-module-optimization -swift-version 6 -package-name agent_monitor -module-name AgentMonitorCore`, emitting an object and module into the disposable `AGENT_MONITOR_SCRATCH` directory supplied by [the cleanup wrapper](../../scripts/clean-build.py). Link `LivePipeline.swift` against that object with `-O`, the same package name and scratch include path.
 
-Set `AGENT_MONITOR_PROFILE_COMMIT` to the clean source commit and `AGENT_MONITOR_PROFILE_NO_BUILDS=1` only after checking that no build is running. `live-pipeline 121` collects at least ten minutes using production offline attribution; this needs explicit user authorization. The former `--providers` mode is refused before any native collection because provider helpers cannot be guaranteed offline. Provider-only output fields have been removed; earlier dated provider-inclusive measurements remain historical evidence. The probe supplies `LiveInterval(0.1)`, matching the native app’s acquisition wait path. The probe reads native markers/metadata but performs no actions and reads no transcripts. Output contains fixed aggregate fields only: per-stage CPU/wall totals and nearest-rank percentiles, dedicated-thread CPU/job durations, cache hit/miss, detached-generation counts, complete short argument reads and fallbacks, peak publication-ring occupancy and minimum remaining unit/record/text headroom, cadence, population range, host occupancy, sampled heap, recent-history diagnostics and each window's gap/overrun coverage. It contains no PIDs, paths, commands, session IDs, stacks or provider output. Failures use fixed categories rather than interpolated errors.
+The wrapper removes the module, object and executable after analysis. Run builds and tests before collection; no builds may overlap the profile.
 
-Record launch policy separately from the probe’s current JSON provenance: ordinary inherited launch, explicit utility/background clamp, or application resource policy. Observe the collector worker’s requested QoS with `pthread_get_qos_class_np` and base/current priorities with `THREAD_EXTENDED_INFO`; a requested `userInitiated` class alone does not prove its effective priority. Use a disposable diagnostic wrapper when these observations are needed; do not retain identities or raw thread listings. `/usr/sbin/taskpolicy -a` is a separate diagnostic arm, not a default launch or a product fix: Apple’s [implementation](https://github.com/apple-oss-distributions/system_cmds/blob/main/taskpolicy/taskpolicy.c) changes both process type and task role. Never combine that arm’s cost with ordinary-launch coverage or describe it as native-app acceptance. The Mac app still needs its own closed-panel and App Nap checks.
+### Establish profile provenance
+
+Set `AGENT_MONITOR_PROFILE_COMMIT` to the clean source commit and `AGENT_MONITOR_PROFILE_NO_BUILDS=1` only after checking that no build is running. `live-pipeline 121` collects at least ten minutes using production offline attribution; this needs explicit user authorization.
+
+The former `--providers` mode is refused before any native collection because provider helpers cannot be guaranteed offline. Provider-only output fields have been removed; earlier dated provider-inclusive measurements remain historical evidence.
+
+The probe supplies `LiveInterval(0.1)`, matching the native app’s acquisition wait path. The probe reads native markers/metadata but performs no actions and reads no transcripts.
+
+### Read the aggregate output
+
+Output contains fixed aggregate fields only: per-stage CPU/wall totals and nearest-rank percentiles, dedicated-thread CPU/job durations, cache hit/miss, detached-generation counts, complete short argument reads and fallbacks, peak publication-ring occupancy and minimum remaining unit/record/text headroom, cadence, population range, host occupancy, sampled heap, recent-history diagnostics and each window's gap/overrun coverage.
+
+It contains no PIDs, paths, commands, session IDs, stacks or provider output. Failures use fixed categories rather than interpolated errors.
+
+### Compare scheduling policies
+
+Record launch policy separately from the probe’s current JSON provenance: ordinary inherited launch, explicit utility/background clamp, or application resource policy. Observe the collector worker’s requested QoS with `pthread_get_qos_class_np` and base/current priorities with `THREAD_EXTENDED_INFO`; a requested `userInitiated` class alone does not prove its effective priority. Use a disposable diagnostic wrapper when these observations are needed; do not retain identities or raw thread listings.
+
+`/usr/sbin/taskpolicy -a` is a separate diagnostic arm, not a default launch or a product fix: Apple’s [implementation](https://github.com/apple-oss-distributions/system_cmds/blob/main/taskpolicy/taskpolicy.c) changes both process type and task role. Never combine that arm’s cost with ordinary-launch coverage or describe it as native-app acceptance. The Mac app still needs its own closed-panel and App Nap checks.
+
+### Evaluate cost under load
 
 For controlled saturation, report CPU cost over the active load interval as well as the whole run; cooldown must not dilute the acceptance figure. Keep population, host occupancy, provider activity and per-window gap/overrun coverage paired with the same run. Scheduling comparisons need equivalent workloads and repeated/interleaved arms before attributing a cost change solely to policy.
 
-Keep the JSON only when retention is separately authorized; otherwise analyze it in scratch and let the wrapper delete it. The 2026-10-25 authorization permits one small aggregate JSON indexed in the research note, with raw traces and temporary binaries deleted. This does not authorize subsequent profile retention. Stage/job/thread totals overlap; only whole-process CPU plus reaped helpers is the acceptance cost. Sampled allocator use is not a process-wide heap bound, and these collector measurements do not establish closed-panel AppKit cost. See the [load-cost research](../../docs/research/menu-bar-load-cost.md).
+### Retain only authorized evidence
+
+Keep the JSON only when retention is separately authorized; otherwise analyze it in scratch and let the wrapper delete it. The 2026-10-25 authorization permits one small aggregate JSON indexed in the research note, with raw traces and temporary binaries deleted. This does not authorize subsequent profile retention.
+
+Stage/job/thread totals overlap; only whole-process CPU plus reaped helpers is the acceptance cost. Sampled allocator use is not a process-wide heap bound, and these collector measurements do not establish closed-panel AppKit cost. See the [load-cost research](../../docs/research/menu-bar-load-cost.md).

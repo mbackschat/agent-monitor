@@ -2,6 +2,13 @@
 
 Observed on 2026-10-14 on macOS 27.0.1. This initial snapshot investigated terminal Codex roots and a separate nonterminal host. Later provider coverage is recorded in the [development guide](../development.md#validation-coverage). These are small, read-only observations and disposable synthetic fixtures, not a performance benchmark or a completed collector. No real process arguments, environment values, project paths, conversation content, or personal PIDs are retained here.
 
+Read the two findings separately:
+
+- [Recognising terminal roots](#what-the-local-process-snapshot-established): matching process names alone overcounts terminal agents.
+- [Markers after reparenting](#can-a-process-expose-session-markers-after-its-parent-disappears): controlled evidence that some markers survive, with important environment-read limits.
+
+Neither finding establishes complete workload coverage or authenticated current ownership.
+
 ## What the local process snapshot established
 
 ### Takeaway

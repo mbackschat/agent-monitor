@@ -2,6 +2,8 @@
 
 Checked 2026-10-14 against Codex CLI 0.162.1, Claude Code 2.1.299 and the cited documentation. Initial local checks were read-only `--version`/`--help` calls. The later Claude inbox test used disposable sessions as described in [Claude session findings](claude-session-messaging.md). Current behavior and execution rules belong in [usage](../usage.md#process-actions) and [architecture](../architecture.md#process-and-session-actions).
 
+**Historical feasibility evidence:** the current monitor does not launch provider CLIs or send provider messages. The [offline runtime contract](../architecture.md#offline-runtime) governs current capabilities; the interfaces below record what was inspected at the stated versions.
+
 ## Process signaling
 
 A same-user PID can be signaled, but checking PID/start identity and subsequently calling a PID-based signal API are separate operations. Signal acceptance does not prove process exit. A shared daemon's launch origin also does not establish which session currently causes its load. These are limits of the operation, independent of its confirmation UI; native integration coverage is described in the [development guide](../development.md#build-and-verify).

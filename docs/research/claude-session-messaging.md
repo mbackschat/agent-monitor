@@ -2,6 +2,8 @@
 
 Checked 2026-10-14 against installed Claude Code 2.1.300. Question: can Agent Monitor, as a separate process, deliver a text message into an already-running local Claude Code session identified by session UUID and runtime PID, comparable to `codex queue --thread <uuid> --message <text>`? Related CLI interfaces are recorded in [session actions](session-actions.md). Findings, inferences, and gaps are kept separate.
 
+This is historical transport research. Agent Monitor’s current [offline runtime contract](../architecture.md#offline-runtime) disables provider listings and messaging; the approved disposable-session experiment below does not authorize new live calls. Preserve its observations as evidence, not as a current usage recipe.
+
 ## Session markers and hooks
 
 The inspected [environment reference](https://code.claude.com/docs/en/env-vars) describes `CLAUDE_CODE_SESSION_ID` in Bash/PowerShell, hook-command and stdio MCP subprocesses. Bash/hooks track `/clear`; an already-running MCP server retains its spawn ID. Explicit `--resume <id>` supplies that ID to MCP, while `--continue` or unspecified resume can retain an initial ID. A marker describes session origin, not a particular tool invocation.
@@ -38,7 +40,11 @@ The `claude --help` command list (2.1.300) has no `send`, `queue`, or `message` 
 
 ## Message line schema (inference)
 
-The installed 2.1.300 binary embeds this debug-log hint next to its `[uds-messaging] Listening:` message: `{ echo '{"type":"auth","token":"'"$CLAUDE_CODE_MESSAGING_TOKEN"'"}'; echo '{"type":"user","message":{"role":"user","content":"hello"}}'; } | socat - UNIX-CONNECT:<path>`. The second line matches the documented SDK stream-json user message (`--input-format stream-json`). This is product-emitted guidance found by searching the binary's strings, not a documented public contract; it can change between releases. Only `strings` was used; no code was decompiled and no socket was contacted. The binary also refers to an "inbox auth key" published to a "session registry directory"; the `~/.claude/sessions/*.key` files were not read.
+The installed 2.1.300 binary embeds this debug-log hint next to its `[uds-messaging] Listening:` message: `{ echo '{"type":"auth","token":"'"$CLAUDE_CODE_MESSAGING_TOKEN"'"}'; echo '{"type":"user","message":{"role":"user","content":"hello"}}'; } | socat - UNIX-CONNECT:<path>`.
+
+The second line matches the documented SDK stream-json user message (`--input-format stream-json`). This is product-emitted guidance found by searching the binary's strings, not a documented public contract; it can change between releases.
+
+Only `strings` was used; no code was decompiled and no socket was contacted. The binary also refers to an "inbox auth key" published to a "session registry directory"; the `~/.claude/sessions/*.key` files were not read.
 
 ## Live transport check (2026-10-14)
 

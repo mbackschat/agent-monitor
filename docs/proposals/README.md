@@ -1,6 +1,14 @@
 # Proposals
 
-Open designs only: each is **unapproved** (under review), **approved** (implementation authorized, not yet done) or **on hold** (its status line names what it waits for). A proposal is neither an accepted contract nor implementation authorization; open work is tracked in [PLAN.md](../../PLAN.md). Implemented contracts live in [architecture](../architecture.md), and whatever a proposal leaves deferred, rejected or superseded moves to [decisions](../decisions/README.md). The lifecycle is defined in [documentation maintenance](../development.md#documentation-and-instruction-maintenance).
+Open designs under review or awaiting acceptance. Read each proposal’s status and authorization boundary before treating its design as work to implement.
+
+| Status | Meaning |
+| --- | --- |
+| **Unapproved** | Under review; implementation is not authorized. |
+| **Approved** | The stated implementation scope is authorized; unfinished delivery or acceptance gates remain. |
+| **On hold** | The status line identifies the dependency or decision blocking progress. |
+
+A proposal’s existence does not authorize implementation. [PLAN.md](../../PLAN.md) tracks open work; [architecture](../architecture.md) owns implemented contracts. Deferred, rejected and superseded outcomes belong in [decisions](../decisions/README.md). Follow the [documentation lifecycle](../development.md#documentation-and-instruction-maintenance) when a design changes status.
 
 The table is generated from each proposal's `Status:` line; do not edit it by hand.
 

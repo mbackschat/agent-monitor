@@ -2,6 +2,16 @@
 
 Sources inspected on 2026-10-14. This comparison did not install tools or benchmark their effect on code quality. Current adopted skills, pinned revisions and installation commands belong in the [development guide](../development.md#skills-shared-by-codex-cli-and-claude-code) and [skills.lock](../../skills.lock).
 
+## Find the relevant investigation
+
+| Task | Dated evidence |
+| --- | --- |
+| Compare skills and host portability | [Initial candidates](#skill-and-tooling-candidates), [cross-host discovery](#cross-host-discovery), [Peter Steinberger’s skills](#peter-steinbergers-skills--2026-10-15) |
+| Understand adopted SwiftUI skills and their limits | [First project trial](#first-project-trial--2026-10-15), [grouping measurement](#grouping-measurement--2026-10-15) |
+| Investigate native layout and menus | [Content sizing](#content-sizing-application--2026-10-15), [menu observations](#native-menu-and-layout-observations--2026-10-15) |
+| Improve regression oracles | [Test-value audit](#test-value-audit--2026-10-26) |
+| Understand the failed and repaired Verify runs | [Scheduling and native OCR](#verify-scheduling-and-native-ocr--2026-11-01) |
+
 ## Skill and tooling candidates
 
 | Source | Observed contents and limitations |
@@ -85,16 +95,44 @@ Offscreen geometry and pixels establish specific rendered properties, not physic
 
 ## Verify scheduling and native OCR — 2026-11-01
 
+### Initial failure and serial scheduling
+
 [Verify run 41259618374](https://github.com/mbackschat/agent-monitor/actions/runs/41259618374) at `3a020ff` passed prerequisites, documentation, release-script checks and formatting, then failed its test step with 54 issues: 19 in the four `SimultaneousOwnershipTests` cases and 35 native issues, comprising 32 Vision `.nilError` errors and three focus/shortcut/pixel assertions. The workflow and release script still invoked plain `swift test`, bypassing the documented serial full-suite policy. AppKit tests share application state, and the ownership fixture's bounded worker gates expired during the concurrent run; neither failure calls for changing production collection semantics.
 
-Local Debug validation with `--skip-build --no-parallel` and CI's synthetic-render options passed the three native non-OCR failures before stalling in OCR. A one-second sample of the owned helper found all 872 samples of its OCR thread inside `VNImageRequestHandler.perform` → TextRecognition → semaphore wait; MainActor was idle in its run loop. After stopping that owned run, separate serial validation passed 369 core, 306 CLI/presentation and 16 action tests. All four ownership cases passed in 0.819 seconds. The initial serial run had already passed eight TUI, six preview and ten capture tests. These results establish the scoped serial checks, not a complete native or hosted-CI pass. No product behavior changed in Mac, TUI, text CLI or JSON; the native label/resource-summary computations were made module-visible for direct tests.
+Local Debug validation with `--skip-build --no-parallel` and CI's synthetic-render options passed the three native non-OCR failures before stalling in OCR. A one-second sample of the owned helper found all 872 samples of its OCR thread inside `VNImageRequestHandler.perform` → TextRecognition → semaphore wait; MainActor was idle in its run loop.
 
-Bounded subprocess checks against the synthetic panel image timed out after 12 seconds each with accurate recognition under forced CPU selection, default devices, legacy CPU-only selection, revision 2 and explicit English without language correction. Fast CPU recognition completed but misread identifiers and paths. A temporary switch of the shared OCR helper to fast mode then failed seven unchanged assertions across the adaptive-coverage and compact-session-label tests, including `/alpha/project` being read with `l` in place of `/`; the source change was reverted. The [independent xcode-27 runner investigation](https://github.com/LorcanChinnock/shot/pull/818) reports accurate-engine failure without a Neural Engine and a fast-mode fallback. That is supporting platform evidence, not proof that its error and our local stall have the same internal cause. A replacement OCR dependency was rejected as unnecessary for routine CI. Raw stack samples and probe binaries are disposable; no live workload or provider was exercised.
+After stopping that owned run, separate serial validation passed 369 core, 306 CLI/presentation and 16 action tests. All four ownership cases passed in 0.819 seconds. The initial serial run had already passed eight TUI, six preview and ten capture tests. These results establish the scoped serial checks, not a complete native or hosted-CI pass.
 
-The replacement checks use the actual native owner-label/visibility computations, shared presentation values, command-inspection state, native scroll offsets and existing geometry/pixel assertions. Inspection-field and argument-pane wrapping is checked with SwiftUI’s public `Text.Layout.isTruncated`; a deliberately one-line fixture fails the nontruncation condition while a wrapping fixture satisfies it. Exact owner/session and directory values remain asserted independently of rendering. An in-process accessibility experiment read ordinary AppKit text but returned no SwiftUI children from offscreen hosting views, including after hit testing/navigation queries and a bounded layout wait, so it was not adopted. No OCR engine or additional dependency remains. The removed pixel-transcription checks are not claimed as equivalent visual coverage: glyph legibility, exact painted truncation, label placement and physical accessibility remain render/smoke-review concerns.
+No product behavior changed in Mac, TUI, text CLI or JSON; the native label/resource-summary computations were made module-visible for direct tests.
+
+### OCR investigation and replacement
+
+Bounded subprocess checks against the synthetic panel image timed out after 12 seconds each with accurate recognition under forced CPU selection, default devices, legacy CPU-only selection, revision 2 and explicit English without language correction. Fast CPU recognition completed but misread identifiers and paths.
+
+A temporary switch of the shared OCR helper to fast mode then failed seven unchanged assertions across the adaptive-coverage and compact-session-label tests, including `/alpha/project` being read with `l` in place of `/`; the source change was reverted.
+
+The [independent xcode-27 runner investigation](https://github.com/LorcanChinnock/shot/pull/818) reports accurate-engine failure without a Neural Engine and a fast-mode fallback. That is supporting platform evidence, not proof that its error and our local stall have the same internal cause. A replacement OCR dependency was rejected as unnecessary for routine CI. Raw stack samples and probe binaries are disposable; no live workload or provider was exercised.
+
+The replacement checks use the actual native owner-label/visibility computations, shared presentation values, command-inspection state, native scroll offsets and existing geometry/pixel assertions. Inspection-field and argument-pane wrapping is checked with SwiftUI’s public `Text.Layout.isTruncated`; a deliberately one-line fixture fails the nontruncation condition while a wrapping fixture satisfies it. Exact owner/session and directory values remain asserted independently of rendering.
+
+An in-process accessibility experiment read ordinary AppKit text but returned no SwiftUI children from offscreen hosting views, including after hit testing/navigation queries and a bounded layout wait, so it was not adopted. No OCR engine or additional dependency remains. The removed pixel-transcription checks are not claimed as equivalent visual coverage: glyph legibility, exact painted truncation, label placement and physical accessibility remain render/smoke-review concerns.
+
+### Local verification
 
 The final native Debug suite passed 165 tests in 20.733 seconds with all CI render options enabled. Together with the already-passing serial targets above, this covers every Swift test target without rerunning unchanged broad subsets. The release-script and documentation tests, formatting, documentation checks, README preview and offline skill-installer checks also passed. The optimized menu bar bundle built successfully; its property list, ad-hoc signature and bundled license/notice copies passed the workflow checks. Those local checks did not by themselves establish a successful remote run; the subsequent hosted results follow.
 
-[Verify run 41264017871](https://github.com/mbackschat/agent-monitor/actions/runs/41264017871) at `e9652b2` eliminated the ownership and OCR failures but retained the three native focus/shortcut/pixel failures. The pixel assertion reproduced locally at 1× for both 101- and 102-point widths: sampling two pixels from the bottom missed a one-point-high bar. Sampling the bottom pixel row passed all four 1×/2× and odd/even cases without a renderer change. The two focus checks require keyboard navigation for buttons; local `NSApplication.isFullKeyboardAccessEnabled` was true (`AppleKeyboardUIMode = 2`). Changing only the test process’s volatile defaults did not change AppKit’s reported preference, so the workflow explicitly enables navigation on the disposable runner and the tests assert that prerequisite. A toolbar-focus experiment also confirmed that process pinning requires row focus by design; no fallback to selection or production behavior change was retained. The final three focused checks, including explicit prerequisite assertions and four chart cases, passed locally in 1.431 seconds; formatting, documentation and build-artifact checks also passed. Hosted confirmation subsequently passed as recorded below.
+### Hosted-run prerequisites
 
-[Verify run 41266488353](https://github.com/mbackschat/agent-monitor/actions/runs/41266488353) at `ab35e0d` completed successfully on 2026-11-01. All 880 Swift tests passed: 369 core, 306 CLI/presentation, 165 native, 16 action, eight TUI, six preview and ten capture tests. The native suite completed in 37.257 seconds with synthetic render artifacts retained. The keyboard-navigation prerequisite and original Tab/pin assertions passed on the hosted runner; all four chart scale/width cases passed. Documentation, release automation, formatting, optimized app packaging/signature, README preview and offline installer checks also passed. TEST-01 is closed. The pre-existing NSTableView reentrancy warning remains a separate [MAC-TABLE-01 follow-up](../../PLAN.md#existing-validation-follow-ups); physical input/VoiceOver and visual glyph review remain user-owned acceptance checks.
+[Verify run 41264017871](https://github.com/mbackschat/agent-monitor/actions/runs/41264017871) at `e9652b2` eliminated the ownership and OCR failures but retained the three native focus/shortcut/pixel failures. The pixel assertion reproduced locally at 1× for both 101- and 102-point widths: sampling two pixels from the bottom missed a one-point-high bar. Sampling the bottom pixel row passed all four 1×/2× and odd/even cases without a renderer change.
+
+The two focus checks require keyboard navigation for buttons; local `NSApplication.isFullKeyboardAccessEnabled` was true (`AppleKeyboardUIMode = 2`). Changing only the test process’s volatile defaults did not change AppKit’s reported preference, so the workflow explicitly enables navigation on the disposable runner and the tests assert that prerequisite.
+
+A toolbar-focus experiment also confirmed that process pinning requires row focus by design; no fallback to selection or production behavior change was retained. The final three focused checks, including explicit prerequisite assertions and four chart cases, passed locally in 1.431 seconds; formatting, documentation and build-artifact checks also passed. Hosted confirmation subsequently passed as recorded below.
+
+### Hosted confirmation
+
+[Verify run 41266488353](https://github.com/mbackschat/agent-monitor/actions/runs/41266488353) at `ab35e0d` completed successfully on 2026-11-01. All 880 Swift tests passed: 369 core, 306 CLI/presentation, 165 native, 16 action, eight TUI, six preview and ten capture tests.
+
+The native suite completed in 37.257 seconds with synthetic render artifacts retained. The keyboard-navigation prerequisite and original Tab/pin assertions passed on the hosted runner; all four chart scale/width cases passed. Documentation, release automation, formatting, optimized app packaging/signature, README preview and offline installer checks also passed.
+
+TEST-01 is closed. The pre-existing NSTableView reentrancy warning remains a separate [MAC-TABLE-01 follow-up](../../PLAN.md#existing-validation-follow-ups); physical input/VoiceOver and visual glyph review remain user-owned acceptance checks.

@@ -1,18 +1,33 @@
 # Documentation index
 
-Users start with the [project README](../README.md). Each folder below has its own README index; folders that track status carry a generated status table.
+Start with the [project README](../README.md) for a quick introduction and screenshots. Choose a guide by what you need to do.
 
-| Document | What it owns |
+## Use Agent Monitor
+
+| Task | Start here |
 | --- | --- |
-| [Product goal](product.md) | Central user question, information requirements and default-off recording boundary. |
-| [Installation](installation.md) | Installing the CLI, TUI and menu bar app. |
-| [Usage](usage.md) | Controls, options, output formats and examples. |
-| [Architecture](architecture.md) | Accepted contracts, ownership boundaries and implemented behavior. |
-| [Development](development.md) | Build and check recipes, validation coverage and documentation maintenance. |
-| [SwiftTUI upstream follow-up](swifttui-upstream-follow-up.md) | Deferred GitHub issue preparation: findings, requested changes and reproduction requirements. |
-| [Releasing](releasing.md) | Publishing a version with `scripts/release.sh`; release notes live on GitHub Releases. |
-| [Research](research/README.md) | Dated observations, source evidence, inferences and open empirical questions. |
-| [Proposals](proposals/README.md) | Open designs with their review status. |
-| [Decisions](decisions/README.md) | Deferred, rejected and superseded decisions with conditions for reconsideration. |
+| Install a release or build from source | [Installation](installation.md) |
+| Find a coding agent's workload, read the charts or inspect a process | [Usage](usage.md), with [focused guides](usage/README.md) for the terminal, Mac app, CLI, measurements and actions |
+| Understand what the product must make clear | [Product contract](product.md) |
+| Check known limitations or unfinished work | [Validation coverage](development.md#validation-coverage) and [project plan](../PLAN.md) |
 
-`assets/` holds generated documentation images; edit their generators as described in [development](development.md#readme-preview), never the images.
+## Develop and release
+
+| Task | Start here |
+| --- | --- |
+| Build, change code and select checks | [Development](development.md) and its [reference guides](development/README.md) |
+| Understand subsystem ownership and accepted behavior | [Architecture](architecture.md) and its [detailed contracts](architecture/README.md) |
+| Prepare a version and update release assets | [Releasing](releasing.md) |
+| Review the deferred SwiftTUI follow-up | [Upstream follow-up](swifttui-upstream-follow-up.md) |
+
+## Trace evidence and decisions
+
+| Question | Record |
+| --- | --- |
+| What was observed, when, and with what limitations? | [Research](research/README.md) |
+| Which designs are under review or approved but still open? | [Proposals](proposals/README.md) |
+| What was deferred, rejected or superseded, and why? | [Decisions](decisions/README.md) |
+
+Each documentation folder has an index. Proposal and decision status tables are generated; maintain them through the [documentation workflow](development.md#documentation-and-instruction-maintenance).
+
+`assets/` holds generated documentation images. Change their generators as described in [preview maintenance](development.md#readme-preview); update the tracked Mac preview only for releases.

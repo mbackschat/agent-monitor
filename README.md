@@ -12,7 +12,7 @@
 
 <p align="center"><strong>Find the coding agent behind the load.</strong></p>
 
-Agent Monitor shows which **coding agents, sessions and processes** are consuming CPU or memory—and in which working directories. Inspect Codex CLI and Claude Code workloads in a terminal dashboard or native macOS menu bar app, without restarting agents or adding launch wrappers.
+Agent Monitor shows CPU and memory use by **coding agents**—AI assistants such as Codex CLI and Claude Code that edit code and run local tools. Compare sessions, processes and working directories in a terminal dashboard or native macOS menu bar app, without restarting agents or adding launch wrappers.
 
 **Terminal dashboard**
 
@@ -22,7 +22,9 @@ Agent Monitor shows which **coding agents, sessions and processes** are consumin
 
 <p><img src="docs/assets/menubar-preview.webp" width="620" height="560" alt="Native menu bar app showing contributor sessions, resource charts and expandable process groups."></p>
 
-*Both previews use synthetic data. The terminal preview follows the current source; the Mac preview is refreshed only for releases and may lag development. The menu bar app requires a source build, and newer controls may be ahead of the [latest release](https://github.com/mbackschat/agent-monitor/releases/latest).*
+*Synthetic previews: the terminal image follows current source; the Mac image updates only for releases and may lag development.*
+
+This README describes the current source build. The menu bar app requires a source checkout; newer controls may be ahead of the [latest release](https://github.com/mbackschat/agent-monitor/releases/latest).
 
 ## What you can do
 
@@ -61,6 +63,8 @@ Start with **Main contributors**. Expand a session to find the command using res
 | Open Details | `i` or Enter |
 | Pin / pause | `.` / `p` |
 | Hide/show no longer observed | `H` (Shift+H) |
+| Scroll half a page up / down | `u` / `d` |
+| Switch table–Details focus | Tab |
 | Switch to process view / toggle grouping | `v` / `g` |
 | Keyboard help / diagnostics | `?` / `D` |
 | Investigate CPU / quit | `I` / `q` |
@@ -101,14 +105,16 @@ Diagnosis takes a baseline plus three one-second waits, then ranks the top ten p
 - **CPU:** 100% is one CPU-second per elapsed second. Multi-core workloads can exceed 100%.
 - **Memory:** current physical footprint; sampled maxima and kernel-peak evidence are available in Details.
 - **Totals:** include all observed processes in scope, including those hidden by display filters. Unknown ownership and missing measurements stay explicit.
-- **Recent counts:** `java ×17` represents 17 distinct process lifetimes in that group’s displayed and retained recent data. `1 process` below it means one is currently observed in the group—not 17 running JVMs.
-- **Charts:** show interval averages on a fixed range. Warning-colored bars (↑ in monochrome) indicate values above the range; use `b` to change it. Dots mean no measurement, not zero.
+- **Process counts:** current counts show processes observed now. Details separates recent workers from those no longer observed; absence does not confirm termination.
+- **Contributor charts:** show interval averages on a fixed range; use `b` in the TUI to change it. Warning-colored bars (↑ in monochrome) mean above range; dots mean no measurement, not zero. The process view’s longer [history strip](docs/usage/overview.md#history-strip) scales to its visible peak.
 
 By default, acquisition is requested every 100 ms and the interactive display refreshes every five seconds. Slow scans can exceed the requested interval. [Measurement semantics](docs/usage.md#filters-and-measurements) explains coverage, history and attribution.
 
 ## Support, privacy and limits
 
-Agent Monitor supports Codex CLI and Claude Code terminal sessions. Claude’s native installation has been checked with a real workload; npm-based Claude and live terminal Codex validation remain open. Desktop conversations and third-party attribution plugins are not supported. Shared runtimes and ambiguous ownership are shown separately. Attribution identifies launch ownership; shared daemons may later serve other sessions.
+Agent Monitor supports Codex CLI and Claude Code terminal sessions. Desktop conversations and third-party attribution plugins are not supported. Shared runtimes and ambiguous ownership are shown separately; launch ownership does not prove which session currently causes a shared daemon’s load.
+
+Claude’s native installation has been checked with a real workload. npm-based Claude and live terminal Codex validation remain open.
 
 Monitoring stays local: no provider CLI launches, Internet connections or transcript reads. Session names from provider listings and provider messaging are unavailable. Arguments are hidden unless requested with `--commands` or inspected on demand. Normal monitoring keeps bounded history in memory and writes no automatic process-data log.
 

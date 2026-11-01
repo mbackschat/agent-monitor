@@ -10,9 +10,28 @@ Extend the [agent/session resource question](../product.md) to container totals 
 
 ### Resource observations
 
-Core owns a read-only local engine reader. Engine compatibility is verified through health/version capabilities, rather than inferred from the application name. Docker-compatible engines may be provided by Docker Desktop or Rancher Desktop; containerd is a different backend and excluded. The selected endpoint is explicit; discovery must not connect to arbitrary configured remote contexts. Enforce read-only access with a host-owned request allowlist: GET `/_ping`, `/version`, `/info` for engine identity, `/containers/json`, `/containers/{id}/json`, and `/containers/{id}/stats` with streaming disabled. Reject every other method, endpoint and streaming request; controlled contract tests must verify these rejections.
+Core owns a read-only local engine reader. Engine compatibility is verified through health/version capabilities, rather than inferred from the application name. Docker-compatible engines may be provided by Docker Desktop or Rancher Desktop; containerd is a different backend and excluded.
 
-Container identity includes the engine-reported identity, verified local endpoint, full container ID and creation time. Deduplicate endpoint aliases only when verified to reach the same engine; a collection-run UUID is provenance, not engine identity. If engine identity is unavailable, report that capability gap rather than inventing a stable identity. Each start/restart establishes a separate counter epoch. Engine timestamps identify reported lifecycle events but are not host-monotonic acquisition timestamps. Each response retains host-monotonic request/response bounds; unavailable values remain unavailable.
+The selected endpoint is explicit; discovery must not connect to arbitrary configured remote contexts.
+
+Enforce read-only access with a host-owned allowlist. Only GET requests to these endpoints are permitted:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `/_ping`, `/version`, `/info` | Health, capabilities and engine identity. |
+| `/containers/json` | Container enumeration. |
+| `/containers/{id}/json` | Container metadata. |
+| `/containers/{id}/stats` | Resource counters, with streaming disabled. |
+
+Reject every other method, endpoint and streaming request. Controlled contract tests must verify these rejections.
+
+#### Identity and time
+
+Container identity includes the engine-reported identity, verified local endpoint, full container ID and creation time. Deduplicate endpoint aliases only when verified to reach the same engine; a collection-run UUID is provenance, not engine identity. If engine identity is unavailable, report that capability gap rather than inventing a stable identity.
+
+Each start/restart establishes a separate counter epoch. Engine timestamps identify reported lifecycle events but are not host-monotonic acquisition timestamps. Each response retains host-monotonic request/response bounds; unavailable values remain unavailable.
+
+#### CPU and memory semantics
 
 CPU uses cumulative engine counters and differences between compatible observations in one epoch. The first successful counter establishes the baseline. Pre-baseline accumulated CPU may be shown separately, without a rate or inferred zero opening from engine wall time. Counter decreases, restart, endpoint replacement and unavailable reads carry explicit continuity/coverage semantics. Disappearance does not prove a final CPU observation.
 
@@ -49,9 +68,15 @@ These are contract examples, not a generic plugin API. Observation coverage sepa
 
 ### Attribution and privacy
 
-The reader supplies observations; attribution adapters interpret allowlisted provider markers and association evidence. **Discard container environment variables at the host boundary except adapter-allowlisted marker keys.** Do not publish, log, cache or record the full inspect environment or raw response. Apply the same minimization to labels and command metadata: retain only fields required for validated association, and avoid emitting arbitrary command text by default. Messaging credentials are never resource-probe inputs.
+The reader supplies observations; attribution adapters interpret allowlisted provider markers and association evidence. **Discard container environment variables at the host boundary except adapter-allowlisted marker keys.** Do not publish, log, cache or record the full inspect environment or raw response.
 
-An exact association requires a validated explicit binding to the container run, such as an allowlisted session marker or a verified container-ID binding from the attributed client. A corroborated association is a separate evidence kind: an attributed client lifetime and one container must uniquely match the verified engine endpoint, temporal creation evidence, image identity, command and mounts. Record the matched fields and clock uncertainty; if uniqueness or timing cannot be established, retain candidates or unknown ownership. Project path, cwd, image or naming convention alone is insufficient. The live investigation demonstrates feasibility, not a complete corroboration algorithm.
+Apply the same minimization to labels and command metadata: retain only fields required for validated association, and avoid emitting arbitrary command text by default. Messaging credentials are never resource-probe inputs.
+
+An exact association requires a validated explicit binding to the container run, such as an allowlisted session marker or a verified container-ID binding from the attributed client.
+
+A corroborated association is a separate evidence kind: an attributed client lifetime and one container must uniquely match the verified engine endpoint, temporal creation evidence, image identity, command and mounts. Record the matched fields and clock uncertainty; if uniqueness or timing cannot be established, retain candidates or unknown ownership. Project path, cwd, image or naming convention alone is insufficient.
+
+The live investigation demonstrates feasibility, not a complete corroboration algorithm.
 
 Freeze association evidence when established for a container run. The client's later disappearance does not erase it or establish an exit timestamp. Keep the client's exact lifetime, last observation and any separately confirmed exit evidence distinct. Restart requires new corroboration. A detached client missed by polling leaves its container unattributed unless independent explicit evidence exists. Later evidence does not silently reassign earlier CPU.
 
@@ -59,7 +84,11 @@ Freeze association evidence when established for a container run. The client's l
 
 The engine reader runs independently of host acquisition, on a seconds-scale cadence with a deadline, one request in flight per engine, cancellation, newest-observation coalescing and bounded container/context storage. Specify and measure those numeric bounds before implementation acceptance. Engine slowness must not delay host scans. Missing snapshots can still yield a later cumulative delta when identity and counter continuity remain valid; lost intermediate attribution or memory peaks stay disclosed.
 
-Mac and TUI share the resulting resource and association projection. A session shows host CPU and associated container CPU as separate components of equal prominence, with evidence strength and freshness in progressive disclosure. The menu-bar agent CPU indicator remains host-only. Container totals belong to the guest accounting domain; the host VM remains separately measured infrastructure with unallocated ownership. Never add guest totals to host totals, subtract guest CPU from host VM CPU, or sum unlike memory metrics. Only verified containment edges may connect those views. No inferred ownership follows from a containment edge.
+Mac and TUI share the resulting resource and association projection. A session shows host CPU and associated container CPU as separate components of equal prominence, with evidence strength and freshness in progressive disclosure.
+
+The menu-bar agent CPU indicator remains host-only. Container totals belong to the guest accounting domain; the host VM remains separately measured infrastructure with unallocated ownership.
+
+Never add guest totals to host totals, subtract guest CPU from host VM CPU, or sum unlike memory metrics. Only verified containment edges may connect those views. No inferred ownership follows from a containment edge.
 
 ## Optional
 

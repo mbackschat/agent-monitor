@@ -1,8 +1,20 @@
 # Focusing the terminal that hosts a session
 
-Checked 2026-10-14 on macOS 27.0.1 (build 26A434). Question: can a TUI key bring the terminal window, tab, and split pane hosting the selected row's agent runtime to the front, given the runtime PID, its start time, its controlling terminal device (for example `ttys015`), and its full ancestry? The initial investigation was read-only; the later manual observation is identified separately. Current behavior belongs in [architecture](../architecture.md#process-and-session-actions). Every claim cites a source URL or a local command. Rows and paragraphs are tagged **Doc** (documented or upstream source), **Local** (observed here), or **Inference** (reasoned, not verified).
+Checked 2026-10-14 on macOS 27.0.1 (build 26A434). Question: can a TUI key bring the terminal window, tab, and split pane hosting the selected row's agent runtime to the front, given the runtime PID, its start time, its controlling terminal device (for example `ttys015`), and its full ancestry?
+
+The initial investigation was read-only; the later manual observation is identified separately. Current behavior belongs in [architecture](../architecture.md#process-and-session-actions). Every claim cites a source URL or a local command. Rows and paragraphs are tagged **Doc** (documented or upstream source), **Local** (observed here), or **Inference** (reasoned, not verified).
 
 Local checks were read-only: listing `/Applications` and `~/Applications`, `sdef` on installed apps, `plutil`/`PlistBuddy` reads of `Info.plist`, `--help` of installed CLIs, `man tmux`, SDK header reads, `ps` ancestry of this shell, environment variable *names* (`env | cut -d= -f1`), and `defaults read -g AppleSpacesSwitchOnActivate`. No AppleScript, `osascript`, `open`, terminal CLI command, activation, selection, or input was run. No permission was granted or changed.
+
+## Read by question
+
+- [Feasibility and observed limits](#observed-feasibility-and-limits): what the investigation actually established.
+- [Identify the hosting terminal](#1-identifying-the-hosting-terminal): ancestry, TTY and marker evidence.
+- [Compare terminal mechanisms](#2-per-terminal-focus-mechanisms): native terminals, editors and multiplexers.
+- [Understand permissions and activation](#3-macos-permission-and-activation-model): Automation, Accessibility and desktop-state limits.
+- [Remaining gaps](#gaps): behavior not established by the single manual tab-selection confirmation.
+
+The host matrix is historical research, not a list of shipped adapters. Current supported actions are in the [action guide](../usage/actions.md).
 
 ## Observed feasibility and limits
 
@@ -48,17 +60,113 @@ The runtime's controlling terminal is the join key: every scriptable terminal be
 
 ### Native terminals
 
-| Terminal | Mechanism | User setup | Fidelity | Failure modes | Evidence |
-|---|---|---|---|---|---|
-| Terminal.app | Apple Events to the running PID: enumerate `windows`/`tabs`, match `tty`; set `selected` of the tab (or `selected tab` of the window), set `miniaturized` false, set `index` to 1 / `frontmost` true, then activate the app | One Automation consent | Window + tab. A split view still belongs to one tab; the dictionary has no pane class | Consent denied; window on another Space or full screen; activation refused (section 3) | **Local** `sdef` above |
-| iTerm2 | Apple Events: enumerate sessions, match `tty` (or `unique ID` from `ITERM_SESSION_ID`, then confirm `tty`); `select` session, tab, window; activate | One Automation consent | Window + tab + split pane | AppleScript is labeled "Deprecated" in iTerm2's documentation navigation; tmux `-CC` integration sessions untested | **Doc** [scripting docs](https://iterm2.com/documentation-scripting.html): session `select` "Makes the session active in its tab. Does not affect which tab is selected or which window has keyboard focus"; tab `select` makes it current; window `select` "Gives the window keyboard focus and brings it to the front" |
-| iTerm2 Python API | `Session.async_activate(select_tab=True, order_window_front=True)` | API disabled by default; outside programs obtain a cookie through AppleScript anyway | Same as above | Adds a websocket client and still needs Automation | **Doc** [`async_activate`](https://iterm2.com/python-api/session.html), [API authentication](https://iterm2.com/python-api-auth.html), [iTerm2's own `it2` CLI requests its cookie via `osascript`](https://github.com/gnachman/iTerm2/blob/master/it2cli/Sources/it2core/Auth/CookieAuth.swift) |
-| Ghostty 1.3.x (release at investigation) | AppleScript has `focus` terminal, `activate window`, `select tab`, but `terminal` exposes only `id`, `name`, `working directory` | Automation consent; `macos-applescript` defaults to on | App only: no TTY or PID to match, and cwd alone is not acceptable identity | Matching by cwd would pick the wrong same-directory session | **Doc** [Ghostty AppleScript docs](https://ghostty.org/docs/features/applescript); [`Ghostty.sdef` at v1.3.1](https://github.com/ghostty-org/ghostty/blob/v1.3.1/macos/Ghostty.sdef) (no `tty`/`pid`); [1.3.0 notes call it a "preview feature" with expected breaking changes](https://ghostty.org/docs/install/release-notes/1-3-0); latest tag v1.3.1 (`gh api repos/ghostty-org/ghostty/tags`) |
-| Ghostty 1.4 (unreleased at investigation) | Match `terminal`'s new read-only `tty` (and `pid` of the foreground process); `focus` ("Focus a terminal, bringing its window to the front") | Same | Window + tab + split | Preview API may change before release; a third-party report says focus did not reliably front a backgrounded app without an explicit `activate`, and app-level enumeration missed terminals with a second Ghostty process | **Doc** [PR #11922, merged 2026-04-20, milestone 1.4.0](https://github.com/ghostty-org/ghostty/pull/11922); [`Ghostty.sdef` on main](https://github.com/ghostty-org/ghostty/blob/main/macos/Ghostty.sdef); report: [claudeissues mirror](https://claudeissues.com/issue/35351-add-ghostty-split-pane-backend-via-applescript-macos) (low confidence) |
-| WezTerm | `wezterm cli --no-auto-start list --format json` → match `tty_name` → `wezterm cli activate-pane --pane-id N` | None for the GUI's own socket; the CLI binary must be located in the app bundle | Tab + pane exact. Does not raise the OS window or switch workspace | Requires a separate app activation; when the target window is not the app's front window, only an AX raise would help; a pane in another workspace stays hidden | **Doc** [`list.rs` at 20240203 includes `tty_name`, a "stable output format"](https://github.com/wezterm/wezterm/blob/20240203-110809-5046fc22/wezterm/src/cli/list.rs); [`activate_pane.rs` sends only `SetFocusedPane`](https://github.com/wezterm/wezterm/blob/main/wezterm/src/cli/activate_pane.rs); mux `focus_pane_and_containing_tab` sets active tab and pane, no window raise or workspace change ([`mux/src/lib.rs`](https://github.com/wezterm/wezterm/blob/main/mux/src/lib.rs)); `--no-auto-start` ([`cli/mod.rs`](https://github.com/wezterm/wezterm/blob/20240203-110809-5046fc22/wezterm/src/cli/mod.rs)); window raising exists only as Lua [`window:focus()`](https://wezterm.org/config/lua/window/focus.html) |
-| kitty | `kitten @ --to <socket> ls` → find the kitty window whose `pid` is the runtime's ancestor directly under kitty (or `KITTY_WINDOW_ID` from the runtime, confirmed by `ls`) → `kitten @ --to <socket> focus-window --match id:N` | Required: `allow_remote_control` (`socket-only` is the narrowest fitting value) and `listen_on`; defaults are `no` and `none` | Pane ("window" in kitty) + tab + OS window | No socket means no outside control; `pid:` matches only the window's root child, not foreground processes, and there is no TTY match field | **Doc** [remote control](https://sw.kovidgoyal.net/kitty/remote-control/) (outside control needs a socket), [`allow_remote_control`/`listen_on`](https://sw.kovidgoyal.net/kitty/conf/); source at commit `0d006c4`: [`focus_window.py` calls `set_active_window(..., switch_os_window_if_needed=True)`](https://github.com/kovidgoyal/kitty/blob/0d006c44b3d94a6ad7cb9ca11e1549af45095fe4/kitty/rc/focus_window.py), which selects tab and window and calls `focus_os_window` ([`boss.py`](https://github.com/kovidgoyal/kitty/blob/0d006c44b3d94a6ad7cb9ca11e1549af45095fe4/kitty/boss.py)); [`matches` compares `pid` to `self.child.pid`](https://github.com/kovidgoyal/kitty/blob/0d006c44b3d94a6ad7cb9ca11e1549af45095fe4/kitty/window.py) |
-| Alacritty | None. `alacritty msg` offers only `create-window`, `config`, `get-config`; no tabs or panes exist | — | App only | AX title match would be ambiguous | **Doc** [`alacritty-msg(1)`](https://github.com/alacritty/alacritty/blob/master/extra/man/alacritty-msg.1.scd) |
-| Warp | None. URI scheme only opens `new_window`, `new_tab`, launch configurations; no AppleScript dictionary found | — | App only | A focus deep link is an open feature request | **Doc** [Warp URI scheme](https://docs.warp.dev/terminal/more-features/uri-scheme/); [feature request #8929](https://github.com/warpdotdev/warp/issues/8929); [scripting discussion #612](https://github.com/warpdotdev/Warp/discussions/612) |
+#### Terminal.app
+
+Apple Events to the running PID: enumerate `windows`/`tabs`, match `tty`; set `selected` of the tab (or `selected tab` of the window), set `miniaturized` false, set `index` to 1 / `frontmost` true, then activate the app
+
+| Aspect | Finding |
+| --- | --- |
+| Required setup | One Automation consent |
+| Selection fidelity | Window + tab. A split view still belongs to one tab; the dictionary has no pane class |
+| Failure modes | Consent denied; window on another Space or full screen; activation refused (section 3) |
+
+**Evidence:** **Local** `sdef` above
+
+#### iTerm2
+
+Apple Events: enumerate sessions, match `tty` (or `unique ID` from `ITERM_SESSION_ID`, then confirm `tty`); `select` session, tab, window; activate
+
+| Aspect | Finding |
+| --- | --- |
+| Required setup | One Automation consent |
+| Selection fidelity | Window + tab + split pane |
+| Failure modes | AppleScript is labeled "Deprecated" in iTerm2's documentation navigation; tmux `-CC` integration sessions untested |
+
+**Evidence:** **Doc** [scripting docs](https://iterm2.com/documentation-scripting.html): session `select` "Makes the session active in its tab. Does not affect which tab is selected or which window has keyboard focus"; tab `select` makes it current; window `select` "Gives the window keyboard focus and brings it to the front"
+
+#### iTerm2 Python API
+
+`Session.async_activate(select_tab=True, order_window_front=True)`
+
+| Aspect | Finding |
+| --- | --- |
+| Required setup | API disabled by default; outside programs obtain a cookie through AppleScript anyway |
+| Selection fidelity | Same as above |
+| Failure modes | Adds a websocket client and still needs Automation |
+
+**Evidence:** **Doc** [`async_activate`](https://iterm2.com/python-api/session.html), [API authentication](https://iterm2.com/python-api-auth.html), [iTerm2's own `it2` CLI requests its cookie via `osascript`](https://github.com/gnachman/iTerm2/blob/master/it2cli/Sources/it2core/Auth/CookieAuth.swift)
+
+#### Ghostty 1.3.x (release at investigation)
+
+AppleScript has `focus` terminal, `activate window`, `select tab`, but `terminal` exposes only `id`, `name`, `working directory`
+
+| Aspect | Finding |
+| --- | --- |
+| Required setup | Automation consent; `macos-applescript` defaults to on |
+| Selection fidelity | App only: no TTY or PID to match, and cwd alone is not acceptable identity |
+| Failure modes | Matching by cwd would pick the wrong same-directory session |
+
+**Evidence:** **Doc** [Ghostty AppleScript docs](https://ghostty.org/docs/features/applescript); [`Ghostty.sdef` at v1.3.1](https://github.com/ghostty-org/ghostty/blob/v1.3.1/macos/Ghostty.sdef) (no `tty`/`pid`); [1.3.0 notes call it a "preview feature" with expected breaking changes](https://ghostty.org/docs/install/release-notes/1-3-0); latest tag v1.3.1 (`gh api repos/ghostty-org/ghostty/tags`)
+
+#### Ghostty 1.4 (unreleased at investigation)
+
+Match `terminal`'s new read-only `tty` (and `pid` of the foreground process); `focus` ("Focus a terminal, bringing its window to the front")
+
+| Aspect | Finding |
+| --- | --- |
+| Required setup | Same |
+| Selection fidelity | Window + tab + split |
+| Failure modes | Preview API may change before release; a third-party report says focus did not reliably front a backgrounded app without an explicit `activate`, and app-level enumeration missed terminals with a second Ghostty process |
+
+**Evidence:** **Doc** [PR #11922, merged 2026-04-20, milestone 1.4.0](https://github.com/ghostty-org/ghostty/pull/11922); [`Ghostty.sdef` on main](https://github.com/ghostty-org/ghostty/blob/main/macos/Ghostty.sdef); report: [claudeissues mirror](https://claudeissues.com/issue/35351-add-ghostty-split-pane-backend-via-applescript-macos) (low confidence)
+
+#### WezTerm
+
+`wezterm cli --no-auto-start list --format json` → match `tty_name` → `wezterm cli activate-pane --pane-id N`
+
+| Aspect | Finding |
+| --- | --- |
+| Required setup | None for the GUI's own socket; the CLI binary must be located in the app bundle |
+| Selection fidelity | Tab + pane exact. Does not raise the OS window or switch workspace |
+| Failure modes | Requires a separate app activation; when the target window is not the app's front window, only an AX raise would help; a pane in another workspace stays hidden |
+
+**Evidence:** **Doc** [`list.rs` at 20240203 includes `tty_name`, a "stable output format"](https://github.com/wezterm/wezterm/blob/20240203-110809-5046fc22/wezterm/src/cli/list.rs); [`activate_pane.rs` sends only `SetFocusedPane`](https://github.com/wezterm/wezterm/blob/main/wezterm/src/cli/activate_pane.rs); mux `focus_pane_and_containing_tab` sets active tab and pane, no window raise or workspace change ([`mux/src/lib.rs`](https://github.com/wezterm/wezterm/blob/main/mux/src/lib.rs)); `--no-auto-start` ([`cli/mod.rs`](https://github.com/wezterm/wezterm/blob/20240203-110809-5046fc22/wezterm/src/cli/mod.rs)); window raising exists only as Lua [`window:focus()`](https://wezterm.org/config/lua/window/focus.html)
+
+#### kitty
+
+`kitten @ --to <socket> ls` → find the kitty window whose `pid` is the runtime's ancestor directly under kitty (or `KITTY_WINDOW_ID` from the runtime, confirmed by `ls`) → `kitten @ --to <socket> focus-window --match id:N`
+
+| Aspect | Finding |
+| --- | --- |
+| Required setup | Required: `allow_remote_control` (`socket-only` is the narrowest fitting value) and `listen_on`; defaults are `no` and `none` |
+| Selection fidelity | Pane ("window" in kitty) + tab + OS window |
+| Failure modes | No socket means no outside control; `pid:` matches only the window's root child, not foreground processes, and there is no TTY match field |
+
+**Evidence:** **Doc** [remote control](https://sw.kovidgoyal.net/kitty/remote-control/) (outside control needs a socket), [`allow_remote_control`/`listen_on`](https://sw.kovidgoyal.net/kitty/conf/); source at commit `0d006c4`: [`focus_window.py` calls `set_active_window(..., switch_os_window_if_needed=True)`](https://github.com/kovidgoyal/kitty/blob/0d006c44b3d94a6ad7cb9ca11e1549af45095fe4/kitty/rc/focus_window.py), which selects tab and window and calls `focus_os_window` ([`boss.py`](https://github.com/kovidgoyal/kitty/blob/0d006c44b3d94a6ad7cb9ca11e1549af45095fe4/kitty/boss.py)); [`matches` compares `pid` to `self.child.pid`](https://github.com/kovidgoyal/kitty/blob/0d006c44b3d94a6ad7cb9ca11e1549af45095fe4/kitty/window.py)
+
+#### Alacritty
+
+None. `alacritty msg` offers only `create-window`, `config`, `get-config`; no tabs or panes exist
+
+| Aspect | Finding |
+| --- | --- |
+| Required setup | — |
+| Selection fidelity | App only |
+| Failure modes | AX title match would be ambiguous |
+
+**Evidence:** **Doc** [`alacritty-msg(1)`](https://github.com/alacritty/alacritty/blob/master/extra/man/alacritty-msg.1.scd)
+
+#### Warp
+
+None. URI scheme only opens `new_window`, `new_tab`, launch configurations; no AppleScript dictionary found
+
+| Aspect | Finding |
+| --- | --- |
+| Required setup | — |
+| Selection fidelity | App only |
+| Failure modes | A focus deep link is an open feature request |
+
+**Evidence:** **Doc** [Warp URI scheme](https://docs.warp.dev/terminal/more-features/uri-scheme/); [feature request #8929](https://github.com/warpdotdev/warp/issues/8929); [scripting discussion #612](https://github.com/warpdotdev/Warp/discussions/612)
 
 ### Editors with integrated terminals
 
@@ -80,13 +188,27 @@ Prior art exists for this exact pipeline: the [`focal` crate](https://docs.rs/fo
 
 ## 3. macOS permission and activation model
 
-**Automation (Apple Events).** TCC attributes a command-line tool's requests to its *responsible code*: "Run by the user from Terminal — The tool's responsible code is Terminal"; the algorithm "is not documented, has changed in the past". — **Doc** [Quinn, Apple DTS](https://developer.apple.com/forums/thread/756510). Consequences (**Inference**): the prompt names the terminal hosting Agent Monitor as the controller and the target terminal as the controlled app; the monitor binary cannot supply its own `NSAppleEventsUsageDescription` (documented as required for apps that send Apple events: [Apple](https://developer.apple.com/documentation/bundleresources/information-property-list/nsappleeventsusagedescription)); and a grant applies to everything run in that hosting terminal, including dictionary commands such as Terminal's `do script` or reading tab `contents`. Spawning `osascript` does not change the attribution. Whether Terminal.app controlling Terminal.app (monitor and agent in the same app) prompts at all is untested. `AEDeterminePermissionToAutomateTarget(..., askUserIfNeeded: false)` lets the TUI show "needs permission" without triggering a prompt (**Local** SDK header).
+### Automation (Apple Events)
 
-**Accessibility.** `AXRaise`/`kAXMainAttribute` can raise one specific window of any app, but require the responsible app (again the hosting terminal) to be a trusted accessibility client, a far broader grant. AX enumeration also hides windows: AppKit filters `kAXWindows` to the current Space ([AltTab windowserver notes at `ab1bda4`](https://github.com/lwouis/alt-tab-macos/blob/ab1bda4769d3ada5f20b3a4b6c304b975fcf61da/src/windowserver/README.md), which resorts to private `_AXUIElementCreateWithRemoteToken` enumeration), and full-screen windows are missing from `kAXWindowsAttribute` ([developer forum report](https://developer.apple.com/forums/thread/121114)). No Accessibility-based implementation was tested here.
+ TCC attributes a command-line tool's requests to its *responsible code*: "Run by the user from Terminal — The tool's responsible code is Terminal"; the algorithm "is not documented, has changed in the past". — **Doc** [Quinn, Apple DTS](https://developer.apple.com/forums/thread/756510).
 
-**Activation.** From macOS 14, "app activation is driven by user intent. It is treated by the system as a request and is not always guaranteed to be honored"; `activateIgnoringOtherApps` is deprecated; cooperative activation "guarantees successful activation as long as the yielding app is active at the time of the request". — **Doc** [AppKit release notes for macOS 14](https://developer.apple.com/documentation/macos-release-notes/appkit-release-notes-for-macos-14), [`activate(from:options:)`](https://developer.apple.com/documentation/appkit/nsrunningapplication/activate(from:options:)), [`yieldActivation(to:)`](https://developer.apple.com/documentation/appkit/nsapplication/yieldactivation(to:)). The monitor is a command-line process inside the active terminal, not itself an active `NSApplication`, so it cannot yield (**Inference**). Routes untested in the initial source review: an Apple Event `activate` sent to the target (the target activates itself); `NSRunningApplication(processIdentifier:).activate(options:)`; `NSWorkspace.openApplication` with `OpenConfiguration.activates` (default true, "brings it to the foreground": [Apple](https://developer.apple.com/documentation/appkit/nsworkspace/openconfiguration/activates)). The later tab-selection confirmation does not establish behavior across all of these routes.
+Consequences (**Inference**): the prompt names the terminal hosting Agent Monitor as the controller and the target terminal as the controlled app; the monitor binary cannot supply its own `NSAppleEventsUsageDescription` (documented as required for apps that send Apple events: [Apple](https://developer.apple.com/documentation/bundleresources/information-property-list/nsappleeventsusagedescription)); and a grant applies to everything run in that hosting terminal, including dictionary commands such as Terminal's `do script` or reading tab `contents`.
 
-**Spaces, full screen, minimized.** With "When switching to an application, switch to a Space with open windows for the application" enabled (Apple default: [Desktop & Dock settings](https://support.apple.com/guide/mac-help/mchlp1119/mac); **Local** value `1`), activation moves to *a* Space with that app's windows; whether it follows the window just ordered front is unverified. Full-screen windows are their own Spaces. Terminal.app's `miniaturized` is writable, so a minimized target can be restored; other terminals' handling is unknown.
+Spawning `osascript` does not change the attribution. Whether Terminal.app controlling Terminal.app (monitor and agent in the same app) prompts at all is untested. `AEDeterminePermissionToAutomateTarget(..., askUserIfNeeded: false)` lets the TUI show "needs permission" without triggering a prompt (**Local** SDK header).
+
+### Accessibility
+
+ `AXRaise`/`kAXMainAttribute` can raise one specific window of any app, but require the responsible app (again the hosting terminal) to be a trusted accessibility client, a far broader grant. AX enumeration also hides windows: AppKit filters `kAXWindows` to the current Space ([AltTab windowserver notes at `ab1bda4`](https://github.com/lwouis/alt-tab-macos/blob/ab1bda4769d3ada5f20b3a4b6c304b975fcf61da/src/windowserver/README.md), which resorts to private `_AXUIElementCreateWithRemoteToken` enumeration), and full-screen windows are missing from `kAXWindowsAttribute` ([developer forum report](https://developer.apple.com/forums/thread/121114)). No Accessibility-based implementation was tested here.
+
+### Activation
+
+ From macOS 14, "app activation is driven by user intent. It is treated by the system as a request and is not always guaranteed to be honored"; `activateIgnoringOtherApps` is deprecated; cooperative activation "guarantees successful activation as long as the yielding app is active at the time of the request". — **Doc** [AppKit release notes for macOS 14](https://developer.apple.com/documentation/macos-release-notes/appkit-release-notes-for-macos-14), [`activate(from:options:)`](https://developer.apple.com/documentation/appkit/nsrunningapplication/activate(from:options:)), [`yieldActivation(to:)`](https://developer.apple.com/documentation/appkit/nsapplication/yieldactivation(to:)). The monitor is a command-line process inside the active terminal, not itself an active `NSApplication`, so it cannot yield (**Inference**).
+
+Routes untested in the initial source review: an Apple Event `activate` sent to the target (the target activates itself); `NSRunningApplication(processIdentifier:).activate(options:)`; `NSWorkspace.openApplication` with `OpenConfiguration.activates` (default true, "brings it to the foreground": [Apple](https://developer.apple.com/documentation/appkit/nsworkspace/openconfiguration/activates)). The later tab-selection confirmation does not establish behavior across all of these routes.
+
+### Spaces, full screen and minimized windows
+
+ With "When switching to an application, switch to a Space with open windows for the application" enabled (Apple default: [Desktop & Dock settings](https://support.apple.com/guide/mac-help/mchlp1119/mac); **Local** value `1`), activation moves to *a* Space with that app's windows; whether it follows the window just ordered front is unverified. Full-screen windows are their own Spaces. Terminal.app's `miniaturized` is writable, so a minimized target can be restored; other terminals' handling is unknown.
 
 ## App activation versus session selection
 

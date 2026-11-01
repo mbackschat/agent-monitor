@@ -2,23 +2,35 @@
 
 Checked 2026-10-16 on macOS 27 with native Claude Code runtimes 2.1.296–2.1.301 that were already running. Question: which locally observable signals tie a Claude runtime process, and the workloads it starts, to one session, and where does the built-in adapter lose that link? Session IDs, project names and paths are anonymized; counts, process relationships and timings are retained. Related evidence: [Claude session metadata and messaging](claude-session-messaging.md) and [local process observations](terminal-process-observations.md).
 
+The provider-listing observations below describe the 2026-10-16 implementation. The current [offline runtime contract](../architecture.md#offline-runtime) disables those calls; historical attribution results do not establish current coverage or authorize repeating the probes.
+
 ## Method and limits
 
 Read-only: one `agent-monitor --json --cpu 0 --memory-gb 0 --commands` sample, `ps` with arguments only, `lsof` path names, `codesign -dv`, two `claude agents --json` calls and the environment variable names visible to this session's own Bash tool and to one of its subagents. No transcript was read, no messaging token value was read or printed, no session was contacted and nothing was signaled. Listing `~/.claude/sessions` was refused by the host's permission classifier because the directory holds inbox auth keys; it was not inspected.
 
 ## Runtime-to-session binding
 
+### Identity and listing evidence
+
 - All seven processes recognized as Claude runtimes were reported as `runtimeOnly` without a session ID. A native runtime's own environment carries no `CLAUDE_CODE_SESSION_ID`; the marker exists only in the environments it gives to children. Codex runtimes can be bound through writer descriptors; no Claude counterpart was found.
 - `lsof` on two runtimes found no open path containing the runtime's session ID. The inbox socket is named `/tmp/cc-socks/<pid>.sock`, which encodes the runtime PID, not the session.
 - `claude agents --json` returned six entries, each with `pid` and `sessionId`, plus `cwd`, `kind` (all `interactive`), `name`, `startedAt` and `status` (`idle` 4, `busy` 2). The entry for this session's runtime carried the same session ID as its Bash environment and the session's launch directory as `cwd`. The six entries matched the six genuine runtimes; the seventh recognized "runtime" was the embedded tool below.
+### Cost and side effects
+
 - One call took 0.68 s wall time, 0.23 s user and 0.13 s system CPU (single measurement, `/usr/bin/time -p`).
 - Three later calls took 0.29–0.35 s wall time and 0.25–0.31 s user plus system CPU. No `claude` daemon process existed before or after the calls, and the daemon log's modification time stayed at an earlier month.
 - While a call ran, `lsof` sampled about every 30 ms showed two Unix-domain socket peers, neither owned by any Claude runtime, and no path under `~/.claude/sessions`. Sampling cannot exclude connections shorter than the interval.
 - Network use was intermittent: two of six default calls held TCP connections to HTTPS endpoints, one in Anthropic's address range; none of four calls with `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` did, and those calls returned the same six entries. This suggests, but does not establish, that the listing's network traffic is nonessential.
+### Interface and lifecycle limits
+
 - `claude agents --help` describes the subcommand as managing background agents; `--json` prints "active sessions (interactive and background)", and `--all` adds completed background sessions.
 - `startedAt` was 2–38 s later than the owning process's start time for all six entries. None of these sessions is known to have been cleared or resumed, so whether `startedAt` changes on `/clear` or `/resume` remains open; for these entries it tracks process registration rather than a later session start.
 
-A subsequent production-adapter check on 2026-10-16 used one `--json --cpu 0 --memory-gb 0` report. It bound all six live native Claude Code runtimes (2.1.296–2.1.301) and ten marker-less children through `claude agents --json`, while nine marker-carrying children retained their markers. In a separate disposable Bash-tool `tail -f /dev/null | grep` check under native Claude Code 2.1.301, the embedded `ugrep` resolved to that session's marker and runtime rather than being classified as a runtime. These observations do not establish coverage for npm-based Claude installations or other versions.
+### Historical production-adapter check
+
+A subsequent production-adapter check on 2026-10-16 used one `--json --cpu 0 --memory-gb 0` report. It bound all six live native Claude Code runtimes (2.1.296–2.1.301) and ten marker-less children through `claude agents --json`, while nine marker-carrying children retained their markers.
+
+In a separate disposable Bash-tool `tail -f /dev/null | grep` check under native Claude Code 2.1.301, the embedded `ugrep` resolved to that session's marker and runtime rather than being classified as a runtime. These observations do not establish coverage for npm-based Claude installations or other versions.
 
 ## Embedded tools invoked under another name
 

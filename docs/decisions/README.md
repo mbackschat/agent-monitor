@@ -1,6 +1,14 @@
 # Decisions
 
-Settled design decisions that were not implemented: **deferred** (with conditions for reconsideration), **rejected** or **superseded**. Each record states the decision, its reason and when to reconsider it, so the question is not reopened without new evidence. The full earlier proposal text stays in Git history (`git log --follow docs/decisions/<record>.md`). The lifecycle is defined in [documentation maintenance](../development.md#documentation-and-instruction-maintenance).
+These records preserve settled questions that were deferred, rejected or superseded. Each states the decision, its reason and the conditions for reconsideration; new implementation needs the applicable authorization.
+
+The full earlier proposal remains in Git history:
+
+```sh
+git log --follow docs/decisions/<record>.md
+```
+
+Use the [documentation lifecycle](../development.md#documentation-and-instruction-maintenance) when retiring or reopening a proposal.
 
 The table is generated from each record's `Status:` line; do not edit it by hand.
 

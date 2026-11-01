@@ -8,29 +8,106 @@ Finish the [product goal](docs/product.md): identify agent → session → CWD �
 
 ### Resource accounting priority
 
-- [ ] **CPU-01 — Close coverage, sustained-load performance and memory acceptance.** The first [accounting delivery](docs/proposals/resource-accounting.md) is authorized. Preserve measured CPU, exact lifetimes, frozen attribution and explicit unknown/missing work. Keep default acquisition at 100 ms and do not exclude processes or change totals through display filters; explicitly selected [adaptive acquisition](docs/architecture.md#adaptive-acquisition) may relax within its configured bounds. ADAPT-01 below owns its remaining acceptance gates.
+#### CPU-01 — Accounting acceptance
 
-| Priority | Next action | Required evidence / blocker |
-| --- | --- | --- |
-| Short-worker coverage | Choose a bounded improvement to the implemented sampler using authorized workload observations and the [recording and analysis playbook](Tools/WorkloadCapture/README.md). | The user accepted making the most of the existing implementation while alternatives remain unresolved; this does not establish complete accounting. Never-observed workers and final exit CPU remain missing. The [root/private tracing path is rejected](docs/decisions/privileged-resource-tracing.md), and [Activity Monitor inspection](docs/research/cpu-accounting.md#activity-monitor-data-path--2026-10-26) supplies no supported replacement. The 10/50 ms fixture does not establish real-build loss rates. |
-| Sustained cost/cadence | Revalidate after acquisition changes; complete native-app acceptance separately. | The ordinary-launch optimized collector at `e6fd992` passed both targets under naturally busy load on 2026-10-26; see the [acceptance scope](docs/research/menu-bar-load-cost.md#ordinary-launch-acceptance-scope--2026-10-26). No profile data retained. This does not establish continuous saturation or closed-panel Mac behavior. Preserve the ≥10-minute, provider/helper-inclusive protocol and per-window gap/overrun disclosure. |
-| Memory | Validate a transient-peak analysis method after the [synthetic allocation export check](docs/research/menu-bar-load-cost.md#synthetic-allocation-export-feasibility--2026-10-29), then extend the [simultaneous ownership fixture](docs/development.md#simultaneous-ownership-checks) to internal merge/compaction transients and native allocations before selecting broader admission bounds. The two authorized recordings are complete; do not repeat them unchanged. Resolve input buffering without a fork. | Logical per-stage caps and the scoped fixture are not a process-wide heap ceiling. The [source classification](docs/research/menu-bar-load-cost.md#population-and-scratch-ownership-follow-up--2026-10-26) identifies remaining unreserved holders. The fixture covers accepted rollback, incoming and merged report values before admission; internal merge/compaction transient peaks, full acquisition/bridge scheduling, native buffers and framework UI allocations remain outside it; TUI-INPUT-01 still permits cumulative input backlog. Command-array sharing requires explicit ownership before charge discounts. |
-| Publication pressure | Verify realistic bridge delays and publisher stalls while preserving history/report pairing. | Deterministic conservation/collapse guards do not establish native cadence or heap cost. |
-| Native acceptance | Complete MENUBAR-01/03 and UX-01. | CLI profiles do not establish closed-panel App Nap, native cost or physical interaction. |
+- [ ] **Close coverage, sustained-load performance and memory acceptance.** The first [accounting delivery](docs/proposals/resource-accounting.md) is authorized. Preserve measured CPU, exact lifetimes, frozen attribution and explicit unknown/missing work. Keep default acquisition at 100 ms and do not exclude processes or change totals through display filters; explicitly selected [adaptive acquisition](docs/architecture.md#adaptive-acquisition) may relax within its configured bounds. ADAPT-01 below owns its remaining acceptance gates.
 
-The completed short-worker fixture confirms substantial loss despite timely polling within that synthetic workload; it does not establish a real-build lifetime distribution or a 50% loss rate for the user’s Java/Node builds. [Coalition research](docs/research/cpu-accounting.md#ordinary-app-launch-and-coalition-isolation--2026-10-26) provides no unseen-session attribution; further coalition trials are not the recommended next step. Inspection-focused discovery is implemented experimentally and default-off, with a local 50 ms-worker coverage benefit but substantial remaining loss and an unmet short-trial cost target. General transparent coverage remains required, and older summaries must disclose incomplete measurements.
+##### Short-worker coverage
 
-- [ ] **UX-01 — Validate the responsibility workflow in both interfaces.** Use the [review procedure](docs/development.md#resource-overview-ux-review), including multiple contributors/CWDs, departed workers, memory-heavy idle work, uncertainty, nested sorting and contextual actions. Overview and process inspection must be checked separately. Complete the user’s narrow/wide Mac/TUI smoke checks, including the retained SwiftUI table’s active-window selection/focus, hidden input/VoiceOver exclusion, diagnosis/action/process-view returns, row-body versus triangle/information activation, both header-sort directions and menu agreement, header/content separation while scrolling, nonselectable section titles and navigation across sections, symbol tooltips and synthetic-group distinction, **?** shortcut help from selected rows and Esc focus return, report shortcuts from disclosure/toolbar focus with text-entry and action-panel isolation, Help/Keyboard Shortcuts/Diagnostics return paths and terminal tree/count clarity, including connected multiline branches, selected-headline contrast and readable paths in light/dark and monochrome terminals. Validate the accepted [ledger and lanes](docs/architecture.md#constrained-overview-presentation) with five or more arriving/departing sessions, both bottom inspectors, 620-point Mac sizing, Compact-height details, TUI 40×8/90×30 resizing, counted headings, fixed hardware-derived and manually selected chart bounds and inner-child-to-next-root separation. Validate the bordered neutral section panels, synchronized movement during expansion/collapse and arriving rows (including Reduce Motion; user confirmed the 2026-10-31 motion correction), continuous subtree fills, connected ancestor guides and headline-aligned disclosure chevrons, and system inspector background, fixed-width stacked current/past counts and help, Diagnostics warning-badge hover/click, standard footer Help, special-group information buttons and contextual glossary destinations, overall CPU chart alignment, section/table collapse and reopen with preserved selection/children, content-sized whole-table collapse and restored custom height in attached/detached windows with brief animated resizing from 8/top disclosure (quick repeat and Reduce Motion included), Copy all in contributor/process Details including collapsed evidence and loaded arguments, concise tooltips and explained counts with deeper evidence collapsed, hover/focus pin reveal, process-count tooltips, count-button disclosure, native contributor process inspection/actions and attached/detached bottom-grip height resizing against the local studies in `.build/design-studies/`. Continue from the [user-confirmed selection/disclosure and Details/return checks](docs/research/native-menu-design.md#physical-workflow-and-surface-feedback--2026-10-30); broader pointer/keyboard, VoiceOver and live menu anchoring remain pending.
+**Next action:** Choose a bounded improvement to the implemented sampler using authorized workload observations and the [recording and analysis playbook](Tools/WorkloadCapture/README.md).
 
-- [ ] **ADAPT-01 — Calibrate adaptive defaults and close coverage/native acceptance.** The default-off [production mechanism and Mac/TUI controls](docs/architecture.md#adaptive-acquisition) are implemented. Calibrate actual low-activity agent CPU/churn before proposing slower defaults; require user acceptance of separate numeric identity/CPU loss budgets per duration, scenario and visibility context, compared with fixed 100 ms and fixed context maxima, plus measured savings. The [offline findings](docs/research/cpu-accounting.md#adaptive-sampling-offline-prototype--2026-10-27) retain modeled savings and phase-sensitive coverage losses; they do not establish native cost or actual idle distributions. User-run native controls/lifecycle checks and separately authorized cost/cadence/App Nap measurements remain open. Persistent-unreadability relaxation remains unadopted. Raw recordings are unavailable and aggregate summaries cannot supply temporal replay; any live diagnostic needs a separate explicit request.
+**Evidence and limits:** The user accepted making the most of the existing implementation while alternatives remain unresolved; this does not establish complete accounting. Never-observed workers and final exit CPU remain missing. The [root/private tracing path is rejected](docs/decisions/privileged-resource-tracing.md), and [Activity Monitor inspection](docs/research/cpu-accounting.md#activity-monitor-data-path--2026-10-26) supplies no supported replacement. The 10/50 ms fixture does not establish real-build loss rates.
 
-- [ ] **XUI-01 — Audit this session’s fixes across Mac, TUI, text and JSON.** Include lifecycle/filter/count semantics, identity/path truncation, details/history, action and shortcut availability, Help/Diagnostics, and native-only styling/interaction. The current pass removed duplicate interval inspection from both Mac and TUI Details and verified text/JSON have no equivalent chart inspection. The lifecycle filter is available through Mac options and TUI Shift+H; its shared row-membership predicate preserves totals and wire output. Native copy-all uses existing Details data; TUI has no clipboard command. The 2026-10-31 native shortcut-focus fix has no TUI equivalent: its host key handler already dispatches report commands independently of pane focus, and text/JSON have no focused controls. The TUI history caption is now concise, and the overall CPU chart plus section/table folding use shared data and visibility state. Finish the remaining earlier interaction checks without adding unrelated controls. The user’s 2026-10-31 request makes this a standing review rule, not a Mac-only acceptance check.
+##### Sustained cost/cadence
+
+**Next action:** Revalidate after acquisition changes; complete native-app acceptance separately.
+
+**Evidence and limits:** The ordinary-launch optimized collector at `e6fd992` passed both targets under naturally busy load on 2026-10-26; see the [acceptance scope](docs/research/menu-bar-load-cost.md#ordinary-launch-acceptance-scope--2026-10-26). No profile data retained. This does not establish continuous saturation or closed-panel Mac behavior. Preserve the ≥10-minute, provider/helper-inclusive protocol and per-window gap/overrun disclosure.
+
+##### Memory
+
+**Next action:** Validate a transient-peak analysis method after the [synthetic allocation export check](docs/research/menu-bar-load-cost.md#synthetic-allocation-export-feasibility--2026-10-29), then extend the [simultaneous ownership fixture](docs/development.md#simultaneous-ownership-checks) to internal merge/compaction transients and native allocations before selecting broader admission bounds. The two authorized recordings are complete; do not repeat them unchanged. Resolve input buffering without a fork.
+
+**Evidence and limits:** Logical per-stage caps and the scoped fixture are not a process-wide heap ceiling. The [source classification](docs/research/menu-bar-load-cost.md#population-and-scratch-ownership-follow-up--2026-10-26) identifies remaining unreserved holders.
+
+The fixture covers accepted rollback, incoming and merged report values before admission; internal merge/compaction transient peaks, full acquisition/bridge scheduling, native buffers and framework UI allocations remain outside it; TUI-INPUT-01 still permits cumulative input backlog.
+
+Command-array sharing requires explicit ownership before charge discounts.
+
+##### Publication pressure
+
+**Next action:** Verify realistic bridge delays and publisher stalls while preserving history/report pairing.
+
+**Evidence and limits:** Deterministic conservation/collapse guards do not establish native cadence or heap cost.
+
+##### Native acceptance
+
+**Next action:** Complete MENUBAR-01/03 and UX-01.
+
+**Evidence and limits:** CLI profiles do not establish closed-panel App Nap, native cost or physical interaction.
+
+The completed short-worker fixture confirms substantial loss despite timely polling within that synthetic workload; it does not establish a real-build lifetime distribution or a 50% loss rate for the user’s Java/Node builds. [Coalition research](docs/research/cpu-accounting.md#ordinary-app-launch-and-coalition-isolation--2026-10-26) provides no unseen-session attribution; further coalition trials are not the recommended next step.
+
+Inspection-focused discovery is implemented experimentally and default-off, with a local 50 ms-worker coverage benefit but substantial remaining loss and an unmet short-trial cost target. General transparent coverage remains required, and older summaries must disclose incomplete measurements.
+
+#### UX-01 — Responsibility workflow
+
+- [ ] **Validate the responsibility workflow in both interfaces.** Use the [review procedure](docs/development.md#resource-overview-ux-review) for overview and process inspection separately. Continue from the [user-confirmed selection/disclosure and Details/return checks](docs/research/native-menu-design.md#physical-workflow-and-surface-feedback--2026-10-30); broader pointer/keyboard, VoiceOver and live menu anchoring remain pending.
+
+##### Responsibility and layout scenarios
+
+- Compare multiple contributors and CWDs, departed workers, memory-heavy idle work and uncertain ownership. Check nested sorting and contextual actions.
+- Validate the accepted [ledger and lanes](docs/architecture.md#constrained-overview-presentation) with at least five arriving/departing sessions and both bottom inspectors. Cover the 620-point Mac panel, Compact-height details and TUI resizing at 40×8 and 90×30.
+- Check full paths, counted headings, hardware-derived and manually selected chart bounds, overall CPU-chart alignment and separation between a final inner child and the next root. Verify complete selected headlines, connected multiline branches and readable paths in light, dark and monochrome terminals.
+
+##### Selection, disclosure and keyboard routing
+
+- Test the retained SwiftUI table’s active-window selection/focus, hidden input and VoiceOver exclusion, diagnosis/action/process-view returns, and row-body activation separately from triangle/information activation.
+- Check both header-sort directions and menu agreement, header/content separation while scrolling, nonselectable section titles and navigation across sections. Distinguish synthetic groups through symbols, labels and tooltips.
+- Open **?** shortcut help from selected rows and return focus with Esc. Exercise report shortcuts from disclosure/toolbar focus, with text-entry and action-panel isolation, plus Help/Keyboard Shortcuts/Diagnostics return paths.
+- Fold and reopen sections and the whole table while preserving selection and children. Check content-sized whole-table collapse and restored custom height in attached/detached windows, including brief animation from 8/top disclosure, quick repeats and Reduce Motion.
+
+##### Surfaces, details and actions
+
+- Review bordered neutral section panels, continuous subtree fills, connected ancestor guides and headline-aligned chevrons. Verify synchronized movement during expansion/collapse and arriving rows, including Reduce Motion; the user confirmed the 2026-10-31 motion correction.
+- Check the system inspector background, fixed-width stacked current/past counts and their help, Diagnostics warning-badge hover/click, standard footer Help, and special-group information buttons with contextual glossary destinations.
+- Exercise Copy all in contributor/process Details, including collapsed evidence and loaded arguments. Review concise tooltips, explained counts and deeper evidence that starts collapsed.
+- Check hover/focus pin reveal, process-count tooltips, count-button disclosure, native contributor process inspection/actions and attached/detached bottom-grip resizing against the local studies in `.build/design-studies/`.
+
+#### ADAPT-01 — Adaptive sampling acceptance
+
+- [ ] **Calibrate adaptive defaults and close coverage/native acceptance.** The default-off [production mechanism and Mac/TUI controls](docs/architecture.md#adaptive-acquisition) are implemented. Calibrate actual low-activity agent CPU/churn before proposing slower defaults.
+
+Required evidence and authorization:
+
+- Obtain user acceptance of separate numeric identity/CPU loss budgets for each duration, scenario and visibility context, compared with fixed 100 ms and fixed context maxima, plus measured savings.
+- Preserve the [offline findings](docs/research/cpu-accounting.md#adaptive-sampling-offline-prototype--2026-10-27): they establish modeled savings and phase-sensitive losses, not native cost or actual idle-agent distributions.
+- Complete user-run native controls/lifecycle checks and separately authorized cost/cadence/App Nap measurements. Persistent-unreadability relaxation remains unadopted.
+- Do not treat aggregate summaries as a replay of temporal evidence. Raw recordings are unavailable; any live diagnostic needs a separate explicit request.
+
+#### XUI-01 — Cross-interface audit
+
+- [ ] **Audit this session’s fixes across Mac, TUI, text and JSON.** Finish the remaining interaction checks without adding unrelated controls. The user’s 2026-10-31 request makes this a standing review rule, not Mac-only acceptance.
+
+The audit covers lifecycle/filter/count semantics, identity/path truncation, details/history, action and shortcut availability, Help/Diagnostics and native-only styling/interaction. Preserve these findings from the current pass:
+
+| Area | Established scope |
+| --- | --- |
+| Details history | Duplicate interval inspection was removed from Mac and TUI Details; text/JSON have no equivalent chart inspection. |
+| Historical-row filter | Mac options and TUI Shift+H use a shared row-membership predicate that preserves totals and wire output. |
+| Copy all | Native Details uses existing data; TUI has no clipboard command. |
+| Shortcut focus | The 2026-10-31 native fix has no TUI equivalent: the host already dispatches report commands independently of pane focus. Text/JSON have no focused controls. |
+| Charts and folding | The TUI history caption is concise; the overall CPU chart and section/table folding use shared data and visibility state. |
 
 ### Existing validation follow-ups
 
 - [ ] **CLI-HELP-01 — Correct the process-disclosure description in `--group` help.** Generated help still says left/right opens process details; the current TUI contract uses arrows for session children and `i`/Enter for Details. The README rewrite uses the current controls. Correct the separate option-help text with a generated-help regression.
 
-- [ ] **TUI-CHART-01 — Validate the accepted Meslo compact fallback physically.** The user accepted a single-row filled fallback for Apple Terminal with Meslo Powerline; the overall and every contributor chart now share the selected mode and CPU range. Auto uses existing-permission font lookup and falls back on Meslo or unavailable/unrecognized font; explicit `--tui-chart-style compact|stacked` overrides it. Confirm the actual Meslo LG L DZ Regular for Powerline 12 pt output in color/monochrome, lookup behavior with/without existing Automation authorization, custom spacing and accepted stacked-font appearances. The [retained findings](docs/research/terminal-ui.md#font-detection-and-compact-fallback--2026-11-01) distinguish offscreen glyph geometry from live rasterization. Do not claim three-row Meslo seams were fixed: compact mode avoids cross-row joins and reduces resolution to eight steps. No terminal settings or fonts may be changed automatically.
+- [ ] **TUI-CHART-01 — Validate the accepted Meslo compact fallback physically.** The user accepted a single-row filled fallback for Apple Terminal with Meslo Powerline; the overall and every contributor chart now share the selected mode and CPU range. Auto uses existing-permission font lookup and falls back on Meslo or unavailable/unrecognized font; explicit `--tui-chart-style compact|stacked` overrides it.
+
+Confirm the actual Meslo LG L DZ Regular for Powerline 12 pt output in color/monochrome, lookup behavior with/without existing Automation authorization, custom spacing and accepted stacked-font appearances. The [retained findings](docs/research/terminal-ui.md#font-detection-and-compact-fallback--2026-11-01) distinguish offscreen glyph geometry from live rasterization.
+
+Do not claim three-row Meslo seams were fixed: compact mode avoids cross-row joins and reduces resolution to eight steps. No terminal settings or fonts may be changed automatically.
 
 - [ ] **MAC-TABLE-01 — Diagnose the native table reentrancy warning.** Synthetic selection/render checks on 2026-10-30 pass but emit an NSTableView delegate reentrant-operation warning that macOS says will become an assertion. Isolate the triggering callback and distinguish test scheduling from production reconciliation before changing the bridge; see the [section-header validation](docs/research/native-menu-design.md#nonselectable-section-headings--2026-10-30).
 
@@ -53,7 +130,15 @@ A whole-codebase quality review found these shared semantics re-derived in rende
 
 ### Deferred features
 
-- [ ] **GPU-01 — Close admission, metric and coverage gaps for observed GPU accounting.** Use the [offline model](docs/research/gpu-accounting.md#bounded-anonymous-matching-has-a-conditional-lower-bound--2026-10-29) and [native lifecycle evidence](docs/research/gpu-accounting.md#record-lifecycle-and-aligned-timing-calibration--2026-10-29) to define a supported history/ownership contract beyond the exercised zero-born, retirement and replacement paths. Resolve imported/reappearing history and reset treatment, independent unit/charging evidence, and transparent attribution to already-running processes. Assess uncoordinated queue lifetimes, material loss budgets and sustained cost with a suitably narrow collector; the held-queue diagnostic is not that acceptance test and should not be repeated unchanged. Mutable timestamps are not record IDs, and the measured self-task GPU field is unhelpful. Interface policy and graphics-memory scope remain separate decisions. The [proposal](docs/proposals/gpu-resource-visibility.md) remains unapproved for production collection and Mac/TUI support; host activity cannot substitute for contributor accountability.
+- [ ] **GPU-01 — Close admission, metric and coverage gaps for observed GPU accounting.** Use the [offline model](docs/research/gpu-accounting.md#bounded-anonymous-matching-has-a-conditional-lower-bound--2026-10-29) and [native lifecycle evidence](docs/research/gpu-accounting.md#record-lifecycle-and-aligned-timing-calibration--2026-10-29) to define a supported history/ownership contract beyond the exercised zero-born, retirement and replacement paths.
+
+Resolve imported/reappearing history and reset treatment, independent unit/charging evidence, and transparent attribution to already-running processes.
+
+Assess uncoordinated queue lifetimes, material loss budgets and sustained cost with a suitably narrow collector; the held-queue diagnostic is not that acceptance test and should not be repeated unchanged.
+
+Mutable timestamps are not record IDs, and the measured self-task GPU field is unhelpful. Interface policy and graphics-memory scope remain separate decisions.
+
+The [proposal](docs/proposals/gpu-resource-visibility.md) remains unapproved for production collection and Mac/TUI support; host activity cannot substitute for contributor accountability.
 
 - [ ] **PROBE-01 — Review container totals after CPU-01 acceptance.** [Proposal only](docs/proposals/container-resource-probes.md); implementation needs separate approval. Keep host and guest totals separate, strip environment variables except allowlisted markers, and exclude exec/attach and guest-process inspection.
 - [ ] **CAPTURE-01 — Review bounded diagnostic recording after CPU-01.** [Recording remains unapproved](docs/proposals/diagnostic-recording.md). Validate framing, writer ownership, cutoffs, attribution and memory/storage bounds before measuring serialization costs. Default-off means no recorder files, queues or cumulative history; normal monitoring retains bounded rolling memory only.
@@ -62,7 +147,18 @@ A whole-codebase quality review found these shared semantics re-derived in rende
 
 ### Temporary feedback intake — 2026-10-17
 
-- [ ] **FEEDBACK-13 — Verify physical German-keyboard scrolling.** Check u/d, Ctrl-U/Ctrl-D, retained Space, Page Up/Down and bracket aliases on the user’s keyboard. Apple Terminal may send Shift-Space as ordinary Space; encoded support does not establish physical delivery. Verify the proportional TUI table scrollbar and visible u/d movement with expanded rows. Verify styled Keyboard Help and neutral view controls, stacked three-row filled charts with fractional caps and solid interiors and the accepted single-row compact fallback in color/monochrome, including the accepted Menlo, Source Code Pro, Monaco and Vera Mono appearances and -/+ contributor Details sizing in the user’s font/theme. Use the [TUI workflow check](docs/development.md#manual-tui-workflow-check). The [dated triage](docs/research/terminal-ui.md#feedback-triage--2026-10-26) owns the other feedback dispositions; their source corrections do not replace UX-01’s physical workflow checks.
+- [ ] **FEEDBACK-13 — Verify physical German-keyboard scrolling.** Check u/d, Ctrl-U/Ctrl-D, retained Space, Page Up/Down and bracket aliases on the user’s keyboard. Apple Terminal may send Shift-Space as ordinary Space; encoded support does not establish physical delivery.
+
+Verify the proportional TUI table scrollbar and visible u/d movement with expanded rows.
+
+Check the following in the user's font and theme:
+
+- Styled Keyboard Help and neutral view controls.
+- Stacked three-row filled charts, with fractional caps and solid interiors, and the accepted single-row compact fallback in color/monochrome.
+- Accepted Menlo, Source Code Pro, Monaco and Vera Mono appearances.
+- -/+ contributor Details sizing.
+
+Use the [TUI workflow check](docs/development.md#manual-tui-workflow-check). The [dated triage](docs/research/terminal-ui.md#feedback-triage--2026-10-26) owns the other feedback dispositions; their source corrections do not replace UX-01’s physical workflow checks.
 
 ### Execution and authorization boundaries
 

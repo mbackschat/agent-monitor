@@ -10,9 +10,13 @@ Required: a focused extension of SwiftTUI's existing input reader and custom-hos
 
 ## Required contract
 
+### Ordering and admission
+
 Accepted keys remain typed and are consumed in FIFO order. Agent Monitor discards paste; pasted Return, Escape, Ctrl-Y and other command-looking content must never become confirmation, focus or process actions. Paste rejection must preserve the order of surrounding accepted keys.
 
-A shared reservation covers each accepted event until handling completes, including reader delivery, queued events and drained-but-undispatched batches. Admission suspends before exhausting either event count or payload bytes; it never drops an accepted key or confirmation. Pulling from the reader stops when there is no capacity. No side queue or unstructured task may retain uncharged events. A stalled consumer therefore stops upstream advancement after the declared in-flight allowance; dequeuing alone does not release its reservation.
+A shared reservation covers each accepted event until handling completes, including reader delivery, queued events and drained-but-undispatched batches. Admission suspends before exhausting either event count or payload bytes; it never drops an accepted key or confirmation. Pulling from the reader stops when there is no capacity. No side queue or unstructured task may retain uncharged events.
+
+A stalled consumer therefore stops upstream advancement after the declared in-flight allowance; dequeuing alone does not release its reservation.
 
 The proposed host configuration uses positive, typed limits:
 
@@ -26,9 +30,17 @@ struct TerminalInputLimits: Sendable {
 }
 ```
 
-These are proposed logical admission limits, not measured allocator sizes. Reader scratch and incomplete decoding have separate bounded storage; the public contract states their maximum in-flight counts. Native read turns yield at their byte allowance rather than draining indefinitely. The parser cannot emit an arbitrarily large local event array before admission. The existing AsyncStream-based reader interface may remain if its production honors these requirements.
+These are proposed logical admission limits, not measured allocator sizes. Reader scratch and incomplete decoding have separate bounded storage; the public contract states their maximum in-flight counts.
 
-An oversized paste is discarded as a whole with one ordered, visible notice. After the limit, the parser retains only bounded framing state and discards through the paste end marker. It must not reinterpret discarded bytes as commands, even when markers span reads. EOF with an incomplete paste rejects it. Oversized control sequences likewise cannot escape into command input. An unterminated rejected paste remains in discard mode until its terminator, input termination or cancellation; cancellation must not wait for more input.
+Native read turns yield at their byte allowance rather than draining indefinitely. The parser cannot emit an arbitrarily large local event array before admission. The existing AsyncStream-based reader interface may remain if its production honors these requirements.
+
+### Paste and malformed input
+
+An oversized paste is discarded as a whole with one ordered, visible notice. After the limit, the parser retains only bounded framing state and discards through the paste end marker. It must not reinterpret discarded bytes as commands, even when markers span reads. EOF with an incomplete paste rejects it. Oversized control sequences likewise cannot escape into command input.
+
+An unterminated rejected paste remains in discard mode until its terminator, input termination or cancellation; cancellation must not wait for more input.
+
+### Cancellation and guarantee boundary
 
 Cancellation wakes suspended admission and native reads, deregisters read sources before terminal restoration, and prevents late dispatch into a replacement input session. Runtime shutdown must remain possible while the consumer is stalled; it must not depend on making queue space or receiving a paste terminator. The host's existing termination path remains independent of input admission.
 
@@ -42,7 +54,9 @@ Excluded: dropping old/new keyboard events to achieve a cap; manufacturing key e
 
 ## Decision and feasibility
 
-Recommend extending SwiftTUI's existing admission machinery to native/custom-host input rather than replacing its runtime in Agent Monitor. The [0.16.0 comparison](../research/terminal-ui.md#upstream-0160-comparison) and [0.19.1 follow-up](../research/terminal-ui.md#upstream-0191-comparison--2026-10-29) confirm that admission/pulling interfaces remain package-only and the native reader, parser and dispatch buffers remain unbounded; upgrading alone is insufficient. It preserves the established terminal behavior and fixes every retaining stage under one owner. The user [rejected a SwiftTUI fork](../decisions/swifttui-fork.md). Integration waits for an official upstream fix or a verified solution using supported public APIs. No change to the current dependency pin is implied.
+Recommend extending SwiftTUI's existing admission machinery to native/custom-host input rather than replacing its runtime in Agent Monitor. The [0.16.0 comparison](../research/terminal-ui.md#upstream-0160-comparison) and [0.19.1 follow-up](../research/terminal-ui.md#upstream-0191-comparison--2026-10-29) confirm that admission/pulling interfaces remain package-only and the native reader, parser and dispatch buffers remain unbounded; upgrading alone is insufficient. It preserves the established terminal behavior and fixes every retaining stage under one owner.
+
+The user [rejected a SwiftTUI fork](../decisions/swifttui-fork.md). Integration waits for an official upstream fix or a verified solution using supported public APIs. No change to the current dependency pin is implied.
 
 The numeric limits and whole-paste rejection are proposed host policy. The dependency must expose a deterministic dispatch-stall seam and reservation diagnostics so tests can establish backpressure, FIFO effects and cancellation without native load generation. Those guards must observe upstream advancement, not merely the size of Agent Monitor's wrapper. A logical input bound does not close CPU-01's whole-process memory, native cost or short-worker coverage gates.
 

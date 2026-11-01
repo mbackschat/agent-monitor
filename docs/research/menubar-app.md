@@ -4,6 +4,16 @@ Checked 2026-10-15 on Apple Silicon, macOS 27.0.1, Xcode 27 and Swift 6.4. The i
 
 **Local** means a read-only code, header or command observation; **documented** means the cited upstream material; **third-party** means a report not independently reproduced; **inference** identifies a conclusion beyond those observations.
 
+| Investigation | Question |
+| --- | --- |
+| [UI and lifecycle APIs](#ui-and-lifecycle-apis) | Which native surface exposes the required lifecycle control? |
+| [Launch environment](#repository-and-launch-environment-observations) | What can be reused, and what differs from terminal launch? |
+| [Process access and Automation](#process-access-and-automation) | Which permissions and distribution constraints apply? |
+| [Signing and Homebrew](#signing-and-homebrew-findings) | What was documented or locally observed about packaging? |
+| [Unresolved questions](#unresolved-empirical-questions) | What still required an empirical check at the investigation date? |
+
+These historical provider-transport observations are not current runtime authorization; the [offline runtime contract](../architecture.md#offline-runtime) governs shipped behavior.
+
 ## UI and lifecycle APIs
 
 | Surface | Findings | Evidence |

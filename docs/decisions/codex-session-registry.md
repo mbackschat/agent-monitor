@@ -23,7 +23,7 @@ Two relations must remain distinct:
 
 For either relation, the host must verify same-user local process identity using PID, native start time and executable around the observation, reject stale/reused/conflicting identities, and retain uncertainty when completeness or endpoint ownership is unknown. A remote PID cannot identify a local process. An OS PID field without sufficient lifetime evidence does not satisfy this contract.
 
-Provider command/method declarations and response interpretation belong to the Codex attribution adapter; bounded transport, native verification and conflict resolution belong to the host. Collection requires an explicitly supported observation path whose connection effects are acceptable; it must not start a server or session merely to discover ownership. The current [harness boundary](../architecture.md#harness-adapters) remains the ownership rule.
+Provider command/method declarations and response interpretation belong to the Codex attribution adapter; bounded transport, native verification and conflict resolution belong to the host. Any future observation path must satisfy the [offline runtime contract](../architecture.md#offline-runtime), which currently excludes provider CLI listings and commands. Collection also requires an explicitly supported path whose connection effects are acceptable; it must not start a server or session merely to discover ownership. The current [harness boundary](../architecture.md#harness-adapters) remains the ownership rule.
 
 ## Optional and excluded
 

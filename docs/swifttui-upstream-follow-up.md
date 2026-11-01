@@ -37,11 +37,11 @@ Prepare two related issues. Retention needs one end-to-end contract, so avoid se
 
 **Candidate type:** public-API enhancement motivated by a host integration defect.
 
-**Problem:** Agent Monitor intercepts paste in its reader adapter because the inspected public custom-host RunLoop seam exposes a key handler without an equivalent paste callback. Its producer-side paste mutation can overtake an earlier key queued for runtime dispatch. Attribute that defect to Agent Monitor's adapter; do not claim that SwiftTUI's built-in text controls reorder paste.
+**Historical problem:** before messaging removal, Agent Monitor intercepted paste in its reader adapter because the inspected public custom-host RunLoop seam exposed a key handler without an equivalent paste callback. Producer-side paste mutation could overtake an earlier key queued for runtime dispatch. That defect belonged to Agent Monitor’s former adapter; it does not establish that SwiftTUI’s built-in text controls reorder paste. The current monitor discards paste and has no such mutation.
 
 **Change to request:** a public typed paste/input handler invoked from the same ordered dispatch path as keys. It must allow a custom host to consume a paste as text without synthesizing command key presses. Preserve normal focused-control routing when the host does not consume the event. Do not prescribe a private registry hook or a terminal-framework replacement.
 
-**Evidence to prepare later:** queue a phase-changing key, paste and another key behind a gated consumer. Check the host observes their original order and applies text to the phase current at dispatch. Include Return, Escape and Ctrl-Y inside paste to establish that content cannot activate commands. After an official API is available, remove Agent Monitor's producer-side paste mutation and test the production host composition.
+**Evidence to prepare later:** queue a phase-changing key, paste and another key behind a gated consumer. Check the host observes their original order and applies text to the phase current at dispatch. Include Return, Escape and Ctrl-Y inside paste to establish that content cannot activate commands. The original migration would have removed Agent Monitor’s producer-side paste mutation and tested the production host composition. That mutation has since been removed with messaging; re-evaluate whether the API request has a current host requirement before preparing it.
 
 ## Later execution checklist
 

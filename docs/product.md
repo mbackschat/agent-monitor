@@ -4,9 +4,15 @@
 
 **Which coding agents, sessions and processes are consuming CPU or memory, and in which working directories?** This is the number-one product goal. Usually several contributors matter, so users need a table that lets them compare those relationships. Agent Monitor is not another general-purpose top clone. Measurement, attribution, ranking, labels, grouping, disclosure and actions must all help answer this question.
 
+### Transparent coverage
+
 Monitoring must work transparently with already-running agents. Requiring workloads to launch through Agent Monitor or adopt cooperative worker hooks cannot satisfy the core coverage requirement. New observation mechanisms still need a supported deployment and permission model; this requirement does not authorize privileged helpers, security changes or native experiments.
 
+### Short-lived workers
+
 Short-worker precision is especially important while the user inspects the UI: discover workers promptly, keep their measured CPU and memory contribution visible under the responsible session, and disclose what was missed. Older workers may become bounded aggregate summaries with qualified precision rather than indefinitely retained rows. This prioritizes inspection without waiving general transparent coverage, independent display cadence, attribution correctness or the prohibition on inventing unseen CPU.
+
+### Orientation under load
 
 The experience should be a **clear, actionable resource overview**, usable while the machine is busy and the user is under pressure. “Dashboard” and “cockpit” describe the desired orientation, not a required screen layout. iStat Menus and htop/btop inform familiar controls and resource displays; agent/session responsibility defines this product's information model.
 
@@ -21,18 +27,46 @@ The experience should be a **clear, actionable resource overview**, usable while
 | Contribution | Comparable CPU and current-memory values with units. Distinguish recent CPU from current load and sampled memory maxima from current memory. Rank children consistently with the selected CPU/memory ordering. |
 | Relevant detail and actions | Disclose arguments, full paths, exact identities and evidence on demand. Reach the relevant verified process/session action without losing ownership context. Historical aggregates are not executable action targets. |
 
-The main comparison must expose agent/session, workload directory, executable and resource contribution together without requiring users to open every process. A directory summary such as “Multiple directories” must not replace or truncate away session identity. Expansion must help find contributing executables and their workloads, rather than expose an undifferentiated list of PIDs. The precise row unit and use of columns or contextual subrows must be reviewed across Mac and TUI before redesign; a fixed hierarchy or separate Explorer window is not prescribed here.
+### Present the relationship, not just the fields
 
-Use the [accepted ledger with activity lanes](architecture.md#constrained-overview-presentation): aligned comparable values, readable identity, full-width workload context and structured expansion. Graphs must preserve real retained timing and expose their common scale; a busy-looking invented curve is worse than an honest gap. Disclosure should contain structured information, not hidden paragraphs. Explanations belong in tooltips/help; material measurement gaps remain visible beside the numbers they qualify. Preserve readable values and identity at narrow widths, with deliberate disclosure for secondary detail. Compactness is useful only while the question remains answerable.
+Users must be able to compare agent/session, workload directory, executable and contribution without opening every process:
+
+- Keep session identity visible beside directory context; “Multiple directories” cannot replace or truncate it away.
+- Make expansion reveal contributing executables and workloads, rather than an undifferentiated PID list.
+- Review row units, columns and contextual subrows across Mac and TUI before redesigning them. This contract does not prescribe a fixed hierarchy or separate Explorer window.
+
+Use the [accepted ledger with activity lanes](architecture.md#constrained-overview-presentation): aligned values, readable identity, full-width workload context and structured expansion.
+
+| Presentation requirement | Acceptance rule |
+| --- | --- |
+| Graphs | Preserve real retained timing and expose a common scale. Show an honest gap rather than inventing activity. |
+| Disclosure | Reveal structured detail, not hidden paragraphs. Put explanations in concise tooltips or Help. |
+| Measurement limits | Keep material gaps visible beside the numbers they qualify. |
+| Narrow layouts | Preserve readable identity and values; disclose secondary detail deliberately. Compactness must not obscure responsibility. |
 
 ## Truthfulness and retention
 
 Coverage and attribution correctness are necessary to answer the question. Do not improve apparent clarity by omitting measured CPU, assigning unknown work to a session, treating CWD as ownership evidence, or hiding memory-heavy/short-lived contributors. Totals remain independent of display filters. Quantified remainders and visible reduced-detail/time-range disclosures preserve orientation under pressure. The [accounting contract](architecture.md#resource-visibility-requirements) owns these semantics; the product goal does not relax them.
 
+### Keep normal monitoring bounded
+
 **Diagnostic recording is off by default.** Normal monitoring keeps only bounded working state and rolling in-memory history; it does not create a process-data archive on disk or accumulate an unbounded in-memory log. Detailed recent activity and the longer scalar chart have different bounded ranges. Pause may retain a bounded inspection snapshot; it does not start a recording. The separate [recording proposal](proposals/diagnostic-recording.md) requires explicit opt-in, including separate consent to persist full arguments. Explicit JSONL output or user exports are distinct from automatic recording.
 
 ## Acceptance and current gaps
 
-This is the intended information contract, not a claim that the present interface meets it. Overview session rows now lead with provider and short session ID, and contributors pair the executable with its frozen workload directory; process-view group headings follow the same identity-first rule, and both interfaces offer explicit process-argument inspection. Production uses provider/ID labels from available local evidence; provider-listed names are unavailable under the [offline runtime contract](architecture.md#offline-runtime). The [architecture](architecture.md#product-experience) describes current behavior; [UX-01](../PLAN.md#resource-accounting-priority) owns the redesign review and implementation gaps. If a verified name is supplied by a supported source, it is display context bound to the verified runtime lifetime and exact provider/session ID. It never changes ownership, grouping or historical CPU. Acquiring names from new sources is a separate evidence/privacy decision, not permission to read transcripts or query new provider endpoints.
+This is the intended contract, not a claim of complete compliance. The [architecture](architecture.md#product-experience) describes current behavior; [UX-01](../PLAN.md#resource-accounting-priority) owns the redesign review and implementation gaps.
 
-A useful review must demonstrate several concurrent CPU and memory contributors; two sessions in one directory; one session in several directories; repeated `java`/`rustc` workers; recent departed work; unknown ownership; and missing measurements. The user must be able to identify the responsible agent/session, CWD and executable, compare contributions, then inspect arguments or reach a safe action. Assess both the native panel and narrow/wide TUI. Correct totals or attractive graphics alone do not satisfy this acceptance test.
+Current overview and process-group headings lead with provider/session identity. Contributors pair an executable with its frozen workload directory, and both interfaces offer explicit argument inspection. Production labels use available local provider/ID evidence; provider-listed names are unavailable under the [offline runtime contract](architecture.md#offline-runtime).
+
+A verified name from a supported source is display context bound to the verified runtime lifetime and exact provider/session ID. It never changes ownership, grouping or historical CPU. Adding a name source requires a separate evidence/privacy decision; this contract does not authorize transcript reads or new provider endpoints.
+
+### Demonstrate the full workflow
+
+Review the native panel and both narrow and wide TUI layouts with:
+
+- Several concurrent CPU and memory contributors.
+- Two sessions in one directory, and one session spanning several directories.
+- Repeated `java` or `rustc` workers and recent departed work.
+- Unknown ownership and missing measurements.
+
+In each case, the user must identify the agent/session, CWD and executable, compare contributions, and inspect arguments or reach a safe action. Correct totals or attractive graphics alone do not satisfy acceptance.

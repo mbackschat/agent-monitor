@@ -2,6 +2,14 @@
 
 The initial investigation checked sources and the local installation on 2026-10-14 for Codex CLI 0.162.1, focusing on local terminal CLI execution. The separately dated [session-listing follow-up](#session-listing-investigation--2026-10-16) checks 0.163.0 and distinguishes source evidence about other hosts from live coverage. The implemented attribution contract belongs in [architecture](../architecture.md#agent-attribution-adapters); this note records provider evidence and its limits.
 
+## Read by question
+
+- [Which IDs reach child processes?](#what-the-installed-version-actually-provides)
+- [What can markers, writer descriptors and metadata establish?](#runtime-evidence-and-metadata)
+- [Why is exact command attribution separate?](#exact-command-attribution-is-a-separate-problem)
+- [What did the 0.163.0 listing probe establish?](#session-listing-investigation--2026-10-16)
+- [Which costs and side effects remain unresolved?](#cost-and-side-effects)
+
 ## What the installed version actually provides
 
 A read-only local check resolved `/opt/homebrew/bin/codex` to `/opt/homebrew/Caskroom/codex/0.162.1/bin/codex`; `codex --version` returned `codex-cli 0.162.1`. The version command also reported that creating PATH aliases was denied. No upgrade, configuration change, agent conversation, or environment dump was performed. The executable is locally installed; its full source tree was not available at that installation path.
@@ -52,7 +60,11 @@ The reviewed hook schemas do not establish a universal hook-to-child-PID mapping
 
 This follow-up answers the ATTR-02 questions (a read-only listing of live runtimes and threads with kernel PIDs, whether it maps runtimes or workloads to threads, per-call cost and side effects, interface stability, and coverage of `exec`, IDE-hosted and proxy runtimes) for **Codex CLI 0.163.0** on macOS 27.0.1; it does not revalidate every 0.162.1 finding above. `/opt/homebrew/bin/codex` resolved to `/opt/homebrew/Caskroom/codex/0.163.0/bin/codex`, whose SHA-256 was `8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31`. Release tag `rust-v0.163.0` resolves through annotated tag `129b8ec7ee6f4511557a4856279f529025c25af4` (2026-10-15) to **`83086188ae0614bd882818ff1aa23f3194962012`**. Source links in this section pin that commit; matching the version does not prove reproducible binary equivalence. [Release reference](https://api.github.com/repos/openai/codex/git/ref/tags/rust-v0.163.0), [annotated tag](https://api.github.com/repos/openai/codex/git/tags/129b8ec7ee6f4511557a4856279f529025c25af4).
 
-The investigation inspected CLI help, generated the installed binary's experimental JSON Schema into a temporary directory, read the pinned official source and made one successful listing connection to the existing default local app-server. A temporary Python client used `codex app-server proxy`, an RFC 6455 handshake, `initialize` with `experimentalApi: true`, `initialized`, `thread/loaded/list`, and one `thread/backgroundTerminals/list` per loaded thread. It followed pagination, imposed a 15-second deadline and opted out of all notification methods enumerated by the generated schema. Only anonymous counts, response field names and timings were retained. No transcript/history method, thread start/resume, turn, message or termination request was sent, and no disposable session was created. Two earlier attempts failed at socket connection with sandbox `Operation not permitted`, before initialization; the successful attempt used approved expanded permissions.
+The investigation inspected CLI help, generated the installed binary's experimental JSON Schema into a temporary directory, read the pinned official source and made one successful listing connection to the existing default local app-server.
+
+A temporary Python client used `codex app-server proxy`, an RFC 6455 handshake, `initialize` with `experimentalApi: true`, `initialized`, `thread/loaded/list`, and one `thread/backgroundTerminals/list` per loaded thread. It followed pagination, imposed a 15-second deadline and opted out of all notification methods enumerated by the generated schema.
+
+Only anonymous counts, response field names and timings were retained. No transcript/history method, thread start/resume, turn, message or termination request was sent, and no disposable session was created. Two earlier attempts failed at socket connection with sandbox `Operation not permitted`, before initialization; the successful attempt used approved expanded permissions.
 
 ### Available interfaces and identity semantics
 
@@ -66,7 +78,7 @@ The investigation inspected CLI help, generated the installed binary's experimen
 
 Background-terminal `processId` remains an independently allocated protocol handle: production allocation chooses a random integer in `1000..<100000`. The listing reads non-exited entries in the thread's unified-exec process store; it is not an OS descendant scan. Its `load_thread` helper only retrieves an existing thread and errors if absent, despite the helper's name. [Handle allocation](https://github.com/openai/codex/blob/83086188ae0614bd882818ff1aa23f3194962012/codex-rs/core/src/unified_exec/process_manager.rs#L452), [process-store listing](https://github.com/openai/codex/blob/83086188ae0614bd882818ff1aa23f3194962012/codex-rs/core/src/unified_exec/process_manager.rs#L1850), [existing-thread lookup](https://github.com/openai/codex/blob/83086188ae0614bd882818ff1aa23f3194962012/codex-rs/app-server/src/request_processors/thread_processor.rs#L974).
 
-Inference: independently verifying the endpoint's owning runtime PID could turn loaded IDs into runtime-to-thread membership, but several loaded threads would still leave a shared runtime unbound under the existing [registry contract](../architecture.md#harness-session-registries). No inspected response provides the separate workload-PID-to-thread relation needed to resolve its marker-less children. The design assessment is kept separately in the [Codex registry proposal](../decisions/codex-session-registry.md).
+Inference: independently verifying the endpoint's owning runtime PID could turn loaded IDs into runtime-to-thread membership, but several loaded threads would still leave a shared runtime unbound under the existing [registry contract](../architecture.md#harness-session-registries). No inspected response provides the separate workload-PID-to-thread relation needed to resolve its marker-less children. The design assessment is kept separately in the [Codex registry decision](../decisions/codex-session-registry.md).
 
 ### Endpoint and host coverage
 
@@ -83,7 +95,11 @@ These are documented app-server methods with version-specific generated bindings
 
 ### Cost and side effects
 
-The [retained anonymous measurement](codex-session-listing-2026-10-16.json) contains the single successful run: ten loaded threads, one background terminal across those threads, zero populated OS PIDs, zero received notifications and a clean proxy exit. End-to-end wall time was **61.277 ms**, including proxy launch, handshake, initialization, eleven listing RPCs and cleanup. The loaded-list RPC took **2.743 ms**; the ten terminal-list RPCs took **0.155–1.770 ms** each. `wait4` measured **10.067 ms user + 12.731 ms system CPU for the proxy only**. Server CPU, Python-client CPU and network activity were not measured. Cleanup polled process exit at 10 ms intervals, so the wall result includes that measurement overhead. This is neither a warm-call distribution nor an amortized sampling-cost claim.
+The [retained anonymous measurement](codex-session-listing-2026-10-16.json) contains the single successful run: ten loaded threads, one background terminal across those threads, zero populated OS PIDs, zero received notifications and a clean proxy exit. End-to-end wall time was **61.277 ms**, including proxy launch, handshake, initialization, eleven listing RPCs and cleanup.
+
+The loaded-list RPC took **2.743 ms**; the ten terminal-list RPCs took **0.155–1.770 ms** each. `wait4` measured **10.067 ms user + 12.731 ms system CPU for the proxy only**.
+
+Server CPU, Python-client CPU and network activity were not measured. Cleanup polled process exit at 10 ms intervals, so the wall result includes that measurement overhead. This is neither a warm-call distribution nor an amortized sampling-cost claim.
 
 The following side effects are distinguished from live observations:
 
