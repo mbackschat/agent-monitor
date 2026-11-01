@@ -126,8 +126,21 @@ struct AccountingWindow: Sendable {
         var missingTimes = 0
 
         mutating func add(_ value: CPUContribution, earliest: Double?, latest: Double?, missing: Int) {
-            cpu = cpu.map { $0.adding(value) } ?? value
             memory.addCPU(value.cpuSeconds, intervals: value.intervalCount)
+            accumulate(value, earliest: earliest, latest: latest, missing: missing)
+        }
+
+        /// Folds the same lifetime's run from the next contiguous window; its memory record already holds its CPU.
+        mutating func merge(_ other: Run) {
+            memory.merge(other.memory)
+            ticks.merge(other.ticks)
+            accumulate(other.cpu, earliest: other.earliest, latest: other.latest, missing: other.missingTimes)
+        }
+
+        private mutating func accumulate(
+            _ value: CPUContribution?, earliest: Double?, latest: Double?, missing: Int
+        ) {
+            if let value { cpu = cpu.map { $0.adding(value) } ?? value }
             if let earliest { self.earliest = min(self.earliest ?? earliest, earliest) }
             if let latest { self.latest = max(self.latest ?? latest, latest) }
             missingTimes += missing
@@ -318,16 +331,7 @@ struct AccountingWindow: Sendable {
         var remapped: [Int] = []
         for incoming in other.runs {
             if let index = indices[incoming.key] {
-                runs[index].memory.merge(incoming.memory)
-                runs[index].ticks.merge(incoming.ticks)
-                if let value = incoming.cpu {
-                    runs[index].cpu = runs[index].cpu.map { $0.adding(value) } ?? value
-                }
-                if let time = incoming.earliest {
-                    runs[index].earliest = min(runs[index].earliest ?? time, time)
-                }
-                if let time = incoming.latest { runs[index].latest = max(runs[index].latest ?? time, time) }
-                runs[index].missingTimes += incoming.missingTimes
+                runs[index].merge(incoming)
                 remapped.append(index)
             } else {
                 indices[incoming.key] = runs.count
