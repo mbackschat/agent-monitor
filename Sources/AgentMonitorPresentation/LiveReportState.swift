@@ -198,8 +198,10 @@ public struct LiveReportState: Equatable, Sendable {
         }
     }
 
-    public var groups: [SessionGroup] {
-        let displayed = rows
+    public var groups: [SessionGroup] { groups(from: rows) }
+
+    /// Takes the already-sorted `rows` so callers holding them avoid a second full sort.
+    func groups(from displayed: [HeavyProcess]) -> [SessionGroup] {
         let identities = Set(displayed.map(\.process))
         let hidden = (snapshot?.observedFindings ?? []).filter { !identities.contains($0.process) }
         return SessionGrouping.groups(displayed + hidden, window: snapshot?.window).sorted { left, right in
@@ -264,8 +266,9 @@ public struct LiveReportState: Equatable, Sendable {
             pins.append(pin)
         }
         notice = nil
-        if !visibleRows.contains(where: { $0.id == selection }) {
-            selection = visibleRows.first?.id
+        let visible = visibleRows
+        if !visible.contains(where: { $0.id == selection }) {
+            selection = visible.first?.id
             expanded = nil
         }
         return true
@@ -286,8 +289,9 @@ public struct LiveReportState: Equatable, Sendable {
         pins.removeAll()
         overview.unpinAll()
         notice = nil
-        if !visibleRows.contains(where: { $0.id == selection }) {
-            selection = visibleRows.first?.id
+        let visible = visibleRows
+        if !visible.contains(where: { $0.id == selection }) {
+            selection = visible.first?.id
             expanded = nil
         }
     }
@@ -378,8 +382,9 @@ public struct LiveReportState: Equatable, Sendable {
         {
             rememberOpenGroup(group.id)
         }
-        if !visibleRows.contains(where: { $0.id == selection }) {
-            selection = visibleRows.first?.id
+        let visible = visibleRows
+        if !visible.contains(where: { $0.id == selection }) {
+            selection = visible.first?.id
             expanded = nil
             detailOffset = 0
         }
@@ -397,8 +402,9 @@ public struct LiveReportState: Equatable, Sendable {
     }
 
     private mutating func rememberOrder() {
-        let processes = rows.map(\.process)
-        let sessions = groups.map(\.id)
+        let displayed = rows
+        let processes = displayed.map(\.process)
+        let sessions = groups(from: displayed).map(\.id)
         stableProcessRanks = Dictionary(
             processes.enumerated().map { ($0.element, $0.offset) }, uniquingKeysWith: min)
         stableGroupRanks = Dictionary(

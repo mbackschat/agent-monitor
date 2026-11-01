@@ -8,7 +8,7 @@ extension LiveReportState {
 
     public var projection: ReportProjection {
         let processes = rows
-        let sessions = groups
+        let sessions = groups(from: processes)
         let displayed = Set(processes.map(\.process))
         let unpinnedProcesses = displayed.subtracting(
             pins.compactMap { pin in
