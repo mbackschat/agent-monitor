@@ -67,7 +67,19 @@ Actions require frozen identity, fresh same-user/target verification and explici
 | Rendered documentation | [Preview maintenance](docs/development.md#readme-preview), [native image generation](docs/development.md#build-and-coverage-details). |
 | Dependencies, skills or packaging | [Dual-host skills](docs/development.md#skills-shared-by-codex-cli-and-claude-code), [release packaging](docs/releasing.md). Pin changes require [third-party notices](THIRD_PARTY_NOTICES.md) from locked sources, including vendored components/fonts; retain notices and licenses in archives. |
 
-Use installed `swiftui-view-refactor` for native structure/dependency/Observation work and `swiftui-performance-audit` for rendering/refresh/scrolling investigations; keep the concurrency/testing skills available for matching work. If an optional skill is unavailable, follow the project guidance and report the limitation; do not install or upgrade merely to unblock routine work. See [skill setup and fallback](docs/development.md#skills-shared-by-codex-cli-and-claude-code). Performance suspicions remain hypotheses until measured.
+## Skill activation
+
+Load every matching skill before the first edit, review finding or recommendation, including refactors, cleanups, `/simplify` and `/code-review`. The files and constructs touched select the skill, not how the task is phrased; re-check the table when work spreads to new files. Subagents do not inherit loaded skills, so each brief names the skills it must load.
+
+| Touching | Load |
+| --- | --- |
+| Mac or TUI interaction, layout, labels or UI text | [monitor-ui-ux](skills/monitor-ui-ux/SKILL.md), per the UX priority above. |
+| `View` types or `@Observable` models in `Sources/AgentMonitorMenuBar/` | `swiftui-view-refactor` |
+| Menu bar render, refresh, scrolling or invalidation cost, or any change justified by SwiftUI performance | `swiftui-performance-audit` |
+| Actors, `Task`, `Sendable`, isolation or concurrency diagnostics | `swift-concurrency` |
+| Writing or restructuring tests under `Tests/` | `swift-testing-expert` |
+
+If an optional skill is unavailable, follow the project guidance and report the limitation; do not install or upgrade merely to unblock routine work. See [skill setup and fallback](docs/development.md#skills-shared-by-codex-cli-and-claude-code). Performance suspicions remain hypotheses until measured.
 
 ## Implement and validate
 
