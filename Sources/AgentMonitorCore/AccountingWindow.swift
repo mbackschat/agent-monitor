@@ -98,7 +98,6 @@ public struct ReportWindowSummary: Equatable, Codable, Sendable {
     public private(set) var publicationCoverage = PublicationCoverage()
     public private(set) var inspectionCoverage = InspectionCoverage()
     public private(set) var collapsedContributions: [CollapsedContribution] = []
-    public var identityDetailsComplete: Bool { collapsedContributions.isEmpty }
     public var durationSeconds: Double { max(0, endedAt - startedAt) }
 }
 

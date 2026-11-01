@@ -102,7 +102,6 @@ public struct CounterObservation: Sendable {
 }
 
 public struct CounterScan: Sendable {
-    public static let acceptanceVersion = 1
     public let observations: [CounterObservation]
     public let source: ProcessSnapshot?
     public var nativeOutcomes: [NativeCounterOutcome] { source?.nativeOutcomes ?? [] }

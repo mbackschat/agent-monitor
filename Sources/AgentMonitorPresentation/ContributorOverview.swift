@@ -110,24 +110,6 @@ public struct ContributorStats: Equatable, Sendable {
         if let collapsedWorkers { counts.union(collapsedWorkers) }
         return counts.minimum == counts.maximum ? "\(counts.minimum)" : "\(counts.minimum)–\(counts.maximum)"
     }
-    public var compactCensus: String {
-        guard currentAvailable else { return "Current presence unavailable" }
-        var parts = ["\(current.count) now"]
-        if workers.count > current.count || !noLongerObserved.isEmpty || collapsedWorkers != nil {
-            parts.append("\(workerCountText) observed workers")
-        }
-        if !noLongerObserved.isEmpty { parts.append("\(noLongerObserved.count) no longer observed") }
-        if !runtimes.isEmpty { parts.append("\(runtimes.count) agent runtimes") }
-        if !filtered.isEmpty { parts.append("\(filtered.count) filtered") }
-        return parts.joined(separator: " · ")
-    }
-
-    public var census: String {
-        (currentAvailable ? "\(current.count) processes now" : "Processes now unavailable")
-            + " · \(workerCountText) observed workers"
-            + (runtimes.isEmpty ? "" : " · \(runtimes.count) agent runtimes") + " · "
-            + (currentAvailable ? "\(noLongerObserved.count) no longer observed" : "presence unavailable")
-    }
 }
 
 public struct ContributorRow: Equatable, Sendable, Identifiable {
@@ -300,10 +282,6 @@ public struct ContributorOverview: Equatable, Sendable {
             }
         }
         return result
-    }
-    public var sourceDurationLabel: String {
-        guard let source else { return "unavailable" }
-        return "\(number(source.duration)) s" + (source.retentionLimited ? " (retention limit / gap)" : "")
     }
 
     public var population: (main: Int, total: Int) {

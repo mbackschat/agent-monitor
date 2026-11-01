@@ -9,10 +9,6 @@ public struct RecentSession: Hashable, Sendable {
     public let candidates: [String]
     public let resolution: Resolution
 
-    init(_ row: HeavyProcess, roots: SessionCorroboration) {
-        self.init(row, corroboratedRoot: roots.root(for: row.attribution))
-    }
-
     init(_ row: HeavyProcess, corroboratedRoot: String?) {
         let owner = row.attribution
         provider = owner.provider
