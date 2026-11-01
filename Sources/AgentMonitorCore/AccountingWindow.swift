@@ -623,8 +623,8 @@ struct AccountingWindow: Sendable {
         rows: [HeavyProcess], summary: ReportWindowSummary, counters: CounterWindow
     ) {
         let counters = try counters()
-        let rows = findings(scope: scope, counters: counters)
         let window = summary
+        let rows = findings(scope: scope, counters: counters, summary: window)
         guard scope != .allProcesses else { return (rows, window, counters) }
         let identities = Set(rows.map(\.process))
         let scoped = ReportWindowSummary(
@@ -645,10 +645,13 @@ struct AccountingWindow: Sendable {
     }
 
     func findings(scope: ProcessScope) throws -> [HeavyProcess] {
-        try findings(scope: scope, counters: counters())
+        try findings(scope: scope, counters: counters(), summary: summary)
     }
 
-    private func findings(scope: ProcessScope, counters: CounterWindow) -> [HeavyProcess] {
+    /// Takes `summary` because building it sorts every contribution; `projection` passes the copy it reports.
+    private func findings(scope: ProcessScope, counters: CounterWindow, summary: ReportWindowSummary)
+        -> [HeavyProcess]
+    {
         let duration = counters.observedSeconds
         let eligibleByProcess = Dictionary(grouping: counters.contributions, by: \.id.closing.process)
         let recoveredByProcess = Dictionary(grouping: counters.recovered, by: \.id.closing.process)

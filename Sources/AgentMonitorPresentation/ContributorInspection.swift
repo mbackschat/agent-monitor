@@ -317,8 +317,10 @@ extension ContributorOverview {
         case .executable(_, _, let cwd): return retainedContext([.context(cwd ?? "CWD unavailable")])
         case .process:
             return retainedContext([
+                // Same value as the first "Directory" inspection field, without formatting every evidence field.
                 .context(
-                    node.inspectionFields.first { $0.label == "Directory" }?.value ?? "CWD unavailable")
+                    node.labels.first { $0.label == "Directory" }?.value
+                        ?? node.evidence.first.map { $0.record.cwd ?? "Unavailable" } ?? "CWD unavailable")
             ])
         case .section, .provider, .more, .collapsed: break
         }

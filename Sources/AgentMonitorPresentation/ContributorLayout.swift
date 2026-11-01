@@ -10,6 +10,8 @@ public enum ContributorLayout {
         let blockHeights: [Int]
         let bodyHeight: Int
         let detailsHeight: Int
+        /// Index of the DETAILS heading in `lines`; nil when the pane is not rendered.
+        let detailsStart: Int?
     }
 
     private static func layout(state: LiveReportState, width: Int, height: Int) -> Layout {
@@ -168,8 +170,10 @@ public enum ContributorLayout {
             if columns.graphs && lines.count < 3 {
                 lines.append(columns.styledRow(inset, chart: bottom, cpu: "", memory: "", style: .normal))
             }
-            let section = overview.tableSection(for: row.id)
-            if row.depth == 0, let sectionIndex = pendingSections.firstIndex(of: section) {
+            // Only top-level rows open sections; deeper rows would pay a whole-forest search per frame.
+            if row.depth == 0,
+                let sectionIndex = pendingSections.firstIndex(of: overview.tableSection(for: row.id))
+            {
                 lines.insert(contentsOf: pendingSections.prefix(sectionIndex + 1).map(sectionHeading), at: 0)
                 pendingSections.removeFirst(sectionIndex + 1)
             } else if height >= 20, index > 0, rows[index - 1].depth >= row.depth {
@@ -261,9 +265,11 @@ public enum ContributorLayout {
         if columns.graphs, visibleCount > 0 || rendersOverallChart {
             footer = TerminalChrome.withChartLegend(footer, width: width)
         }
+        let detailsIndex = header.count + body.count
         return Layout(
             lines: Array((header + body + details + footer).prefix(height)).map { $0.clipped(to: width) },
-            blockHeights: blocks.map(\.count), bodyHeight: bodyHeight, detailsHeight: detailsHeight)
+            blockHeights: blocks.map(\.count), bodyHeight: bodyHeight, detailsHeight: detailsHeight,
+            detailsStart: details.isEmpty || detailsIndex >= height ? nil : detailsIndex)
     }
 
     public static func page(state: inout LiveReportState, width: Int, height: Int, direction: Int, half: Bool)
@@ -290,14 +296,15 @@ public enum ContributorLayout {
     }
 
     public static func hasDetailPane(state: LiveReportState, width: Int, height: Int) -> Bool {
-        lines(state: state, width: width, height: height).contains { $0.text.hasPrefix("DETAILS") }
+        layout(state: state, width: width, height: height).detailsStart != nil
     }
 
     public static func maximumDetailOffset(state: LiveReportState, width: Int, height: Int) -> Int {
         // Use the rendered pane allocation so Page Down cannot scroll beyond its last page.
-        let rendered = lines(state: state, width: width, height: height)
-        guard let start = rendered.firstIndex(where: { $0.text.hasPrefix("DETAILS") }) else { return 0 }
-        let bodyHeight = max(1, rendered.count - start - footerLines(state: state, width: width).count - 1)
+        let rendered = layout(state: state, width: width, height: height)
+        guard let start = rendered.detailsStart else { return 0 }
+        let bodyHeight = max(
+            1, rendered.lines.count - start - footerLines(state: state, width: width).count - 1)
         return max(0, fields(state: state, width: width).count - bodyHeight)
     }
 
