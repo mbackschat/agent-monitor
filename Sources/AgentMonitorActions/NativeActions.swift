@@ -48,7 +48,8 @@ public enum NativeActions {
     /// The runtime's current controlling terminal and the nearest regular application above it.
     /// Agent tool subprocesses can lack a terminal, so the runtime, not the workload, is the subject.
     public static func terminalHost(for runtime: ProcessIdentity) throws -> TerminalHost {
-        guard let info = bsdInfo(runtime.pid), start(info) == runtime.startMicroseconds,
+        guard let info = bsdInfo(runtime.pid),
+            ProcessIdentity(info).startMicroseconds == runtime.startMicroseconds,
             info.pbi_uid == getuid()
         else { throw ActionFailure("The agent runtime exited or changed. Select the process again.") }
         var name = [CChar](repeating: 0, count: 128)
@@ -61,7 +62,10 @@ public enum NativeActions {
         guard TerminalHost.isDevicePath(tty), stat(tty, &device) == 0,
             UInt32(bitPattern: device.st_rdev) == info.e_tdev
         else { throw ActionFailure("The agent runtime's terminal cannot be identified.") }
-        var child = (pid: runtime.pid, start: start(info), parent: Int32(bitPattern: info.pbi_ppid))
+        var child = (
+            pid: runtime.pid, start: ProcessIdentity(info).startMicroseconds,
+            parent: Int32(bitPattern: info.pbi_ppid)
+        )
         // Helpers such as an editor's terminal process are bundled but not regular apps; keep
         // walking to the application that owns windows.
         while child.parent > 1, let parent = lineage(of: child.parent), parent.start <= child.start {
@@ -120,7 +124,7 @@ public enum NativeActions {
             throw ActionFailure("Only processes owned by your user can be acted on.")
         }
         var path = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
-        guard start(info) == expected.process.startMicroseconds,
+        guard ProcessIdentity(info).startMicroseconds == expected.process.startMicroseconds,
             proc_pidpath(pid, &path, UInt32(path.count)) > 0,
             string(path) == expected.executable
         else {
@@ -136,9 +140,5 @@ public enum NativeActions {
         var info = proc_bsdinfo()
         let size = Int32(MemoryLayout<proc_bsdinfo>.size)
         return proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size ? info : nil
-    }
-
-    private static func start(_ info: proc_bsdinfo) -> UInt64 {
-        info.pbi_start_tvsec * 1_000_000 + info.pbi_start_tvusec
     }
 }

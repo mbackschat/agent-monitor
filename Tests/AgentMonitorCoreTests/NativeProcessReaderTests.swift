@@ -138,3 +138,12 @@ import Testing
     #expect(full.invocation == executable.path)
     #expect(full.command == [executable.path, "--hold"])
 }
+
+/// Locks the frozen-identity key shared by the reader and action validation; a drift would refuse valid targets.
+@Test func processIdentityFromBSDInfoCombinesPIDAndMicrosecondStart() {
+    var info = proc_bsdinfo()
+    info.pbi_pid = 4242
+    info.pbi_start_tvsec = 1_700_000_000
+    info.pbi_start_tvusec = 123_456
+    #expect(ProcessIdentity(info) == ProcessIdentity(pid: 4242, startMicroseconds: 1_700_000_000_123_456))
+}

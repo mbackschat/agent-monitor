@@ -129,11 +129,11 @@ public struct NativeProcessReader: DiagnosisReading, InspectionReading {
         guard info.pbi_uid == getuid() else {
             outcomes.append(
                 NativeCounterOutcome(
-                    pid: pid, identity: identity(info), operation: .bsdInfo, status: .outOfScopeUser,
+                    pid: pid, identity: ProcessIdentity(info), operation: .bsdInfo, status: .outOfScopeUser,
                     failure: nil, observedAtTicks: initialTime))
             return (nil, outcomes, unreadable)
         }
-        let identity = identity(info)
+        let identity = ProcessIdentity(info)
         guard allowance?.permitsOperation() != false else { return (nil, outcomes, unreadable) }
         let executable = counterAccess.executablePath(pid)
         let executableTime = mach_absolute_time()
@@ -145,7 +145,7 @@ public struct NativeProcessReader: DiagnosisReading, InspectionReading {
         let verificationTime = mach_absolute_time()
         let verified =
             verification.value.map {
-                self.identity($0) == identity && $0.pbi_uid == info.pbi_uid
+                ProcessIdentity($0) == identity && $0.pbi_uid == info.pbi_uid
             } ?? false
         appendFailure(
             executable, pid: pid, identity: verified ? identity : nil, operation: .executablePath,
@@ -160,12 +160,12 @@ public struct NativeProcessReader: DiagnosisReading, InspectionReading {
             unreadable += 1
             return (nil, outcomes, unreadable)
         }
-        guard self.identity(after) == identity, after.pbi_uid == info.pbi_uid else {
+        guard ProcessIdentity(after) == identity, after.pbi_uid == info.pbi_uid else {
             outcomes.append(
                 NativeCounterOutcome(
                     pid: pid, identity: nil, operation: .identityVerification, status: .identityMismatch,
                     failure: nil, observedAtTicks: verificationTime,
-                    verifiedIdentity: after.pbi_uid == getuid() ? self.identity(after) : nil))
+                    verifiedIdentity: after.pbi_uid == getuid() ? ProcessIdentity(after) : nil))
             unreadable += 1
             return (nil, outcomes, unreadable)
         }
@@ -199,14 +199,14 @@ public struct NativeProcessReader: DiagnosisReading, InspectionReading {
         }
         guard allowance.permitsOperation() else { return nil }
         let parentInfo = counterAccess.bsdInfo(sample.parentPID).value
-        let parent = parentInfo.flatMap { $0.pbi_uid == getuid() ? identity($0) : nil }
+        let parent = parentInfo.flatMap { $0.pbi_uid == getuid() ? ProcessIdentity($0) : nil }
         // CWD is a mutable observation too. Keep it only inside a fresh identity/path bracket.
         guard allowance.permitsOperation() else {
             return InspectionRead(sample: sample, parent: parent, cwd: nil)
         }
         let cwd = counterAccess.workingDirectory(pid)
         guard allowance.permitsOperation(), let after = counterAccess.bsdInfo(pid).value,
-            after.pbi_uid == getuid(), identity(after) == sample.identity,
+            after.pbi_uid == getuid(), ProcessIdentity(after) == sample.identity,
             allowance.permitsOperation(), counterAccess.executablePath(pid).value == sample.executable
         else { return InspectionRead(sample: sample, parent: parent, cwd: nil) }
         return InspectionRead(sample: sample, parent: parent, cwd: cwd)
@@ -287,7 +287,7 @@ public struct NativeProcessReader: DiagnosisReading, InspectionReading {
 
     public func isCurrent(_ sample: ProcessSample) -> Bool {
         guard let info = bsdInfo(sample.identity.pid), info.pbi_uid == getuid(),
-            identity(info) == sample.identity
+            ProcessIdentity(info) == sample.identity
         else { return false }
         return executablePath(sample.identity.pid) == sample.executable
     }
@@ -343,12 +343,6 @@ public struct NativeProcessReader: DiagnosisReading, InspectionReading {
 
     private func bsdInfo(_ pid: Int32) -> proc_bsdinfo? {
         counterAccess.bsdInfo(pid).value
-    }
-
-    private func identity(_ info: proc_bsdinfo) -> ProcessIdentity {
-        ProcessIdentity(
-            pid: Int32(bitPattern: info.pbi_pid),
-            startMicroseconds: info.pbi_start_tvsec * 1_000_000 + info.pbi_start_tvusec)
     }
 
     private func executablePath(_ pid: Int32) -> String? {

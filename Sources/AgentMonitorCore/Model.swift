@@ -8,6 +8,13 @@ public struct ProcessIdentity: Hashable, Codable, Sendable {
         self.pid = pid
         self.startMicroseconds = startMicroseconds
     }
+
+    /// The exact-lifetime key; sampling and action validation must derive it identically.
+    public init(_ info: proc_bsdinfo) {
+        self.init(
+            pid: Int32(bitPattern: info.pbi_pid),
+            startMicroseconds: info.pbi_start_tvsec * 1_000_000 + info.pbi_start_tvusec)
+    }
 }
 
 public struct ProcessSample: Sendable {
