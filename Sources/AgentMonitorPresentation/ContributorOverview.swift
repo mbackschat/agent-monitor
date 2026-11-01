@@ -1,7 +1,7 @@
 import AgentMonitorCore
 import Foundation
 
-public enum ContributorSection: String, Sendable {
+public enum ContributorSection: String, CaseIterable, Sendable {
     case recent = "Recent contributors"
     case remainder = "More processes"
     case uncertain = "Unresolved / uncertain"
@@ -108,7 +108,7 @@ public struct ContributorStats: Equatable, Sendable {
     public var workerCountText: String {
         var counts = LifetimeCountRange(minimum: workers.count, maximum: workers.count)
         if let collapsedWorkers { counts.union(collapsedWorkers) }
-        return counts.minimum == counts.maximum ? "\(counts.minimum)" : "\(counts.minimum)–\(counts.maximum)"
+        return counts.text
     }
 }
 
@@ -126,9 +126,9 @@ public enum ContributorTableSection: String, CaseIterable, Sendable {
 
     public var shortcut: String {
         switch self {
-        case .pinned: "5"
-        case .sessions: "6"
-        case .other: "7"
+        case .pinned: ReportShortcut.foldPinned.rawValue
+        case .sessions: ReportShortcut.foldSessions.rawValue
+        case .other: ReportShortcut.foldOther.rawValue
         }
     }
 }
@@ -698,7 +698,7 @@ public struct ContributorOverview: Equatable, Sendable {
         let previousChildren = nodes.mapValues(\.children)
         nodes = [:]
         totals = ContributorStats()
-        for section in [ContributorSection.recent, .remainder, .uncertain, .shared, .released] {
+        for section in ContributorSection.allCases {
             let id = ContributorID.section(section)
             nodes[id] = ContributorNode(id: id, title: section.rawValue)
         }
@@ -904,11 +904,8 @@ public struct ContributorOverview: Equatable, Sendable {
         let historical = snapshot.observedFindings.filter(\.isHistorical).count
         var observedBounds = LifetimeCountRange(minimum: observed.count, maximum: observed.count)
         for record in collapsedDisplay.values { observedBounds.union(record.processCount) }
-        let observedText =
-            observedBounds.minimum == observedBounds.maximum
-            ? "\(observedBounds.minimum)" : "\(observedBounds.minimum)–\(observedBounds.maximum)"
         census =
-            "\(observedText) observed \(recent.scope == .allProcesses ? "same-user" : "agent-associated") processes in this window, including \(historical) retained no-longer-observed identities"
+            "\(observedBounds.text) observed \(recent.scope == .allProcesses ? "same-user" : "agent-associated") processes in this window, including \(historical) retained no-longer-observed identities"
         source = recent
         rebuildActivity()
         var notes: [CoverageStatus.Note] = []
@@ -1087,9 +1084,9 @@ public struct ContributorOverview: Equatable, Sendable {
                     (.session(provider: provider, session: session, root: root), "Thread · \(session)"))
             }
         } else {
-            let section = ContributorID.section(owner.resolution == .shared ? .shared : .uncertain)
-            result.append(
-                (section, owner.resolution == .shared ? "Shared agent runtimes" : "Unresolved / uncertain"))
+            let summary: ContributorSection = owner.resolution == .shared ? .shared : .uncertain
+            let section = ContributorID.section(summary)
+            result.append((section, summary.rawValue))
             result.append(
                 (
                     .provider(parent: section, name: provider + "/" + owner.resolution.rawValue),

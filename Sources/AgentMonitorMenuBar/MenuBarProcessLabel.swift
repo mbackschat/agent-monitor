@@ -51,8 +51,7 @@ struct MenuBarProcessLabel: View {
     }
 
     private var exactSession: Bool {
-        SessionCorroboration.isExact(process.attribution)
-            && process.attribution.provider != nil && process.attribution.threadID != nil
+        SessionCorroboration.isExactSession(process.attribution)
     }
 
     private var ownerLabel: String {

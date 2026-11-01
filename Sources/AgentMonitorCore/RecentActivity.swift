@@ -13,7 +13,7 @@ public struct RecentSession: Hashable, Sendable {
         let owner = row.attribution
         provider = owner.provider
         runtime = owner.runtime
-        let exact = SessionCorroboration.isExact(owner) && owner.provider != nil && owner.threadID != nil
+        let exact = SessionCorroboration.isExactSession(owner)
         sessionID = exact ? owner.threadID : nil
         rootSessionID = exact ? corroboratedRoot : nil
         candidates = owner.candidateThreadIDs.sorted()

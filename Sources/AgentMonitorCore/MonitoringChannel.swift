@@ -26,6 +26,10 @@ public struct MonitoringPipelineLimits: Sendable {
         self.pendingTextBytes = pendingTextBytes
     }
 
+    func admits(_ size: MonitoringPayloadSize) -> Bool {
+        size.observations <= pendingObservations && size.textBytes <= pendingTextBytes
+    }
+
     var isValid: Bool { pendingScans > 0 && pendingObservations > 0 && pendingTextBytes > 0 }
 }
 
@@ -109,9 +113,9 @@ actor MonitoringChannel<Element: Sendable> {
             // An exceptional current-population overflow must not mutate already accepted work.
             // Keep the rollback value until admission succeeds (CPU-01 pressure contract).
             let mergedSize = try coalesce(&previous.value, value)
-            guard mergedSize.observations <= limits.pendingObservations,
-                mergedSize.textBytes <= limits.pendingTextBytes
-            else { throw MonitoringError.overloaded(stage: stage, rejectedScan: sequence) }
+            guard limits.admits(mergedSize) else {
+                throw MonitoringError.overloaded(stage: stage, rejectedScan: sequence)
+            }
             previous.size = mergedSize
             queue[head] = previous
             observations = mergedSize.observations

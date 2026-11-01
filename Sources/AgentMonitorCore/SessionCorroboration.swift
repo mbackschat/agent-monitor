@@ -28,6 +28,11 @@ public struct SessionCorroboration: Sendable {
         return root
     }
 
+    /// Exact evidence that also names provider and session, the precondition for session-level identity.
+    public static func isExactSession(_ owner: Attribution) -> Bool {
+        isExact(owner) && owner.provider != nil && owner.threadID != nil
+    }
+
     public static func isExact(_ owner: Attribution) -> Bool {
         switch owner.evidence {
         case .marker, .inheritedMarker, .writerLock: true

@@ -586,9 +586,7 @@ struct IndependentMonitoringPipeline: Sendable {
                 runtimes: state.monitor.agentRuntimeIdentities, timing: timing,
                 carried: scan.carried, inspectionCoverage: scan.inspectionCoverage)
             let size = accumulated.compact(to: configuration.pipelineLimits)
-            guard size.observations <= configuration.pipelineLimits.pendingObservations,
-                size.textBytes <= configuration.pipelineLimits.pendingTextBytes
-            else {
+            guard configuration.pipelineLimits.admits(size) else {
                 throw MonitoringError.overloaded(
                     stage: .accounting, rejectedScan: scan.counters.id.sequence)
             }
@@ -660,9 +658,7 @@ struct IndependentMonitoringPipeline: Sendable {
                     if pending != nil {
                         let size = try ResolvedScan.coalesced(
                             &next, unit, limits: configuration.pipelineLimits)
-                        guard size.observations <= configuration.pipelineLimits.pendingObservations,
-                            size.textBytes <= configuration.pipelineLimits.pendingTextBytes
-                        else {
+                        guard configuration.pipelineLimits.admits(size) else {
                             throw MonitoringError.overloaded(
                                 stage: .publication, rejectedScan: window.baseline.id.sequence + 1)
                         }

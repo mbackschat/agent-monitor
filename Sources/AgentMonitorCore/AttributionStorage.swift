@@ -1,6 +1,6 @@
 enum AttributionStorage {
     static func fits(_ size: MonitoringPayloadSize, limits: MonitoringPipelineLimits) -> Bool {
-        size.observations <= limits.pendingObservations && size.textBytes <= limits.pendingTextBytes
+        limits.admits(size)
     }
 
     static func validate(_ size: MonitoringPayloadSize, limits: MonitoringPipelineLimits, sequence: UInt64)

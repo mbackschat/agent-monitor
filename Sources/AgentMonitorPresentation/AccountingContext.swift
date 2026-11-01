@@ -47,9 +47,7 @@ public enum AccountingContext {
     }
 
     public static func collapsed(_ value: CollapsedContribution) -> String {
-        let counts = value.workerCount
-        let workers =
-            counts.minimum == counts.maximum ? "\(counts.minimum)" : "\(counts.minimum)–\(counts.maximum)"
+        let workers = value.workerCount.text
         let owner =
             value.category.sessionID.map { "\(value.category.provider?.rawValue ?? "agent")/\($0.prefix(8))" }
             ?? (value.category.agentAssociated ? "Agent-associated work" : "Other observed work")

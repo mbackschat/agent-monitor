@@ -489,11 +489,8 @@ struct AccountingWindow: Sendable {
     }
 
     @discardableResult mutating func compact(to limits: MonitoringPipelineLimits) -> MonitoringPayloadSize {
-        func fits(_ size: MonitoringPayloadSize) -> Bool {
-            size.observations <= limits.pendingObservations && size.textBytes <= limits.pendingTextBytes
-        }
         let originalSize = payloadSize
-        guard !fits(originalSize) else { return originalSize }
+        guard !limits.admits(originalSize) else { return originalSize }
         // Crossing endpoints must survive: a wider enclosing window can still make their CPU eligible.
         var keep = Set(crossings.compactMap { indices[$0.key] })
         keep.formUnion(crossings.compactMap { observations[$0.key.category.process]?.run })
@@ -559,7 +556,7 @@ struct AccountingWindow: Sendable {
         excludedLifetimes.formIntersection(observations.keys)
         evictions.formIntersection(observations.keys)
         recountStorage()
-        if !fits(payloadSize), !collapsed.isEmpty {
+        if !limits.admits(payloadSize), !collapsed.isEmpty {
             // Arbitrary session churn is also unbounded. Preserve resources and count bounds while
             // visibly releasing category names, separately for agent-associated and other work.
             var remainder: [CollapsedCategory: CollapsedWindowRecord] = [:]
@@ -673,8 +670,7 @@ struct AccountingWindow: Sendable {
                 return nil
             }
             let candidateSeconds = records.filter {
-                $0.openingScan >= baseline.id.sequence && SessionCorroboration.isExact($0.attribution)
-                    && $0.attribution.threadID != nil && $0.attribution.provider != nil
+                $0.openingScan >= baseline.id.sequence && SessionCorroboration.isExactSession($0.attribution)
             }.reduce(0) { $0 + $1.cpuSeconds }
             let historical = !live.contains(original.process)
             return HeavyProcess(
