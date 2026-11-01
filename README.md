@@ -10,9 +10,9 @@
   <a href="https://github.com/mbackschat/agent-monitor/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mbackschat/agent-monitor" alt="License"></a>
 </p>
 
-<p align="center"><strong>Find the session behind the load.</strong></p>
+<p align="center"><strong>Find the coding agent behind the load.</strong></p>
 
-Agent Monitor shows which **coding agent, session and process** is using CPU or memory—and the working directory behind it. Inspect Codex CLI and Claude Code workloads in a terminal dashboard or native macOS menu bar app, without restarting agents or adding launch wrappers.
+Agent Monitor shows which **coding agents, sessions and processes** are consuming CPU or memory—and in which working directories. Inspect Codex CLI and Claude Code workloads in a terminal dashboard or native macOS menu bar app, without restarting agents or adding launch wrappers.
 
 **Terminal dashboard**
 
