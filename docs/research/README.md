@@ -42,6 +42,7 @@ Checked dates are when the evidence was gathered; later editorial edits do not r
 | Note | Checked | Covers |
 | --- | --- | --- |
 | [Menu bar feasibility](menubar-app.md) | 2026-10-15 | UI/lifecycle APIs, launch environment, process access, signing and Homebrew evidence, with unverified inferences identified. |
+| [Application icon release review](native-menu-design.md#application-icon-release-review--2026-11-01) | 2026-11-01 | Current Apple icon formats, dark/clear/tinted appearances, installed Icon Composer tooling, missing bundle wiring and pending design/build acceptance. |
 | [Native menu design](native-menu-design.md) | 2026-10-15; follow-ups to 2026-10-31 | Apple guidance; pinned CodexBar, RepoBar and Trimmy source/screenshots; sizing; iStat Menus/btop/htop references; user-confirmed interaction and reproduction checkpoints. Focused follow-ups are listed below. |
 | [Nonselectable section headings](native-menu-design.md#nonselectable-section-headings--2026-10-30) | 2026-10-30 | Native table sections, distinct header bands, contributor-only selection and keyboard/retention validation. |
 | [Hardware-informed chart range](native-menu-design.md#hardware-informed-chart-range--2026-10-29) | 2026-10-29 | Apple core-topology documentation, measured M1 names/counts, Super-tier hardware evidence and [fixed-range implementation with safe fallback](native-menu-design.md#fixed-range-implementation-and-resettest-corrections--2026-10-29). |

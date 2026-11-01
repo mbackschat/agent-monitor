@@ -6,6 +6,12 @@ Finish the [product goal](docs/product.md): identify agent → session → CWD �
 
 ## Open follow-ups
 
+### Mac app icon release correction
+
+- [ ] Revise the rejected application-icon candidate using the [Apple guidance findings](docs/research/native-menu-design.md#application-icon-release-review--2026-11-01). Show small-size and appearance previews and obtain the user's requested design approval before publication.
+- [ ] Verify Icon Composer integration with the custom bundle build, package the approved icon and add missing/invalid-icon regression guards to bundle and archive validation. The current failing packaging regression establishes the missing declaration; it does not settle the final icon format.
+- [ ] Release the correction as 0.4.1, update the Homebrew cask and verify the installed bundle under the [Mac release checks](docs/macos-release.md#required-app-icon-review). Preserve published 0.4.0 assets. Live Finder/appearance acceptance remains user-owned.
+
 ### Resource accounting priority
 
 #### CPU-01 — Accounting acceptance
@@ -171,4 +177,4 @@ Use the [TUI workflow check](docs/development.md#manual-tui-workflow-check). The
 
 ### Existing scope decisions
 
-Optional app icons, a sortable provider column/provider filter, author credit in `--help` and alternative diagnosis bindings remain separate ideas. The user authorized signed/notarized Mac app releases and the separate `agent-monitor-app` Homebrew cask on 2026-11-01 under the [Mac release workflow](docs/macos-release.md). Other distribution channels, new platforms/providers, background services, notifications, external plugins and broader terminal/container attribution require separate scope decisions; the [working-model proposal](docs/proposals/agent-working-model.md) is not adopted. Current capabilities belong in [architecture](docs/architecture.md), not a completed-feature log here.
+A sortable provider column/provider filter, author credit in `--help` and alternative diagnosis bindings remain separate ideas. The user authorized signed/notarized Mac app releases, the separate `agent-monitor-app` Homebrew cask and correction of the missing application icon on 2026-11-01 under the [Mac release workflow](docs/macos-release.md). Other distribution channels, new platforms/providers, background services, notifications, external plugins and broader terminal/container attribution require separate scope decisions; the [working-model proposal](docs/proposals/agent-working-model.md) is not adopted. Current capabilities belong in [architecture](docs/architecture.md), not a completed-feature log here.

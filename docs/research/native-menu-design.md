@@ -9,6 +9,7 @@ This note records successive investigations and user decisions, including reject
 | Question | Start here |
 | --- | --- |
 | Which platform and product references informed the design? | [Apple guidance](#apple-guidance), [inspected projects](#inspected-repositories-and-screenshots), [resource monitors](#resource-monitor-references--2026-10-24) |
+| What must the released application icon support? | [Application icon release review](#application-icon-release-review--2026-11-01) |
 | Why retain a SwiftUI table across inspections? | [Standalone control](#standalone-swiftui-table-expansion--2026-10-27), [following-root reproduction](#swiftui-following-root-triage--2026-10-27), [restoration prototype](#hidden-swiftui-restoration-prototype--2026-10-27), [adoption](#retained-swiftui-table-adoption--2026-10-27) |
 | Why a ledger, fixed chart range and independent sort/view controls? | [Ledger studies](#ledger-studies-and-temporal-publication--2026-10-28), [counts and scale](#counts-fixed-scale-and-hierarchy-follow-up--2026-10-29), [sorting](#sorting-without-navigation-and-exclusive-view-choices--2026-10-29), [range implementation](#fixed-range-implementation-and-resettest-corrections--2026-10-29) |
 | What established process-inspection and action behavior? | [Control audit](#native-interaction-and-control-audit--2026-10-27), [ownership corrections](#native-interaction-and-surface-corrections--2026-10-29), [physical workflow feedback](#physical-workflow-and-surface-feedback--2026-10-30) |
@@ -16,6 +17,41 @@ This note records successive investigations and user decisions, including reject
 | What changed resizing, status and shortcut cues? | [Resize/status follow-up](#resize-affordance-and-historical-row-follow-up--2026-10-30), [context-only shortcut decision](#native-surfaces-and-context-only-shortcuts--2026-10-30) |
 | Which table details needed native reconciliation? | [Section headings](#nonselectable-section-headings--2026-10-30), [continuous guides](#continuous-subtree-surfaces-and-guides--2026-10-31), [disclosure alignment](#disclosure-aligns-with-the-tree-elbow--2026-10-31), [window folding](#brief-whole-window-folding--2026-10-31) |
 | Which terminal findings are recorded here? | [Field contrast](#terminal-field-contrast-and-connected-branches--2026-10-31), [color and width](#terminal-color-and-wide-row-follow-up--2026-10-31), [in-place Details](#in-place-terminal-details-and-process-view-color-parity--2026-10-31); later work continues in [terminal research](terminal-ui.md) |
+
+## Application icon release review — 2026-11-01
+
+Checked Apple's current documentation and installed tools after the user found the generic application icon in release 0.4.0. This investigation concerns the Finder/application icon, not the panel logo or live menu bar status graphic. CLI text, TUI and JSON have no app-bundle icon counterpart.
+
+### Current Apple guidance
+
+The [App icons HIG](https://developer.apple.com/design/human-interface-guidelines/app-icons) was updated on 2026-10-28. Its current macOS guidance differs from the older ICNS production instructions:
+
+| Topic | Finding |
+| --- | --- |
+| Source artwork | Use a 1024 × 1024 square layout, crisp vector foregrounds, centered identifying shapes and an opaque background. Let the system apply the corner mask. |
+| Format | Both bitmap and layered icons are supported. Icon Composer gives control over individual elements; automatic bitmap segmentation is less predictable. |
+| Appearance | Review default, dark, clear light/dark and tinted light/dark. Preserve recognizable shapes across variants and avoid excessive brightness in dark artwork. |
+| Effects and scale | Prefer simple shapes that survive small sizes. Let system rendering supply lighting and depth; custom baked effects can conflict with it. |
+
+Apple's [Icon Composer workflow](https://developer.apple.com/documentation/xcode/creating-your-app-icon-using-icon-composer) imports SVG/PNG layers, organizes them into at most four groups and previews default, dark and mono appearances; mono includes clear and tinted variants. Platform, background and size previews are available. The `.icon` document becomes the build input, rather than an exported preview PNG. The documented Xcode integration replaces the matching existing icon asset catalog and can generate representations for older deployment targets. These are documented capabilities, not proof that our custom SwiftPM bundle script already supports them.
+
+The [asset-catalog alternative](https://developer.apple.com/documentation/xcode/configuring-your-app-icon) remains documented and requires macOS size-specific assets. Its dark/tinted bitmap instructions explicitly describe iOS/iPadOS; they do not establish a macOS appearance configuration for our build. The archived [high-resolution icon guide](https://developer.apple.com/library/archive/documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/Optimizing/Optimizing.html) explains iconsets and `iconutil`, but is insufficient as current design guidance. A multiresolution ICNS alone does not prove authored appearance variants.
+
+### Repository and tooling evidence
+
+- At revision `8478c4c`, [bundle assembly](../../scripts/macos_bundle.py) copies the native resource bundle but declares neither an application icon file nor an icon asset name. Its archive verifier checks versions, signatures and notarization, with no icon guard. This is why the panel's WebP logo did not become the application's icon.
+- Apple's [`CFBundleIconFile`](https://developer.apple.com/documentation/bundleresources/information-property-list/cfbundleiconfile) identifies an icon file; [`CFBundleIconName`](https://developer.apple.com/documentation/bundleresources/information-property-list/cfbundleiconname) identifies the icon asset. Correct metadata must match the compiled resources; file presence alone is not sufficient.
+- Installed Icon Composer reports **27.2, build 143**. Its bundled `ictool --help` advertises document-to-image export with platform, rendition, dimensions, scale, tint and design-generation arguments. This establishes a headless preview entry point, not successful rendering or bundle compilation. No desktop app was launched.
+- `xcrun --find actool` resolves the installed asset compiler. The attempted `actool --help` returned an unknown-argument error and sandbox service warnings; it did not test `.icon` compilation. Custom-build integration remains unverified.
+- The existing logo is a 256-pixel WebP. The first vector study retained navy/mint colors but rounded and thickened the chevron; the user rejected it. Study files remain ignored under `.build/design-studies/`. A failing packaging regression confirms the absent icon declaration; final format-specific assertions await the build decision.
+
+### Recommendation and acceptance limits
+
+Prefer a layered Icon Composer source for the next candidate because this app targets macOS 27 and the user explicitly asked about dark appearance. Retain the recognizable chevron and rising bars, with enough weight to survive small sizes. Verify the build integration before adopting it; do not label a static ICNS as equivalent to reviewed appearance variants.
+
+The earlier suggestion to paint an edge highlight onto the dark tile is withdrawn for the layered approach: first inspect system-rendered edges and adjust the background/material if separation is inadequate. A dark-background mockup alone cannot settle dark, clear or tinted icon behavior.
+
+The user requires a revised preview and explicit approval before release. The [release checklist](../macos-release.md#required-app-icon-review) now makes application-icon review mandatory, separately from signing/notarization. [PLAN](../../PLAN.md#mac-app-icon-release-correction) owns artwork approval, bundle integration, automated guards and the replacement release. No revised artwork, adaptive appearance support or installed-icon acceptance is claimed by this research checkpoint.
 
 ## Apple guidance
 

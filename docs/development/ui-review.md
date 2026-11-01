@@ -87,6 +87,10 @@ On Mac, render Compact with details and warnings, verify full path wrapping and 
 
 ## Mac interaction review
 
+### Application icon and packaging
+
+For application-icon changes, consult current Apple app-icon guidance and complete the [Mac release icon review](../macos-release.md#required-app-icon-review). Review appearance variants and small sizes, then verify the compiled bundle resolves to the intended icon. Keep application branding, the panel logo and the live menu bar status icon distinct. Neither a successful signature nor a status-icon screenshot proves the application icon is present or visually correct.
+
 ### Action coverage
 
 Before accepting a change, inventory the visible actions and map each to a user task, interaction and evidence. Exercise each claimed pointer target through the production view, not just its state helper: row body, disclosure triangle, information button, each sortable header in both directions, and the matching menu action. Native selection tests do not establish row-click activation. If a synthetic event cannot reach a target, report that evidence limit and keep the physical check open; do not replace it with a screenshot claim.

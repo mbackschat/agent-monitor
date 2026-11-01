@@ -19,6 +19,22 @@ The command validates the credentials before storing them. Never put passwords, 
 
 ## Prepare the app
 
+### Required app-icon review
+
+A public Mac release must include a recognizable application icon. The image inside the panel and the live menu bar status icon do not satisfy this requirement. Signing and notarization do not establish icon quality or even correct icon wiring.
+
+Before signing, complete these checks against the release bundle:
+
+- Review the design against current [Apple app-icon guidance](https://developer.apple.com/design/human-interface-guidelines/app-icons), including small-size legibility and appearance variants. Use the [recorded findings](research/native-menu-design.md#application-icon-release-review--2026-11-01) to distinguish current Icon Composer guidance from legacy ICNS packaging.
+- Inspect default, dark, clear and tinted renditions against light and dark backgrounds. Preserve the same identifying shapes; record any unsupported or unverified appearance instead of assuming it works.
+- Verify the bundle declares its app icon and includes the corresponding compiled resources. Decode or render them and inspect the icon macOS resolves for the actual `.app`; checking a source image or filename alone is insufficient.
+- Show changed artwork for design review before publication. For the current replacement release, the user explicitly requires approval of the revised icon before release.
+- Check the extracted download and Homebrew-installed app retain the approved icon. The user's Finder check remains separate from headless resource validation.
+
+The initial 0.4.0 release omitted the application icon. Automated icon validation is still pending; the existing archive verifier checks identity, version, signature, notarization and Gatekeeper, but not icon resources. Keep that correction open in [PLAN](../PLAN.md#mac-app-icon-release-correction) until the guard and reviewed artwork are in place.
+
+### Build and notarize
+
 Complete [release preparation](releasing.md#release-in-three-steps) first. It builds the local app and records the validated source revision. Then, from the repository root, supply the release version and the Developer ID Application certificate's SHA-1:
 
 ```sh
