@@ -37,15 +37,17 @@ SKIPPED_DIRECTORIES = {"node_modules"}
 
 def markdown_files(root):
     for directory, subdirectories, files in os.walk(root):
+        ignored = ignored_paths(root, (pathlib.Path(directory, name) for name in subdirectories + files))
         subdirectories[:] = sorted(
             name
             for name in subdirectories
             if not name.startswith(".") and name not in SKIPPED_DIRECTORIES
             and not os.path.islink(os.path.join(directory, name))
+            and pathlib.Path(directory, name) not in ignored
         )
         for name in sorted(files):
             path = pathlib.Path(directory, name)
-            if name.endswith(".md") and not path.is_symlink():
+            if name.endswith(".md") and not path.is_symlink() and path not in ignored:
                 yield path
 
 

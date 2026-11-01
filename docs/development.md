@@ -109,7 +109,7 @@ Organize human-facing documentation by audience and task. Give each paragraph on
 
 Before appending to an overloaded section, rewrite it or split it into focused sections or a companion guide. Keep a useful entry point in the owning guide and link to specialist detail. Preserve normative requirements, commands, evidence, provenance and limitations when moving content; compare the old and new locations before deleting repetition. Review readability and retrieval in context rather than enforcing an arbitrary word limit.
 
-Documentation links must work without optional local installations. Cite pinned upstream skill files instead of their local discovery symlinks; the link checker rejects Git-ignored targets, including resolved symlink destinations, even when they exist locally.
+Documentation checks skip Git-ignored generated output, including staged release bundles. Links from repository documents to ignored targets still fail. Documentation links must work without optional local installations. Cite pinned upstream skill files instead of their local discovery symlinks; the link checker rejects Git-ignored targets, including resolved symlink destinations, even when they exist locally.
 
 For instruction restructuring, compare every removed requirement with its destination or an existing equivalent before deleting repetition. Preserve global/project overrides and live-action restrictions. A fresh sub-agent with no conversation history can check discoverability and interpretation against representative tasks; this does not establish automatic loading in a newly launched Codex or Claude host. Keep validation output temporary and report its scope, rather than creating another completed-check log.
 

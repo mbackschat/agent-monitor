@@ -83,6 +83,17 @@ class DocsTests(unittest.TestCase):
         subprocess.run(['git', 'init', '--quiet', str(self.root)], check=True)
         self.assertEqual(docs.check(self.root), [])
 
+    def test_ignored_generated_documents_are_not_repository_sources(self):
+        subprocess.run(['git', 'init', '--quiet', str(self.root)], check=True)
+        self.write('.gitignore', '/dist/\n/output/generated.md\n')
+        self.write('dist/Agent Monitor.app/Contents/Resources/NOTICES.md', '[Missing](missing.md)\n')
+        self.write('output/generated.md', '[Missing](another-missing.md)\n')
+        self.assertEqual(docs.check(self.root), [])
+        self.write('docs/usage.md', '[Generated](../output/generated.md)\n')
+        errors = docs.check(self.root)
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn('ignored by Git', errors[0])
+
     def test_unindexed_document_is_reported(self):
         self.write("docs/installation.md", "# Installation\n")
         self.assertTrue(any("installation.md" in error for error in docs.check(self.root)))
