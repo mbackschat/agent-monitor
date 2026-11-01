@@ -4,6 +4,12 @@
 
 <h1 align="center">Agent Monitor</h1>
 
+<p align="center">
+  <a href="https://github.com/mbackschat/agent-monitor/actions/workflows/verify.yml"><img src="https://github.com/mbackschat/agent-monitor/actions/workflows/verify.yml/badge.svg?branch=main" alt="Verify build status"></a>
+  <a href="https://github.com/mbackschat/agent-monitor/releases/latest"><img src="https://img.shields.io/github/v/release/mbackschat/agent-monitor" alt="Latest GitHub release"></a>
+  <a href="https://github.com/mbackschat/agent-monitor/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mbackschat/agent-monitor" alt="License"></a>
+</p>
+
 <p align="center"><strong>Find the session behind the load.</strong></p>
 
 **Which agent, session and process is consuming CPU or memory—and in which working directory?** Agent Monitor is built to answer that question for Codex CLI and Claude Code on macOS. It observes already-running workloads without a launch wrapper.
