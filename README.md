@@ -38,13 +38,21 @@ This README describes the current source build. Newer controls may be ahead of t
 
 ## Install
 
-Requires **Apple Silicon and macOS 27 or later**. With [Homebrew](https://brew.sh):
+Requires **Apple Silicon and macOS 27 or later**. Release downloads need neither Xcode nor root access.
+
+### Mac menu bar app
+
+[Download the signed, notarized Mac app](docs/installation.md#install-the-mac-app), extract the ZIP, and move **Agent Monitor.app** to Applications. Open it to start monitoring from the menu bar.
+
+### CLI and terminal dashboard
+
+Install with [Homebrew](https://brew.sh):
 
 ```sh
 brew install mbackschat/tap/agent-monitor
 ```
 
-Update with `brew update && brew upgrade agent-monitor`. Release binaries need neither Xcode nor root access. For direct downloads or the current development version, follow the [installation guide](docs/installation.md).
+Update with `brew update && brew upgrade agent-monitor`. The Homebrew formula installs the CLI and terminal dashboard; download the Mac app separately above. For manual CLI installation or a source build, follow the [installation guide](docs/installation.md).
 
 ## Quick start
 
@@ -73,7 +81,7 @@ Keys depend on the active view; **?** shows the available controls. See the [usa
 
 ### Menu bar app
 
-[Download the signed Mac app](docs/installation.md#install-the-mac-app), move it to Applications and open it. To run from a [source checkout](docs/installation.md#build-from-source):
+Open **Agent Monitor** from Applications. To run from a [source checkout](docs/installation.md#build-from-source):
 
 ```sh
 bash scripts/menubar.sh run
