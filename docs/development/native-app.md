@@ -116,6 +116,8 @@ Build with `bash scripts/menubar.sh build`; the default is an optimized release 
 
 ### Bundle contents and launch
 
+The application icon is compiled from the [editable source](../../Resources/README.md) during bundle assembly. `python3 scripts/test_macos_bundle.py` uses the installed Xcode icon compiler, catalog inspector and icon decoder with disposable bundles; it covers real source compilation and rejection of missing, corrupt or incomplete resources. Follow the [release icon review](../macos-release.md#required-app-icon-review) for appearance and Finder checks. Native image services may require running these tools outside a restricted sandbox; they do not launch the monitored app or access signing credentials.
+
 The local ad-hoc bundle is `.build/Agent Monitor.app`; its resources include the presentation schema bundle and native logo bundle, and retain the project license and [third-party notices](../../THIRD_PARTY_NOTICES.md), including the full MIT terms for the shared terminal-width code. Use `bash scripts/menubar.sh run` to launch with the shell PATH, or `swift run agent-monitor-menubar` for direct executable development.
 
 The menu bar app has a local source build and a separate [signed release ZIP](../macos-release.md). It is not included in the CLI archive or Homebrew formula. It adds no third-party dependencies. CI builds the local app bundle and checks its property list, ad-hoc signature and bundled license/notice copies.

@@ -1,0 +1,33 @@
+{
+  "fill": {
+    "automatic-gradient": "extended-srgb:0.04500,0.10000,0.19000,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "image-name": "terminal.svg",
+          "name": "Terminal"
+        },
+        {
+          "image-name": "activity.svg",
+          "name": "Activity"
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.35
+      },
+      "specular": true,
+      "translucency": {
+        "enabled": false,
+        "value": 0.5
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": [
+      "macOS"
+    ]
+  }
+}

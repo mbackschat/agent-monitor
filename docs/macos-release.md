@@ -31,7 +31,9 @@ Before signing, complete these checks against the release bundle:
 - Show changed artwork for design review before publication. For the current replacement release, the user explicitly requires approval of the revised icon before release.
 - Check the extracted download and Homebrew-installed app retain the approved icon. The user's Finder check remains separate from headless resource validation.
 
-The initial 0.4.0 release omitted the application icon. Automated icon validation is still pending; the existing archive verifier checks identity, version, signature, notarization and Gatekeeper, but not icon resources. Keep that correction open in [PLAN](../PLAN.md#mac-app-icon-release-correction) until the guard and reviewed artwork are in place.
+Bundle assembly and archive verification check the declared icon, inspect its compiled catalog for layered artwork and 32–1024-pixel representations, and decode its ICNS fallback. These guards reject the missing icon that escaped the initial 0.4.0 release. They establish resource integrity, not visual approval or live Finder appearance.
+
+Track the editable [Icon Composer source](../Resources/README.md) in Git. Xcode generates the compiled catalog and ICNS during packaging; keep those binaries and review images ignored. This preserves a small, reviewable design history without retaining generated image versions.
 
 ### Build and notarize
 

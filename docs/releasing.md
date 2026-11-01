@@ -61,7 +61,7 @@ If the GitHub release does not yet exist, inspect the tag/push/release state and
 
 Release automation checks use disposable files and fake external commands:
 
-- `python3 scripts/test_macos_bundle.py` — native bundle, version and license guards.
+- `python3 scripts/test_macos_bundle.py` — native bundle, version, license and icon guards using Xcode's real icon compiler with disposable bundles.
 - `python3 scripts/test_notarize_macos.py` — submission recovery, source identity and archive protection without Keychain access or Apple uploads.
 - `python3 scripts/test_release.py` — Homebrew publication and retry behavior with disposable Git repositories.
 

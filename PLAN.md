@@ -8,8 +8,6 @@ Finish the [product goal](docs/product.md): identify agent → session → CWD �
 
 ### Mac app icon release correction
 
-- [ ] Revise the rejected application-icon candidate using the [Apple guidance findings](docs/research/native-menu-design.md#application-icon-release-review--2026-11-01). Show small-size and appearance previews and obtain the user's requested design approval before publication.
-- [ ] Verify Icon Composer integration with the custom bundle build, package the approved icon and add missing/invalid-icon regression guards to bundle and archive validation. The current failing packaging regression establishes the missing declaration; it does not settle the final icon format.
 - [ ] Release the correction as 0.4.1, update the Homebrew cask and verify the installed bundle under the [Mac release checks](docs/macos-release.md#required-app-icon-review). Preserve published 0.4.0 assets. Live Finder/appearance acceptance remains user-owned.
 
 ### Resource accounting priority

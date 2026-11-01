@@ -51,7 +51,17 @@ Prefer a layered Icon Composer source for the next candidate because this app ta
 
 The earlier suggestion to paint an edge highlight onto the dark tile is withdrawn for the layered approach: first inspect system-rendered edges and adjust the background/material if separation is inadequate. A dark-background mockup alone cannot settle dark, clear or tinted icon behavior.
 
-The user requires a revised preview and explicit approval before release. The [release checklist](../macos-release.md#required-app-icon-review) now makes application-icon review mandatory, separately from signing/notarization. [PLAN](../../PLAN.md#mac-app-icon-release-correction) owns artwork approval, bundle integration, automated guards and the replacement release. No revised artwork, adaptive appearance support or installed-icon acceptance is claimed by this research checkpoint.
+At the initial research checkpoint, the user required a revised preview and explicit approval before release. The [release checklist](../macos-release.md#required-app-icon-review) made application-icon review mandatory, separately from signing/notarization. The following implementation evidence supersedes the initial tooling and approval uncertainties above; installed acceptance remains separate.
+
+### Approved revision and build verification
+
+On 2026-11-01 the user approved the revised chevron-and-bars icon after viewing Apple's native default, dark, clear light/dark and tinted light/dark renders, with 16-, 32- and 64-pixel default examples. The tinted examples used one blue-green tint at strength 0.65, not every possible customization. The [editable source](../../Resources/README.md) is 1,061 bytes of JSON/SVG; generated images and catalogs stay out of Git.
+
+Icon Composer 27.2 rendered the document with `ictool`. `xcrun actool` successfully compiled it for `macosx`, deployment target `27.0`, using `--app-icon AgentMonitor` and `--output-partial-info-plist`. Outputs were `Assets.car`, `AgentMonitor.icns` and matching `CFBundleIconFile`/`CFBundleIconName` metadata. `assetutil --info` confirmed the layered icon and 32–1024-pixel representations. `iconutil` decoded the fallback ICNS. The native tools needed access outside the restricted sandbox; no desktop automation or monitored-app launch was used.
+
+An offscreen `NSWorkspace.icon(forFile:)` render of the ad-hoc-signed assembled `.app` resolved to the approved artwork. The initial unsigned assembly showed a prohibited badge because its copied executable retained an invalid inherited signature; signing the complete disposable bundle removed that badge. Inspecting only the unsigned intermediate would have misclassified this as an artwork defect.
+
+The packaging regression first failed on the missing declaration. Ten passing bundle tests now cover real source compilation, retained resources and rejection of missing/wrong declarations, missing/corrupt files and incomplete catalogs, including rejection before downloaded-archive signature checks. Notarization recovery tests also pass. These checks do not prove live Finder caching or all appearance customizations; [PLAN](../../PLAN.md#mac-app-icon-release-correction) retains release/installed acceptance.
 
 ## Apple guidance
 
