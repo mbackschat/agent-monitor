@@ -245,7 +245,7 @@ struct MenuBarContributorRow: View {
                         systemName: node.id.summarySymbol
                             ?? (node.process == nil ? "bubble.left" : "terminal")
                     )
-                    .foregroundStyle(node.id == .section(.uncertain) ? Color.orange : Color.secondary)
+                    .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(TextReport.safe(node.label.headline))

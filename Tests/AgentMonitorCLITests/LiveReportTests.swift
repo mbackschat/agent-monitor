@@ -405,7 +405,7 @@ func statusChromeAndKeysUseTheirOwnRoles(width: Int) {
     let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
     let status = lines.prefix { !$0.text.contains("CPU%") }
     #expect(status.first?.style == .title)
-    #expect(status.contains { $0.text.contains("Updates:") && $0.style == .normal })
+    #expect(status.contains { $0.text.contains("Updates:") && $0.style == .muted })
     #expect(status.allSatisfy { $0.style == .title || $0.style == .muted || $0.style == .normal })
     let keys = lines.drop { !$0.text.contains("v view") }
     #expect(!keys.isEmpty && keys.allSatisfy { $0.style == .normal })

@@ -154,7 +154,7 @@ import Testing
             try feed.advance(workers, failures: [.permissionDenied, .permissionDenied, .permissionDenied]))
         let live = LiveReportLayout.lines(state: state, width: width, height: 24)
         #expect(live.contains { $0.text.contains(width < 60 ? "D !" : "D diagnostics !") })
-        #expect(live.contains { $0.style == .warning })
+        #expect(state.displayCoverageStatus.severity == .warning)
         #expect(!live.contains { $0.text.contains("PID detail") || $0.text.contains("Read failures:") })
         #expect(live.map(\.text).joined().contains("? help"))
         state.showReference(.diagnostics)

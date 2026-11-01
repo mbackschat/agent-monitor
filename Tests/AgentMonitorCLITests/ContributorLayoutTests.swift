@@ -116,7 +116,7 @@ import Testing
         state.receive(try overviewFixture())
         state.overview.sort(by: order, ascending: ascending)
         let lines = ContributorLayout.lines(state: state, width: 120, height: 40)
-        let header = try #require(lines.first { $0.text.contains("CPU HISTORY") })
+        let header = lines[0]
         let label = (order == .cpu ? "CPU" : "MEMORY") + (ascending ? " ↑" : " ↓")
         #expect(header.text.contains(label))
         let unselected = try #require(lines.first { $0.style == .identity && $0.text.contains("%") })

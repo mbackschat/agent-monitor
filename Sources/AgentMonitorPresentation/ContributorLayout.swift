@@ -127,10 +127,7 @@ public enum ContributorLayout {
             } else {
                 headline = TextReport.safe(row.node.label.headline)
             }
-            let style: ReportLine.Style =
-                selected
-                ? .selected
-                : (row.id == .section(.uncertain) ? .warning : .identity)
+            let style: ReportLine.Style = selected ? .selected : .identity
             let cap =
                 columns.graphs
                 ? lane(for: row.id, level: 0) : ""

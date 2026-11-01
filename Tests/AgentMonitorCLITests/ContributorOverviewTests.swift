@@ -137,7 +137,9 @@ extension ContributorOverviewTests {
         let lines = LiveReportLayout.lines(state: state, width: width, height: 24)
         #expect(lines.count <= 24)
         #expect(lines.allSatisfy { TerminalCells.width($0.text) <= width })
-        #expect(lines.contains { $0.text.hasPrefix("CPU ") && $0.text.contains("Memory ") })
+        let summary = lines.prefix(3).map(\.text).joined(separator: "\n")
+        #expect(summary.contains(state.overview.totals.cpuText(duration: state.overview.duration)))
+        #expect(summary.contains(state.overview.totals.memoryText))
         #expect(!lines.contains { $0.text.contains("interval averages") })
         #expect(lines.contains { $0.text.contains("Unresolved") })
     }
