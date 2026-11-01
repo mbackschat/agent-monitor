@@ -34,7 +34,8 @@ public enum TerminalChrome {
             : state.snapshot?.window == nil ? "every \(seconds) s" : "acquire \(seconds) s"
         return ReportLine(
             acquisition
-                + " · display \(String(format: "%g", LiveReportState.displayIntervalSeconds)) s · Updates: \(state.updates)"
+                + " · display \(String(format: "%g", LiveReportState.displayIntervalSeconds)) s · Updates: \(state.updates)",
+            style: .muted
         )
     }
 

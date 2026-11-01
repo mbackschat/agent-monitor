@@ -57,7 +57,7 @@ public enum ContributorLayout {
         let summaryWidth = showsOverallChart ? columns.name : width
         var header = [
             TerminalChrome.title(state: state, width: summaryWidth),
-            ReportLine(cadence + (columns.graphs ? chartCaption : "")),
+            ReportLine(cadence + (columns.graphs ? chartCaption : ""), style: .muted),
             totals,
         ]
         if !(overview.detailsVisible && state.detailsMode == .maximized) {
