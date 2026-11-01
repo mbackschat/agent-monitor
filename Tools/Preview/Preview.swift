@@ -94,10 +94,6 @@ enum Preview {
                         weight = "bold"
                     }
                 }
-                if run.style == .chartFill || (!monochrome && run.style == .chartOverflowFill) {
-                    output +=
-                        "<rect x=\"\(24 + column * 9)\" y=\"\(52 + index * 23)\" width=\"\(TerminalCells.width(run.text) * 9)\" height=\"23\" fill=\"\(color)\"/>\n"
-                }
                 if run.style == .selected {
                     output +=
                         "<rect x=\"\(24 + column * 9)\" y=\"\(52 + index * 23)\" width=\"\(TerminalCells.width(run.text) * 9)\" height=\"23\" fill=\"#c9d1d9\"/>\n"
@@ -107,15 +103,38 @@ enum Preview {
                 let glyphs = run.renderedText(monochrome: monochrome).compactMap { character -> String? in
                     defer { column += TerminalCells.width(character) }
                     guard character != " " else { return nil }
+                    if let eighths = chartBlockEighths(character, style: run.style) {
+                        let filledHeight = Double(eighths) * 23 / 8
+                        let top = Double(52 + (index + 1) * 23) - filledHeight
+                        output +=
+                            "<rect x=\"\(24 + column * 9)\" y=\"\(top)\" width=\"9\" height=\"\(filledHeight)\" fill=\"\(color)\"/>\n"
+                        return nil
+                    }
                     return "<tspan x=\"\(24 + column * 9)\">\(escape(String(character)))</tspan>"
                 }.joined()
                 let decoration = run.style == .shortcut ? " text-decoration=\"underline\"" : ""
-                output +=
-                    "<text\(decoration) y=\"\(69 + index * 23)\" fill=\"\(color)\" font-weight=\"\(weight)\">\(glyphs)</text>\n"
+                if !glyphs.isEmpty {
+                    output +=
+                        "<text\(decoration) y=\"\(69 + index * 23)\" fill=\"\(color)\" font-weight=\"\(weight)\">\(glyphs)</text>\n"
+                }
             }
             output += "</g>\n"
         }
         return output + "</g>\n</svg>\n"
+    }
+
+    private static func chartBlockEighths(_ character: Character, style: ReportLine.Style) -> Int? {
+        switch style {
+        case .separator, .chartFill, .chartOverflow, .chartOverflowFill: break
+        default: return nil
+        }
+        guard character.unicodeScalars.count == 1,
+            let scalar = character.unicodeScalars.first,
+            (0x2581...0x2588).contains(scalar.value)
+        else { return nil }
+        // Font caps do not fill the SVG's 23-pixel cells; use exact eighth-cell geometry
+        // for preview blocks (docs/development.md, README preview).
+        return Int(scalar.value - 0x2580)
     }
 
     private static func escape(_ text: String) -> String {

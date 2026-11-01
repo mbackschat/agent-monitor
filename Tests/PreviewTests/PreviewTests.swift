@@ -23,7 +23,7 @@ func previewKeepsOverflowDistinctInColorAndMonochrome(style: ContributorChartSty
     let chart = Preview.svg(lines: [ReportLine(runs: [bar])], width: 24, height: 1, monochrome: monochrome)
     #expect(chart.contains("fill=\"#e3b341\"") == !monochrome)
     #expect(chart.contains("↑</tspan>") == monochrome)
-    #expect(chart.contains("<rect x=\"24\" y=\"52\"") == (!monochrome && style == .stacked))
+    #expect(chart.contains("<rect x=\"24\" y=\"52.0\"") == !monochrome)
     if let directory = ProcessInfo.processInfo.environment["TUI_GROUPED_PREVIEW_DIRECTORY"] {
         try svg.write(
             to: URL(fileURLWithPath: directory).appendingPathComponent("overflow-\(style)-\(monochrome).svg"),
@@ -109,6 +109,31 @@ func previewKeepsOverflowDistinctInColorAndMonochrome(style: ContributorChartSty
     #expect(
         Preview.svg(lines: delayedLines, width: 120, height: 32)
             == Preview.svg(lines: immediateLines, width: 120, height: 32))
+}
+
+@Test(arguments: Array("▁▂▃▄▅▆▇█").enumerated().map { ($0.offset + 1, $0.element) })
+func previewChartCapsJoinTheCellBelowAtEveryEighth(sample: (Int, Character)) throws {
+    let (eighths, glyph) = sample
+    let svg = Preview.svg(
+        lines: [
+            ReportLine(String(glyph), style: .separator),
+            ReportLine("█", style: .chartFill),
+            ReportLine("█", style: .chartFill),
+        ], width: 40, height: 8)
+    let pattern = ##"<rect x="24" y="([0-9.]+)" width="9" height="([0-9.]+)" fill="#5ba3ff"/>"##
+    let expression = try NSRegularExpression(pattern: pattern)
+    let matches = expression.matches(in: svg, range: NSRange(svg.startIndex..., in: svg))
+    try #require(matches.count == 3)
+    let rectangles = try matches.map { match in
+        let yRange = try #require(Range(match.range(at: 1), in: svg))
+        let heightRange = try #require(Range(match.range(at: 2), in: svg))
+        return (y: try #require(Double(svg[yRange])), height: try #require(Double(svg[heightRange])))
+    }
+    #expect(rectangles[0].height == Double(eighths) * 23 / 8)
+    #expect(rectangles[0].y + rectangles[0].height == rectangles[1].y)
+    #expect(rectangles[1].y + rectangles[1].height == rectangles[2].y)
+    #expect(rectangles[2].y + rectangles[2].height == 121)
+    #expect(!svg.contains("<tspan"))
 }
 
 @Test func previewAdvancesByWideGlyphCells() {
